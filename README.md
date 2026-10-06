@@ -63,16 +63,36 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 | **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~68 MB | [`Softify-v1.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~25 MB | [GitHub Actions Workflow](https://github.com/Sarthak-Cyb3r/softify/actions) |
 
-### Android Installation:
-1. Download **`Softify-v1.0.0-Universal.apk`** to your device.
-2. Tap the file in your browser downloads or file manager.
-3. Grant **"Allow from this source"** permission if prompted, then tap **Install**.
+### 🤖 Android Installation:
+1. Download **`Softify-v1.0.0-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+2. Tap the `.apk` file in your browser downloads or file manager.
+3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
-### iOS Sideloading (AltStore, SideStore, TrollStore, Sideloadly):
-1. Download the latest **`Softify-iOS-Universal.ipa`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases).
-2. Sideload via **AltStore**, **SideStore**, **TrollStore**, or **Sideloadly**.
-3. On your iPhone, navigate to **Settings → General → VPN & Device Management** and trust your developer certificate.
-4. Launch Softify and enjoy ad-free background streaming!
+### 🍎 iOS Installation & Sideloading Guide:
+Because Softify is open-source and not distributed via the App Store, iOS users can install **`Softify-iOS-Universal.ipa`** using standard iOS sideloading tools:
+
+#### Option 1: Sideloadly (Recommended for Windows & Mac)
+1. Download and install [Sideloadly](https://sideloadly.io/) on your PC or Mac.
+2. Connect your iPhone or iPad via USB cable (or enable Wi-Fi sync in iTunes/Finder).
+3. Download **`Softify-iOS-Universal.ipa`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases).
+4. Drag and drop the `.ipa` into the Sideloadly window.
+5. Enter your Apple ID and click **Start**.
+6. Once installed, go to **Settings → General → VPN & Device Management** on your iPhone, select your Apple ID, and tap **Trust**.
+
+#### Option 2: AltStore / SideStore (Wireless On-Device Refresh)
+1. Install [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/) on your device.
+2. Download **`Softify-iOS-Universal.ipa`** on your iPhone using Safari.
+3. Open AltStore, tap the **My Apps** tab, tap the **`+`** icon in the top corner, and select the downloaded IPA.
+4. AltStore will sign and install Softify, automatically refreshing its certificate over your local Wi-Fi network.
+
+#### Option 3: TrollStore (iOS 14.0 – 17.0)
+If your device is running a TrollStore-compatible iOS version:
+1. Download **`Softify-iOS-Universal.ipa`** in Safari.
+2. Tap the Share sheet → Select **Open in TrollStore**.
+3. Softify will install instantly and **permanently** without 7-day certificate expiration or app limits.
+
+> [!TIP]
+> **First-Time iOS Launch**: If iOS displays *"Untrusted Developer"*, simply open **Settings → Privacy & Security → Developer Mode** (enable and reboot if on iOS 16+) and trust your profile in **Settings → General → VPN & Device Management**.
 
 ---
 
@@ -139,6 +159,13 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
   - **Low (96 kbps)**: Data-saver mode for limited connectivity.
 - **Cache Management**: One-tap tools to clear lyrics cache or reset application cache.
 - **Built-in GitHub Updater**: Check for new releases directly within Settings with SHA-256 integrity validation.
+
+### 10. 🍎 Native iOS Experience & Audio Session
+- **Lock Screen & Dynamic Island (MPRemoteCommandCenter)**: Full native iOS media integration with live album art, track scrub bar, and interactive playback controls.
+- **AirPods & Bluetooth Integration**: Full hardware support for stem-click / squeeze gestures (single tap to pause/resume, double tap to skip, triple tap to rewind) and volume sync.
+- **Apple CarPlay Audio**: Seamless background streaming when connected to Apple CarPlay or car audio systems via Bluetooth or USB.
+- **Sandboxed Offline Downloads**: Offline audio tracks are stored directly in your device's isolated application sandbox, fully protected and accessible without needing mobile data or Wi-Fi.
+- **Apple Privacy Manifest**: Compliant with Apple's Spring 2024 Privacy Manifest (`PrivacyInfo.xcprivacy`) — 0 third-party trackers and 0 telemetry collection.
 
 ---
 
@@ -210,11 +237,25 @@ flowchart TD
    flutter test
    ```
 
-5. **Build Universal Release APK**:
+5. **Build Android Release (Universal APK)**:
    ```bash
    flutter build apk --release
    ```
    The compiled APK will be at `build/app/outputs/flutter-apk/app-release.apk`.
+
+6. **Build iOS Release (macOS with Xcode 15+)**:
+   ```bash
+   # Install CocoaPods dependencies
+   cd ios && pod install && cd ..
+
+   # Compile iOS Release Archive
+   flutter build ipa --no-codesign --release
+
+   # Package into Sideloadable IPA
+   cd build/ios/archive/Runner.xcarchive/Products/Applications
+   mkdir -p Payload && cp -r Runner.app Payload/
+   zip -r ../../../../../Softify-iOS-Universal.ipa Payload && cd ../../../../..
+   ```
 
 ---
 
