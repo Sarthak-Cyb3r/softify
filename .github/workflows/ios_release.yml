@@ -1,0 +1,75 @@
+name: iOS Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      upload_release:
+        description: 'Upload IPA to GitHub Releases'
+        required: false
+        default: 'true'
+        type: string
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java Development Kit
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter & CocoaPods
+        run: |
+          flutter --version
+          pod --version
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Generate Drift Code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run Tests & Analysis
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build iOS Archive & Sideloadable IPA
+        run: |
+          flutter build ipa --no-codesign --release
+          cd build/ios/archive/Runner.xcarchive/Products/Applications
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r ../../../../../Softify-iOS-Universal.ipa Payload
+          cd ../../../../..
+          ls -lh Softify-iOS-Universal.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Softify-iOS-Universal
+          path: Softify-iOS-Universal.ipa
+
+      - name: Attach IPA to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.upload_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Softify-iOS-Universal.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

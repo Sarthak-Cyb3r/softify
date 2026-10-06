@@ -1,0 +1,42 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build unsigned IPA for sideloading / AltStore / TrollStore"
+  lane :build_unsigned do
+    gym(
+      scheme: "Runner",
+      export_method: "ad-hoc",
+      skip_codesigning: true,
+      output_directory: "./build/ios",
+      output_name: "Softify.ipa"
+    )
+  end
+
+  desc "Build, sign, and ship to TestFlight"
+  lane :beta do
+    setup_ci if ENV['CI']
+    match(type: "appstore", readonly: true) if ENV['MATCH_PASSWORD']
+    increment_build_number(build_number: ENV['BUILD_NUMBER'] || (latest_testflight_build_number + 1))
+    gym(
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "./build/ios",
+      output_name: "Softify.ipa"
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Build release IPA for App Store submission"
+  lane :release do
+    setup_ci if ENV['CI']
+    match(type: "appstore", readonly: true) if ENV['MATCH_PASSWORD']
+    gym(
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "./build/ios",
+      output_name: "Softify.ipa"
+    )
+  end
+end

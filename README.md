@@ -4,11 +4,11 @@
 
 # Softify
 
-**An ad-free, paywall-free, high-fidelity mobile music streaming application for Android built with Flutter, Clean Architecture, and 320 kbps Studio Audio.**
+**An ad-free, paywall-free, high-fidelity mobile music streaming application for Android & iOS built with Flutter, Clean Architecture, and 320 kbps Studio Audio.**
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.19%2B-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.3%2B-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
-[![Platform](https://img.shields.io/badge/Platform-Android%20API%2026%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%2015%2B-3DDC84?style=for-the-badge&logo=apple&logoColor=white)](#-downloads--releases)
 [![Audio Quality](https://img.shields.io/badge/Audio-320%20kbps%20Studio%20Master-1DB954?style=for-the-badge&logo=audiomack&logoColor=white)](#-audio-engine--quality-settings)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-49%2F49%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
@@ -54,19 +54,25 @@ Built from the ground up using **Flutter** and strict **Clean Architecture**, So
 
 ---
 
-## 📥 Download Universal Release APK
+## 📥 Downloads & Releases
 
-Download the standalone Universal Release APK directly from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases):
+Download pre-compiled binaries directly from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases):
 
-| Build | Package | Compatibility | Size |
-| :--- | :--- | :--- | :--- |
-| **Universal Release** | [`Softify-v1.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~68 MB |
+| Platform | Format | Compatibility | Size | Link |
+| :--- | :--- | :--- | :--- | :--- |
+| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~68 MB | [`Softify-v1.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~25 MB | [GitHub Actions Workflow](https://github.com/Sarthak-Cyb3r/softify/actions) |
 
-### Installation Instructions:
-1. Download **`Softify-v1.0.0-Universal.apk`** to your Android device.
-2. Tap the downloaded file in your browser downloads or file manager.
-3. If prompted by Android, grant **"Allow from this source"** permission.
-4. Tap **Install** and enjoy ad-free, high-fidelity music streaming!
+### Android Installation:
+1. Download **`Softify-v1.0.0-Universal.apk`** to your device.
+2. Tap the file in your browser downloads or file manager.
+3. Grant **"Allow from this source"** permission if prompted, then tap **Install**.
+
+### iOS Sideloading (AltStore, SideStore, TrollStore, Sideloadly):
+1. Download the latest **`Softify-iOS-Universal.ipa`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases).
+2. Sideload via **AltStore**, **SideStore**, **TrollStore**, or **Sideloadly**.
+3. On your iPhone, navigate to **Settings → General → VPN & Device Management** and trust your developer certificate.
+4. Launch Softify and enjoy ad-free background streaming!
 
 ---
 
