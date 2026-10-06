@@ -54,12 +54,11 @@ jobs:
       - name: Build iOS Archive & Sideloadable IPA
         run: |
           flutter build ipa --no-codesign --release
-          cd build/ios/archive/Runner.xcarchive/Products/Applications
-          mkdir -p Payload
-          cp -r Runner.app Payload/
-          zip -r ../../../../../Softify-iOS-Universal.ipa Payload
-          cd ../../../../..
-          ls -lh Softify-iOS-Universal.ipa
+          APP_DIR=build/ios/archive/Runner.xcarchive/Products/Applications
+          mkdir -p "$APP_DIR/Payload"
+          cp -r "$APP_DIR/Runner.app" "$APP_DIR/Payload/"
+          (cd "$APP_DIR" && zip -qr "$GITHUB_WORKSPACE/Softify-iOS-Universal.ipa" Payload)
+          ls -lh "$GITHUB_WORKSPACE/Softify-iOS-Universal.ipa"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
