@@ -245,10 +245,7 @@ flowchart TD
 
 6. **Build iOS Release (macOS with Xcode 15+)**:
    ```bash
-   # Install CocoaPods dependencies
-   cd ios && pod install && cd ..
-
-   # Compile iOS Release Archive
+   # Compile iOS Release Archive (Swift Package Manager, no CocoaPods step)
    flutter build ipa --no-codesign --release
 
    # Package into Sideloadable IPA

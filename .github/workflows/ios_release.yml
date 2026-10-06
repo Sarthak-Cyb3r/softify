@@ -34,9 +34,10 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Verify Flutter & CocoaPods
+      - name: Verify Flutter
         run: |
           flutter --version
+          flutter config --enable-swift-package-manager
           pod --version
 
       - name: Install Dependencies
@@ -67,7 +68,7 @@ jobs:
           path: Softify-iOS-Universal.ipa
 
       - name: Attach IPA to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.upload_release == 'true'
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.upload_release == 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: Softify-iOS-Universal.ipa
