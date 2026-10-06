@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background: Pure AMOLED Black -->
+  <rect width="512" height="512" fill="#000000" rx="112" />
+
+  <!-- Centered Minimalist White Sound Wave (13 Bars) -->
+  <g fill="#FFFFFF">
+    <!-- Bar 1 (Leftmost) -->
+    <rect x="110" y="240" width="16" height="32" rx="8" />
+    <!-- Bar 2 -->
+    <rect x="134" y="224" width="16" height="64" rx="8" />
+    <!-- Bar 3 -->
+    <rect x="158" y="208" width="16" height="96" rx="8" />
+    <!-- Bar 4 -->
+    <rect x="182" y="188" width="16" height="136" rx="8" />
+    <!-- Bar 5 -->
+    <rect x="206" y="168" width="16" height="176" rx="8" />
+    <!-- Bar 6 -->
+    <rect x="230" y="144" width="16" height="224" rx="8" />
+    <!-- Bar 7 (Center Peak) -->
+    <rect x="254" y="128" width="16" height="256" rx="8" />
+    <!-- Bar 8 -->
+    <rect x="278" y="144" width="16" height="224" rx="8" />
+    <!-- Bar 9 -->
+    <rect x="302" y="168" width="16" height="176" rx="8" />
+    <!-- Bar 10 -->
+    <rect x="326" y="188" width="16" height="136" rx="8" />
+    <!-- Bar 11 -->
+    <rect x="350" y="208" width="16" height="96" rx="8" />
+    <!-- Bar 12 -->
+    <rect x="374" y="224" width="16" height="64" rx="8" />
+    <!-- Bar 13 (Rightmost) -->
+    <rect x="398" y="240" width="16" height="32" rx="8" />
+  </g>
+</svg>
