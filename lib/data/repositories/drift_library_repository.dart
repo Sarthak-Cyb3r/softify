@@ -533,7 +533,10 @@ class DriftLibraryRepository implements ILibraryRepository {
         _db.tracks.id.equalsExp(_db.playHistories.trackId),
       ),
     ])
-      ..orderBy([OrderingTerm.desc(_db.playHistories.playedAt)])
+      ..orderBy([
+        OrderingTerm.desc(_db.playHistories.playedAt),
+        OrderingTerm.desc(_db.playHistories.id),
+      ])
       ..limit(limit);
 
     return query.watch().map((rows) {
