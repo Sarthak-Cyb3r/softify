@@ -13,6 +13,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-49%2F49%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
+[![Status](https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge)](#-beta-status-feedback--contact)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -21,6 +22,9 @@
 
 > [!IMPORTANT]
 > **This project is built for educational purposes and personal use. It is not affiliated with, endorsed by, or connected to Spotify, YouTube, or JioSaavn. No copyrighted content is hosted on this app.**
+
+> [!NOTE]
+> **Beta Status**: Softify is currently in **Beta**, and several features are pending. If bugs are found or you have suggestions, please contact the developer or submit an issue.
 
 ---
 
@@ -223,6 +227,19 @@ flutter analyze
 - **Analysis Status**: `0 issues found` (clean lint profile).
 - **Unit & Integration Tests**: `49/49 tests passing (100%)`.
 - **Test Corpus**: Validates `SaavnStreamResolver` (320kbps verification), `HybridStreamResolver`, `YoutubeStreamResolver` (language and dialogue penalty scoring), `M4aAtomTagger`, `DriftLibraryRepository`, `Genre & Mood Isolation`, and `Autoplay / Automix` radio engines.
+
+---
+
+## 🚧 Beta Status, Feedback & Contact
+
+> [!NOTE]
+> Softify is currently in **Beta**, and several features and improvements are still pending.
+
+If you find any bugs, encounter audio playback issues, or have feature suggestions:
+- **GitHub Issues**: [Open an Issue or Suggestion](https://github.com/Sarthak-Cyb3r/softify/issues)
+- **Contact Developer**: Reach out to the developer directly on GitHub: [@Sarthak-Cyb3r](https://github.com/Sarthak-Cyb3r)
+
+Your feedback, ideas, and bug reports are warmly welcomed and help make the app better!
 
 ---
 
