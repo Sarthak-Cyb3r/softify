@@ -287,6 +287,20 @@ Your feedback, ideas, and bug reports are warmly welcomed and help make the app 
 
 ---
 
+## 🤖 AI-Assisted Changes
+
+Assisted by **`opencode/mimo-v2.6-flash-free`** (opencode CLI).
+
+| Commit | Change |
+|---|---|
+| `d72f048` | Removed the vestigial `ios/Podfile`. Every iOS plugin resolves through Swift Package Manager, so the Podfile only triggered a no-op `pod install` plus CocoaPods sandbox-check phases that broke archiving with *"The sandbox is not in sync with the Podfile.lock."* The workflow now pins `flutter config --enable-swift-package-manager` and only attaches release assets on `v*` tag refs. |
+| `4532c2c` | `watchPlayHistory` now tie-breaks `playedAt` with `id DESC`, so a re-played track reliably reaches the top when two rows share a millisecond. |
+| `d8c5278` | The release workflow zipped the IPA into `build/` while `upload-artifact` searched the workspace root — green runs published nothing. It now writes to `$GITHUB_WORKSPACE`. |
+
+Result: `ios_release.yml` builds green and `Softify-iOS-Universal.ipa` (10,938,031 bytes) is attached to the [v1.0.0 release](https://github.com/Sarthak-Cyb3r/softify/releases/tag/v1.0.0) alongside the Universal APK.
+
+---
+
 ## ⚖️ Legal & Disclaimer
 
 > [!IMPORTANT]
