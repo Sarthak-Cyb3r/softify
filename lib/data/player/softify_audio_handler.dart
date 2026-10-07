@@ -34,6 +34,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   bool _isTransitioningTrack = false;
   bool _isPrefetchingRecommendations = false;
   List<Track> _unshuffledQueue = [];
+  String? _currentlyPreloadingTrackId;
 
   final BehaviorSubject<Track?> _currentTrackSubject =
       BehaviorSubject<Track?>.seeded(null);
@@ -240,11 +241,43 @@ class SoftifyAudioHandler extends BaseAudioHandler
     if (_queue.isEmpty) return;
 
     if (_currentIndex < _queue.length - 1) {
+      if (_player.hasPreloadedNext) {
+        _currentIndex++;
+        _syncQueueState();
+        final nextTrack = currentTrack;
+        _currentlyPreloadingTrackId = null;
+        await _player.playPreloadedNext();
+        _consecutiveFailures = 0;
+        _debouncedSaveQueue();
+        if (nextTrack != null) {
+          unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
+        }
+        unawaited(_prefetchNextTrackStream());
+        _checkAndPrefetchRecommendations();
+        return;
+      }
+
       _currentIndex++;
       _syncQueueState();
       await _playCurrentIndex();
       _checkAndPrefetchRecommendations();
     } else if (_repeatMode == AudioRepeatMode.all) {
+      if (_player.hasPreloadedNext && _queue.isNotEmpty) {
+        _currentIndex = 0;
+        _syncQueueState();
+        final nextTrack = currentTrack;
+        _currentlyPreloadingTrackId = null;
+        await _player.playPreloadedNext();
+        _consecutiveFailures = 0;
+        _debouncedSaveQueue();
+        if (nextTrack != null) {
+          unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
+        }
+        unawaited(_prefetchNextTrackStream());
+        _checkAndPrefetchRecommendations();
+        return;
+      }
+
       _currentIndex = 0;
       _syncQueueState();
       await _playCurrentIndex();
@@ -293,6 +326,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
   // ==========================================
 
   Future<void> playTrack(Track track) async {
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
     _queue.clear();
     _queue.add(track);
     _currentIndex = 0;
@@ -302,6 +337,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
     _queue.clear();
     _queue.addAll(tracks);
     _unshuffledQueue = List.from(tracks);
@@ -320,6 +357,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
     _syncQueueState();
     _debouncedSaveQueue();
+    if (_queue.length == 2 && _currentIndex == 0) {
+      unawaited(_prefetchNextTrackStream());
+    }
   }
 
   Future<void> playNext(Track track) async {
@@ -328,10 +368,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
       return;
     }
 
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
     _queue.insert(_currentIndex + 1, track);
     _unshuffledQueue.add(track);
     _syncQueueState();
     _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
   }
 
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
@@ -353,8 +396,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
       _currentIndex++;
     }
 
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
     _syncQueueState();
     _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
   }
 
   @override
@@ -384,6 +430,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> clearQueue() async {
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
     _queue.clear();
     _unshuffledQueue.clear();
     _currentIndex = -1;
@@ -465,18 +513,21 @@ class SoftifyAudioHandler extends BaseAudioHandler
           await _downloadRepo.getDownloadedFilePath(track.id);
 
       if (downloadedFilePath != null) {
-        await _player.setFilePath(
-          downloadedFilePath,
-          initialPosition: initialPosition,
-        );
-        await _player.play();
-        _consecutiveFailures = 0;
-        _debouncedSaveQueue();
         try {
-          await _libraryRepo.recordPlayHistory(track, 0.0);
-        } catch (_) {}
-        _prefetchNextTrackStream();
-        return;
+          await _player.setFilePath(
+            downloadedFilePath,
+            initialPosition: initialPosition,
+          );
+          await _player.play();
+          _consecutiveFailures = 0;
+          _debouncedSaveQueue();
+          unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+          unawaited(_prefetchNextTrackStream());
+          return;
+        } catch (downloadErr) {
+          // ignore: avoid_print
+          print('[SoftifyAudioHandler] Local file playback failed ($downloadErr), falling back to online stream...');
+        }
       }
 
       // 2. JIT Stream URL Resolution (D5)
@@ -502,10 +553,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
       print('[SoftifyAudioHandler] Player play() called successfully!');
       _consecutiveFailures = 0;
       _debouncedSaveQueue();
-      try {
-        await _libraryRepo.recordPlayHistory(track, 0.0);
-      } catch (_) {}
-      _prefetchNextTrackStream();
+      unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+      unawaited(_prefetchNextTrackStream());
       _checkAndPrefetchRecommendations();
     } catch (e, st) {
       // ignore: avoid_print
@@ -539,7 +588,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     try {
       final completed = currentTrack;
       if (completed != null) {
-        await _libraryRepo.recordPlayHistory(completed, 1.0);
+        unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
       }
 
       if (_repeatMode == AudioRepeatMode.one) {
@@ -554,12 +603,50 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  void _prefetchNextTrackStream() {
-    if (_queue.isNotEmpty &&
-        _currentIndex >= 0 &&
-        _currentIndex < _queue.length - 1) {
-      final nextTrack = _queue[_currentIndex + 1];
-      _streamResolver.prefetch(nextTrack, quality: _qualityPreset);
+  Future<void> _prefetchNextTrackStream() async {
+    if (_queue.isEmpty || _currentIndex < 0) return;
+
+    final int nextIdx;
+    if (_currentIndex < _queue.length - 1) {
+      nextIdx = _currentIndex + 1;
+    } else if (_repeatMode == AudioRepeatMode.all && _queue.isNotEmpty) {
+      nextIdx = 0;
+    } else {
+      return;
+    }
+
+    final nextTrack = _queue[nextIdx];
+    if (_currentlyPreloadingTrackId == nextTrack.id && _player.hasPreloadedNext) {
+      return;
+    }
+    _currentlyPreloadingTrackId = nextTrack.id;
+
+    try {
+      // 1. Check if next track is downloaded offline
+      final downloadedPath =
+          await _downloadRepo.getDownloadedFilePath(nextTrack.id);
+      if (downloadedPath != null) {
+        if (_currentlyPreloadingTrackId == nextTrack.id) {
+          await _player.preloadNextFilePath(downloadedPath);
+        }
+        return;
+      }
+
+      // 2. Resolve network stream URL in background
+      final streamInfo = await _streamResolver.resolve(
+        nextTrack,
+        quality: _qualityPreset,
+        forceFresh: false,
+      );
+
+      if (_currentlyPreloadingTrackId == nextTrack.id) {
+        await _player.preloadNextUrl(
+          streamInfo.url.toString(),
+          headers: streamInfo.headers,
+        );
+      }
+    } catch (_) {
+      // Best-effort prefetch
     }
   }
 
@@ -674,26 +761,28 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> restorePersistedState() async {
-    final state = await _libraryRepo.getQueueState();
-    if (state.tracks.isNotEmpty) {
-      _queue.clear();
-      _queue.addAll(state.tracks);
-      _unshuffledQueue = List.from(state.tracks);
-      _currentIndex = state.currentIndex.clamp(0, _queue.length - 1);
-      _syncQueueState();
+    try {
+      final state = await _libraryRepo.getQueueState();
+      if (state.tracks.isNotEmpty) {
+        _queue.clear();
+        _queue.addAll(state.tracks);
+        _unshuffledQueue = List.from(state.tracks);
+        _currentIndex = state.currentIndex.clamp(0, _queue.length - 1);
+        _syncQueueState();
 
-      // Pre-seek without auto-playing
-      if (currentTrack != null) {
-        final downloadedFilePath =
-            await _downloadRepo.getDownloadedFilePath(currentTrack!.id);
-        if (downloadedFilePath != null) {
-          await _player.setFilePath(
-            downloadedFilePath,
-            initialPosition: state.position,
-          );
+        // Pre-seek without auto-playing
+        if (currentTrack != null) {
+          final downloadedFilePath =
+              await _downloadRepo.getDownloadedFilePath(currentTrack!.id);
+          if (downloadedFilePath != null) {
+            await _player.setFilePath(
+              downloadedFilePath,
+              initialPosition: state.position,
+            );
+          }
         }
       }
-    }
+    } catch (_) {}
   }
 
   Future<void> dispose() async {

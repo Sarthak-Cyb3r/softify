@@ -11,7 +11,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%2015%2B-3DDC84?style=for-the-badge&logo=apple&logoColor=white)](#-downloads--releases)
 [![Audio Quality](https://img.shields.io/badge/Audio-320%20kbps%20Studio%20Master-1DB954?style=for-the-badge&logo=audiomack&logoColor=white)](#-audio-engine--quality-settings)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
-[![Tests](https://img.shields.io/badge/Tests-49%2F49%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
+[![Tests](https://img.shields.io/badge/Tests-54%2F54%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Status](https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge)](#-beta-status-feedback--contact)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
@@ -269,7 +269,7 @@ flutter analyze
 ```
 
 - **Analysis Status**: `0 issues found` (clean lint profile).
-- **Unit & Integration Tests**: `49/49 tests passing (100%)`.
+- **Unit & Integration Tests**: `54/54 tests passing (100%)`.
 - **Test Corpus**: Validates `SaavnStreamResolver` (320kbps verification), `HybridStreamResolver`, `YoutubeStreamResolver` (language and dialogue penalty scoring), `M4aAtomTagger`, `DriftLibraryRepository`, `Genre & Mood Isolation`, and `Autoplay / Automix` radio engines.
 
 ---

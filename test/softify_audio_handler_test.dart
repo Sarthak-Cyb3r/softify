@@ -102,8 +102,50 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
     _positionSubject.add(pos);
   }
 
+  String? _preloadedUrl;
+  String? _preloadedFilePath;
+  bool _hasPreloadedNext = false;
+
+  @override
+  bool get hasPreloadedNext => _hasPreloadedNext;
+
+  @override
+  String? get preloadedSource => _preloadedUrl ?? _preloadedFilePath;
+
+  @override
+  Future<void> preloadNextUrl(String url, {Map<String, String>? headers}) async {
+    _preloadedUrl = url;
+    _hasPreloadedNext = true;
+  }
+
+  @override
+  Future<void> preloadNextFilePath(String path) async {
+    _preloadedFilePath = path;
+    _hasPreloadedNext = true;
+  }
+
+  @override
+  Future<void> playPreloadedNext() async {
+    if (_hasPreloadedNext) {
+      lastLoadedUrl = _preloadedUrl;
+      lastLoadedFilePath = _preloadedFilePath;
+      _hasPreloadedNext = false;
+      _preloadedUrl = null;
+      _preloadedFilePath = null;
+      await play();
+    }
+  }
+
+  @override
+  void clearPreloadedNext() {
+    _hasPreloadedNext = false;
+    _preloadedUrl = null;
+    _preloadedFilePath = null;
+  }
+
   @override
   Future<Duration?> setUrl(String url, {Map<String, String>? headers, Duration? initialPosition}) async {
+    clearPreloadedNext();
     lastLoadedUrl = url;
     _position = initialPosition ?? Duration.zero;
     _processingState = ProcessingState.ready;
@@ -113,6 +155,7 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
 
   @override
   Future<Duration?> setFilePath(String path, {Duration? initialPosition}) async {
+    clearPreloadedNext();
     lastLoadedFilePath = path;
     _position = initialPosition ?? Duration.zero;
     _processingState = ProcessingState.ready;
@@ -368,5 +411,69 @@ void main() {
 
       await handler.dispose();
     });
+
+    test('Instant Gapless Next Track Transition: pre-buffers next track and switches instantly', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      // Start queue with [track1, track2]
+      await handler.setQueue([track1, track2], startIndex: 0);
+      await pumpEventQueue();
+
+      // track1 is playing
+      expect(handler.currentTrack?.id, track1.id);
+      expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-1.m4a');
+
+      // Next track (track2) must be preloaded on standby player
+      expect(fakePlayer.hasPreloadedNext, isTrue);
+      expect(fakePlayer.preloadedSource, 'https://example.com/audio_t-2.m4a');
+
+      // Now skipToNext
+      await handler.skipToNext();
+      await pumpEventQueue();
+
+      // Must switch instantly to track2 using preloaded audio without extra setUrl delay
+      expect(handler.currentTrack?.id, track2.id);
+      expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-2.m4a');
+      expect(fakePlayer.playing, isTrue);
+
+      await handler.dispose();
+    });
+
+    test('Local file playback error transparently falls back to network stream resolution', () async {
+      // Simulate corrupt local file that causes setFilePath to throw
+      downloadRepo.downloadedFiles[track1.id] = '/corrupt/local/file.m4a';
+
+      // Override fakePlayer to throw on setFilePath
+      final throwingPlayer = ThrowingSetFilePathFakePlayer();
+
+      final handler = SoftifyAudioHandler(
+        player: throwingPlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      await handler.playTrack(track1);
+
+      // When setFilePath failed, handler must have fallen back to streamResolver and setUrl!
+      expect(throwingPlayer.lastLoadedUrl, 'https://example.com/audio_t-1.m4a');
+      expect(throwingPlayer.playing, isTrue);
+      expect(streamResolver.resolveCalls, 1);
+
+      await handler.dispose();
+    });
   });
 }
+
+class ThrowingSetFilePathFakePlayer extends FakeSoftifyAudioPlayer {
+  @override
+  Future<Duration?> setFilePath(String path, {Duration? initialPosition}) async {
+    throw Exception('Disk read error / Corrupt MP4 container');
+  }
+}
+

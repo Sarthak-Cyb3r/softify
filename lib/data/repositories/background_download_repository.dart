@@ -517,6 +517,11 @@ class BackgroundDownloadRepository implements IDownloadRepository {
       return null;
     }
 
+    // Auto-heal legacy v1.0.0 misaligned files on-the-fly
+    try {
+      await M4aAtomTagger.repairCorruptedFile(file);
+    } catch (_) {}
+
     return file.path;
   }
 
