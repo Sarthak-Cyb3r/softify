@@ -185,11 +185,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           // Section 0: Profile
           _buildSectionHeader('Profile'),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Material(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: const CircleAvatar(
                 backgroundColor: AppTheme.primary,
@@ -213,11 +212,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 1: Audio Quality & Playback
           _buildSectionHeader('Playback & Streaming'),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Material(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 RadioListTile<AudioQualityPreset>(
@@ -379,11 +377,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 3: Fallback Instances & Health
           _buildSectionHeader('Fallback Instances (Piped)'),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Material(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 Padding(
@@ -466,11 +463,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 4: Storage & Cache
           _buildSectionHeader('Storage & Cache'),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Material(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 ListTile(
@@ -522,11 +518,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 5: Discovery & Learning Controls
           _buildSectionHeader('Discovery & Taste Controls'),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Material(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 SwitchListTile(

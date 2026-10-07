@@ -33,6 +33,9 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
       BehaviorSubject<Duration>.seeded(Duration.zero);
   final BehaviorSubject<Duration?> _durationSubject =
       BehaviorSubject<Duration?>.seeded(null);
+  double _volume = 1.0;
+  final BehaviorSubject<double> _volumeSubject =
+      BehaviorSubject<double>.seeded(1.0);
 
   @override
   bool get playing => _playing;
@@ -48,6 +51,18 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
 
   @override
   double get speed => 1.0;
+
+  @override
+  double get volume => _volume;
+
+  @override
+  Stream<double> get volumeStream => _volumeSubject.stream;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    _volume = volume;
+    _volumeSubject.add(volume);
+  }
 
   @override
   Stream<PlayerState> get playerStateStream => _playerStateSubject.stream;

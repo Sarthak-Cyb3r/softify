@@ -8,7 +8,7 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.19%2B-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.3%2B-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%2015%2B-3DDC84?style=for-the-badge&logo=apple&logoColor=white)](#-downloads--releases)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Linux-3DDC84?style=for-the-badge&logo=linux&logoColor=white)](#-downloads--releases)
 [![Audio Quality](https://img.shields.io/badge/Audio-320%20kbps%20Studio%20Master-1DB954?style=for-the-badge&logo=audiomack&logoColor=white)](#-audio-engine--quality-settings)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-170%2F170%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
@@ -62,6 +62,39 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 | :--- | :--- | :--- | :--- | :--- |
 | **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v2.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Linux (Desktop / CLI Installer)** | Script / Binary | Ubuntu, Debian, Arch, Fedora, openSUSE (x86_64, ARM64) | ~45 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
+
+### 🐧 Linux Installation (Terminal-Based):
+Softify provides a native, low-memory-conscious terminal installer with automatic package manager detection, desktop integration (`.desktop`, icons), and hardware-aware build throttling.
+
+#### One-Line Installation:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash
+```
+
+#### From Local Repository:
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+#### Installer Options:
+- `./install.sh --build` : Build and install native Linux binary from local source code (auto-restricts to single-thread compilation on $\le 5$ GB RAM systems to prevent memory exhaustion).
+- `./install.sh --system`: Install system-wide into `/usr/local/bin` (requires `sudo`).
+- `./install.sh --uninstall`: Cleanly remove binary, desktop launcher, and application icons.
+- `./install.sh --yes`: Unattended non-interactive install.
+
+#### ⌨️ Desktop Keyboard Shortcuts:
+| Shortcut | Action |
+| :--- | :--- |
+| `Space` | Toggle Play / Pause |
+| `Ctrl` + `→` | Skip to Next Track |
+| `Ctrl` + `←` | Previous Track |
+| `Ctrl` + `↑` / `Ctrl` + `↓` | Volume Up / Down (5% step) |
+| `Ctrl` + `S` or `Ctrl` + `F` | Focus Search Screen |
+| `Ctrl` + `H` | Navigate to Home Screen |
+| `Ctrl` + `L` | Navigate to Library Screen |
+| `Ctrl` + `,` | Open Settings Screen |
 
 ### 🤖 Android Installation:
 1. Download **`Softify-v2.0.0-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).

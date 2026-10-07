@@ -576,6 +576,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _debouncedSaveQueue();
   }
 
+  Future<void> setVolume(double volume) => _player.setVolume(volume);
+  double get volume => _player.volume;
+  Stream<double> get volumeStream => _player.volumeStream;
+
   // ==========================================
   // JIT Resolution & Offline-First Playback
   // ==========================================

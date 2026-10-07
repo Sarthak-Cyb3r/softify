@@ -116,6 +116,11 @@ final autoPlayStreamProvider = StreamProvider<bool>((ref) {
   return handler.autoPlayStream;
 });
 
+final volumeStreamProvider = StreamProvider<double>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.volumeStream;
+});
+
 // ==========================================
 // Library & Downloads Streams
 // ==========================================

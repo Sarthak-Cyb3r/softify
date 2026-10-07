@@ -33,6 +33,10 @@ abstract class ISoftifyAudioPlayer {
   bool get playing;
   ProcessingState get processingState;
 
+  Future<void> setVolume(double volume);
+  double get volume;
+  Stream<double> get volumeStream;
+
   Future<void> dispose();
 }
 
@@ -57,12 +61,15 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       BehaviorSubject<Duration>.seeded(Duration.zero);
   final BehaviorSubject<Duration?> _durationSubject =
       BehaviorSubject<Duration?>.seeded(null);
+  final BehaviorSubject<double> _volumeSubject =
+      BehaviorSubject<double>.seeded(1.0);
 
   StreamSubscription? _playerStateSub;
   StreamSubscription? _playbackEventSub;
   StreamSubscription? _positionSub;
   StreamSubscription? _bufferedPositionSub;
   StreamSubscription? _durationSub;
+  StreamSubscription? _volumeSub;
 
   JustAudioPlayerAdapter({
     AudioPlayer? playerA,
@@ -80,17 +87,20 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     _positionSub?.cancel();
     _bufferedPositionSub?.cancel();
     _durationSub?.cancel();
+    _volumeSub?.cancel();
 
     _playerStateSub = _activePlayer.playerStateStream.listen(_playerStateSubject.add);
     _playbackEventSub = _activePlayer.playbackEventStream.listen(_playbackEventSubject.add);
     _positionSub = _activePlayer.positionStream.listen(_positionSubject.add);
     _bufferedPositionSub = _activePlayer.bufferedPositionStream.listen(_bufferedPositionSubject.add);
     _durationSub = _activePlayer.durationStream.listen(_durationSubject.add);
+    _volumeSub = _activePlayer.volumeStream.listen(_volumeSubject.add);
 
     _playerStateSubject.add(_activePlayer.playerState);
     _positionSubject.add(_activePlayer.position);
     _bufferedPositionSubject.add(_activePlayer.bufferedPosition);
     _durationSubject.add(_activePlayer.duration);
+    _volumeSubject.add(_activePlayer.volume);
     _playbackEventSubject.add(PlaybackEvent(
       processingState: _activePlayer.processingState,
       updatePosition: _activePlayer.position,
@@ -216,18 +226,34 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   ProcessingState get processingState => _activePlayer.processingState;
 
   @override
+  Future<void> setVolume(double volume) async {
+    final clamped = volume.clamp(0.0, 1.0);
+    await _activePlayer.setVolume(clamped);
+    await _standbyPlayer.setVolume(clamped);
+    _volumeSubject.add(clamped);
+  }
+
+  @override
+  double get volume => _activePlayer.volume;
+
+  @override
+  Stream<double> get volumeStream => _volumeSubject.stream;
+
+  @override
   Future<void> dispose() async {
     _playerStateSub?.cancel();
     _playbackEventSub?.cancel();
     _positionSub?.cancel();
     _bufferedPositionSub?.cancel();
     _durationSub?.cancel();
+    _volumeSub?.cancel();
 
     await _playerStateSubject.close();
     await _playbackEventSubject.close();
     await _positionSubject.close();
     await _bufferedPositionSubject.close();
     await _durationSubject.close();
+    await _volumeSubject.close();
 
     await Future.wait([
       _playerA.dispose(),

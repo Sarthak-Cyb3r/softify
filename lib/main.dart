@@ -12,11 +12,21 @@ import 'data/recommendations/automix_tail_reorderer.dart';
 import 'data/recommendations/drift_taste_profile_repository.dart';
 import 'data/resolvers/hybrid_stream_resolver.dart';
 import 'presentation/providers/player_providers.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
 import 'presentation/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize media_kit audio backend for Linux & desktop platforms
+  JustAudioMediaKit.ensureInitialized(
+    linux: true,
+    windows: true,
+    android: false,
+    iOS: false,
+    macOS: false,
+  );
 
   // Fine-tune image decoding cache for smooth 60fps on mid-range devices (e.g. Moto G34)
   PaintingBinding.instance.imageCache.maximumSize = 150;
