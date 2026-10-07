@@ -18,7 +18,7 @@ final remoteConfigRepositoryProvider = Provider<RemoteConfigRepository>((ref) {
 });
 
 final updateCheckerProvider = Provider<IUpdateChecker>((ref) {
-  return GitHubReleaseUpdateChecker();
+  return GitHubReleaseUpdateChecker(repoOwner: 'Sarthak-Cyb3r', repoName: 'softify');
 });
 
 final pipedInstancesStreamProvider = StreamProvider<List<PipedInstanceRow>>((ref) {

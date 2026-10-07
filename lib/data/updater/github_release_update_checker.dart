@@ -17,7 +17,7 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
       MethodChannel('com.softify/installer');
 
   GitHubReleaseUpdateChecker({
-    this.repoOwner = 'softify-app',
+    this.repoOwner = 'Sarthak-Cyb3r',
     this.repoName = 'softify',
     HttpClient? client,
   }) : _client = client ?? HttpClient();
