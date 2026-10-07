@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/shelf.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
+import '../providers/shelf_providers.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/shimmer_skeleton.dart';
@@ -188,6 +190,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final likedCountAsync = ref.watch(likedTracksStreamProvider);
     final downloadsCountAsync = ref.watch(downloadsStreamProvider);
     final featuredAsync = ref.watch(featuredMusicProvider);
+    final shelvesAsync = ref.watch(homeShelvesProvider);
     final audioHandler = ref.watch(audioHandlerProvider);
 
     return Scaffold(
@@ -460,10 +463,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
 
+          // 4. Personalized Algotorial Home Shelves
+          shelvesAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (shelves) {
+              if (shelves.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final shelf in shelves) ...[
+                    const SizedBox(height: 32),
+                    _buildShelfSection(context, tokens, shelf, audioHandler, ref),
+                  ],
+                ],
+              );
+            },
+          ),
+
           // Generous bottom clearance for floating MiniPlayer + SlimBottomNavBar
           const SizedBox(height: 140),
         ],
       ),
+    );
+  }
+
+  Widget _buildShelfSection(
+    BuildContext context,
+    AppTokens tokens,
+    Shelf shelf,
+    dynamic audioHandler,
+    WidgetRef ref,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    shelf.title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                  if (shelf.subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      shelf.subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: tokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            BouncingScaleButton(
+              scaleFactor: 0.94,
+              onTap: () {
+                if (shelf.tracks.isNotEmpty) {
+                  audioHandler.setQueue(shelf.tracks);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(tokens.radiusFull),
+                ),
+                child: Text(
+                  'Play All',
+                  style: TextStyle(
+                    color: tokens.accent,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 185,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: shelf.tracks.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (context, index) {
+              final track = shelf.tracks[index];
+              return _buildRecentTrackCard(tokens, track, audioHandler);
+            },
+          ),
+        ),
+      ],
     );
   }
 

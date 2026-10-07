@@ -6,7 +6,10 @@ import 'data/catalog/keyless_youtube_catalog.dart';
 import 'data/database/app_database.dart';
 import 'data/player/softify_audio_handler.dart';
 import 'data/repositories/background_download_repository.dart';
+import 'data/repositories/drift_event_logger.dart';
 import 'data/repositories/drift_library_repository.dart';
+import 'data/recommendations/automix_tail_reorderer.dart';
+import 'data/recommendations/drift_taste_profile_repository.dart';
 import 'data/resolvers/hybrid_stream_resolver.dart';
 import 'presentation/providers/player_providers.dart';
 import 'presentation/screens/app_scaffold.dart';
@@ -32,6 +35,8 @@ void main() async {
 
   // 1. Core Data Persistence & Repositories
   final db = AppDatabase();
+  final eventLogger = DriftEventLogger(db: db);
+  final tasteRepo = DriftTasteProfileRepository(db);
   final libraryRepo = DriftLibraryRepository(db);
   final streamResolver = HybridStreamResolver();
   final catalogRepo = KeylessYouTubeCatalog();
@@ -48,6 +53,9 @@ void main() async {
       libraryRepo: libraryRepo,
       downloadRepo: downloadRepo,
       catalogRepo: catalogRepo,
+      eventLogger: eventLogger,
+      tasteRepo: tasteRepo,
+      automixTailReorderer: AutomixTailReorderer(),
     ),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.softify.audio',
@@ -61,6 +69,7 @@ void main() async {
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(db),
+        eventLoggerProvider.overrideWithValue(eventLogger),
         libraryRepositoryProvider.overrideWithValue(libraryRepo),
         downloadRepositoryProvider.overrideWithValue(downloadRepo),
         streamResolverProvider.overrideWithValue(streamResolver),

@@ -152,6 +152,132 @@ class PipedInstances extends Table {
   Set<Column> get primaryKey => {url};
 }
 
+// 11. Search Events Table (Local-only serving log)
+@DataClassName('SearchEventRow')
+class SearchEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get ts => integer()();
+  TextColumn get query => text()();
+  TextColumn get resultIdsJson => text()(); // List<String> encoded
+  IntColumn get shownCount => integer()();
+  TextColumn get clickedId => text().nullable()();
+  IntColumn get clickedPosition => integer().nullable()();
+  IntColumn get msToClick => integer().nullable()();
+  TextColumn get rankerVersion => text()();
+}
+
+// 12. Play Events Table (Local-only stream vs early skip log)
+@DataClassName('PlayEventRow')
+class PlayEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get ts => integer()();
+  TextColumn get trackId => text()();
+  TextColumn get source => text()(); // 'search' | 'shelf:<name>' | 'autoplay' | 'library' | 'radio'
+  IntColumn get listenedMs => integer()();
+  IntColumn get durationMs => integer()();
+  BoolColumn get skippedEarly => boolean()(); // listenedMs < 30000
+  BoolColumn get saved => boolean()();
+  BoolColumn get addedToPlaylist => boolean()();
+  TextColumn get rankerVersion => text()();
+  TextColumn get featuresJson => text().nullable()(); // Snapshot of features at serving time
+}
+
+// 13. Impressions Table (Local-only impression log)
+@DataClassName('ImpressionRow')
+class Impressions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get ts => integer()();
+  TextColumn get surface => text()(); // 'home_shelf' | 'search_result'
+  TextColumn get itemId => text()();
+  IntColumn get position => integer()();
+}
+
+// 14. Taste Profile Table (Dual-Band Half-Life Decay)
+@DataClassName('TasteProfileRow')
+class TasteProfiles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get entityType => text()(); // 'artist' | 'genre' | 'language'
+  TextColumn get entityId => text()();
+  RealColumn get slowWeight => real().withDefault(const Constant(0.0))(); // Half-life: 14 days
+  RealColumn get fastWeight => real().withDefault(const Constant(0.0))(); // Half-life: 4 hours
+  IntColumn get updatedAt => integer()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {entityType, entityId}
+      ];
+}
+
+// 15. Track Co-occurrences Table (Pointwise Mutual Information PMI)
+@DataClassName('CooccurrenceRow')
+class Cooccurrences extends Table {
+  TextColumn get trackA => text()();
+  TextColumn get trackB => text()();
+  RealColumn get score => real()(); // Pointwise Mutual Information (PMI)
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {trackA, trackB};
+}
+
+// 16. Query Completions Table (Autocomplete Suggestions)
+@DataClassName('QueryCompletionRow')
+class QueryCompletions extends Table {
+  TextColumn get query => text()();
+  TextColumn get normalizedPrefix => text()();
+  IntColumn get streamCount => integer().withDefault(const Constant(0))();
+  IntColumn get lastUsedTs => integer()();
+
+  @override
+  Set<Column> get primaryKey => {query};
+}
+
+// 17. Bandit States Table (Explore/Exploit Novelty Ratios)
+@DataClassName('BanditStateRow')
+class BanditStates extends Table {
+  TextColumn get shelfId => text()();
+  RealColumn get epsilon => real().withDefault(const Constant(0.1))();
+  IntColumn get pullCount => integer().withDefault(const Constant(0))();
+  RealColumn get cumulativeReward => real().withDefault(const Constant(0.0))();
+  RealColumn get currentNoveltyRatio => real().withDefault(const Constant(0.2))();
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {shelfId};
+}
+
+// 18. Artist Snoozes Table (Diversity & Agency Controls)
+@DataClassName('ArtistSnoozeRow')
+class ArtistSnoozes extends Table {
+  TextColumn get artistId => text()();
+  IntColumn get snoozedUntil => integer()(); // Milliseconds timestamp (now + 30 days)
+
+  @override
+  Set<Column> get primaryKey => {artistId};
+}
+
+// 19. Interleave Outcomes Table (Team-Draft Interleaving A/B Evaluation)
+@DataClassName('InterleaveOutcomeRow')
+class InterleaveOutcomes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get queryOrContext => text()();
+  TextColumn get modelAId => text()();
+  TextColumn get modelBId => text()();
+  TextColumn get winningModelId => text().nullable()();
+  IntColumn get ts => integer()();
+}
+
+// 20. Track Embeddings Table (On-Device Semantic Vector Search)
+@DataClassName('TrackEmbeddingRow')
+class TrackEmbeddings extends Table {
+  TextColumn get trackId => text()();
+  BlobColumn get vector => blob()(); // 128-dimensional float32 byte buffer
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {trackId};
+}
+
 LazyDatabase openDefaultConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
@@ -171,11 +297,74 @@ LazyDatabase openDefaultConnection() {
   CachedLyrics,
   Settings,
   PipedInstances,
+  SearchEvents,
+  PlayEvents,
+  Impressions,
+  TasteProfiles,
+  Cooccurrences,
+  QueryCompletions,
+  BanditStates,
+  ArtistSnoozes,
+  InterleaveOutcomes,
+  TrackEmbeddings,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? openDefaultConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 9;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+          await customStatement('''
+            CREATE VIRTUAL TABLE IF NOT EXISTS track_fts USING fts5(
+              track_id UNINDEXED,
+              title,
+              artist,
+              album,
+              tokenize = 'unicode61 remove_diacritics 2'
+            );
+          ''');
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(searchEvents);
+            await m.createTable(playEvents);
+            await m.createTable(impressions);
+          }
+          if (from < 3) {
+            await customStatement('''
+              CREATE VIRTUAL TABLE IF NOT EXISTS track_fts USING fts5(
+                track_id UNINDEXED,
+                title,
+                artist,
+                album,
+                tokenize = 'unicode61 remove_diacritics 2'
+              );
+            ''');
+          }
+          if (from < 4) {
+            await m.createTable(tasteProfiles);
+            await m.createTable(cooccurrences);
+          }
+          if (from < 5) {
+            await m.createTable(queryCompletions);
+          }
+          if (from < 6) {
+            await m.createTable(banditStates);
+          }
+          if (from < 7) {
+            await m.createTable(artistSnoozes);
+          }
+          if (from < 8) {
+            await m.createTable(interleaveOutcomes);
+          }
+          if (from < 9) {
+            await m.createTable(trackEmbeddings);
+          }
+        },
+      );
 }

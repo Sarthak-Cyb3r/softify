@@ -13,9 +13,17 @@ import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/lyrics/lrclib_lyrics_provider.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_download_repository.dart';
+import '../../domain/ports/i_event_logger.dart';
 import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import '../../domain/ports/i_stream_resolver.dart';
+import '../../domain/ports/i_fts_repository.dart';
+import '../../domain/ports/i_remote_config.dart';
+import '../../domain/ports/i_search_reranker.dart';
+import '../../data/repositories/drift_event_logger.dart';
+import '../../data/repositories/remote_config_repository.dart';
+import '../../data/search/drift_fts_repository.dart';
+import '../../data/search/linear_search_reranker.dart';
 
 // ==========================================
 // Core Dependency Providers (Injected at Startup)
@@ -23,6 +31,11 @@ import '../../domain/ports/i_stream_resolver.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   throw UnimplementedError('databaseProvider must be overridden at startup');
+});
+
+final eventLoggerProvider = Provider<IEventLogger>((ref) {
+  final db = ref.watch(databaseProvider);
+  return DriftEventLogger(db: db);
 });
 
 final libraryRepositoryProvider = Provider<ILibraryRepository>((ref) {
@@ -43,6 +56,20 @@ final audioHandlerProvider = Provider<SoftifyAudioHandler>((ref) {
 
 final catalogRepositoryProvider = Provider<ICatalogRepository>((ref) {
   return KeylessYouTubeCatalog();
+});
+
+final ftsRepositoryProvider = Provider<IFtsRepository>((ref) {
+  final db = ref.watch(databaseProvider);
+  return DriftFtsRepository(db);
+});
+
+final searchRerankerProvider = Provider<ISearchReranker>((ref) {
+  return LinearSearchReranker();
+});
+
+final remoteConfigProvider = Provider<IRemoteConfig>((ref) {
+  final db = ref.watch(databaseProvider);
+  return RemoteConfigRepository(db: db);
 });
 
 // ==========================================

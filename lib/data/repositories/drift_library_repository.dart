@@ -82,6 +82,27 @@ class DriftLibraryRepository implements ILibraryRepository {
     );
   }
 
+  @override
+  Future<List<Track>> searchLocalTracks(String query, {int limit = 20}) async {
+    final clean = query.trim().toLowerCase();
+    if (clean.isEmpty) return [];
+
+    final pattern = '%$clean%';
+    final rows = await (_db.select(_db.tracks)
+          ..where((t) =>
+              t.title.lower().like(pattern) |
+              t.artist.lower().like(pattern) |
+              t.album.lower().like(pattern))
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.isLiked),
+            (t) => OrderingTerm.desc(t.createdAt),
+          ])
+          ..limit(limit))
+        .get();
+
+    return rows.map(_trackFromRow).toList();
+  }
+
   // ==========================================
   // Favorites / Liked Tracks
   // ==========================================

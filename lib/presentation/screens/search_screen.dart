@@ -1,11 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/search_intent.dart';
 import '../../domain/entities/track.dart';
+import '../providers/autocomplete_providers.dart';
 import '../providers/player_providers.dart';
+import '../providers/search_providers.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/shimmer_skeleton.dart';
@@ -20,64 +21,24 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  Timer? _debounceTimer;
-  List<Track> _searchResults = [];
-  bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
     _searchController.dispose();
-    _debounceTimer?.cancel();
     super.dispose();
   }
 
   void _onQueryChanged(String query) {
-    _debounceTimer?.cancel();
     setState(() {});
-    if (query.trim().isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _isLoading = false;
-        _errorMessage = null;
-      });
-      return;
-    }
-
-    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
-      _executeSearch(query.trim());
-    });
-  }
-
-  Future<void> _executeSearch(String query) async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final catalog = ref.read(catalogRepositoryProvider);
-      final results = await catalog.search(query, limit: 25);
-      if (mounted) {
-        setState(() {
-          _searchResults = results;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Search error: $e';
-        });
-      }
-    }
+    ref.read(searchNotifierProvider.notifier).setQuery(query);
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final audioHandler = ref.watch(audioHandlerProvider);
+    final searchState = ref.watch(searchNotifierProvider);
+    final results = searchState.combinedResults;
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -102,9 +63,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               cursorColor: tokens.accent,
               onChanged: _onQueryChanged,
               onSubmitted: (val) {
-                _debounceTimer?.cancel();
                 if (val.trim().isNotEmpty) {
-                  _executeSearch(val.trim());
+                  ref.read(searchNotifierProvider.notifier).executeSearch(val.trim());
                 }
               },
               style: TextStyle(
@@ -146,7 +106,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         splashRadius: 20,
                         onPressed: () {
                           _searchController.clear();
-                          _onQueryChanged('');
+                          ref.read(searchNotifierProvider.notifier).setQuery('');
                           setState(() {});
                         },
                       )
@@ -180,9 +140,122 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
 
+          // Autocomplete suggestion chips & Intent routing badge
+          if (_searchController.text.trim().isNotEmpty)
+            Consumer(
+              builder: (context, ref, _) {
+                final query = _searchController.text.trim();
+                final suggestionsAsync =
+                    ref.watch(autocompleteSuggestionsProvider(query));
+                final intent = ref.watch(intentRouterProvider).resolve(query);
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Intent Badge
+                    if (intent is MoodOrGenreIntent ||
+                        intent is SimilarToIntent ||
+                        intent is ArtistIntent)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: tokens.accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(tokens.radiusFull),
+                            border: Border.all(
+                              color: tokens.accent.withValues(alpha: 0.25),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                intent is MoodOrGenreIntent
+                                    ? Icons.auto_awesome_rounded
+                                    : intent is SimilarToIntent
+                                        ? Icons.grain_rounded
+                                        : Icons.person_rounded,
+                                color: tokens.accent,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                intent is MoodOrGenreIntent
+                                    ? 'Mix: ${intent.tags.join(" • ")}'
+                                    : intent is SimilarToIntent
+                                        ? 'Similar to: ${intent.seedTrackTitle}'
+                                        : 'Artist: ${(intent as ArtistIntent).artistName}',
+                                style: TextStyle(
+                                  color: tokens.accent,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Suggestions horizontal row
+                    suggestionsAsync.maybeWhen(
+                      data: (suggestions) {
+                        if (suggestions.isEmpty) return const SizedBox.shrink();
+                        return SizedBox(
+                          height: 38,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: suggestions.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final suggestion = suggestions[index];
+                              return ActionChip(
+                                label: Text(
+                                  suggestion,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: tokens.textPrimary,
+                                  ),
+                                ),
+                                backgroundColor: tokens.surfaceElevated,
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  width: 0.8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(tokens.radiusFull),
+                                ),
+                                onPressed: () {
+                                  _searchController.text = suggestion;
+                                  _searchController.selection =
+                                      TextSelection.fromPosition(
+                                    TextPosition(offset: suggestion.length),
+                                  );
+                                  ref
+                                      .read(searchNotifierProvider.notifier)
+                                      .executeSearch(suggestion);
+                                  setState(() {});
+                                },
+                              );
+                            },
+                          ),
+                        );
+                      },
+                      orElse: () => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                );
+              },
+            ),
+
           // Search Results / Loading / Empty States
           Expanded(
-            child: _isLoading
+            child: searchState.isLoading && results.isEmpty
                 ? ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
                     itemCount: 8,
@@ -221,18 +294,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                     ),
                   )
-                : _errorMessage != null
+                : searchState.errorMessage != null && results.isEmpty
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            _errorMessage!,
+                            searchState.errorMessage!,
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Color(0xFFE91429)),
                           ),
                         ),
                       )
-                    : _searchResults.isEmpty
+                    : results.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -257,9 +330,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
-                            itemCount: _searchResults.length,
+                            itemCount: results.length,
                             itemBuilder: (context, index) {
-                              final track = _searchResults[index];
+                              final track = results[index];
                               return _buildSearchResultTile(
                                   tokens, track, index, audioHandler);
                             },
@@ -286,6 +359,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(tokens.radiusMd),
         onTap: () {
+          ref.read(searchNotifierProvider.notifier).onTrackClicked(track, index);
+          final currentQuery = _searchController.text.trim();
+          if (currentQuery.isNotEmpty) {
+            ref
+                .read(autocompleteRepositoryProvider)
+                .recordSuccessfulQuery(currentQuery);
+          }
+          audioHandler.setTrackSource('search');
           audioHandler.playTrack(track);
         },
         child: Padding(

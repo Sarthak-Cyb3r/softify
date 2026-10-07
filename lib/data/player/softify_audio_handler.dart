@@ -9,10 +9,13 @@ import 'package:rxdart/rxdart.dart';
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/ports/i_automix_tail_reorderer.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_download_repository.dart';
+import '../../domain/ports/i_event_logger.dart';
 import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_stream_resolver.dart';
+import '../../domain/ports/i_taste_profile_repository.dart';
 
 import 'softify_audio_player.dart';
 
@@ -23,6 +26,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
   final ILibraryRepository _libraryRepo;
   final IDownloadRepository _downloadRepo;
   final ICatalogRepository? _catalogRepo;
+  final IEventLogger? _eventLogger;
+  final ITasteProfileRepository? _tasteRepo;
+  final IAutomixTailReorderer? _automixTailReorderer;
   final AudioQualityPreset _qualityPreset;
 
   final List<Track> _queue = [];
@@ -35,6 +41,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
   bool _isPrefetchingRecommendations = false;
   List<Track> _unshuffledQueue = [];
   String? _currentlyPreloadingTrackId;
+  DateTime? _currentTrackStartedAt;
+  String _currentTrackSource = 'library';
+
+  int _sessionConsecutiveSkips = 0;
 
   final BehaviorSubject<Track?> _currentTrackSubject =
       BehaviorSubject<Track?>.seeded(null);
@@ -58,6 +68,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     required ILibraryRepository libraryRepo,
     required IDownloadRepository downloadRepo,
     ICatalogRepository? catalogRepo,
+    IEventLogger? eventLogger,
+    ITasteProfileRepository? tasteRepo,
+    IAutomixTailReorderer? automixTailReorderer,
     AudioQualityPreset qualityPreset = AudioQualityPreset.standard,
     bool enableAudioSession = true,
     bool autoRestoreState = true,
@@ -66,11 +79,73 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _libraryRepo = libraryRepo,
         _downloadRepo = downloadRepo,
         _catalogRepo = catalogRepo,
+        _eventLogger = eventLogger,
+        _tasteRepo = tasteRepo,
+        _automixTailReorderer = automixTailReorderer,
         _qualityPreset = qualityPreset {
     _init(
       enableAudioSession: enableAudioSession,
       autoRestoreState: autoRestoreState,
     );
+  }
+
+  void setTrackSource(String source) {
+    _currentTrackSource = source;
+  }
+
+  void _logTrackPlayEvent(Track? track, {required bool isCompleted}) {
+    if (track == null) return;
+    final int listenedMs;
+    if (isCompleted) {
+      listenedMs = track.duration.inMilliseconds;
+    } else {
+      final now = DateTime.now();
+      listenedMs = _currentTrackStartedAt != null
+          ? now.difference(_currentTrackStartedAt!).inMilliseconds
+          : 0;
+    }
+
+    final isStream = listenedMs >= 30000;
+    if (isCompleted || isStream) {
+      _sessionConsecutiveSkips = 0;
+    } else {
+      _sessionConsecutiveSkips++;
+      final automix = _automixTailReorderer;
+      if (_sessionConsecutiveSkips >= 2 &&
+          automix != null &&
+          _queue.length > _currentIndex + 2) {
+        final reordered = automix.reorderTail(
+          currentQueue: _queue,
+          currentIndex: _currentIndex,
+          hasBufferedNext: _player.hasPreloadedNext,
+          sessionConsecutiveSkips: _sessionConsecutiveSkips,
+        );
+        _queue.clear();
+        _queue.addAll(reordered);
+        _syncQueueState();
+      }
+    }
+
+    if (_eventLogger != null) {
+      _eventLogger.logPlay(
+        trackId: track.id,
+        source: _currentTrackSource,
+        listenedMs: listenedMs,
+        durationMs: track.duration.inMilliseconds,
+        saved: track.isLiked,
+        addedToPlaylist: false,
+        rankerVersion: 'v2',
+      );
+    }
+
+    if (_tasteRepo != null) {
+      unawaited(_tasteRepo.updateFromPlay(
+        track: track,
+        isStream: isStream,
+        isEarlySkip: !isStream,
+        isSave: track.isLiked,
+      ).catchError((_) {}));
+    }
   }
 
   // ==========================================
@@ -239,6 +314,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
   @override
   Future<void> skipToNext() async {
     if (_queue.isEmpty) return;
+    final previousTrack = currentTrack;
+    _logTrackPlayEvent(previousTrack, isCompleted: false);
 
     if (_currentIndex < _queue.length - 1) {
       if (_player.hasPreloadedNext) {
@@ -246,6 +323,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _syncQueueState();
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
+        _currentTrackStartedAt = DateTime.now();
         await _player.playPreloadedNext();
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
@@ -267,6 +345,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _syncQueueState();
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
+        _currentTrackStartedAt = DateTime.now();
         await _player.playPreloadedNext();
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
@@ -299,6 +378,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       return;
     }
 
+    final previousTrack = currentTrack;
+    _logTrackPlayEvent(previousTrack, isCompleted: false);
+
     if (_currentIndex > 0) {
       _currentIndex--;
       _syncQueueState();
@@ -315,6 +397,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
   @override
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= _queue.length) return;
+    final previousTrack = currentTrack;
+    _logTrackPlayEvent(previousTrack, isCompleted: false);
     _currentIndex = index;
     _syncQueueState();
     await _playCurrentIndex();
@@ -506,6 +590,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
     final track = _queue[_currentIndex];
     _syncQueueState();
+    _currentTrackStartedAt = DateTime.now();
 
     try {
       // 1. Check offline download first (D7: zero network data usage)
@@ -588,6 +673,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
     try {
       final completed = currentTrack;
       if (completed != null) {
+        _logTrackPlayEvent(completed, isCompleted: true);
+        _currentTrackStartedAt = null;
         unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
       }
 

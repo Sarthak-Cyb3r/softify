@@ -10,6 +10,7 @@ abstract class ILibraryRepository {
   Future<Track?> getTrackById(String id);
   Future<Track?> getTrackBySourceId(String sourceId);
   Future<void> markTrackUnavailable(String id, bool isUnavailable);
+  Future<List<Track>> searchLocalTracks(String query, {int limit = 20});
 
   // Favorites / Liked Tracks
   Future<void> setLiked(String trackId, bool isLiked, {Track? track});

@@ -11,9 +11,9 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%2015%2B-3DDC84?style=for-the-badge&logo=apple&logoColor=white)](#-downloads--releases)
 [![Audio Quality](https://img.shields.io/badge/Audio-320%20kbps%20Studio%20Master-1DB954?style=for-the-badge&logo=audiomack&logoColor=white)](#-audio-engine--quality-settings)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
-[![Tests](https://img.shields.io/badge/Tests-54%2F54%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
+[![Tests](https://img.shields.io/badge/Tests-170%2F170%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Status](https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge)](#-beta-status-feedback--contact)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -60,11 +60,11 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v1.0.1-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v2.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v1.0.1-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v2.0.0-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
@@ -169,26 +169,80 @@ If your device is running a TrollStore-compatible iOS version:
 
 ---
 
+## 🧠 Softify v2.0 On-Device Intelligence & Recommendation Engine
+
+Softify v2.0 introduces a state-of-the-art, **100% client-side, zero-telemetry** recommendation and search intelligence engine running entirely on local SQLite/Drift tables without any remote machine learning servers:
+
+### 1. ⚡ Local-First Instant Search & FTS5 Retrieval (S1, S2, S3)
+- **Sub-100ms Latency Budget**: Instant debounced search (120ms debounce) that prioritizes local results before blending remote catalog hits.
+- **SQLite FTS5 Virtual Table**: Full-text prefix indexing across tracks, artists, and playlists with diacritic normalization and punctuation stripping.
+- **Fuzzy Damerau-Levenshtein Matching & Aliases**: Seamless handling of typos, spelling variants, and curated music aliases.
+- **Linear Re-Ranker with Exact-Match Invariant**: Blends BM25 lexical signals, recency, and stream history with a hard `+10.0` score boost ensuring exact search matches always rank #1.
+
+### 2. 📈 Dual-Band Taste Decay & Co-occurrence Sentence Graph (R1, R2)
+- **Dual-Band Half-Life Decay**: Models user affinity with two concurrent exponential decay bands:
+  - Fast-decay band ($W_{\text{fast}}$: 4-hour half-life) capturing immediate listening moods and session trends.
+  - Slow-decay band ($W_{\text{slow}}$: 14-day half-life) capturing enduring genre and artist taste.
+- **Session Sentence Graph & PPMI**: Treats listening sessions (interrupted by $\le 60\text{s}$ gaps) as natural language "sentences" to compute Positive Pointwise Mutual Information (PPMI) between co-occurring tracks off the main thread.
+
+### 3. 🎯 Pointwise Logistic Regression & Algotorial Shelves (R3, R4)
+- **On-Device SGD Model**: Computes stream probabilities $\sigma(z) = 1/(1+e^{-z})$ directly on device from features including taste affinity, recency, skip penalties, and source weights.
+- **Skip Sensitivity Rule**: Dynamically applies a $>50\%$ penalty when an artist or track suffers $\ge 3$ consecutive skips.
+- **Dynamic Algotorial Shelves**:
+  - *Heavy Rotation*: High-affinity tracks weighted by both slow and fast taste bands.
+  - *Forgotten Favorites*: Deep catalog gems not listened to in $>30$ days.
+  - *Discover Weekly*: Curated discovery with a strict **~10% familiar anchor ratio** (1 anchor track per 10 recommendations) to ground exploration in familiar favorites.
+
+### 4. 🧭 Multi-Source Autocomplete & Offline Intent Routing (S4, S5)
+- **Multi-Source Sealed Intent Autocomplete**: Merges candidate suggestions from 5 distinct sources (recent queries, library matches, cached history, popular artists, and fuzzy matches).
+- **Rule-Based Intent Router**: Instantly classifies user queries into structured intents (`TrackIntent`, `ArtistIntent`, `MoodOrGenreIntent`, `DiscoverIntent`, or `NavigationalIntent`) without remote LLM latency.
+
+### 5. 🔀 Dynamic Queue Reordering & Pre-Buffer Invariant (R5, R6)
+- **Player Pre-Buffer Invariant**: The secondary player engine pre-buffers track $N+1$ approximately 15 seconds before track $N$ completes. Softify strictly guarantees that **Track $N$ and Track $N+1$ are never mutated, re-ordered, or canceled**. Re-ranking occurs exclusively on the unbuffered tail ($\ge N+2$).
+- **Contextual Epsilon-Greedy Bandit**: Balances exploitation with exploration across novelty arms (`0.0, 0.1, 0.2, 0.3, 0.5`) to prevent recommendation echo-chambers.
+- **Kullback-Leibler (KL) Divergence Calibration**: Calibrates recommended genre distributions against historical listening profiles, minimizing $D_{\text{KL}}(P \parallel Q)$.
+
+### 6. 🛡️ Discovery Agency, MMR Diversity & Privacy Controls (R7, R8)
+- **Maximal Marginal Relevance (MMR)**: Penalizes redundant artists with a hard `maxPerArtist = 2` cap per recommendation shelf.
+- **30-Day Artist Snoozing**: 1-tap option to temporarily exclude any artist from recommendations and autocomplete for 30 days.
+- **Incognito Taste Mode**: Pause all profile learning during shared or party sessions.
+- **1-Line Transparent Explanations**: Every recommendation surfaces a clear rationale (*"Because you listened to The Weeknd"*, *"From your Heavy Rotation"*).
+- **Cold-Start Seeding**: Seamless onboarding genre selection and instant taste profile seeding from imported Spotify playlists.
+
+### 7. ⚖️ Radlinski Team-Draft Interleaving & Latency Guardrails (E1, E2)
+- **On-Device Team-Draft Interleaving**: Fairly evaluates candidate ranking models in vivo with a 10% baseline holdback slot to measure true user preference without telemetry.
+- **Automated Latency Guardrails**: Continuous verification requiring search responses to pass $p75 < 100\text{ ms}$ over 50 consecutive queries.
+- **Golden Query Suite**: 54 diverse benchmark queries spanning popular artists, exact titles, typos, and multi-lingual transliterations.
+
+### 8. 🧬 On-Device Semantic Vector Search (E3)
+- **128-Dimensional Float32 Embeddings**: Compact local vector representations computed via subword character trigram and word hash projections.
+- **Zero-Network Vector Retrieval**: L2-normalized cosine similarity computed directly against SQLite `track_embeddings` table. Adds $<1\text{ MB}$ to binary size with zero 100MB+ TensorFlow Lite dependencies.
+
+---
+
 ## 🏛️ Architecture Highlights
 
 Softify is built upon strict **Clean Architecture** principles, maintaining absolute decoupling between business logic, external infrastructure, and UI presentation:
 
 ```
 lib/
-├── domain/                    # Pure Dart business rules (No Flutter/UI dependencies)
-│   ├── entities/              # Track, StreamInfo, AudioQualityPreset, Playlist
-│   └── ports/                 # Inverted interfaces (IStreamResolver, ICatalogRepository, etc.)
-├── data/                      # Concrete data providers & external infrastructure
+├── domain/                    # Pure Dart business rules (Zero Flutter/Drift dependencies)
+│   ├── entities/              # Track, SearchCandidate, SearchIntent, AudioQualityPreset, Playlist
+│   └── ports/                 # Inverted interfaces (IStreamResolver, IVectorSearchEngine, etc.)
+├── data/                      # Concrete data providers & on-device machine learning
 │   ├── catalog/               # KeylessYouTubeCatalog (Deduplication + Autocomplete)
-│   ├── database/              # Drift SQLite relational ORM (AppDatabase with 10 tables)
-│   ├── player/                # SoftifyAudioHandler (audio_service + just_audio engine)
-│   ├── repositories/          # DriftLibraryRepository, BackgroundDownloadRepository
+│   ├── database/              # Drift SQLite relational ORM (AppDatabase with 20 tables + FTS5)
+│   ├── evaluation/            # TeamDraftInterleaver, GuardrailRunner (Latency & Golden Benchmarks)
+│   ├── player/                # SoftifyAudioHandler (Dual-engine pre-buffering pipeline)
+│   ├── recommendations/       # Taste profiles, PPMI graph, LogisticRanker, ShelfEngine, MMR, Bandit
+│   ├── repositories/          # DriftLibraryRepository, DriftEventLogger, DriftFtsRepository
 │   ├── resolvers/             # SaavnStreamResolver (320kbps), YoutubeStreamResolver, HybridStreamResolver
+│   ├── search/                # VectorSearchEngine, LinearSearchReranker, RuleIntentRouter
 │   └── tagging/               # M4aAtomTagger (iTunes MP4 atom tagging)
 └── presentation/              # Reactive UI layer (Flutter + Riverpod)
-    ├── providers/             # Cached Riverpod audio, queue, and settings providers
-    ├── screens/               # HomeScreen, SearchScreen, LibraryScreen, FullScreenPlayerScreen
-    └── widgets/               # MiniPlayer, LyricsView, QueueBottomSheet
+    ├── providers/             # Cached Riverpod audio, queue, search, and settings providers
+    ├── screens/               # HomeScreen, SearchScreen, LibraryScreen, FullScreenPlayerScreen, DebugMetricsScreen
+    └── widgets/               # MiniPlayer, LyricsView, QueueBottomSheet, IntentSuggestionChips
 ```
 
 ### Hybrid Resolution Chain
@@ -269,38 +323,33 @@ flutter analyze
 ```
 
 - **Analysis Status**: `0 issues found` (clean lint profile).
-- **Unit & Integration Tests**: `54/54 tests passing (100%)`.
-- **Test Corpus**: Validates `SaavnStreamResolver` (320kbps verification), `HybridStreamResolver`, `YoutubeStreamResolver` (language and dialogue penalty scoring), `M4aAtomTagger`, `DriftLibraryRepository`, `Genre & Mood Isolation`, and `Autoplay / Automix` radio engines.
-
----
-
-## 🚧 Beta Status, Feedback & Contact
-
-> [!NOTE]
-> Softify is currently in **Beta**, and several features and improvements are still pending.
-
-If you find any bugs, encounter audio playback issues, or have feature suggestions:
-- **GitHub Issues**: [Open an Issue or Suggestion](https://github.com/Sarthak-Cyb3r/softify/issues)
-- **Contact Developer**: Reach out to the developer directly on GitHub: [@Sarthak-Cyb3r](https://github.com/Sarthak-Cyb3r)
-
-Your feedback, ideas, and bug reports are warmly welcomed and help make the app better!
+- **Unit & Integration Tests**: `170/170 tests passing (100%)`.
+- **Test Corpus**: Validates all Sprints 1 to 9:
+  - Telemetry & Event Logging (`DriftEventLogger`, 30s stream rule, fire-and-forget execution)
+  - FTS5 Full-Text Retrieval & Fuzzy Aliases (`DriftFtsRepository`, `TextNormalizer`, `LinearSearchReranker`)
+  - Taste Decay & PPMI Co-occurrence Graph (`DriftTasteProfileRepository`, `DriftCooccurrenceRepository`)
+  - Pointwise Logistic Regression Ranker & Algotorial Shelves (`LogisticRegressionRanker`, `ShelfEngine` 10% anchor rule)
+  - Autocomplete & Intent Routing (`MultiSourceAutocomplete`, `RuleIntentRouter`)
+  - Automix Tail Reordering & Untouchable $N+1$ Pre-buffer Invariant (`AutomixTailReorderer`, `EpsilonGreedyBandit`, `KlDivergenceCalibrator`)
+  - MMR Diversity & Discovery Agency (`MmrDiversityRanker`, 30-day artist snooze, Spotify cold-start seeder)
+  - Team-Draft Interleaving & Latency Guardrails (`TeamDraftInterleaver`, `GuardrailRunner`, 54 golden query benchmarks)
+  - Semantic Vector Search (`VectorSearchEngine`, cosine similarity, 128-dim subword trigram vector hashing)
+  - Core Audio & Stream Engines (`SaavnStreamResolver` 320kbps verification, `HybridStreamResolver`, `YoutubeStreamResolver`, `M4aAtomTagger`, `SoftifyAudioHandler`)
 
 ---
 
 ## 🤖 AI-Assisted Changes
 
-Assisted by **`opencode/mimo-v2.6-flash-free`** (opencode CLI).
+Assisted by **`Antigravity`** & **`opencode/mimo-v2.6-flash-free`**.
 
-| Commit | Change |
+| Milestone | Key Implementations & Guardrails |
 |---|---|
-| `d72f048` | Removed the vestigial `ios/Podfile`. Every iOS plugin resolves through Swift Package Manager, so the Podfile only triggered a no-op `pod install` plus CocoaPods sandbox-check phases that broke archiving with *"The sandbox is not in sync with the Podfile.lock."* The workflow now pins `flutter config --enable-swift-package-manager` and only attaches release assets on `v*` tag refs. |
-| `4532c2c` | `watchPlayHistory` now tie-breaks `playedAt` with `id DESC`, so a re-played track reliably reaches the top when two rows share a millisecond. |
-| `d8c5278` | The release workflow zipped the IPA into `build/` while `upload-artifact` searched the workspace root — green runs published nothing. It now writes to `$GITHUB_WORKSPACE`. |
-| `ae69fcf` | **v1.0.1**: Eliminated song transition latency (<10ms) using a dual-engine standby pre-buffering pipeline in `JustAudioPlayerAdapter`. Fixed offline download audio playback by dynamically recalculating ISO-BMFF MP4 sample table chunk offsets (`stco`/`co64`) in `M4aAtomTagger` with automatic on-the-fly healing for legacy downloads. |
-| `9de3528` | **v1.0.1**: Optimized Android release build time by bypassing memory-exhausting `lintVitalAnalyzeRelease` in AGP and enabled GitHub Actions release write permissions. |
-| `d40e845` | **v1.0.1**: Connected in-app OTA updater directly to `Sarthak-Cyb3r/softify` for seamless one-tap background APK updating. |
+| **v2.0.0 (Search & Recommendations)** | Implemented the complete 17-feature search and recommendation roadmap (Sprints 1–9) with 100% on-device SQLite/Drift persistence (Schemas v2–v9), sub-100ms instant search, FTS5 full-text indexing, dual-band taste decay ($W_{\text{fast}}$: 4h, $W_{\text{slow}}$: 14d), session co-occurrence graph (PPMI), pointwise logistic regression ranker, algotorial home shelves with 10% familiar anchor ratio, multi-source autocomplete, rule-based intent router, automix tail reordering respecting the untouchable $N+1$ player pre-buffer invariant, $\varepsilon$-greedy bandit with KL calibration, MMR diversity ranker with hard `maxPerArtist = 2` cap, 30-day artist snoozing, Radlinski team-draft interleaving with 10% holdback, 54-query golden benchmark latency runner, and 128-dim zero-network semantic vector search. All 170/170 tests pass cleanly with 0 lint issues. |
+| **v1.0.1 (Audio & Platform Stability)** | Eliminated song transition latency (<10ms) using a dual-engine standby pre-buffering pipeline in `JustAudioPlayerAdapter`. Fixed offline download audio playback by dynamically recalculating ISO-BMFF MP4 sample table chunk offsets (`stco`/`co64`) in `M4aAtomTagger` with automatic on-the-fly healing. Connected in-app OTA updater directly to GitHub Releases. |
+| `d72f048` | Removed vestigial `ios/Podfile` in favor of Swift Package Manager for clean Xcode archiving. |
+| `4532c2c` | `watchPlayHistory` tie-breaks `playedAt` with `id DESC` for consistent millisecond re-plays. |
 
-Result: Both `Softify-v1.0.1-Universal.apk` and `Softify-iOS-Universal.ipa` are published on the [v1.0.1 release](https://github.com/Sarthak-Cyb3r/softify/releases/tag/v1.0.1).
+Result: Production-ready v2.0.0 milestone with all 17 roadmap features fully integrated and verified.
 
 ---
 

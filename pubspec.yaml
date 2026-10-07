@@ -2,7 +2,7 @@ name: softify
 description: "An ad-free, paywall-free mobile music streaming application."
 publish_to: 'none'
 
-version: 1.0.1+2
+version: 2.0.0+200
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -38,3 +38,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo/
+    - assets/config/

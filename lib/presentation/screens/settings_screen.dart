@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/ports/i_update_checker.dart';
+import '../providers/diversity_providers.dart';
 import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
 import '../theme/app_theme.dart';
+import 'debug_metrics_screen.dart';
+import 'onboarding_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -22,6 +25,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   double _downloadProgress = 0.0;
   String? _updateStatusMessage;
   AppReleaseInfo? _availableRelease;
+  int _versionTapCount = 0;
+  DateTime? _lastVersionTap;
 
   bool _isPingingInstances = false;
 
@@ -126,6 +131,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  void _onVersionTap() {
+    final now = DateTime.now();
+    if (_lastVersionTap == null ||
+        now.difference(_lastVersionTap!).inSeconds > 2) {
+      _versionTapCount = 0;
+    }
+    _lastVersionTap = now;
+    _versionTapCount++;
+
+    if (_versionTapCount >= 7) {
+      _versionTapCount = 0;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const DebugMetricsScreen()),
+      );
+    } else if (_versionTapCount >= 4) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Tap ${7 - _versionTapCount} more times to open Developer Metrics',
+          ),
+          duration: const Duration(milliseconds: 600),
+          backgroundColor: AppTheme.primary,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userName = ref.watch(userNameProvider);
@@ -134,6 +167,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final instancesAsync = ref.watch(pipedInstancesStreamProvider);
     final autoPlayAsync = ref.watch(autoPlayStreamProvider);
     final autoPlayEnabled = autoPlayAsync.value ?? true;
+    final learningPausedAsync = ref.watch(learningPausedProvider);
+    final snoozedArtistsAsync = ref.watch(snoozedArtistsProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -249,16 +284,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const Icon(Icons.system_update, color: AppTheme.primary, size: 28),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Version $currentVersion',
-                              style: const TextStyle(
-                                  color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 2),
-                          const Text('Direct GitHub Releases Updater',
-                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                        ],
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _onVersionTap,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Version $currentVersion',
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 2),
+                            const Text('Direct GitHub Releases Updater',
+                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                          ],
+                        ),
                       ),
                     ),
                     ElevatedButton(
@@ -481,7 +520,69 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // Section 5: About Softify
+          // Section 5: Discovery & Learning Controls
+          _buildSectionHeader('Discovery & Taste Controls'),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  activeColor: AppTheme.primary,
+                  title: const Text('Incognito Taste (Pause Learning)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text(
+                    'Pause training on-device recommendation models from current listening',
+                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                  ),
+                  value: learningPausedAsync.value ?? false,
+                  onChanged: (val) async {
+                    await ref.read(diversityControllerProvider).setLearningPaused(val);
+                    ref.invalidate(learningPausedProvider);
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.person_add_alt_1, color: AppTheme.primary, size: 20),
+                  title: const Text('Pick Favorite Artists', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text('Seed recommendation engines with artists you love', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  trailing: const Icon(Icons.arrow_forward_ios, color: AppTheme.textSecondary, size: 14),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                    );
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.snooze, color: AppTheme.primary, size: 20),
+                  title: const Text('Snooze an Artist (30 Days)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: snoozedArtistsAsync.when(
+                    data: (artists) => Text(
+                      artists.isEmpty ? 'No artists snoozed' : '${artists.length} snoozed: ${artists.join(", ")}',
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    ),
+                    loading: () => const Text('Loading snoozed...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                    error: (_, __) => const Text('Error loading snoozes', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  ),
+                  trailing: const Icon(Icons.add, color: AppTheme.primary, size: 20),
+                  onTap: () => _showSnoozeArtistDialog(context),
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.restart_alt, color: Colors.redAccent, size: 20),
+                  title: const Text('Reset Recommendation Learning', style: TextStyle(color: Colors.redAccent, fontSize: 14)),
+                  subtitle: const Text('Wipes taste profile and starts recommendation models fresh', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  onTap: () => _showResetLearningDialog(context),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Section 6: About Softify
           _buildSectionHeader('About Softify'),
           Container(
             padding: const EdgeInsets.all(16),
@@ -626,6 +727,105 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Navigator.of(ctx).pop();
             },
             child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnoozeArtistDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Snooze Artist for 30 Days', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tracks and suggestions from this artist will be excluded from discovery mixes for 30 days.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Artist name (e.g. Drake)',
+                hintStyle: const TextStyle(color: AppTheme.textSecondary),
+                filled: true,
+                fillColor: AppTheme.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                await ref.read(diversityControllerProvider).snoozeArtist(name, const Duration(days: 30));
+                ref.invalidate(snoozedArtistsProvider);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Snoozed "$name" for 30 days'), backgroundColor: AppTheme.primary),
+                  );
+                }
+              }
+            },
+            child: const Text('Snooze'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showResetLearningDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reset All Learning?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'This will permanently reset your on-device taste profiles, bandit exploration states, and autocomplete completions. Liked songs and playlists remain safe.',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              await ref.read(diversityControllerProvider).resetAllLearning();
+              ref.invalidate(snoozedArtistsProvider);
+              if (ctx.mounted) Navigator.of(ctx).pop();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('On-device learning reset successfully'), backgroundColor: Colors.redAccent),
+                );
+              }
+            },
+            child: const Text('Reset Now'),
           ),
         ],
       ),

@@ -63,3 +63,7 @@ Plan.md
 PLAN.md
 plan.md
 
+# Build binaries
+*.apk
+*.ipa
+*.aab
