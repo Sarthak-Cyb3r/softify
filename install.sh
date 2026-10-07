@@ -62,9 +62,24 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
-# Configuration Defaults
+# Safe Location & Repository Discovery (Handles curl | bash pipe cleanly)
 # ------------------------------------------------------------------------------
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]:-}"
+SCRIPT_DIR=""
+if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 && pwd)"
+fi
+
+# Detect local Softify git repository if present
+LOCAL_REPO=""
+if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/pubspec.yaml" ]]; then
+    LOCAL_REPO="$SCRIPT_DIR"
+elif [[ -f "$(pwd)/pubspec.yaml" && $(grep -c "name: softify" "$(pwd)/pubspec.yaml" 2>/dev/null || true) -gt 0 ]]; then
+    LOCAL_REPO="$(pwd)"
+elif [[ -f "${HOME}/Desktop/Projects/softify/pubspec.yaml" ]]; then
+    LOCAL_REPO="${HOME}/Desktop/Projects/softify"
+fi
+
 INSTALL_PREFIX="${HOME}/.local"
 APP_DIR="${INSTALL_PREFIX}/share/softify"
 BIN_DIR="${INSTALL_PREFIX}/bin"
@@ -82,7 +97,7 @@ SYSTEM_WIDE=false
 # ------------------------------------------------------------------------------
 show_help() {
     print_banner
-    printf "Usage: %s [OPTIONS]\n\n" "$0"
+    printf "Usage: %s [OPTIONS]\n\n" "${0:-install.sh}"
     printf "Options:\n"
     printf "  -y, --yes               Auto-confirm all prompts (non-interactive mode)\n"
     printf "  -b, --build             Build native Linux binary from local source code\n"
@@ -90,9 +105,10 @@ show_help() {
     printf "  -s, --system            Install system-wide into /usr/local (requires sudo)\n"
     printf "  -h, --help              Show this help menu and exit\n\n"
     printf "Examples:\n"
-    printf "  %s                      # Standard user-level installation\n" "$0"
-    printf "  %s --build              # Compile and install from source\n" "$0"
-    printf "  %s --uninstall          # Cleanly remove Softify\n" "$0"
+    printf "  curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash\n"
+    printf "  ./install.sh                      # Standard fast pre-built installation\n"
+    printf "  ./install.sh --build              # Compile and install from source\n"
+    printf "  ./install.sh --uninstall          # Cleanly remove Softify\n"
     exit 0
 }
 
@@ -125,7 +141,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             log_error "Unknown option: $1"
-            printf "Use '%s --help' to see available options.\n" "$0"
+            printf "Use '%s --help' to see available options.\n" "${0:-install.sh}"
             exit 1
             ;;
     esac
@@ -140,17 +156,17 @@ do_uninstall() {
 
     if [[ "$AUTO_CONFIRM" != true ]]; then
         printf "\nAre you sure you want to uninstall Softify? [y/N]: "
-        read -r answer
+        read -r answer </dev/tty || answer="n"
         if [[ ! "$answer" =~ ^[Yy]$ ]]; then
             log_warn "Uninstallation cancelled by user."
             exit 0
         fi
     fi
 
-    # Remove binary
+    # Remove binary executable wrapper
     if [[ -f "${BIN_DIR}/softify" || -L "${BIN_DIR}/softify" ]]; then
         rm -f "${BIN_DIR}/softify"
-        log_info "Removed executable symlink: ${BIN_DIR}/softify"
+        log_info "Removed executable: ${BIN_DIR}/softify"
     fi
 
     # Remove desktop entry
@@ -167,10 +183,10 @@ do_uninstall() {
     # Remove app directory
     if [[ -d "${APP_DIR}" ]]; then
         rm -rf "${APP_DIR}"
-        log_info "Removed application files: ${APP_DIR}"
+        log_info "Removed application directory: ${APP_DIR}"
     fi
 
-    # Update desktop database
+    # Update desktop database & icon caches
     if command -v update-desktop-database >/dev/null 2>&1; then
         update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
     fi
@@ -191,7 +207,6 @@ fi
 # ------------------------------------------------------------------------------
 print_banner
 
-# Detect RAM to safeguard against OOM crashes on systems with <= 4.8GB RAM
 TOTAL_MEM_MB=0
 AVAILABLE_MEM_MB=0
 if [[ -f /proc/meminfo ]]; then
@@ -206,7 +221,7 @@ log_info "System Memory Check: ${COLOR_BOLD}${TOTAL_MEM_MB} MB${COLOR_RESET} tot
 MAX_CONCURRENT_JOBS=2
 if (( TOTAL_MEM_MB <= 5120 )); then
     log_warn "Detected memory-constrained system (<= 5 GB RAM)."
-    log_warn "Enforcing strict concurrency limit (max 1-2 build jobs) to prevent OS freezes."
+    log_warn "Enforcing strict concurrency limit (max 1 build job) to prevent OS freezes."
     MAX_CONCURRENT_JOBS=1
 fi
 
@@ -222,30 +237,38 @@ fi
 log_info "Target Platform: ${COLOR_BOLD}${DISTRO_NAME}${COLOR_RESET} (${DISTRO_ID})"
 
 # ------------------------------------------------------------------------------
-# Dependency Verification & Automatic Installation
+# Runtime Dependencies Check
 # ------------------------------------------------------------------------------
-check_and_install_deps() {
+check_runtime_deps() {
     local missing_tools=()
-
-    # Runtime and build tools
-    for cmd in pkg-config; do
+    for cmd in curl tar; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing_tools+=("$cmd")
         fi
     done
 
-    # If building from source, check clang, cmake, ninja
-    if [[ "$BUILD_FROM_SOURCE" == true ]]; then
-        for cmd in clang cmake ninja; do
-            if ! command -v "$cmd" >/dev/null 2>&1; then
-                missing_tools+=("$cmd")
-            fi
-        done
-    fi
-
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
-        log_warn "Missing required packages: ${missing_tools[*]}"
-        
+        log_error "Missing fundamental utilities: ${missing_tools[*]}"
+        log_info "Please install them using your package manager (e.g. sudo apt install ${missing_tools[*]})."
+        exit 1
+    fi
+}
+
+check_runtime_deps
+
+# ------------------------------------------------------------------------------
+# Source Build Dependencies & Installation
+# ------------------------------------------------------------------------------
+install_source_build_deps() {
+    local missing_pkgs=()
+    for cmd in pkg-config clang cmake ninja; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing_pkgs+=("$cmd")
+        fi
+    done
+
+    if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
+        log_warn "Missing compiler tools required for building from source: ${missing_pkgs[*]}"
         local install_cmd=""
         case "$DISTRO_ID" in
             ubuntu|debian|linuxmint|pop|elementary|zorin)
@@ -267,74 +290,153 @@ check_and_install_deps() {
         esac
 
         if [[ "$AUTO_CONFIRM" == true ]]; then
-            log_info "Automatically installing dependencies with: ${install_cmd}"
+            log_info "Installing build packages..."
             eval "$install_cmd"
         else
-            printf "\nInstall system dependencies now? [Y/n]: "
-            read -r ans
-            if [[ "$ans" =~ ^[Nn]$ ]]; then
-                log_warn "Skipping dependency installation. Build might fail if dependencies are missing."
-            else
+            printf "\nInstall system build dependencies now? [Y/n]: "
+            read -r ans </dev/tty || ans="n"
+            if [[ ! "$ans" =~ ^[Nn]$ ]]; then
                 log_info "Running: ${install_cmd}"
                 eval "$install_cmd"
+            else
+                log_warn "Skipped package installation. Build might fail."
             fi
         fi
-    else
-        log_success "System build and runtime dependencies verified."
     fi
 }
 
-check_and_install_deps
+# ------------------------------------------------------------------------------
+# Resolution Strategy: Pre-built Binary vs Local Build
+# ------------------------------------------------------------------------------
+TMP_WORK_DIR=""
+cleanup_temp() {
+    if [[ -n "$TMP_WORK_DIR" && -d "$TMP_WORK_DIR" ]]; then
+        rm -rf "$TMP_WORK_DIR"
+    fi
+}
+trap cleanup_temp EXIT
 
-# ------------------------------------------------------------------------------
-# Build or Bundle Staging
-# ------------------------------------------------------------------------------
 BUNDLE_DIR=""
+GITHUB_REPO="Sarthak-Cyb3r/softify"
+RELEASE_TAG="v2.0.0"
+TARBALL_NAME="Softify-Linux-x64.tar.gz"
+RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${TARBALL_NAME}"
+LATEST_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${TARBALL_NAME}"
 
-if [[ "$BUILD_FROM_SOURCE" == true ]] || [[ -f "${REPO_DIR}/pubspec.yaml" && ! -d "${REPO_DIR}/build/linux/x64/release/bundle" ]]; then
-    if ! command -v flutter >/dev/null 2>&1; then
-        log_error "Flutter SDK was not found in PATH."
-        log_info "Install Flutter (https://docs.flutter.dev/get-started/install/linux) or run from project root."
-        exit 1
+try_download_prebuilt() {
+    log_info "Searching for pre-built Linux release package (${RELEASE_TAG})..."
+    
+    local download_url="$RELEASE_URL"
+    local http_code
+    http_code=$(curl -sIL -o /dev/null -w "%{http_code}" "$download_url" 2>/dev/null || echo "000")
+
+    if [[ "$http_code" != "200" && "$http_code" != "302" ]]; then
+        # Try latest release fallback
+        download_url="$LATEST_URL"
+        http_code=$(curl -sIL -o /dev/null -w "%{http_code}" "$download_url" 2>/dev/null || echo "000")
     fi
 
-    log_info "Building Softify Linux native binary..."
-    log_info "Memory-safe concurrency: MAKEFLAGS=\"-j${MAX_CONCURRENT_JOBS}\""
-    
-    cd "${REPO_DIR}"
-    export MAKEFLAGS="-j${MAX_CONCURRENT_JOBS}"
-    export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_CONCURRENT_JOBS}"
+    if [[ "$http_code" == "200" || "$http_code" == "302" ]]; then
+        log_info "Downloading pre-compiled release package from GitHub..."
+        TMP_WORK_DIR=$(mktemp -d /tmp/softify-install-XXXXXX)
+        local dest_archive="${TMP_WORK_DIR}/${TARBALL_NAME}"
 
-    # Build with release optimizations
-    flutter pub get
-    flutter build linux --release
+        if curl -fL --progress-bar "$download_url" -o "$dest_archive"; then
+            log_success "Downloaded release package successfully."
+            log_info "Extracting bundle..."
+            mkdir -p "${TMP_WORK_DIR}/extracted"
+            tar -xzf "$dest_archive" -C "${TMP_WORK_DIR}/extracted"
 
-    BUNDLE_DIR="${REPO_DIR}/build/linux/x64/release/bundle"
-elif [[ -d "${REPO_DIR}/build/linux/x64/release/bundle" ]]; then
-    BUNDLE_DIR="${REPO_DIR}/build/linux/x64/release/bundle"
-    log_info "Using pre-built bundle from: ${BUNDLE_DIR}"
-else
-    # Build from source using available Flutter installation
-    if command -v flutter >/dev/null 2>&1; then
-        log_info "Building release bundle from current workspace..."
-        cd "${REPO_DIR}"
+            if [[ -d "${TMP_WORK_DIR}/extracted/bundle" && -f "${TMP_WORK_DIR}/extracted/bundle/softify" ]]; then
+                BUNDLE_DIR="${TMP_WORK_DIR}/extracted/bundle"
+                return 0
+            elif [[ -f "${TMP_WORK_DIR}/extracted/softify" ]]; then
+                BUNDLE_DIR="${TMP_WORK_DIR}/extracted"
+                return 0
+            fi
+        fi
+    fi
+
+    return 1
+}
+
+# If user did NOT request --build, try pre-built package first
+if [[ "$BUILD_FROM_SOURCE" != true ]]; then
+    # First: Check if local repo already has a pre-built bundle
+    if [[ -n "$LOCAL_REPO" && -d "${LOCAL_REPO}/build/linux/x64/release/bundle" && -f "${LOCAL_REPO}/build/linux/x64/release/bundle/softify" ]]; then
+        BUNDLE_DIR="${LOCAL_REPO}/build/linux/x64/release/bundle"
+        log_success "Found local pre-built bundle at: ${BUNDLE_DIR}"
+    else
+        # Second: Try downloading prebuilt binary from GitHub Releases
+        if try_download_prebuilt; then
+            log_success "Pre-built Linux bundle verified and ready for installation."
+        fi
+    fi
+fi
+
+# If bundle is still empty, decide next step
+if [[ -z "$BUNDLE_DIR" ]]; then
+    if [[ "$BUILD_FROM_SOURCE" == true ]] || [[ -n "$LOCAL_REPO" ]]; then
+        TARGET_REPO="${LOCAL_REPO:-}"
+        if [[ -z "$TARGET_REPO" ]]; then
+            log_error "--build was requested, but no Softify Flutter repository was found."
+            log_info "Please clone the repository first:"
+            log_info "  git clone https://github.com/${GITHUB_REPO}.git && cd softify && ./install.sh --build"
+            exit 1
+        fi
+
+        log_warn "Pre-built binary package not found or --build requested."
+        log_info "Detected local Softify repository at: ${COLOR_BOLD}${TARGET_REPO}${COLOR_RESET}"
+
+        if (( TOTAL_MEM_MB <= 5120 )); then
+            log_warn "RAM Caution: Your system has ${AVAILABLE_MEM_MB} MB free RAM out of ${TOTAL_MEM_MB} MB."
+            log_warn "Building locally requires compilation that may take several minutes."
+            if [[ "$AUTO_CONFIRM" != true ]]; then
+                printf "\nProceed with memory-safe local compilation? [y/N]: "
+                read -r confirm_build </dev/tty || confirm_build="n"
+                if [[ ! "$confirm_build" =~ ^[Yy]$ ]]; then
+                    log_warn "Installation cancelled by user."
+                    exit 0
+                fi
+            fi
+        fi
+
+        install_source_build_deps
+
+        if ! command -v flutter >/dev/null 2>&1; then
+            log_error "Flutter SDK was not found in PATH."
+            log_info "Please install Flutter (https://docs.flutter.dev/get-started/install/linux) to build from source."
+            exit 1
+        fi
+
+        log_info "Building Softify native Linux bundle with low-memory safety..."
+        log_info "Concurrency limits: MAKEFLAGS=\"-j${MAX_CONCURRENT_JOBS}\""
+
+        cd "${TARGET_REPO}"
         export MAKEFLAGS="-j${MAX_CONCURRENT_JOBS}"
+        export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_CONCURRENT_JOBS}"
+
+        flutter config --enable-linux-desktop >/dev/null 2>&1 || true
         flutter pub get
         flutter build linux --release
-        BUNDLE_DIR="${REPO_DIR}/build/linux/x64/release/bundle"
+
+        BUNDLE_DIR="${TARGET_REPO}/build/linux/x64/release/bundle"
     else
-        log_error "No pre-built bundle found and Flutter SDK is not installed."
-        log_info "Please install Flutter SDK or download the pre-built Linux release from GitHub."
+        log_error "No pre-built Linux release package found on GitHub Releases yet."
+        log_info "GitHub Actions is currently building and publishing the official v2.0.0 Linux assets."
+        log_info "To compile from source manually:"
+        log_info "  git clone https://github.com/${GITHUB_REPO}.git"
+        log_info "  cd softify && ./install.sh --build"
         exit 1
     fi
 fi
 
 if [[ ! -d "${BUNDLE_DIR}" || ! -f "${BUNDLE_DIR}/softify" ]]; then
-    log_error "Build output verification failed: ${BUNDLE_DIR}/softify not found."
+    log_error "Bundle validation failed: ${BUNDLE_DIR}/softify not found."
     exit 1
 fi
 
-log_success "Linux native binary verified at: ${BUNDLE_DIR}/softify"
+log_success "Linux binary verified at: ${BUNDLE_DIR}/softify"
 
 # ------------------------------------------------------------------------------
 # Installation & Desktop Integration
@@ -362,14 +464,40 @@ chmod +x "${LAUNCHER_SCRIPT}"
 log_success "Installed executable wrapper: ${LAUNCHER_SCRIPT}"
 
 # Install Desktop Icons
-if [[ -f "${REPO_DIR}/assets/logo/logo.svg" ]]; then
-    cp "${REPO_DIR}/assets/logo/logo.svg" "${ICON_DIR_SVG}/softify.svg"
-    log_success "Installed scalable icon: ${ICON_DIR_SVG}/softify.svg"
+ICON_INSTALLED=false
+
+# 1. Check inside bundle flutter assets
+if [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" ]]; then
+    cp "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" "${ICON_DIR_PNG}/softify.png"
+    ICON_INSTALLED=true
+fi
+if [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" ]]; then
+    cp "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" "${ICON_DIR_SVG}/softify.svg"
+    ICON_INSTALLED=true
 fi
 
-if [[ -f "${REPO_DIR}/assets/logo/logo.png" ]]; then
-    cp "${REPO_DIR}/assets/logo/logo.png" "${ICON_DIR_PNG}/softify.png"
-    log_success "Installed 512x512 icon: ${ICON_DIR_PNG}/softify.png"
+# 2. Check inside local repository
+if [[ "$ICON_INSTALLED" != true && -n "$LOCAL_REPO" ]]; then
+    if [[ -f "${LOCAL_REPO}/assets/logo/logo.png" ]]; then
+        cp "${LOCAL_REPO}/assets/logo/logo.png" "${ICON_DIR_PNG}/softify.png"
+        ICON_INSTALLED=true
+    fi
+    if [[ -f "${LOCAL_REPO}/assets/logo/logo.svg" ]]; then
+        cp "${LOCAL_REPO}/assets/logo/logo.svg" "${ICON_DIR_SVG}/softify.svg"
+        ICON_INSTALLED=true
+    fi
+fi
+
+# 3. Fallback: Download icon directly from GitHub repository
+if [[ "$ICON_INSTALLED" != true ]]; then
+    curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/assets/logo/logo.png" -o "${ICON_DIR_PNG}/softify.png" 2>/dev/null || true
+    if [[ -f "${ICON_DIR_PNG}/softify.png" ]]; then
+        ICON_INSTALLED=true
+    fi
+fi
+
+if [[ "$ICON_INSTALLED" == true ]]; then
+    log_success "Installed application desktop icons."
 fi
 
 # Install .desktop Application Entry
@@ -427,4 +555,4 @@ printf "  ${COLOR_BOLD}To launch Softify:${COLOR_RESET}\n"
 printf "    1. Terminal:  ${COLOR_EMERALD}${COLOR_BOLD}softify${COLOR_RESET}\n"
 printf "    2. GUI Menu:  Search for ${COLOR_EMERALD}${COLOR_BOLD}Softify${COLOR_RESET} in your Application Launcher\n\n"
 printf "  ${COLOR_MUTED}To uninstall:${COLOR_RESET}\n"
-printf "    Run: ${COLOR_MUTED}%s --uninstall${COLOR_RESET}\n\n" "$0"
+printf "    Run: ${COLOR_MUTED}%s --uninstall${COLOR_RESET}\n\n" "${0:-install.sh}"
