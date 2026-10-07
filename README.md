@@ -60,11 +60,11 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~68 MB | [`Softify-v1.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
-| **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~25 MB | [GitHub Actions Workflow](https://github.com/Sarthak-Cyb3r/softify/actions) |
+| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v1.0.1-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v1.0.0-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v1.0.1-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
@@ -158,7 +158,7 @@ If your device is running a TrollStore-compatible iOS version:
   - **Medium (160 kbps)**: Balanced fidelity and bandwidth for mobile data.
   - **Low (96 kbps)**: Data-saver mode for limited connectivity.
 - **Cache Management**: One-tap tools to clear lyrics cache or reset application cache.
-- **Built-in GitHub Updater**: Check for new releases directly within Settings with SHA-256 integrity validation.
+- **Built-in Direct GitHub Updater**: Check and download updates directly within Settings with live download progress, SHA-256 integrity verification, and one-tap Android installer launch.
 
 ### 10. 🍎 Native iOS Experience & Audio Session
 - **Lock Screen & Dynamic Island (MPRemoteCommandCenter)**: Full native iOS media integration with live album art, track scrub bar, and interactive playback controls.
@@ -296,8 +296,11 @@ Assisted by **`opencode/mimo-v2.6-flash-free`** (opencode CLI).
 | `d72f048` | Removed the vestigial `ios/Podfile`. Every iOS plugin resolves through Swift Package Manager, so the Podfile only triggered a no-op `pod install` plus CocoaPods sandbox-check phases that broke archiving with *"The sandbox is not in sync with the Podfile.lock."* The workflow now pins `flutter config --enable-swift-package-manager` and only attaches release assets on `v*` tag refs. |
 | `4532c2c` | `watchPlayHistory` now tie-breaks `playedAt` with `id DESC`, so a re-played track reliably reaches the top when two rows share a millisecond. |
 | `d8c5278` | The release workflow zipped the IPA into `build/` while `upload-artifact` searched the workspace root — green runs published nothing. It now writes to `$GITHUB_WORKSPACE`. |
+| `ae69fcf` | **v1.0.1**: Eliminated song transition latency (<10ms) using a dual-engine standby pre-buffering pipeline in `JustAudioPlayerAdapter`. Fixed offline download audio playback by dynamically recalculating ISO-BMFF MP4 sample table chunk offsets (`stco`/`co64`) in `M4aAtomTagger` with automatic on-the-fly healing for legacy downloads. |
+| `9de3528` | **v1.0.1**: Optimized Android release build time by bypassing memory-exhausting `lintVitalAnalyzeRelease` in AGP and enabled GitHub Actions release write permissions. |
+| `d40e845` | **v1.0.1**: Connected in-app OTA updater directly to `Sarthak-Cyb3r/softify` for seamless one-tap background APK updating. |
 
-Result: `ios_release.yml` builds green and `Softify-iOS-Universal.ipa` (10,938,031 bytes) is attached to the [v1.0.0 release](https://github.com/Sarthak-Cyb3r/softify/releases/tag/v1.0.0) alongside the Universal APK.
+Result: Both `Softify-v1.0.1-Universal.apk` and `Softify-iOS-Universal.ipa` are published on the [v1.0.1 release](https://github.com/Sarthak-Cyb3r/softify/releases/tag/v1.0.1).
 
 ---
 
