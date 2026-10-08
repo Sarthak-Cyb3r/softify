@@ -60,7 +60,7 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v2.0.5-beta-Android-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v2.0.5-Android-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **Linux (Desktop / CLI Installer)** | Script / Binary | Ubuntu, Debian, Arch, Fedora, openSUSE (x86_64, ARM64) | ~45 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 
@@ -90,9 +90,9 @@ To update Softify on Linux to the latest version, simply run the one-line instal
 curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash
 ```
 
-To update or pin to a specific release tag (e.g. `v2.0.5-beta`):
+To update or pin to a specific release tag (e.g. `v2.0.5`):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v2.0.5-beta bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v2.0.5 bash
 ```
 
 If you installed from a local git repository:

@@ -2,7 +2,7 @@ name: softify
 description: "An ad-free, paywall-free mobile music streaming application."
 publish_to: 'none'
 
-version: 2.0.5-beta+205
+version: 2.0.5+205
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
