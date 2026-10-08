@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:softify/data/importer/keyless_spotify_importer.dart';
 import 'package:softify/domain/entities/spotify_import.dart';
 import 'package:softify/domain/entities/track.dart';
@@ -178,6 +182,231 @@ void main() {
       expect(playlist.totalCount, equals(3));
       expect(playlist.matchedCount, equals(2));
       expect(playlist.matchPercentage, closeTo(66.66, 0.1));
+    });
+  });
+
+  group('Spotify playlist pagination (>100 tracks)', () {
+    const playlistId = '46RepFWgIsxxxGNQqD5ymx';
+
+    String embedHtml({required int embedTrackCount}) {
+      final trackList = List.generate(
+        embedTrackCount,
+        (i) => {
+          'uri': 'spotify:track:embed$i',
+          'title': 'Embed Track $i',
+          'subtitle': 'Embed Artist $i',
+          'duration': (i + 1) * 1000,
+        },
+      );
+      final data = {
+        'props': {
+          'pageProps': {
+            'state': {
+              'data': {
+                'entity': {
+                  'name': 'Big Playlist',
+                  'subtitle': 'Curator',
+                  'coverArt': {
+                    'sources': [
+                      {'url': 'https://i.scdn.co/image/playlist-cover'}
+                    ]
+                  },
+                  'trackList': trackList,
+                }
+              }
+            }
+          }
+        }
+      };
+      return '<html><head></head><body>'
+          '<script id="__NEXT_DATA__" type="application/json">${jsonEncode(data)}</script>'
+          '</body></html>';
+    }
+
+    String tokenJson({int expiresInMs = 3600000}) => jsonEncode({
+          'accessToken': 'test-token',
+          'accessTokenExpirationTimestampMs':
+              DateTime.now().millisecondsSinceEpoch + expiresInMs,
+          'isAnonymous': true,
+        });
+
+    Map<String, dynamic> apiItem(int i) => {
+          'track': {
+            'uri': 'spotify:track:api$i',
+            'name': 'Api Track $i',
+            'duration_ms': (i + 1) * 1000,
+            'artists': [
+              {'name': 'ArtistA$i'},
+              {'name': 'ArtistB$i'},
+            ],
+            'album': {
+              'images': [
+                {'url': 'https://i.scdn.co/image/album$i'}
+              ]
+            },
+          }
+        };
+
+    Map<String, dynamic> page(List<int> indices, {required bool hasNext, required int total}) => {
+          'items': indices.map(apiItem).toList(),
+          'limit': 100,
+          'next': hasNext ? 'https://api.spotify.com/v1/playlists/$playlistId/tracks?offset=100' : null,
+          'offset': indices.isEmpty ? 0 : indices.first,
+          'total': total,
+        };
+
+    http.Response jsonResponse(Object body, int status) =>
+        http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
+
+    test('pages past the embed 100-track cap and returns the full list', () async {
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 100), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (url.contains('/tracks')) {
+          final offset = int.parse(request.url.queryParameters['offset'] ?? '0');
+          if (offset == 0) {
+            return jsonResponse(page(List.generate(100, (i) => i), hasNext: true, total: 111), 200);
+          }
+          return jsonResponse(
+              page(List.generate(11, (i) => 100 + i), hasNext: false, total: 111), 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist('https://open.spotify.com/playlist/$playlistId');
+
+      expect(playlist.name, equals('Big Playlist'));
+      expect(playlist.tracks.length, equals(111));
+
+      // API data replaces the truncated embed list.
+      expect(playlist.tracks.first.spotifyUri, equals('spotify:track:api0'));
+      expect(playlist.tracks.first.title, equals('Api Track 0'));
+      expect(playlist.tracks.first.artist, equals('ArtistA0, ArtistB0'));
+      expect(playlist.tracks.first.coverUrl, equals('https://i.scdn.co/image/album0'));
+
+      expect(playlist.tracks.last.spotifyUri, equals('spotify:track:api110'));
+      expect(playlist.tracks.last.duration, equals(const Duration(seconds: 111)));
+    });
+
+    test('falls back to embed tracks when the API reports 404 (editorial lists)', () async {
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 100), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        return http.Response(
+            jsonEncode({'error': {'status': 404, 'message': 'Resource not found'}}), 404,
+            headers: {'content-type': 'application/json'});
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist(playlistId);
+
+      expect(playlist.tracks.length, equals(100));
+      expect(playlist.tracks.first.title, equals('Embed Track 0'));
+      expect(playlist.tracks.first.coverUrl, equals('https://i.scdn.co/image/playlist-cover'));
+    });
+
+    test('retries with backoff when Spotify returns 429', () async {
+      var trackCalls = 0;
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 2), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (url.contains('/tracks')) {
+          trackCalls++;
+          if (trackCalls == 1) {
+            return jsonResponse({'error': {'status': 429, 'reason': 'QUOTA_EXCEEDED'}}, 429);
+          }
+          return jsonResponse(page([0], hasNext: false, total: 1), 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist(playlistId);
+
+      expect(trackCalls, equals(2));
+      expect(playlist.tracks.length, equals(1));
+      expect(playlist.tracks.first.title, equals('Api Track 0'));
+    });
+
+    test('refreshes the session token once on 401 and continues paging', () async {
+      var tokenCalls = 0;
+      var trackCalls = 0;
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          tokenCalls++;
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 1), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (url.contains('/tracks')) {
+          trackCalls++;
+          final auth = request.headers['authorization'] ?? '';
+          if (trackCalls == 1 && tokenCalls == 1) {
+            return http.Response('', 401);
+          }
+          expect(auth, equals('Bearer test-token'));
+          return jsonResponse(page([0], hasNext: false, total: 1), 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist(playlistId);
+
+      expect(tokenCalls, equals(2));
+      expect(playlist.tracks.length, equals(1));
+    });
+
+    test('skips unavailable (null) tracks returned by the API', () async {
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 1), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (url.contains('/tracks')) {
+          return jsonResponse({
+            'items': [
+              {'track': null},
+              apiItem(1),
+            ],
+            'next': null,
+            'total': 2,
+          }, 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist(playlistId);
+
+      expect(playlist.tracks.length, equals(1));
+      expect(playlist.tracks.first.spotifyUri, equals('spotify:track:api1'));
     });
   });
 }

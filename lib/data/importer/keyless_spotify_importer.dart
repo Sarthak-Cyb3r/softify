@@ -1,22 +1,34 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
 import '../../domain/entities/spotify_import.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_spotify_importer.dart';
 
 class KeylessSpotifyImporter implements ISpotifyImporter {
-  final HttpClient _httpClient;
+  final http.Client _client;
   final ICatalogRepository? _catalog;
 
   static const String _defaultUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
+  static const String _tokenEndpoint =
+      'https://open.spotify.com/embed/api/token';
+  static const String _apiBase = 'https://api.spotify.com/v1';
+  static const int _pageSize = 100;
+  static const int _maxTracks = 10000;
+  static const int _maxRetries = 3;
+
+  String? _accessToken;
+  DateTime? _tokenExpiresAt;
+
   KeylessSpotifyImporter({
-    HttpClient? httpClient,
+    http.Client? client,
     ICatalogRepository? catalog,
-  })  : _httpClient = httpClient ?? HttpClient(),
+  })  : _client = client ?? http.Client(),
         _catalog = catalog;
 
   @override
@@ -47,16 +59,37 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       throw FormatException('Invalid Spotify playlist URL or ID: "$urlOrId"');
     }
 
-    final embedUri = Uri.parse('https://open.spotify.com/embed/playlist/$playlistId');
-    final request = await _httpClient.getUrl(embedUri).timeout(const Duration(seconds: 10));
-    request.headers.set('User-Agent', _defaultUserAgent);
+    // The embed page supplies metadata (name, description, cover) and the first
+    // 100 tracks. Spotify truncates its server-rendered trackList at 100, so the
+    // complete list is paged in from the Web API afterwards.
+    final playlist = await _fetchViaEmbed(playlistId);
 
-    final response = await request.close().timeout(const Duration(seconds: 10));
-    if (response.statusCode != 200) {
-      throw HttpException('Failed to load Spotify playlist (HTTP ${response.statusCode})', uri: embedUri);
+    List<SpotifyTrackItem>? fullTracks;
+    try {
+      fullTracks = await _fetchAllTracks(playlistId, coverUrl: playlist.coverUrl);
+    } catch (_) {
+      fullTracks = null;
     }
 
-    final body = await response.transform(utf8.decoder).join();
+    if (fullTracks != null && fullTracks.isNotEmpty) {
+      return playlist.copyWith(tracks: fullTracks);
+    }
+    return playlist;
+  }
+
+  Future<SpotifyImportPlaylist> _fetchViaEmbed(String playlistId) async {
+    final embedUri = Uri.parse('https://open.spotify.com/embed/playlist/$playlistId');
+    final response = await _client
+        .get(embedUri, headers: {'User-Agent': _defaultUserAgent})
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw HttpException(
+        'Failed to load Spotify playlist (HTTP ${response.statusCode})',
+        uri: embedUri,
+      );
+    }
+
+    final body = utf8.decode(response.bodyBytes, allowMalformed: true);
 
     // Parse Next.js __NEXT_DATA__ script block
     final nextDataMatch = RegExp(r'<script id="__NEXT_DATA__" type="application/json">([^<]+)<\/script>').firstMatch(body);
@@ -119,16 +152,15 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     final oEmbedUri = Uri.parse(
       'https://open.spotify.com/oembed?url=https://open.spotify.com/playlist/$playlistId',
     );
-    final request = await _httpClient.getUrl(oEmbedUri).timeout(const Duration(seconds: 8));
-    request.headers.set('User-Agent', _defaultUserAgent);
-    final response = await request.close().timeout(const Duration(seconds: 8));
+    final response = await _client
+        .get(oEmbedUri, headers: {'User-Agent': _defaultUserAgent})
+        .timeout(const Duration(seconds: 8));
 
     if (response.statusCode != 200) {
       throw Exception('Could not parse Spotify playlist: $playlistId');
     }
 
-    final body = await response.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
+    final json = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true)) as Map<String, dynamic>;
 
     final title = (json['title'] as String?) ?? 'Spotify Playlist';
     final thumbnail = json['thumbnail_url'] as String?;
@@ -139,6 +171,156 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       description: 'Imported from Spotify',
       coverUrl: thumbnail,
       tracks: const [],
+    );
+  }
+
+  /// Anonymous embed session token. Cached until shortly before it expires.
+  Future<String> _getAccessToken({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh &&
+        _accessToken != null &&
+        _tokenExpiresAt != null &&
+        now.isBefore(_tokenExpiresAt!.subtract(const Duration(seconds: 60)))) {
+      return _accessToken!;
+    }
+
+    final response = await _client
+        .get(
+          Uri.parse(_tokenEndpoint),
+          headers: {'User-Agent': _defaultUserAgent, 'Accept': 'application/json'},
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw HttpException(
+        'Failed to obtain Spotify session token (HTTP ${response.statusCode})',
+        uri: Uri.parse(_tokenEndpoint),
+      );
+    }
+
+    final json = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true)) as Map<String, dynamic>;
+    final token = (json['accessToken'] as String?) ?? '';
+    if (token.isEmpty) {
+      throw const HttpException('Spotify session token was empty');
+    }
+
+    final expiresAtMs = (json['accessTokenExpirationTimestampMs'] as num?)?.toInt() ?? 0;
+    _accessToken = token;
+    _tokenExpiresAt = expiresAtMs > 0
+        ? DateTime.fromMillisecondsSinceEpoch(expiresAtMs)
+        : now.add(const Duration(minutes: 20));
+    return token;
+  }
+
+  /// Pages the Web API until the whole playlist is collected.
+  ///
+  /// Spotify-owned editorial playlists (`37i9…`) return 404 for anonymous
+  /// tokens — callers fall back to the embed page's first 100 tracks then.
+  Future<List<SpotifyTrackItem>> _fetchAllTracks(
+    String playlistId, {
+    String? coverUrl,
+  }) async {
+    var token = await _getAccessToken();
+    final tracks = <SpotifyTrackItem>[];
+    var offset = 0;
+    var tokenRefreshed = false;
+
+    while (tracks.length < _maxTracks) {
+      final uri = Uri.parse(
+        '$_apiBase/playlists/$playlistId/tracks?offset=$offset&limit=$_pageSize',
+      );
+
+      var response = await _getWithRetry(uri, token);
+
+      if (response.statusCode == 401 && !tokenRefreshed) {
+        tokenRefreshed = true;
+        token = await _getAccessToken(forceRefresh: true);
+        response = await _getWithRetry(uri, token);
+      }
+
+      if (response.statusCode == 404 || response.statusCode == 403) {
+        throw HttpException(
+          'Playlist tracks unavailable (HTTP ${response.statusCode})',
+          uri: uri,
+        );
+      }
+      if (response.statusCode == 429) {
+        throw const HttpException('Spotify rate limit exceeded');
+      }
+      if (response.statusCode != 200) {
+        throw HttpException(
+          'Failed to load playlist tracks (HTTP ${response.statusCode})',
+          uri: uri,
+        );
+      }
+
+      final json = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true)) as Map<String, dynamic>;
+      final items = (json['items'] as List<dynamic>?) ?? const [];
+      final hasNext = json['next'] != null;
+
+      for (final item in items) {
+        if (item is! Map<String, dynamic>) continue;
+        final track = item['track'];
+        if (track is! Map<String, dynamic>) continue;
+        tracks.add(_mapApiTrack(track, coverUrl));
+      }
+
+      if (items.isEmpty || !hasNext) break;
+      offset += items.length;
+    }
+
+    return tracks;
+  }
+
+  /// GET with retry on 429 (shared anonymous quota) and transient 5xx errors.
+  Future<http.Response> _getWithRetry(Uri uri, String token) async {
+    const retryable = {429, 500, 502, 503, 504};
+    for (var attempt = 0;; attempt++) {
+      http.Response response;
+      try {
+        response = await _client.get(uri, headers: {
+          'User-Agent': _defaultUserAgent,
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        }).timeout(const Duration(seconds: 10));
+      } on Exception {
+        if (attempt >= _maxRetries) rethrow;
+        response = http.Response('', 503);
+      }
+
+      if (!retryable.contains(response.statusCode) || attempt >= _maxRetries) {
+        return response;
+      }
+      final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
+      final delay = retryAfter != null && retryAfter > 0
+          ? Duration(seconds: retryAfter)
+          : Duration(seconds: 1 << attempt);
+      await Future<void>.delayed(delay);
+    }
+  }
+
+  SpotifyTrackItem _mapApiTrack(Map<String, dynamic> track, String? fallbackCover) {
+    final artists = ((track['artists'] as List<dynamic>?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((a) => (a['name'] as String?) ?? '')
+        .where((name) => name.isNotEmpty)
+        .join(', ');
+
+    String? cover = fallbackCover;
+    final album = track['album'];
+    if (album is Map<String, dynamic>) {
+      final images = album['images'];
+      if (images is List && images.isNotEmpty && images.first is Map) {
+        final url = (images.first as Map<String, dynamic>)['url'];
+        if (url is String && url.isNotEmpty) cover = url;
+      }
+    }
+
+    return SpotifyTrackItem(
+      spotifyUri: (track['uri'] as String?) ?? '',
+      title: (track['name'] as String?) ?? 'Unknown Title',
+      artist: artists.isEmpty ? 'Unknown Artist' : artists,
+      duration: Duration(milliseconds: (track['duration_ms'] as num?)?.toInt() ?? 0),
+      coverUrl: cover,
     );
   }
 
