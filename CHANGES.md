@@ -1,12 +1,12 @@
-# Softify — Change Log (v2.0.0 → v2.0.2)
+# Softify — Change Log (v2.0.0 → v2.0.3)
 
 Everything changed in this session, grouped by workstream. Commits are on `main`.
 
 | | |
 |---|---|
-| **Releases shipped** | `v2.0.1`, `v2.0.2` (both built, signed and verified in CI) |
-| **Version** | `2.0.0+200` → `2.0.2+202` |
-| **Tests** | 177 → **179 passing** (`flutter analyze`: 0 issues) |
+| **Releases shipped** | `v2.0.1`, `v2.0.2`, `v2.0.3` (all built, signed and verified in CI) |
+| **Version** | `2.0.0+200` → `2.0.3+203` |
+| **Tests** | 177 → **181 passing** (`flutter analyze`: 0 issues) |
 
 ---
 
