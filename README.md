@@ -84,6 +84,23 @@ chmod +x install.sh
 - `./install.sh --uninstall`: Cleanly remove binary, desktop launcher, and application icons.
 - `./install.sh --yes`: Unattended non-interactive install.
 
+#### 🔄 Updating on Linux:
+To update Softify on Linux to the latest version, simply run the one-line installer command (your playlists, downloaded tracks, and settings are preserved):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash
+```
+
+To update or pin to a specific release tag (e.g. `v2.0.5-beta`):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v2.0.5-beta bash
+```
+
+If you installed from a local git repository:
+```bash
+git pull
+./install.sh
+```
+
 #### ⌨️ Desktop Keyboard Shortcuts:
 | Shortcut | Action |
 | :--- | :--- |

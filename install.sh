@@ -57,7 +57,7 @@ print_banner() {
   ███████║╚██████╔╝██║        ██║   ██║██║        ██║   
   ╚══════╝ ╚═════╝ ╚═╝        ╚═╝   ╚═╝╚═╝        ╚═╝   
 EOF
-    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v2.0.4${COLOR_RESET}\n"
+    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v2.0.5-beta${COLOR_RESET}\n"
     printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Fast Local-First UI${COLOR_RESET}\n\n"
 }
 
