@@ -159,9 +159,7 @@ class YoutubeStreamResolver implements IStreamResolver {
         codec: selected is AudioStreamInfo ? selected.audioCodec : 'aac',
         expiresAt: DateTime.now().add(const Duration(minutes: 45)),
         providerName: 'youtube_explode (itag ${selected.tag})',
-        headers: const {
-          'User-Agent': youtubeUserAgent,
-        },
+        headers: null,
         sizeBytes: selected.size.totalBytes,
       );
 

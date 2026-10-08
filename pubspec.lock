@@ -536,6 +536,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.6"
+  media_kit_libs_linux:
+    dependency: "direct main"
+    description:
+      name: media_kit_libs_linux
+      sha256: "2b473399a49ec94452c4d4ae51cfc0f6585074398d74216092bf3d54aac37ecf"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.1"
+  media_kit_native_event_loop:
+    dependency: "direct main"
+    description:
+      name: media_kit_native_event_loop
+      sha256: "7d82e3b3e9ded5c35c3146c5ba1da3118d1dd8ac3435bac7f29f458181471b40"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.9"
   meta:
     dependency: transitive
     description:

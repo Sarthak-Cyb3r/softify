@@ -27,6 +27,8 @@ dependencies:
   dart_des: ^1.0.2
   palette_generator: ^0.3.3+7
   just_audio_media_kit: ^2.1.0
+  media_kit_libs_linux: ^1.2.1
+  media_kit_native_event_loop: ^1.0.9
 
 dev_dependencies:
   flutter_test:

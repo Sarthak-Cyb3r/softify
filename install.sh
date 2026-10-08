@@ -252,6 +252,37 @@ check_runtime_deps() {
         log_info "Please install them using your package manager (e.g. sudo apt install ${missing_tools[*]})."
         exit 1
     fi
+
+    # Verify libmpv audio decoder library
+    local has_mpv=false
+    if ldconfig -p 2>/dev/null | grep -qE "libmpv\.so\.[12]"; then
+        has_mpv=true
+    elif [[ -f /usr/lib/x86_64-linux-gnu/libmpv.so.2 || -f /usr/lib/libmpv.so.2 || -f /usr/local/lib/libmpv.so.2 || -f /lib/x86_64-linux-gnu/libmpv.so.2 ]]; then
+        has_mpv=true
+    fi
+
+    if [[ "$has_mpv" != true ]]; then
+        log_warn "Missing audio decoder library (libmpv2 / mpv required for playback)."
+        local mpv_install=""
+        case "$DISTRO_ID" in
+            ubuntu|debian|linuxmint|pop|elementary|zorin)
+                mpv_install="sudo apt-get update && sudo apt-get install -y libmpv2 mpv"
+                ;;
+            arch|manjaro|endeavouros)
+                mpv_install="sudo pacman -S --needed --noconfirm mpv"
+                ;;
+            fedora|rhel|centos)
+                mpv_install="sudo dnf install -y mpv mpv-libs"
+                ;;
+            opensuse*|suse)
+                mpv_install="sudo zypper in -y mpv libmpv2"
+                ;;
+        esac
+        if [[ -n "$mpv_install" ]]; then
+            log_info "Installing libmpv audio playback engine..."
+            eval "$mpv_install" || log_warn "Could not automatically install libmpv. Please install libmpv2 manually if audio fails."
+        fi
+    fi
 }
 
 check_runtime_deps
@@ -272,16 +303,16 @@ install_source_build_deps() {
         local install_cmd=""
         case "$DISTRO_ID" in
             ubuntu|debian|linuxmint|pop|elementary|zorin)
-                install_cmd="sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libasound2-dev libpulse-dev"
+                install_cmd="sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libasound2-dev libpulse-dev libmpv-dev mpv"
                 ;;
             arch|manjaro|endeavouros)
-                install_cmd="sudo pacman -S --needed --noconfirm clang cmake ninja pkgconf gtk3 xz alsa-lib libpulse"
+                install_cmd="sudo pacman -S --needed --noconfirm clang cmake ninja pkgconf gtk3 xz alsa-lib libpulse mpv"
                 ;;
             fedora|rhel|centos)
-                install_cmd="sudo dnf install -y clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel alsa-lib-devel pulseaudio-libs-devel"
+                install_cmd="sudo dnf install -y clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel alsa-lib-devel pulseaudio-libs-devel mpv-devel mpv"
                 ;;
             opensuse*|suse)
-                install_cmd="sudo zypper in -y clang cmake ninja pkg-config gtk3-devel liblzma-devel alsa-devel libpulse-devel"
+                install_cmd="sudo zypper in -y clang cmake ninja pkg-config gtk3-devel liblzma-devel alsa-devel libpulse-devel mpv-devel mpv"
                 ;;
             *)
                 log_warn "Please install the missing tools manually using your package manager."

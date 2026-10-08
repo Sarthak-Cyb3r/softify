@@ -236,9 +236,7 @@ class SaavnStreamResolver implements IStreamResolver {
       codec: 'aac',
       expiresAt: DateTime.now().add(const Duration(hours: 6)),
       providerName: 'jiosaavn_studio (${bitrate ~/ 1000}kbps)',
-      headers: const {
-        'User-Agent': _userAgent,
-      },
+      headers: null,
     );
   }
 

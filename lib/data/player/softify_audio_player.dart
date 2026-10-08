@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
@@ -44,9 +45,9 @@ abstract class ISoftifyAudioPlayer {
 /// Utilizes a dual-player active/standby architecture for true 0ms gapless track transitions.
 class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   final AudioPlayer _playerA;
-  final AudioPlayer _playerB;
+  final AudioPlayer? _playerB;
   late AudioPlayer _activePlayer;
-  late AudioPlayer _standbyPlayer;
+  AudioPlayer? _standbyPlayer;
 
   String? _preloadedSource;
   bool _isStandbyReady = false;
@@ -75,7 +76,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     AudioPlayer? playerA,
     AudioPlayer? playerB,
   })  : _playerA = playerA ?? AudioPlayer(),
-        _playerB = playerB ?? AudioPlayer() {
+        _playerB = playerB ?? (Platform.isLinux ? null : AudioPlayer()) {
     _activePlayer = _playerA;
     _standbyPlayer = _playerB;
     _bindActivePlayerStreams();
@@ -133,12 +134,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Future<void> preloadNextUrl(String url, {Map<String, String>? headers}) async {
+    final standby = _standbyPlayer;
+    if (standby == null) return;
     if (_preloadedSource == url && _isStandbyReady) return;
     _preloadedSource = url;
     _isStandbyReady = false;
     try {
-      await _standbyPlayer.stop();
-      await _standbyPlayer.setUrl(url, headers: headers, preload: true);
+      await standby.stop();
+      await standby.setUrl(url, headers: headers, preload: true);
       _isStandbyReady = true;
     } catch (_) {
       if (_preloadedSource == url) {
@@ -150,12 +153,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Future<void> preloadNextFilePath(String path) async {
+    final standby = _standbyPlayer;
+    if (standby == null) return;
     if (_preloadedSource == path && _isStandbyReady) return;
     _preloadedSource = path;
     _isStandbyReady = false;
     try {
-      await _standbyPlayer.stop();
-      await _standbyPlayer.setFilePath(path, preload: true);
+      await standby.stop();
+      await standby.setFilePath(path, preload: true);
       _isStandbyReady = true;
     } catch (_) {
       if (_preloadedSource == path) {
@@ -166,19 +171,20 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   }
 
   @override
-  bool get hasPreloadedNext => _isStandbyReady;
+  bool get hasPreloadedNext => _isStandbyReady && _standbyPlayer != null;
 
   @override
   String? get preloadedSource => _preloadedSource;
 
   @override
   Future<void> playPreloadedNext() async {
-    if (!_isStandbyReady) return;
+    final standby = _standbyPlayer;
+    if (!_isStandbyReady || standby == null) return;
 
     await _activePlayer.stop();
 
     final temp = _activePlayer;
-    _activePlayer = _standbyPlayer;
+    _activePlayer = standby;
     _standbyPlayer = temp;
 
     _preloadedSource = null;
@@ -192,7 +198,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   void clearPreloadedNext() {
     _preloadedSource = null;
     _isStandbyReady = false;
-    unawaited(_standbyPlayer.stop());
+    if (_standbyPlayer != null) {
+      unawaited(_standbyPlayer!.stop());
+    }
   }
 
   @override
@@ -229,7 +237,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   Future<void> setVolume(double volume) async {
     final clamped = volume.clamp(0.0, 1.0);
     await _activePlayer.setVolume(clamped);
-    await _standbyPlayer.setVolume(clamped);
+    if (_standbyPlayer != null) {
+      await _standbyPlayer!.setVolume(clamped);
+    }
     _volumeSubject.add(clamped);
   }
 
@@ -257,7 +267,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
     await Future.wait([
       _playerA.dispose(),
-      _playerB.dispose(),
+      if (_playerB != null) _playerB.dispose(),
     ]);
   }
 }
