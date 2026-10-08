@@ -38,6 +38,13 @@ abstract class ISoftifyAudioPlayer {
   double get volume;
   Stream<double> get volumeStream;
 
+  // Equalizer & Hardware DSP Effects API
+  Future<void> setEqualizerEnabled(bool enabled);
+  Future<void> setEqualizerBands(List<double> gains);
+  Future<void> setLoudnessEnhancerGain(double gain);
+  Future<void> setBassBoost(double boost);
+  Future<List<double>> getBandFrequencies();
+
   Future<void> dispose();
 }
 
@@ -72,11 +79,66 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   StreamSubscription? _durationSub;
   StreamSubscription? _volumeSub;
 
-  JustAudioPlayerAdapter({
+  final AndroidEqualizer? _equalizerA;
+  final AndroidLoudnessEnhancer? _loudnessA;
+  final AndroidEqualizer? _equalizerB;
+  final AndroidLoudnessEnhancer? _loudnessB;
+
+  bool _equalizerEnabled = true;
+  List<double> _bandGains = [0.0, 0.0, 0.0, 0.0, 0.0];
+  double _loudnessGain = 0.0;
+  double _bassBoost = 0.0;
+
+  factory JustAudioPlayerAdapter({
     AudioPlayer? playerA,
     AudioPlayer? playerB,
-  })  : _playerA = playerA ?? AudioPlayer(),
-        _playerB = playerB ?? (Platform.isLinux ? null : AudioPlayer()) {
+  }) {
+    final bool enableEffects =
+        Platform.isAndroid && Platform.environment['FLUTTER_TEST'] != 'true';
+    final eqA = enableEffects ? AndroidEqualizer() : null;
+    final loudA = enableEffects ? AndroidLoudnessEnhancer() : null;
+    final eqB = enableEffects ? AndroidEqualizer() : null;
+    final loudB = enableEffects ? AndroidLoudnessEnhancer() : null;
+
+    final pA = playerA ??
+        AudioPlayer(
+          audioPipeline: (eqA != null && loudA != null)
+              ? AudioPipeline(androidAudioEffects: [loudA, eqA])
+              : null,
+        );
+
+    final pB = playerB ??
+        (Platform.isLinux
+            ? null
+            : AudioPlayer(
+                audioPipeline: (eqB != null && loudB != null)
+                    ? AudioPipeline(androidAudioEffects: [loudB, eqB])
+                    : null,
+              ));
+
+    return JustAudioPlayerAdapter._internal(
+      playerA: pA,
+      playerB: pB,
+      equalizerA: eqA,
+      loudnessA: loudA,
+      equalizerB: eqB,
+      loudnessB: loudB,
+    );
+  }
+
+  JustAudioPlayerAdapter._internal({
+    required AudioPlayer playerA,
+    AudioPlayer? playerB,
+    AndroidEqualizer? equalizerA,
+    AndroidLoudnessEnhancer? loudnessA,
+    AndroidEqualizer? equalizerB,
+    AndroidLoudnessEnhancer? loudnessB,
+  })  : _playerA = playerA,
+        _playerB = playerB,
+        _equalizerA = equalizerA,
+        _loudnessA = loudnessA,
+        _equalizerB = equalizerB,
+        _loudnessB = loudnessB {
     _activePlayer = _playerA;
     _standbyPlayer = _playerB;
     _bindActivePlayerStreams();
@@ -121,15 +183,19 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   Future<void> seek(Duration position) => _activePlayer.seek(position);
 
   @override
-  Future<Duration?> setUrl(String url, {Map<String, String>? headers, Duration? initialPosition}) {
+  Future<Duration?> setUrl(String url, {Map<String, String>? headers, Duration? initialPosition}) async {
     clearPreloadedNext();
-    return _activePlayer.setUrl(url, headers: headers, initialPosition: initialPosition);
+    final result = await _activePlayer.setUrl(url, headers: headers, initialPosition: initialPosition);
+    _syncEqualizerEffects();
+    return result;
   }
 
   @override
-  Future<Duration?> setFilePath(String path, {Duration? initialPosition}) {
+  Future<Duration?> setFilePath(String path, {Duration? initialPosition}) async {
     clearPreloadedNext();
-    return _activePlayer.setFilePath(path, initialPosition: initialPosition);
+    final result = await _activePlayer.setFilePath(path, initialPosition: initialPosition);
+    _syncEqualizerEffects();
+    return result;
   }
 
   @override
@@ -191,6 +257,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     _isStandbyReady = false;
 
     _bindActivePlayerStreams();
+    _syncEqualizerEffects();
     await _activePlayer.play();
   }
 
@@ -248,6 +315,81 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Stream<double> get volumeStream => _volumeSubject.stream;
+
+  @override
+  Future<void> setEqualizerEnabled(bool enabled) async {
+    _equalizerEnabled = enabled;
+    try {
+      await _equalizerA?.setEnabled(enabled);
+      await _equalizerB?.setEnabled(enabled);
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> setEqualizerBands(List<double> gains) async {
+    _bandGains = List.from(gains);
+    await _applyEqualizerSettings();
+  }
+
+  @override
+  Future<void> setLoudnessEnhancerGain(double gain) async {
+    _loudnessGain = gain;
+    final targetBels = gain.clamp(0.0, 1.0);
+    try {
+      final enabled = targetBels > 0.01;
+      await _loudnessA?.setEnabled(enabled);
+      await _loudnessB?.setEnabled(enabled);
+      if (enabled) {
+        await _loudnessA?.setTargetGain(targetBels);
+        await _loudnessB?.setTargetGain(targetBels);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> setBassBoost(double boost) async {
+    _bassBoost = boost.clamp(0.0, 1.0);
+    await _applyEqualizerSettings();
+  }
+
+  Future<void> _applyEqualizerSettings() async {
+    await _applyToEqualizer(_equalizerA);
+    await _applyToEqualizer(_equalizerB);
+  }
+
+  Future<void> _applyToEqualizer(AndroidEqualizer? eq) async {
+    if (eq == null) return;
+    try {
+      final params = await eq.parameters.timeout(const Duration(milliseconds: 100));
+      for (int i = 0; i < params.bands.length && i < _bandGains.length; i++) {
+        double extraBass = 0.0;
+        if (i == 0) extraBass = _bassBoost * 5.0;
+        if (i == 1) extraBass = _bassBoost * 2.5;
+        final effectiveGain = (_bandGains[i] + extraBass).clamp(params.minDecibels, params.maxDecibels);
+        await params.bands[i].setGain(effectiveGain);
+      }
+    } catch (_) {}
+  }
+
+  void _syncEqualizerEffects() {
+    if (!_equalizerEnabled) return;
+    unawaited(setEqualizerEnabled(_equalizerEnabled));
+    unawaited(_applyEqualizerSettings());
+    if (_loudnessGain > 0.01) {
+      unawaited(setLoudnessEnhancerGain(_loudnessGain));
+    }
+  }
+
+  @override
+  Future<List<double>> getBandFrequencies() async {
+    if (_equalizerA != null) {
+      try {
+        final params = await _equalizerA.parameters.timeout(const Duration(milliseconds: 100));
+        return params.bands.map((b) => b.centerFrequency).toList();
+      } catch (_) {}
+    }
+    return const [60.0, 230.0, 910.0, 3600.0, 14000.0];
+  }
 
   @override
   Future<void> dispose() async {

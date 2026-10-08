@@ -33,7 +33,7 @@ final remoteConfigFutureProvider = FutureProvider<RemoteConfigData>((ref) {
   return repo.fetchLatestConfig();
 });
 
-final currentAppVersionProvider = Provider<String>((ref) => '2.0.4');
+final currentAppVersionProvider = Provider<String>((ref) => '2.0.5-beta');
 
 final updateCheckFutureProvider = FutureProvider<AppReleaseInfo?>((ref) {
   final checker = ref.watch(updateCheckerProvider);

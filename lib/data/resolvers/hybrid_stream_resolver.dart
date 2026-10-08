@@ -34,6 +34,17 @@ class HybridStreamResolver implements IStreamResolver {
 
     StreamInfo info;
 
+    // Direct YouTube link tracks bypass Saavn
+    if (track.sourceId.startsWith('yt_')) {
+      info = await _ytResolver.resolve(
+        track,
+        quality: quality,
+        forceFresh: forceFresh,
+      );
+      _cache[cacheKey] = info;
+      return info;
+    }
+
     // Phase 8 Architecture:
     // Primary: JioSaavn Studio Audio Master (320kbps / 160kbps CD-quality AAC).
     // Provides pure studio recordings with zero dialogue and instantaneous CDNs.

@@ -95,6 +95,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _logTrackPlayEvent(Track? track, {required bool isCompleted}) {
     if (track == null) return;
+    if (_currentTrackSource == 'youtube_link') return;
     final int listenedMs;
     if (isCompleted) {
       listenedMs = track.duration.inMilliseconds;
@@ -580,6 +581,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
   double get volume => _player.volume;
   Stream<double> get volumeStream => _player.volumeStream;
 
+  // Equalizer API
+  Future<void> setEqualizerEnabled(bool enabled) => _player.setEqualizerEnabled(enabled);
+  Future<void> setEqualizerBands(List<double> gains) => _player.setEqualizerBands(gains);
+  Future<void> setLoudnessEnhancerGain(double gain) => _player.setLoudnessEnhancerGain(gain);
+  Future<void> setBassBoost(double boost) => _player.setBassBoost(boost);
+  Future<List<double>> getBandFrequencies() => _player.getBandFrequencies();
+
   // ==========================================
   // JIT Resolution & Offline-First Playback
   // ==========================================
@@ -751,6 +759,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   void _checkAndPrefetchRecommendations() {
+    if (_currentTrackSource == 'youtube_link') return;
     if (!_autoPlay || _catalogRepo == null || _isPrefetchingRecommendations) return;
     if (_queue.isEmpty || _currentIndex < 0) return;
 

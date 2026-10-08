@@ -29,6 +29,9 @@ import java.security.MessageDigest
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "com.softify/installer"
+    private val SHARE_CHANNEL = "com.softify/share_intent"
+    private var sharedText: String? = null
+    private var shareMethodChannel: MethodChannel? = null
     private val ACTION_STATUS = "com.softify.softify.INSTALLER_STATUS"
     private val EXTRA_OPERATION = "com.softify.softify.extra.OPERATION"
     private val OP_INSTALL = "install"
@@ -59,6 +62,27 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleSendIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleSendIntent(intent)
+    }
+
+    private fun handleSendIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!text.isNullOrBlank()) {
+                sharedText = text
+                shareMethodChannel?.invokeMethod("onSharedText", text)
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         if (!receiverRegistered) {
@@ -80,9 +104,22 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+        shareMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL).apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getInitialSharedText" -> {
+                        val text = sharedText
+                        sharedText = null
+                        result.success(text)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
+        shareMethodChannel = null
         if (receiverRegistered) {
             runCatching { unregisterReceiver(installerReceiver) }
             receiverRegistered = false

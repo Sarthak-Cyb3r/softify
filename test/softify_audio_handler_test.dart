@@ -65,6 +65,22 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
   }
 
   @override
+  Future<void> setEqualizerEnabled(bool enabled) async {}
+
+  @override
+  Future<void> setEqualizerBands(List<double> gains) async {}
+
+  @override
+  Future<void> setLoudnessEnhancerGain(double gain) async {}
+
+  @override
+  Future<void> setBassBoost(double boost) async {}
+
+  @override
+  Future<List<double>> getBandFrequencies() async =>
+      const [60.0, 230.0, 910.0, 3600.0, 14000.0];
+
+  @override
   Stream<PlayerState> get playerStateStream => _playerStateSubject.stream;
 
   @override

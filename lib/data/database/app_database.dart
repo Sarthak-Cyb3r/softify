@@ -278,6 +278,23 @@ class TrackEmbeddings extends Table {
   Set<Column> get primaryKey => {trackId};
 }
 
+// 21. YouTube Link Playback History Table
+@DataClassName('YoutubeHistoryRow')
+class YoutubeHistory extends Table {
+  @override
+  String get tableName => 'youtube_history';
+
+  TextColumn get videoId => text()();
+  TextColumn get title => text()();
+  TextColumn get channel => text()();
+  TextColumn get thumbnailUrl => text().nullable()();
+  IntColumn get durationSeconds => integer()();
+  IntColumn get lastPlayedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {videoId};
+}
+
 LazyDatabase openDefaultConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
@@ -307,13 +324,14 @@ LazyDatabase openDefaultConnection() {
   ArtistSnoozes,
   InterleaveOutcomes,
   TrackEmbeddings,
+  YoutubeHistory,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? openDefaultConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -364,6 +382,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 9) {
             await m.createTable(trackEmbeddings);
+          }
+          if (from < 10) {
+            await m.createTable(youtubeHistory);
           }
         },
       );

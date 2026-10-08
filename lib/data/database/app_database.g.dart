@@ -6621,6 +6621,369 @@ class TrackEmbeddingsCompanion extends UpdateCompanion<TrackEmbeddingRow> {
   }
 }
 
+class $YoutubeHistoryTable extends YoutubeHistory
+    with TableInfo<$YoutubeHistoryTable, YoutubeHistoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $YoutubeHistoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _videoIdMeta =
+      const VerificationMeta('videoId');
+  @override
+  late final GeneratedColumn<String> videoId = GeneratedColumn<String>(
+      'video_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+      'title', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _channelMeta =
+      const VerificationMeta('channel');
+  @override
+  late final GeneratedColumn<String> channel = GeneratedColumn<String>(
+      'channel', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _thumbnailUrlMeta =
+      const VerificationMeta('thumbnailUrl');
+  @override
+  late final GeneratedColumn<String> thumbnailUrl = GeneratedColumn<String>(
+      'thumbnail_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _durationSecondsMeta =
+      const VerificationMeta('durationSeconds');
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+      'duration_seconds', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _lastPlayedAtMeta =
+      const VerificationMeta('lastPlayedAt');
+  @override
+  late final GeneratedColumn<int> lastPlayedAt = GeneratedColumn<int>(
+      'last_played_at', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [videoId, title, channel, thumbnailUrl, durationSeconds, lastPlayedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'youtube_history';
+  @override
+  VerificationContext validateIntegrity(Insertable<YoutubeHistoryRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('video_id')) {
+      context.handle(_videoIdMeta,
+          videoId.isAcceptableOrUnknown(data['video_id']!, _videoIdMeta));
+    } else if (isInserting) {
+      context.missing(_videoIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+          _titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('channel')) {
+      context.handle(_channelMeta,
+          channel.isAcceptableOrUnknown(data['channel']!, _channelMeta));
+    } else if (isInserting) {
+      context.missing(_channelMeta);
+    }
+    if (data.containsKey('thumbnail_url')) {
+      context.handle(
+          _thumbnailUrlMeta,
+          thumbnailUrl.isAcceptableOrUnknown(
+              data['thumbnail_url']!, _thumbnailUrlMeta));
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+          _durationSecondsMeta,
+          durationSeconds.isAcceptableOrUnknown(
+              data['duration_seconds']!, _durationSecondsMeta));
+    } else if (isInserting) {
+      context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('last_played_at')) {
+      context.handle(
+          _lastPlayedAtMeta,
+          lastPlayedAt.isAcceptableOrUnknown(
+              data['last_played_at']!, _lastPlayedAtMeta));
+    } else if (isInserting) {
+      context.missing(_lastPlayedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {videoId};
+  @override
+  YoutubeHistoryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return YoutubeHistoryRow(
+      videoId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}video_id'])!,
+      title: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
+      channel: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}channel'])!,
+      thumbnailUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}thumbnail_url']),
+      durationSeconds: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}duration_seconds'])!,
+      lastPlayedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}last_played_at'])!,
+    );
+  }
+
+  @override
+  $YoutubeHistoryTable createAlias(String alias) {
+    return $YoutubeHistoryTable(attachedDatabase, alias);
+  }
+}
+
+class YoutubeHistoryRow extends DataClass
+    implements Insertable<YoutubeHistoryRow> {
+  final String videoId;
+  final String title;
+  final String channel;
+  final String? thumbnailUrl;
+  final int durationSeconds;
+  final int lastPlayedAt;
+  const YoutubeHistoryRow(
+      {required this.videoId,
+      required this.title,
+      required this.channel,
+      this.thumbnailUrl,
+      required this.durationSeconds,
+      required this.lastPlayedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['video_id'] = Variable<String>(videoId);
+    map['title'] = Variable<String>(title);
+    map['channel'] = Variable<String>(channel);
+    if (!nullToAbsent || thumbnailUrl != null) {
+      map['thumbnail_url'] = Variable<String>(thumbnailUrl);
+    }
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['last_played_at'] = Variable<int>(lastPlayedAt);
+    return map;
+  }
+
+  YoutubeHistoryCompanion toCompanion(bool nullToAbsent) {
+    return YoutubeHistoryCompanion(
+      videoId: Value(videoId),
+      title: Value(title),
+      channel: Value(channel),
+      thumbnailUrl: thumbnailUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbnailUrl),
+      durationSeconds: Value(durationSeconds),
+      lastPlayedAt: Value(lastPlayedAt),
+    );
+  }
+
+  factory YoutubeHistoryRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return YoutubeHistoryRow(
+      videoId: serializer.fromJson<String>(json['videoId']),
+      title: serializer.fromJson<String>(json['title']),
+      channel: serializer.fromJson<String>(json['channel']),
+      thumbnailUrl: serializer.fromJson<String?>(json['thumbnailUrl']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      lastPlayedAt: serializer.fromJson<int>(json['lastPlayedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'videoId': serializer.toJson<String>(videoId),
+      'title': serializer.toJson<String>(title),
+      'channel': serializer.toJson<String>(channel),
+      'thumbnailUrl': serializer.toJson<String?>(thumbnailUrl),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'lastPlayedAt': serializer.toJson<int>(lastPlayedAt),
+    };
+  }
+
+  YoutubeHistoryRow copyWith(
+          {String? videoId,
+          String? title,
+          String? channel,
+          Value<String?> thumbnailUrl = const Value.absent(),
+          int? durationSeconds,
+          int? lastPlayedAt}) =>
+      YoutubeHistoryRow(
+        videoId: videoId ?? this.videoId,
+        title: title ?? this.title,
+        channel: channel ?? this.channel,
+        thumbnailUrl:
+            thumbnailUrl.present ? thumbnailUrl.value : this.thumbnailUrl,
+        durationSeconds: durationSeconds ?? this.durationSeconds,
+        lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      );
+  YoutubeHistoryRow copyWithCompanion(YoutubeHistoryCompanion data) {
+    return YoutubeHistoryRow(
+      videoId: data.videoId.present ? data.videoId.value : this.videoId,
+      title: data.title.present ? data.title.value : this.title,
+      channel: data.channel.present ? data.channel.value : this.channel,
+      thumbnailUrl: data.thumbnailUrl.present
+          ? data.thumbnailUrl.value
+          : this.thumbnailUrl,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      lastPlayedAt: data.lastPlayedAt.present
+          ? data.lastPlayedAt.value
+          : this.lastPlayedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('YoutubeHistoryRow(')
+          ..write('videoId: $videoId, ')
+          ..write('title: $title, ')
+          ..write('channel: $channel, ')
+          ..write('thumbnailUrl: $thumbnailUrl, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('lastPlayedAt: $lastPlayedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      videoId, title, channel, thumbnailUrl, durationSeconds, lastPlayedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is YoutubeHistoryRow &&
+          other.videoId == this.videoId &&
+          other.title == this.title &&
+          other.channel == this.channel &&
+          other.thumbnailUrl == this.thumbnailUrl &&
+          other.durationSeconds == this.durationSeconds &&
+          other.lastPlayedAt == this.lastPlayedAt);
+}
+
+class YoutubeHistoryCompanion extends UpdateCompanion<YoutubeHistoryRow> {
+  final Value<String> videoId;
+  final Value<String> title;
+  final Value<String> channel;
+  final Value<String?> thumbnailUrl;
+  final Value<int> durationSeconds;
+  final Value<int> lastPlayedAt;
+  final Value<int> rowid;
+  const YoutubeHistoryCompanion({
+    this.videoId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.channel = const Value.absent(),
+    this.thumbnailUrl = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.lastPlayedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  YoutubeHistoryCompanion.insert({
+    required String videoId,
+    required String title,
+    required String channel,
+    this.thumbnailUrl = const Value.absent(),
+    required int durationSeconds,
+    required int lastPlayedAt,
+    this.rowid = const Value.absent(),
+  })  : videoId = Value(videoId),
+        title = Value(title),
+        channel = Value(channel),
+        durationSeconds = Value(durationSeconds),
+        lastPlayedAt = Value(lastPlayedAt);
+  static Insertable<YoutubeHistoryRow> custom({
+    Expression<String>? videoId,
+    Expression<String>? title,
+    Expression<String>? channel,
+    Expression<String>? thumbnailUrl,
+    Expression<int>? durationSeconds,
+    Expression<int>? lastPlayedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (videoId != null) 'video_id': videoId,
+      if (title != null) 'title': title,
+      if (channel != null) 'channel': channel,
+      if (thumbnailUrl != null) 'thumbnail_url': thumbnailUrl,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  YoutubeHistoryCompanion copyWith(
+      {Value<String>? videoId,
+      Value<String>? title,
+      Value<String>? channel,
+      Value<String?>? thumbnailUrl,
+      Value<int>? durationSeconds,
+      Value<int>? lastPlayedAt,
+      Value<int>? rowid}) {
+    return YoutubeHistoryCompanion(
+      videoId: videoId ?? this.videoId,
+      title: title ?? this.title,
+      channel: channel ?? this.channel,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (videoId.present) {
+      map['video_id'] = Variable<String>(videoId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (channel.present) {
+      map['channel'] = Variable<String>(channel.value);
+    }
+    if (thumbnailUrl.present) {
+      map['thumbnail_url'] = Variable<String>(thumbnailUrl.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (lastPlayedAt.present) {
+      map['last_played_at'] = Variable<int>(lastPlayedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('YoutubeHistoryCompanion(')
+          ..write('videoId: $videoId, ')
+          ..write('title: $title, ')
+          ..write('channel: $channel, ')
+          ..write('thumbnailUrl: $thumbnailUrl, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6647,6 +7010,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $InterleaveOutcomesTable(this);
   late final $TrackEmbeddingsTable trackEmbeddings =
       $TrackEmbeddingsTable(this);
+  late final $YoutubeHistoryTable youtubeHistory = $YoutubeHistoryTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6671,7 +7035,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         banditStates,
         artistSnoozes,
         interleaveOutcomes,
-        trackEmbeddings
+        trackEmbeddings,
+        youtubeHistory
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -11381,6 +11746,203 @@ typedef $$TrackEmbeddingsTableProcessedTableManager = ProcessedTableManager<
     ),
     TrackEmbeddingRow,
     PrefetchHooks Function()>;
+typedef $$YoutubeHistoryTableCreateCompanionBuilder = YoutubeHistoryCompanion
+    Function({
+  required String videoId,
+  required String title,
+  required String channel,
+  Value<String?> thumbnailUrl,
+  required int durationSeconds,
+  required int lastPlayedAt,
+  Value<int> rowid,
+});
+typedef $$YoutubeHistoryTableUpdateCompanionBuilder = YoutubeHistoryCompanion
+    Function({
+  Value<String> videoId,
+  Value<String> title,
+  Value<String> channel,
+  Value<String?> thumbnailUrl,
+  Value<int> durationSeconds,
+  Value<int> lastPlayedAt,
+  Value<int> rowid,
+});
+
+class $$YoutubeHistoryTableFilterComposer
+    extends Composer<_$AppDatabase, $YoutubeHistoryTable> {
+  $$YoutubeHistoryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get videoId => $composableBuilder(
+      column: $table.videoId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get channel => $composableBuilder(
+      column: $table.channel, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get thumbnailUrl => $composableBuilder(
+      column: $table.thumbnailUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+      column: $table.durationSeconds,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$YoutubeHistoryTableOrderingComposer
+    extends Composer<_$AppDatabase, $YoutubeHistoryTable> {
+  $$YoutubeHistoryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get videoId => $composableBuilder(
+      column: $table.videoId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get channel => $composableBuilder(
+      column: $table.channel, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get thumbnailUrl => $composableBuilder(
+      column: $table.thumbnailUrl,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+      column: $table.durationSeconds,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$YoutubeHistoryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $YoutubeHistoryTable> {
+  $$YoutubeHistoryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get videoId =>
+      $composableBuilder(column: $table.videoId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get channel =>
+      $composableBuilder(column: $table.channel, builder: (column) => column);
+
+  GeneratedColumn<String> get thumbnailUrl => $composableBuilder(
+      column: $table.thumbnailUrl, builder: (column) => column);
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+      column: $table.durationSeconds, builder: (column) => column);
+
+  GeneratedColumn<int> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt, builder: (column) => column);
+}
+
+class $$YoutubeHistoryTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $YoutubeHistoryTable,
+    YoutubeHistoryRow,
+    $$YoutubeHistoryTableFilterComposer,
+    $$YoutubeHistoryTableOrderingComposer,
+    $$YoutubeHistoryTableAnnotationComposer,
+    $$YoutubeHistoryTableCreateCompanionBuilder,
+    $$YoutubeHistoryTableUpdateCompanionBuilder,
+    (
+      YoutubeHistoryRow,
+      BaseReferences<_$AppDatabase, $YoutubeHistoryTable, YoutubeHistoryRow>
+    ),
+    YoutubeHistoryRow,
+    PrefetchHooks Function()> {
+  $$YoutubeHistoryTableTableManager(
+      _$AppDatabase db, $YoutubeHistoryTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$YoutubeHistoryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$YoutubeHistoryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$YoutubeHistoryTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> videoId = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String> channel = const Value.absent(),
+            Value<String?> thumbnailUrl = const Value.absent(),
+            Value<int> durationSeconds = const Value.absent(),
+            Value<int> lastPlayedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              YoutubeHistoryCompanion(
+            videoId: videoId,
+            title: title,
+            channel: channel,
+            thumbnailUrl: thumbnailUrl,
+            durationSeconds: durationSeconds,
+            lastPlayedAt: lastPlayedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String videoId,
+            required String title,
+            required String channel,
+            Value<String?> thumbnailUrl = const Value.absent(),
+            required int durationSeconds,
+            required int lastPlayedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              YoutubeHistoryCompanion.insert(
+            videoId: videoId,
+            title: title,
+            channel: channel,
+            thumbnailUrl: thumbnailUrl,
+            durationSeconds: durationSeconds,
+            lastPlayedAt: lastPlayedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$YoutubeHistoryTable, YoutubeHistoryRow>(table),
+                    BaseReferences<_$AppDatabase, $YoutubeHistoryTable,
+                        YoutubeHistoryRow>(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$YoutubeHistoryTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $YoutubeHistoryTable,
+    YoutubeHistoryRow,
+    $$YoutubeHistoryTableFilterComposer,
+    $$YoutubeHistoryTableOrderingComposer,
+    $$YoutubeHistoryTableAnnotationComposer,
+    $$YoutubeHistoryTableCreateCompanionBuilder,
+    $$YoutubeHistoryTableUpdateCompanionBuilder,
+    (
+      YoutubeHistoryRow,
+      BaseReferences<_$AppDatabase, $YoutubeHistoryTable, YoutubeHistoryRow>
+    ),
+    YoutubeHistoryRow,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -11425,4 +11987,6 @@ class $AppDatabaseManager {
       $$InterleaveOutcomesTableTableManager(_db, _db.interleaveOutcomes);
   $$TrackEmbeddingsTableTableManager get trackEmbeddings =>
       $$TrackEmbeddingsTableTableManager(_db, _db.trackEmbeddings);
+  $$YoutubeHistoryTableTableManager get youtubeHistory =>
+      $$YoutubeHistoryTableTableManager(_db, _db.youtubeHistory);
 }

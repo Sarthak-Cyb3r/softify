@@ -51,7 +51,7 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
         children: [
           // App Header & Branding
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Row(
               children: [
                 Container(
@@ -145,13 +145,20 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                 const SizedBox(height: 4),
                 _buildNavItem(
                   index: 2,
+                  icon: Icons.smart_display_outlined,
+                  activeIcon: Icons.smart_display,
+                  label: 'YouTube',
+                ),
+                const SizedBox(height: 4),
+                _buildNavItem(
+                  index: 3,
                   icon: Icons.library_music_outlined,
                   activeIcon: Icons.library_music_rounded,
                   label: 'Library',
                 ),
                 const SizedBox(height: 4),
                 _buildNavItem(
-                  index: 3,
+                  index: 4,
                   icon: Icons.settings_outlined,
                   activeIcon: Icons.settings_rounded,
                   label: 'Settings',
@@ -160,7 +167,7 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
 
           // Section Divider
           const Padding(
@@ -171,7 +178,7 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Section Header: QUICK ACCESS
           Padding(

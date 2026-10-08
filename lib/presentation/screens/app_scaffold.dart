@@ -7,11 +7,21 @@ import '../theme/app_tokens.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/mini_player.dart';
+import '../../features/youtube/data/share_intent_service.dart';
+import '../../features/youtube/domain/parse_youtube_link.dart';
+import '../../features/youtube/presentation/youtube_controller.dart';
+import '../../features/youtube/presentation/youtube_page.dart';
 import '../widgets/slim_bottom_nav_bar.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+
+/// Centralized application tab icon registry for consistent styling and quick theme swaps
+class AppTabIcons {
+  static const IconData youtube = Icons.smart_display_outlined;
+  static const IconData youtubeActive = Icons.smart_display;
+}
 
 /// Adaptive Application Shell supporting:
 /// - Desktop Linux UI (Width >= 800px): Persistent left navigation sidebar,
@@ -30,9 +40,28 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   final List<Widget> _screens = const [
     HomeScreen(),
     SearchScreen(),
+    YoutubePage(),
     LibraryScreen(),
     SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    ShareIntentService.initialize(
+      onReceived: (text) {
+        final parsed = parseYoutubeLink(text);
+        if (parsed is! InvalidLink) {
+          if (mounted) {
+            setState(() {
+              _currentIndex = 2; // Switch to YouTube tab
+            });
+            ref.read(youtubeControllerProvider.notifier).submit(text);
+          }
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,13 +123,17 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         const SingleActivator(LogicalKeyboardKey.keyH, control: true): () {
           setState(() => _currentIndex = 0);
         },
+        // Ctrl + Y: Switch to YouTube
+        const SingleActivator(LogicalKeyboardKey.keyY, control: true): () {
+          setState(() => _currentIndex = 2);
+        },
         // Ctrl + L: Switch to Library
         const SingleActivator(LogicalKeyboardKey.keyL, control: true): () {
-          setState(() => _currentIndex = 2);
+          setState(() => _currentIndex = 3);
         },
         // Ctrl + Comma: Switch to Settings
         const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
-          setState(() => _currentIndex = 3);
+          setState(() => _currentIndex = 4);
         },
       },
       child: Focus(
@@ -144,16 +177,16 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   }
 
   Widget _buildMobileLayout(BuildContext context, AppTokens tokens) {
-    final mobileIndex = _currentIndex.clamp(0, 2);
+    final mobileIndex = _currentIndex.clamp(0, 3);
 
     return Scaffold(
       backgroundColor: tokens.background,
       body: Stack(
         children: [
-          // Current Tab Page
+          // Current Tab Page (IndexedStack preserves state)
           IndexedStack(
             index: mobileIndex,
-            children: _screens.sublist(0, 3),
+            children: _screens.sublist(0, 4),
           ),
 
           // Floating MiniPlayer docked cleanly above SlimBottomNavBar
@@ -185,6 +218,11 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         icon: Icons.search_outlined,
                         activeIcon: Icons.search_rounded,
                         label: 'Search',
+                      ),
+                      SlimNavItem(
+                        icon: AppTabIcons.youtube,
+                        activeIcon: AppTabIcons.youtubeActive,
+                        label: 'YouTube',
                       ),
                       SlimNavItem(
                         icon: Icons.library_music_outlined,

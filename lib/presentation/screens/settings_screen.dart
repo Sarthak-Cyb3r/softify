@@ -7,9 +7,11 @@ import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/diversity_providers.dart';
 import '../providers/player_providers.dart';
+import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
 import '../theme/app_theme.dart';
 import 'debug_metrics_screen.dart';
+import 'equalizer_screen.dart';
 import 'onboarding_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -330,6 +332,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onChanged: (val) {
                     final audioHandler = ref.read(audioHandlerProvider);
                     audioHandler.setAutoPlayEnabled(val);
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final eqState = ref.watch(equalizerProvider);
+                    return ListTile(
+                      leading: const Icon(Icons.equalizer, color: AppTheme.primary),
+                      title: const Text('Equalizer',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        eqState.enabled
+                            ? 'Active • ${eqState.currentPreset}${eqState.bassBoost > 0 ? " • Bass +${(eqState.bassBoost * 5).toStringAsFixed(1)}dB" : ""}'
+                            : 'Off',
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const EqualizerScreen()),
+                        );
+                      },
+                    );
                   },
                 ),
               ],
