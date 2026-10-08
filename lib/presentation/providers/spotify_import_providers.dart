@@ -31,6 +31,10 @@ class SpotifyImportState {
   final int totalToMatch;
   final String? importedPlaylistId;
 
+  /// Tracks pulled from the Web API so far while status is
+  /// [SpotifyImportStatus.fetchingPlaylist].
+  final int fetchProgress;
+
   const SpotifyImportState({
     this.status = SpotifyImportStatus.idle,
     this.errorMessage,
@@ -39,6 +43,7 @@ class SpotifyImportState {
     this.matchedProgress = 0,
     this.totalToMatch = 0,
     this.importedPlaylistId,
+    this.fetchProgress = 0,
   });
 
   SpotifyImportState copyWith({
@@ -49,6 +54,7 @@ class SpotifyImportState {
     int? matchedProgress,
     int? totalToMatch,
     String? importedPlaylistId,
+    int? fetchProgress,
   }) {
     return SpotifyImportState(
       status: status ?? this.status,
@@ -58,6 +64,7 @@ class SpotifyImportState {
       matchedProgress: matchedProgress ?? this.matchedProgress,
       totalToMatch: totalToMatch ?? this.totalToMatch,
       importedPlaylistId: importedPlaylistId ?? this.importedPlaylistId,
+      fetchProgress: fetchProgress ?? this.fetchProgress,
     );
   }
 }
@@ -95,10 +102,16 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
       status: SpotifyImportStatus.fetchingPlaylist,
       inputUrl: cleanUrl,
       errorMessage: null,
+      fetchProgress: 0,
     );
 
     try {
-      final playlist = await _importer.fetchPlaylist(cleanUrl);
+      final playlist = await _importer.fetchPlaylist(
+        cleanUrl,
+        onProgress: (loaded) {
+          if (mounted) state = state.copyWith(fetchProgress: loaded);
+        },
+      );
       if (playlist.tracks.isEmpty) {
         state = state.copyWith(
           status: SpotifyImportStatus.error,

@@ -201,11 +201,11 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
 
             // Loading / Matching Status bar
             if (importState.status == SpotifyImportStatus.fetchingPlaylist)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
@@ -213,10 +213,15 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                         color: Color(0xFF1DB954),
                       ),
                     ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Connecting to Spotify & extracting tracks...',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        importState.fetchProgress > 0
+                            ? 'Loaded ${importState.fetchProgress} tracks\u2026'
+                            : 'Connecting to Spotify & extracting tracks...',
+                        style: const TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 13),
+                      ),
                     ),
                   ],
                 ),
@@ -284,6 +289,33 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                         importState.errorMessage!,
                         style: const TextStyle(
                           color: Colors.redAccent,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Non-fatal notice (e.g. Web API rate-limited, embed fallback used)
+            if (importState.playlist?.notice != null)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        importState.playlist!.notice!,
+                        style: const TextStyle(
+                          color: Colors.amber,
                           fontSize: 13,
                         ),
                       ),

@@ -51,12 +51,17 @@ class SpotifyImportPlaylist {
   final String? coverUrl;
   final List<SpotifyTrackItem> tracks;
 
+  /// Non-fatal warning shown to the user, e.g. when the Web API could only be
+  /// partially consulted and the list came from the embed page instead.
+  final String? notice;
+
   const SpotifyImportPlaylist({
     required this.id,
     required this.name,
     this.description,
     this.coverUrl,
     required this.tracks,
+    this.notice,
   });
 
   int get matchedCount => tracks.where((t) => t.isMatched).length;
@@ -70,6 +75,7 @@ class SpotifyImportPlaylist {
     String? description,
     String? coverUrl,
     List<SpotifyTrackItem>? tracks,
+    String? notice,
   }) {
     return SpotifyImportPlaylist(
       id: id ?? this.id,
@@ -77,6 +83,7 @@ class SpotifyImportPlaylist {
       description: description ?? this.description,
       coverUrl: coverUrl ?? this.coverUrl,
       tracks: tracks ?? this.tracks,
+      notice: notice ?? this.notice,
     );
   }
 }

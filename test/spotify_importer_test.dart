@@ -347,6 +347,70 @@ void main() {
       expect(playlist.tracks.first.title, equals('Api Track 0'));
     });
 
+    test('never sleeps on a multi-hour Retry-After and falls back immediately', () async {
+      var trackCalls = 0;
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 100), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (url.contains('/tracks')) {
+          trackCalls++;
+          return http.Response(
+            jsonEncode({'error': {'status': 429, 'reason': 'QUOTA_EXCEEDED'}}),
+            429,
+            headers: {'content-type': 'application/json', 'retry-after': '71777'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final stopwatch = Stopwatch()..start();
+      final playlist = await importer.fetchPlaylist(playlistId);
+      stopwatch.stop();
+
+      expect(trackCalls, equals(1));
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(playlist.tracks.length, equals(100));
+      expect(playlist.notice, isNotNull);
+      expect(playlist.notice, contains('quota'));
+    });
+
+    test('reports page-by-page progress while paging the Web API', () async {
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/api/token')) {
+          return jsonResponse(jsonDecode(tokenJson()), 200);
+        }
+        if (url.contains('/embed/playlist/')) {
+          return http.Response(embedHtml(embedTrackCount: 100), 200,
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (url.contains('/tracks')) {
+          final offset = int.parse(request.url.queryParameters['offset'] ?? '0');
+          if (offset == 0) {
+            return jsonResponse(page(List.generate(100, (i) => i), hasNext: true, total: 111), 200);
+          }
+          return jsonResponse(
+              page(List.generate(11, (i) => 100 + i), hasNext: false, total: 111), 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final progress = <int>[];
+      final playlist =
+          await importer.fetchPlaylist(playlistId, onProgress: progress.add);
+
+      expect(playlist.tracks.length, equals(111));
+      expect(progress, equals([100, 111]));
+    });
+
     test('refreshes the session token once on 401 and continues paging', () async {
       var tokenCalls = 0;
       var trackCalls = 0;

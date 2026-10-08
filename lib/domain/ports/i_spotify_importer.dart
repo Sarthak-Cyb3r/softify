@@ -6,7 +6,12 @@ abstract class ISpotifyImporter {
   String? extractPlaylistId(String input);
 
   /// Keylessly fetches public Spotify playlist metadata and tracks.
-  Future<SpotifyImportPlaylist> fetchPlaylist(String urlOrId);
+  ///
+  /// [onProgress] reports the running track count after every fetched page.
+  Future<SpotifyImportPlaylist> fetchPlaylist(
+    String urlOrId, {
+    void Function(int loaded)? onProgress,
+  });
 
   /// Matches a Spotify track against the catalog and returns the resolved Track with confidence.
   Future<Track?> matchTrack(SpotifyTrackItem spotifyTrack);

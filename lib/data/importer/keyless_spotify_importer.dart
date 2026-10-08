@@ -22,6 +22,14 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   static const int _maxTracks = 10000;
   static const int _maxRetries = 3;
 
+  /// Longest pause the retry loop is ever allowed to take. Spotify's shared
+  /// anonymous quota returns `Retry-After` values measured in hours, which
+  /// used to park the import on "Connecting to Spotify..." indefinitely.
+  static const int _maxBackoffSeconds = 5;
+
+  /// Hard ceiling for the whole Web API pass, independent of request timeouts.
+  static const Duration _fetchDeadline = Duration(seconds: 60);
+
   String? _accessToken;
   DateTime? _tokenExpiresAt;
 
@@ -53,7 +61,10 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   }
 
   @override
-  Future<SpotifyImportPlaylist> fetchPlaylist(String urlOrId) async {
+  Future<SpotifyImportPlaylist> fetchPlaylist(
+    String urlOrId, {
+    void Function(int loaded)? onProgress,
+  }) async {
     final playlistId = extractPlaylistId(urlOrId);
     if (playlistId == null) {
       throw FormatException('Invalid Spotify playlist URL or ID: "$urlOrId"');
@@ -65,16 +76,28 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     final playlist = await _fetchViaEmbed(playlistId);
 
     List<SpotifyTrackItem>? fullTracks;
+    String? notice;
     try {
-      fullTracks = await _fetchAllTracks(playlistId, coverUrl: playlist.coverUrl);
+      fullTracks = await _fetchAllTracks(
+        playlistId,
+        coverUrl: playlist.coverUrl,
+        onProgress: onProgress,
+      ).timeout(_fetchDeadline);
+    } on FormatException catch (e) {
+      notice = e.message;
+      fullTracks = null;
     } catch (_) {
+      notice =
+          'Spotify\u2019s Web API is unavailable right now \u2014 imported the '
+          'first ${playlist.tracks.length} tracks only. Retry later for the '
+          'full list.';
       fullTracks = null;
     }
 
     if (fullTracks != null && fullTracks.isNotEmpty) {
       return playlist.copyWith(tracks: fullTracks);
     }
-    return playlist;
+    return notice == null ? playlist : playlist.copyWith(notice: notice);
   }
 
   Future<SpotifyImportPlaylist> _fetchViaEmbed(String playlistId) async {
@@ -218,6 +241,7 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   Future<List<SpotifyTrackItem>> _fetchAllTracks(
     String playlistId, {
     String? coverUrl,
+    void Function(int loaded)? onProgress,
   }) async {
     var token = await _getAccessToken();
     final tracks = <SpotifyTrackItem>[];
@@ -244,7 +268,11 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         );
       }
       if (response.statusCode == 429) {
-        throw const HttpException('Spotify rate limit exceeded');
+        throw const FormatException(
+          'Spotify\u2019s API quota for this device is exhausted, so only the '
+          'first 100 tracks could be imported. Try again later for the full '
+          'playlist.',
+        );
       }
       if (response.statusCode != 200) {
         throw HttpException(
@@ -264,6 +292,8 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         tracks.add(_mapApiTrack(track, coverUrl));
       }
 
+      onProgress?.call(tracks.length);
+
       if (items.isEmpty || !hasNext) break;
       offset += items.length;
     }
@@ -271,9 +301,13 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     return tracks;
   }
 
-  /// GET with retry on 429 (shared anonymous quota) and transient 5xx errors.
+  /// GET with retry on transient 5xx errors and short 429 windows.
+  ///
+  /// A rate-limit response asking for a long wait is returned straight to the
+  /// caller: the anonymous quota is shared and sleeping for hours would freeze
+  /// the UI, so the caller falls back to the embed page instead.
   Future<http.Response> _getWithRetry(Uri uri, String token) async {
-    const retryable = {429, 500, 502, 503, 504};
+    const retryable = {500, 502, 503, 504};
     for (var attempt = 0;; attempt++) {
       http.Response response;
       try {
@@ -287,14 +321,25 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         response = http.Response('', 503);
       }
 
-      if (!retryable.contains(response.statusCode) || attempt >= _maxRetries) {
+      if (response.statusCode == 429) {
+        if (attempt >= 1) return response;
+        final retryAfter =
+            int.tryParse(response.headers['retry-after'] ?? '') ?? 0;
+        if (retryAfter > _maxBackoffSeconds) return response;
+        await Future<void>.delayed(Duration(
+          seconds: retryAfter > 0 ? retryAfter : 1,
+        ));
+        continue;
+      }
+
+      if (!retryable.contains(response.statusCode) ||
+          attempt >= _maxRetries) {
         return response;
       }
-      final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
-      final delay = retryAfter != null && retryAfter > 0
-          ? Duration(seconds: retryAfter)
-          : Duration(seconds: 1 << attempt);
-      await Future<void>.delayed(delay);
+      final backoff = 1 << attempt;
+      await Future<void>.delayed(Duration(
+        seconds: backoff > _maxBackoffSeconds ? _maxBackoffSeconds : backoff,
+      ));
     }
   }
 
