@@ -91,6 +91,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _updateStatusMessage = 'Installer launched!';
         });
       }
+    } on UpdateInstallException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _updateStatusMessage = e.message;
+      });
+      if (e.error == UpdateInstallError.signatureMismatch) {
+        await _handleSignatureMismatch(release);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -101,6 +109,70 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         setState(() {
           _isDownloadingUpdate = false;
+        });
+      }
+    }
+  }
+
+  /// The update is signed with a different key than the installed app, so
+  /// Android refuses it. The APK is saved to Downloads first (it survives the
+  /// uninstall), then the user reinstalls from there.
+  Future<void> _handleSignatureMismatch(AppReleaseInfo release) async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reinstall required'),
+        content: Text(
+          'This update (${release.tagName}) is signed with a new key, so Android '
+          'cannot install it over the current app.\n\n'
+          'Softify must be uninstalled and reinstalled first — your library, '
+          'playlists, downloads and settings will be erased.\n\n'
+          'The update APK will be saved to your Downloads folder. After the app '
+          'closes, open Files → Downloads and tap the APK to install it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save update & uninstall'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !mounted) return;
+
+    final checker = ref.read(updateCheckerProvider);
+    setState(() {
+      _updateStatusMessage = 'Saving update APK to Downloads...';
+    });
+    try {
+      await checker.stageDownloadedUpdate();
+      if (!mounted) return;
+      setState(() {
+        _updateStatusMessage = 'Update saved to Downloads. Uninstalling Softify...';
+      });
+      await checker.uninstallInstalledApp();
+      // Normally the process dies here; if the uninstall did not happen,
+      // fall through with an explanatory status.
+      if (mounted) {
+        setState(() {
+          _updateStatusMessage =
+              'Uninstall did not complete. Install the saved APK from Downloads manually.';
+        });
+      }
+    } on UpdateInstallException catch (e) {
+      if (mounted) {
+        setState(() {
+          _updateStatusMessage = e.message;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _updateStatusMessage = 'Reinstall flow failed: $e';
         });
       }
     }

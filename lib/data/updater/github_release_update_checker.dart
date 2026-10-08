@@ -87,6 +87,9 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
     }
   }
 
+  String? _downloadedFilePath;
+  String? _lastReleaseTagName;
+
   @override
   Future<void> downloadAndInstallUpdate(
     AppReleaseInfo release, {
@@ -149,11 +152,140 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
       }
     }
 
+    _downloadedFilePath = targetFile.path;
+    _lastReleaseTagName = release.tagName;
+
     // Launch Android package installer
-    if (Platform.isAndroid) {
+    if (!Platform.isAndroid) {
+      throw const UpdateInstallException(
+        UpdateInstallError.installFailed,
+        'Automatic installation is only supported on Android.',
+      );
+    }
+
+    // Refuse early when the APK cannot legally replace the installed app:
+    // a different signing key or a non-newer versionCode both end in a
+    // system "package conflict" dialog if we let the installer try.
+    Map<dynamic, dynamic> preflight;
+    try {
+      preflight = await _installerChannel.invokeMapMethod<dynamic, dynamic>(
+            'preflightInstall',
+            {'filePath': targetFile.path},
+          ) ??
+          <dynamic, dynamic>{};
+    } on PlatformException catch (e) {
+      throw UpdateInstallException(
+        UpdateInstallError.installFailed,
+        e.message ?? 'Could not verify the downloaded update.',
+      );
+    }
+
+    if (preflight['signatureMatch'] == false) {
+      throw const UpdateInstallException(
+        UpdateInstallError.signatureMismatch,
+        'The update is signed with a different key than the installed app.',
+      );
+    }
+    final apkVersionCode = (preflight['apkVersionCode'] as num?)?.toInt() ?? 0;
+    final installedVersionCode = (preflight['installedVersionCode'] as num?)?.toInt() ?? 0;
+    if (installedVersionCode > 0 && apkVersionCode <= installedVersionCode) {
+      throw UpdateInstallException(
+        UpdateInstallError.versionNotNewer,
+        'The downloaded build (versionCode $apkVersionCode) is not newer than '
+        'the installed one (versionCode $installedVersionCode).',
+      );
+    }
+
+    try {
       await _installerChannel.invokeMethod('installApk', {
         'filePath': targetFile.path,
       });
+    } on PlatformException catch (e) {
+      throw _installException(e.code, e.message);
+    }
+  }
+
+  @override
+  Future<String> stageDownloadedUpdate() async {
+    final path = _downloadedFilePath;
+    if (path == null || !File(path).existsSync()) {
+      throw const UpdateInstallException(
+        UpdateInstallError.installFailed,
+        'The downloaded update is no longer available. Download it again.',
+      );
+    }
+    final tag = (_lastReleaseTagName ?? 'update')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    try {
+      final result = await _installerChannel.invokeMapMethod<dynamic, dynamic>(
+        'stageApk',
+        {'filePath': path, 'fileName': 'Softify-$tag-Android-Universal.apk'},
+      );
+      return (result?['path'] as String?) ?? '';
+    } on PlatformException catch (e) {
+      throw UpdateInstallException(
+        UpdateInstallError.installFailed,
+        e.message ?? 'Could not save the update to Downloads.',
+      );
+    }
+  }
+
+  @override
+  Future<void> uninstallInstalledApp() async {
+    try {
+      await _installerChannel.invokeMethod('uninstallApk');
+    } on PlatformException catch (e) {
+      if (e.code == 'USER_ABORTED') {
+        throw const UpdateInstallException(
+          UpdateInstallError.userAborted,
+          'Uninstall cancelled.',
+        );
+      }
+      throw UpdateInstallException(
+        UpdateInstallError.installFailed,
+        e.message ?? 'Could not uninstall the app.',
+      );
+    }
+  }
+
+  UpdateInstallException _installException(String code, String? message) {
+    switch (code) {
+      case 'BLOCKED':
+        return const UpdateInstallException(
+          UpdateInstallError.installPermissionRequired,
+          'Android requires permission to install apps. It has been opened '
+          'in Settings — enable it for Softify, then tap Update again.',
+        );
+      case 'USER_ABORTED':
+        return const UpdateInstallException(
+          UpdateInstallError.userAborted,
+          'Installation cancelled.',
+        );
+      case 'CONFLICT':
+        return const UpdateInstallException(
+          UpdateInstallError.signatureMismatch,
+          'The update conflicts with the installed app (different signing key).',
+        );
+      case 'VERSION_DOWNGRADE':
+        return const UpdateInstallException(
+          UpdateInstallError.versionNotNewer,
+          'The downloaded build is not newer than the installed app.',
+        );
+      case 'INVALID':
+        return const UpdateInstallException(
+          UpdateInstallError.invalidApk,
+          'The downloaded file is not a valid APK.',
+        );
+      case 'STORAGE':
+        return const UpdateInstallException(
+          UpdateInstallError.storageFull,
+          'Not enough storage to install the update.',
+        );
+      default:
+        return UpdateInstallException(
+          UpdateInstallError.installFailed,
+          message ?? 'Installation failed.',
+        );
     }
   }
 
