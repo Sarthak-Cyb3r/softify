@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
+import '../../../data/resolvers/youtube_innertube_service.dart';
 import '../../../domain/entities/track.dart';
 import '../domain/youtube_failure.dart';
 
@@ -16,11 +17,39 @@ class YoutubeException implements Exception {
 
 class YoutubeRepository {
   final YoutubeExplode _yt;
+  final YoutubeInnertubeService _innertubeService;
 
-  YoutubeRepository({YoutubeExplode? yt}) : _yt = yt ?? YoutubeExplode();
+  YoutubeRepository({
+    YoutubeExplode? yt,
+    YoutubeInnertubeService? innertubeService,
+  })  : _yt = yt ?? YoutubeExplode(),
+        _innertubeService = innertubeService ?? YoutubeInnertubeService();
 
   /// Fetches video metadata and maps it to a [Track].
   Future<Track> fetchTrack(String videoId) async {
+    // Tier 1: Query YouTube InnerTube API directly (bypasses watch-page web scraping & IP bot-checks)
+    try {
+      final innerTubeData = await _innertubeService.queryPlayer(videoId);
+      if (innerTubeData != null) {
+        final meta = _innertubeService.parseMetadata(videoId, innerTubeData);
+        return Track(
+          id: 'yt_${meta.videoId}',
+          sourceId: 'yt_${meta.videoId}',
+          title: meta.title,
+          artist: meta.author,
+          album: 'YouTube',
+          duration: meta.duration,
+          coverUrl: meta.coverUrl,
+          matchConfidence: 1.0,
+        );
+      }
+    } on YoutubeFailure catch (fail) {
+      throw YoutubeException(fail);
+    } catch (_) {
+      // Proceed to fallback tiers
+    }
+
+    // Tier 2: YoutubeExplode client
     try {
       final video = await _yt.videos.get(VideoId(videoId));
 
@@ -54,6 +83,26 @@ class YoutubeRepository {
     } on TimeoutException catch (_) {
       throw const YoutubeException(NetworkErrorFailure());
     } catch (e) {
+      // Tier 3: If rate-limited or error, try oEmbed fallback for metadata
+      try {
+        final oembed = await _innertubeService.fetchOembed(videoId);
+        if (oembed != null) {
+          return Track(
+            id: 'yt_${oembed.videoId}',
+            sourceId: 'yt_${oembed.videoId}',
+            title: oembed.title,
+            artist: oembed.author,
+            album: 'YouTube',
+            duration: oembed.duration,
+            coverUrl: oembed.coverUrl,
+            matchConfidence: 1.0,
+          );
+        }
+      } catch (oembedError) {
+        if (oembedError is YoutubeFailure) {
+          throw YoutubeException(oembedError);
+        }
+      }
       throw YoutubeException(_mapGenericException(e));
     }
   }
@@ -158,13 +207,24 @@ class YoutubeRepository {
         msg.contains('blocked')) {
       return const RegionBlockedFailure();
     }
+    if (msg.contains('requestlimit') ||
+        msg.contains('rate limit') ||
+        msg.contains('ratelimit') ||
+        msg.contains('too many requests')) {
+      return const VideoUnavailableFailure(
+        'YouTube rate-limited this request. Please try again in a few moments.',
+      );
+    }
     if (msg.contains('unavailable') || msg.contains('not found')) {
       return const VideoUnavailableFailure();
     }
-    return GenericYoutubeFailure(e.toString());
+    return const GenericYoutubeFailure();
   }
+
+  YoutubeFailure mapException(Object e) => _mapGenericException(e);
 
   void close() {
     _yt.close();
+    _innertubeService.close();
   }
 }

@@ -6,9 +6,11 @@ import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_stream_resolver.dart';
 import 'piped_stream_resolver.dart';
+import 'youtube_innertube_service.dart';
 
 class YoutubeStreamResolver implements IStreamResolver {
   final YoutubeExplode _yt;
+  final YoutubeInnertubeService _innertubeService;
   final PipedStreamResolver? _fallbackResolver;
   final Map<String, StreamInfo> _cache = {};
 
@@ -17,9 +19,11 @@ class YoutubeStreamResolver implements IStreamResolver {
 
   YoutubeStreamResolver({
     YoutubeExplode? yt,
+    YoutubeInnertubeService? innertubeService,
     PipedStreamResolver? fallbackResolver,
   })  : _yt = yt ?? YoutubeExplode(),
-        _fallbackResolver = fallbackResolver;
+        _innertubeService = innertubeService ?? YoutubeInnertubeService(),
+        _fallbackResolver = fallbackResolver ?? PipedStreamResolver();
 
   @override
   Future<StreamInfo> resolve(
@@ -68,6 +72,24 @@ class YoutubeStreamResolver implements IStreamResolver {
         });
 
         candidateIds = scored.map((v) => v.id.value).toList();
+      }
+ 
+      // Priority 0: Instant InnerTube direct audio resolution (bypasses watch-page scraping & IP rate limits)
+      for (final candId in candidateIds) {
+        try {
+          final data = await _innertubeService.queryPlayer(candId);
+          if (data != null) {
+            final stream = _innertubeService.extractStream(
+              candId,
+              data,
+              quality: quality,
+            );
+            if (stream != null) {
+              _cache[cacheKey] = stream;
+              return stream;
+            }
+          }
+        } catch (_) {}
       }
 
       StreamManifest? manifest;
@@ -383,5 +405,6 @@ class YoutubeStreamResolver implements IStreamResolver {
 
   void close() {
     _yt.close();
+    _innertubeService.close();
   }
 }
