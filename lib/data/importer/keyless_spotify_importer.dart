@@ -7,10 +7,12 @@ import '../../domain/entities/spotify_import.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_spotify_importer.dart';
+import '../services/spotify_auth_service.dart';
 
 class KeylessSpotifyImporter implements ISpotifyImporter {
   final http.Client _client;
   final ICatalogRepository? _catalog;
+  final SpotifyAuthService? _authService;
 
   static const String _defaultUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -22,12 +24,10 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   static const int _maxTracks = 10000;
   static const int _maxRetries = 3;
 
-  /// Longest pause the retry loop is ever allowed to take. Spotify's shared
-  /// anonymous quota returns `Retry-After` values measured in hours, which
-  /// used to park the import on "Connecting to Spotify..." indefinitely.
+  /// Longest pause the retry loop is ever allowed to take.
   static const int _maxBackoffSeconds = 5;
 
-  /// Hard ceiling for the whole Web API pass, independent of request timeouts.
+  /// Hard ceiling for the whole Web API pass.
   static const Duration _fetchDeadline = Duration(seconds: 60);
 
   String? _accessToken;
@@ -36,25 +36,49 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   KeylessSpotifyImporter({
     http.Client? client,
     ICatalogRepository? catalog,
+    SpotifyAuthService? authService,
   })  : _client = client ?? http.Client(),
-        _catalog = catalog;
+        _catalog = catalog,
+        _authService = authService;
 
   @override
   String? extractPlaylistId(String input) {
+    return parseSpotifyEntity(input)?.id;
+  }
+
+  @override
+  SpotifyEntityRef? parseSpotifyEntity(String input) {
     final clean = input.trim();
     if (clean.isEmpty) return null;
 
-    // Pattern 1: spotify:playlist:37i9dQZF1DXcBWIGoYBM5M
-    final uriMatch = RegExp(r'spotify:playlist:([a-zA-Z0-9]+)').firstMatch(clean);
-    if (uriMatch != null) return uriMatch.group(1);
+    // 1. Spotify URI: spotify:(playlist|album|track):([a-zA-Z0-9]+)
+    final uriMatch =
+        RegExp(r'spotify:(playlist|album|track):([a-zA-Z0-9]+)').firstMatch(clean);
+    if (uriMatch != null) {
+      final typeStr = uriMatch.group(1);
+      final id = uriMatch.group(2)!;
+      final type = typeStr == 'album'
+          ? SpotifyEntityType.album
+          : (typeStr == 'track' ? SpotifyEntityType.track : SpotifyEntityType.playlist);
+      return SpotifyEntityRef(id: id, type: type);
+    }
 
-    // Pattern 2: https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M or embed/playlist
-    final urlMatch = RegExp(r'open\.spotify\.com/(?:embed/)?playlist/([a-zA-Z0-9]+)').firstMatch(clean);
-    if (urlMatch != null) return urlMatch.group(1);
+    // 2. Open Spotify web URL with locale/intl, embed, or user prefixes
+    final urlMatch =
+        RegExp(r'open\.spotify\.com/(?:.+/)?(playlist|album|track)/([a-zA-Z0-9]+)')
+            .firstMatch(clean);
+    if (urlMatch != null) {
+      final typeStr = urlMatch.group(1);
+      final id = urlMatch.group(2)!;
+      final type = typeStr == 'album'
+          ? SpotifyEntityType.album
+          : (typeStr == 'track' ? SpotifyEntityType.track : SpotifyEntityType.playlist);
+      return SpotifyEntityRef(id: id, type: type);
+    }
 
-    // Pattern 3: Direct 22-character Spotify base62 ID
+    // 3. Direct 22-character Spotify base62 ID (default to playlist)
     if (RegExp(r'^[a-zA-Z0-9]{22}$').hasMatch(clean)) {
-      return clean;
+      return SpotifyEntityRef(id: clean, type: SpotifyEntityType.playlist);
     }
 
     return null;
@@ -65,22 +89,66 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     String urlOrId, {
     void Function(int loaded)? onProgress,
   }) async {
-    final playlistId = extractPlaylistId(urlOrId);
-    if (playlistId == null) {
-      throw FormatException('Invalid Spotify playlist URL or ID: "$urlOrId"');
+    var cleanInput = urlOrId.trim();
+    if (cleanInput.isEmpty) {
+      throw FormatException('Invalid Spotify URL or ID: "$urlOrId"');
     }
 
-    // The embed page supplies metadata (name, description, cover) and the first
-    // 100 tracks. Spotify truncates its server-rendered trackList at 100, so the
-    // complete list is paged in from the Web API afterwards.
-    final playlist = await _fetchViaEmbed(playlistId);
+    // Resolve short links like spotify.link by following redirection
+    if (cleanInput.contains('spotify.link')) {
+      try {
+        final headResp = await _client.get(
+          Uri.parse(cleanInput),
+          headers: {'User-Agent': _defaultUserAgent},
+        ).timeout(const Duration(seconds: 6));
+        if (headResp.request?.url != null) {
+          cleanInput = headResp.request!.url.toString();
+        }
+      } catch (_) {}
+    }
+
+    final entity = parseSpotifyEntity(cleanInput);
+    if (entity == null) {
+      throw FormatException('Invalid Spotify playlist, album, or track URL: "$urlOrId"');
+    }
+
+    // Album support: fetch all album tracks keylessly
+    if (entity.type == SpotifyEntityType.album) {
+      return _fetchAlbumViaEmbed(entity.id);
+    }
+
+    // Track support: fetch single track keylessly
+    if (entity.type == SpotifyEntityType.track) {
+      return _fetchTrackViaEmbed(entity.id);
+    }
+
+    // Playlist support: primary Next.js embed page
+    SpotifyImportPlaylist playlist;
+    try {
+      playlist = await _fetchViaEmbed(entity.id);
+    } catch (_) {
+      // Secondary fallback: Web player page scraper
+      final webResult = await _fetchViaWebPlayer(entity.id);
+      if (webResult != null && webResult.tracks.isNotEmpty) {
+        playlist = webResult;
+      } else {
+        playlist = await _fetchViaOEmbed(entity.id);
+      }
+    }
+
+    // For playlists: attempt Web API pagination (using user token if logged in, or anonymous token)
+    String? userToken;
+    try {
+      userToken = await _authService?.getValidAccessToken();
+    } catch (_) {}
 
     List<SpotifyTrackItem>? fullTracks;
     String? notice;
     try {
       fullTracks = await _fetchAllTracks(
-        playlistId,
+        entity.id,
         coverUrl: playlist.coverUrl,
+        authToken: userToken,
         onProgress: onProgress,
       ).timeout(_fetchDeadline);
     } on FormatException catch (e) {
@@ -113,8 +181,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     }
 
     final body = utf8.decode(response.bodyBytes, allowMalformed: true);
-
-    // Parse Next.js __NEXT_DATA__ script block
     final nextDataMatch = RegExp(r'<script id="__NEXT_DATA__" type="application/json">([^<]+)<\/script>').firstMatch(body);
     if (nextDataMatch != null) {
       final jsonStr = nextDataMatch.group(1)!;
@@ -125,7 +191,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         final name = (entity['name'] ?? entity['title'] ?? 'Imported Spotify Playlist') as String;
         final description = entity['subtitle'] as String?;
 
-        // Extract playlist cover image
         String? coverUrl;
         final coverArtSources = entity['coverArt']?['sources'] as List<dynamic>?;
         if (coverArtSources != null && coverArtSources.isNotEmpty) {
@@ -167,8 +232,206 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       }
     }
 
-    // Secondary Fallback: oEmbed metadata if embed HTML structure changes
     return _fetchViaOEmbed(playlistId);
+  }
+
+  Future<SpotifyImportPlaylist?> _fetchViaWebPlayer(String playlistId) async {
+    try {
+      final uri = Uri.parse('https://open.spotify.com/playlist/$playlistId');
+      final response = await _client.get(uri, headers: {
+        'User-Agent': _defaultUserAgent,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      }).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) return null;
+      final html = utf8.decode(response.bodyBytes, allowMalformed: true);
+
+      final scripts = RegExp(r'<script[^>]*>(.*?)</script>', dotAll: true).allMatches(html);
+      for (final m in scripts) {
+        final content = m.group(1)?.trim();
+        if (content == null || content.length < 200) continue;
+        try {
+          final decoded = utf8.decode(base64.decode(content), allowMalformed: true);
+          final json = jsonDecode(decoded) as Map<String, dynamic>;
+          final entities = json['entities']?['items'] as Map<String, dynamic>?;
+          final playlistObj = entities?['spotify:playlist:$playlistId'] ?? entities?.values.firstOrNull;
+          if (playlistObj is Map<String, dynamic>) {
+            final name = (playlistObj['name'] as String?) ?? 'Imported Spotify Playlist';
+            final desc = playlistObj['description'] as String?;
+            String? cover;
+            final images = playlistObj['images'] as List<dynamic>?;
+            if (images != null && images.isNotEmpty && images.first is Map) {
+              cover = (images.first as Map)['url'] as String?;
+            }
+            final contentMap = playlistObj['content'] as Map<String, dynamic>?;
+            final items = contentMap?['items'] as List<dynamic>?;
+            if (items != null && items.isNotEmpty) {
+              final tracks = <SpotifyTrackItem>[];
+              for (final it in items) {
+                final trackData = it['itemV2']?['data'];
+                if (trackData is Map<String, dynamic>) {
+                  final uri = (trackData['uri'] as String?) ?? '';
+                  final title = (trackData['name'] as String?) ?? 'Unknown Title';
+                  final artistsList = trackData['artists']?['items'] as List<dynamic>?;
+                  final artistNames = artistsList
+                          ?.map((a) => a['profile']?['name'] as String?)
+                          .whereType<String>()
+                          .join(', ') ??
+                      'Unknown Artist';
+                  final durationMs = (trackData['duration']?['totalMilliseconds'] as num?)?.toInt() ?? 0;
+                  String? trackCover;
+                  final albumArt = trackData['albumOfTrack']?['coverArt']?['sources'] as List<dynamic>?;
+                  if (albumArt != null && albumArt.isNotEmpty) {
+                    trackCover = albumArt.first['url'] as String?;
+                  }
+                  tracks.add(SpotifyTrackItem(
+                    spotifyUri: uri,
+                    title: title,
+                    artist: artistNames.isEmpty ? 'Unknown Artist' : artistNames,
+                    duration: Duration(milliseconds: durationMs),
+                    coverUrl: trackCover ?? cover,
+                  ));
+                }
+              }
+              if (tracks.isNotEmpty) {
+                return SpotifyImportPlaylist(
+                  id: playlistId,
+                  name: name,
+                  description: desc,
+                  coverUrl: cover,
+                  tracks: tracks,
+                );
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<SpotifyImportPlaylist> _fetchAlbumViaEmbed(String albumId) async {
+    final embedUri = Uri.parse('https://open.spotify.com/embed/album/$albumId');
+    final response = await _client
+        .get(embedUri, headers: {'User-Agent': _defaultUserAgent})
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw HttpException(
+        'Failed to load Spotify album (HTTP ${response.statusCode})',
+        uri: embedUri,
+      );
+    }
+
+    final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+    final nextDataMatch = RegExp(r'<script id="__NEXT_DATA__" type="application/json">([^<]+)<\/script>').firstMatch(body);
+    if (nextDataMatch == null) {
+      throw const FormatException('Could not extract album metadata from Spotify.');
+    }
+
+    final jsonStr = nextDataMatch.group(1)!;
+    final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final entity = parsed['props']?['pageProps']?['state']?['data']?['entity'];
+    if (entity == null) {
+      throw const FormatException('Empty Spotify album data received.');
+    }
+
+    final title = (entity['name'] ?? entity['title'] ?? 'Spotify Album') as String;
+    final artist = (entity['subtitle'] as String?) ?? 'Various Artists';
+    String? coverUrl;
+    final visualImages = entity['visualIdentity']?['image'] as List<dynamic>?;
+    if (visualImages != null && visualImages.isNotEmpty) {
+      coverUrl = visualImages.last['url'] as String?;
+    }
+
+    final rawTracks = (entity['trackList'] as List<dynamic>?) ?? [];
+    final List<SpotifyTrackItem> tracks = [];
+    for (final t in rawTracks) {
+      final uri = (t['uri'] as String?) ?? '';
+      final trackTitle = (t['title'] as String?) ?? 'Unknown Title';
+      final trackArtist = (t['subtitle'] as String?) ?? artist;
+      final durationMs = (t['duration'] as num?)?.toInt() ?? 0;
+
+      tracks.add(
+        SpotifyTrackItem(
+          spotifyUri: uri,
+          title: trackTitle,
+          artist: trackArtist,
+          duration: Duration(milliseconds: durationMs),
+          coverUrl: coverUrl,
+        ),
+      );
+    }
+
+    return SpotifyImportPlaylist(
+      id: albumId,
+      name: '$title (Album)',
+      description: 'Album by $artist',
+      coverUrl: coverUrl,
+      tracks: tracks,
+    );
+  }
+
+  Future<SpotifyImportPlaylist> _fetchTrackViaEmbed(String trackId) async {
+    final embedUri = Uri.parse('https://open.spotify.com/embed/track/$trackId');
+    final response = await _client
+        .get(embedUri, headers: {'User-Agent': _defaultUserAgent})
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw HttpException(
+        'Failed to load Spotify track (HTTP ${response.statusCode})',
+        uri: embedUri,
+      );
+    }
+
+    final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+    final nextDataMatch = RegExp(r'<script id="__NEXT_DATA__" type="application/json">([^<]+)<\/script>').firstMatch(body);
+    if (nextDataMatch == null) {
+      throw const FormatException('Could not extract track data from Spotify.');
+    }
+
+    final jsonStr = nextDataMatch.group(1)!;
+    final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final entity = parsed['props']?['pageProps']?['state']?['data']?['entity'];
+    if (entity == null) {
+      throw const FormatException('Empty Spotify track data received.');
+    }
+
+    final title = (entity['name'] ?? entity['title'] ?? 'Spotify Track') as String;
+    String artist = 'Unknown Artist';
+    final artistsList = entity['artists'] as List<dynamic>?;
+    if (artistsList != null && artistsList.isNotEmpty) {
+      artist = artistsList.map((a) => a['name'] as String? ?? '').where((n) => n.isNotEmpty).join(', ');
+    } else if (entity['subtitle'] != null) {
+      artist = entity['subtitle'] as String;
+    }
+
+    String? coverUrl;
+    final visual = entity['visualIdentity'];
+    if (visual is List && visual.isNotEmpty) {
+      coverUrl = visual.first['url'] as String?;
+    } else if (visual is Map && visual['image'] is List) {
+      coverUrl = (visual['image'] as List).last['url'] as String?;
+    }
+
+    final durationMs = (entity['duration'] as num?)?.toInt() ?? 0;
+
+    final track = SpotifyTrackItem(
+      spotifyUri: (entity['uri'] as String?) ?? 'spotify:track:$trackId',
+      title: title,
+      artist: artist,
+      duration: Duration(milliseconds: durationMs),
+      coverUrl: coverUrl,
+    );
+
+    return SpotifyImportPlaylist(
+      id: trackId,
+      name: title,
+      description: 'Single track by $artist',
+      coverUrl: coverUrl,
+      tracks: [track],
+    );
   }
 
   Future<SpotifyImportPlaylist> _fetchViaOEmbed(String playlistId) async {
@@ -184,7 +447,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     }
 
     final json = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true)) as Map<String, dynamic>;
-
     final title = (json['title'] as String?) ?? 'Spotify Playlist';
     final thumbnail = json['thumbnail_url'] as String?;
 
@@ -197,7 +459,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     );
   }
 
-  /// Anonymous embed session token. Cached until shortly before it expires.
   Future<String> _getAccessToken({bool forceRefresh = false}) async {
     final now = DateTime.now();
     if (!forceRefresh &&
@@ -234,16 +495,14 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     return token;
   }
 
-  /// Pages the Web API until the whole playlist is collected.
-  ///
-  /// Spotify-owned editorial playlists (`37i9…`) return 404 for anonymous
-  /// tokens — callers fall back to the embed page's first 100 tracks then.
   Future<List<SpotifyTrackItem>> _fetchAllTracks(
     String playlistId, {
     String? coverUrl,
+    String? authToken,
     void Function(int loaded)? onProgress,
   }) async {
-    var token = await _getAccessToken();
+    var token = authToken ?? await _getAccessToken();
+    final isUserToken = authToken != null;
     final tracks = <SpotifyTrackItem>[];
     var offset = 0;
     var tokenRefreshed = false;
@@ -255,7 +514,7 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
 
       var response = await _getWithRetry(uri, token);
 
-      if (response.statusCode == 401 && !tokenRefreshed) {
+      if (response.statusCode == 401 && !tokenRefreshed && !isUserToken) {
         tokenRefreshed = true;
         token = await _getAccessToken(forceRefresh: true);
         response = await _getWithRetry(uri, token);
@@ -301,11 +560,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     return tracks;
   }
 
-  /// GET with retry on transient 5xx errors and short 429 windows.
-  ///
-  /// A rate-limit response asking for a long wait is returned straight to the
-  /// caller: the anonymous quota is shared and sleeping for hours would freeze
-  /// the UI, so the caller falls back to the embed page instead.
   Future<http.Response> _getWithRetry(Uri uri, String token) async {
     const retryable = {500, 502, 503, 504};
     for (var attempt = 0;; attempt++) {
@@ -398,7 +652,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   double _calculateMatchScore(SpotifyTrackItem target, Track candidate) {
     double score = 0.0;
 
-    // 1. Title Similarity (0.0 to 0.45)
     final cleanTargetTitle = _normalizeString(target.title);
     final cleanCandTitle = _normalizeString(candidate.title);
 
@@ -415,7 +668,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       }
     }
 
-    // 2. Artist Similarity (0.0 to 0.35)
     final cleanTargetArtist = _normalizeString(target.artist);
     final cleanCandArtist = _normalizeString(candidate.artist);
 
@@ -432,7 +684,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       }
     }
 
-    // 3. Duration match (0.0 to 0.20)
     if (target.duration > Duration.zero && candidate.duration > Duration.zero) {
       final diff = (target.duration.inSeconds - candidate.duration.inSeconds).abs();
       if (diff <= 5) {
@@ -445,7 +696,6 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         score -= 0.15;
       }
     } else {
-      // Default neutral duration score if candidate duration unknown
       score += 0.10;
     }
 

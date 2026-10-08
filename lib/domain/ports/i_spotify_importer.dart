@@ -5,6 +5,9 @@ abstract class ISpotifyImporter {
   /// Extracts the Spotify playlist ID from a URL, embed link, or URI.
   String? extractPlaylistId(String input);
 
+  /// Parses a Spotify URL, URI, or ID into an entity reference (playlist, album, or track).
+  SpotifyEntityRef? parseSpotifyEntity(String input);
+
   /// Keylessly fetches public Spotify playlist metadata and tracks.
   ///
   /// [onProgress] reports the running track count after every fetched page.

@@ -1,5 +1,32 @@
 import 'track.dart';
 
+enum SpotifyEntityType {
+  playlist,
+  album,
+  track,
+}
+
+class SpotifyEntityRef {
+  final String id;
+  final SpotifyEntityType type;
+
+  const SpotifyEntityRef({required this.id, required this.type});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SpotifyEntityRef &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          type == other.type;
+
+  @override
+  int get hashCode => id.hashCode ^ type.hashCode;
+
+  @override
+  String toString() => 'SpotifyEntityRef(id: $id, type: $type)';
+}
+
 class SpotifyTrackItem {
   final String spotifyUri;
   final String title;

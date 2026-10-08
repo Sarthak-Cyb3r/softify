@@ -43,11 +43,54 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
         .loadAndMatchPlaylist(_urlController.text);
   }
 
+  Future<void> _connectSpotify() async {
+    final authService = ref.read(spotifyAuthServiceProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Opening browser to connect Spotify account...'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+    final success = await authService.login();
+    ref.invalidate(spotifyAuthStateProvider);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Successfully connected to Spotify!'),
+          backgroundColor: Color(0xFF1DB954),
+        ),
+      );
+      if (_urlController.text.isNotEmpty) {
+        _onLoadTapped();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Spotify connection was canceled or timed out.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _disconnectSpotify() async {
+    final authService = ref.read(spotifyAuthServiceProvider);
+    await authService.logout();
+    ref.invalidate(spotifyAuthStateProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Disconnected Spotify account.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final importState = ref.watch(spotifyImportNotifierProvider);
     final notifier = ref.read(spotifyImportNotifierProvider.notifier);
     final audioHandler = ref.watch(audioHandlerProvider);
+    final authState = ref.watch(spotifyAuthStateProvider);
+    final isLoggedIn = authState.value?.isLoggedIn ?? false;
+    final userName = authState.value?.userName;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -76,6 +119,61 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
             ),
           ],
         ),
+        actions: [
+          if (isLoggedIn)
+            PopupMenuButton<String>(
+              tooltip: 'Spotify Account ($userName)',
+              icon: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1DB954).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF1DB954).withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle, color: Color(0xFF1DB954), size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      userName ?? 'Linked',
+                      style: const TextStyle(color: Color(0xFF1DB954), fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              onSelected: (val) {
+                if (val == 'disconnect') _disconnectSpotify();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text('Connected as ${userName ?? "User"}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'disconnect',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 18, color: Colors.redAccent),
+                      SizedBox(width: 8),
+                      Text('Disconnect Spotify', style: TextStyle(color: Colors.redAccent)),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF1DB954),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              icon: const Icon(Icons.account_circle_outlined, size: 18),
+              label: const Text('Connect', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              onPressed: _connectSpotify,
+            ),
+        ],
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -307,19 +405,45 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, color: Colors.amber, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        importState.playlist!.notice!,
-                        style: const TextStyle(
-                          color: Colors.amber,
-                          fontSize: 13,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            importState.playlist!.notice!,
+                            style: const TextStyle(
+                              color: Colors.amber,
+                              fontSize: 13,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!isLoggedIn) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF1DB954),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.login, size: 16),
+                          label: const Text('Connect Spotify Account'),
+                          onPressed: _connectSpotify,
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

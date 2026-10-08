@@ -72,6 +72,36 @@ void main() {
         equals('37i9dQZF1DXcBWIGoYBM5M'),
       );
 
+      // Modern localized Spotify URLs (intl-en, intl-es, intl-hi)
+      expect(
+        importer.extractPlaylistId('https://open.spotify.com/intl-en/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abcd'),
+        equals('37i9dQZF1DXcBWIGoYBM5M'),
+      );
+      expect(
+        importer.extractPlaylistId('https://open.spotify.com/intl-es/playlist/37i9dQZF1DXcBWIGoYBM5M'),
+        equals('37i9dQZF1DXcBWIGoYBM5M'),
+      );
+
+      // User playlists
+      expect(
+        importer.extractPlaylistId('https://open.spotify.com/user/spotify/playlist/37i9dQZF1DXcBWIGoYBM5M'),
+        equals('37i9dQZF1DXcBWIGoYBM5M'),
+      );
+
+      // Albums and tracks
+      expect(
+        importer.extractPlaylistId('https://open.spotify.com/album/4m2880jivSbbyEGAKfITCa'),
+        equals('4m2880jivSbbyEGAKfITCa'),
+      );
+      expect(
+        importer.extractPlaylistId('spotify:album:4m2880jivSbbyEGAKfITCa'),
+        equals('4m2880jivSbbyEGAKfITCa'),
+      );
+      expect(
+        importer.extractPlaylistId('https://open.spotify.com/track/11hcBLPtbMp4aQI6zGQLub'),
+        equals('11hcBLPtbMp4aQI6zGQLub'),
+      );
+
       // Invalid links
       expect(importer.extractPlaylistId('https://youtube.com/watch?v=123'), isNull);
       expect(importer.extractPlaylistId('not-a-valid-url'), isNull);
@@ -471,6 +501,105 @@ void main() {
 
       expect(playlist.tracks.length, equals(1));
       expect(playlist.tracks.first.spotifyUri, equals('spotify:track:api1'));
+    });
+
+    test('imports Spotify album cleanly as a playlist without API limits', () async {
+      final client = MockClient((request) async {
+        if (request.url.toString().contains('/embed/album/4m2880jivSbbyEGAKfITCa')) {
+          final data = {
+            'props': {
+              'pageProps': {
+                'state': {
+                  'data': {
+                    'entity': {
+                      'name': 'Random Access Memories',
+                      'subtitle': 'Daft Punk',
+                      'visualIdentity': {
+                        'image': [
+                          {'url': 'https://i.scdn.co/image/ram-cover'}
+                        ]
+                      },
+                      'trackList': [
+                        {
+                          'uri': 'spotify:track:ram1',
+                          'title': 'Give Life Back to Music',
+                          'subtitle': 'Daft Punk',
+                          'duration': 275000,
+                        },
+                        {
+                          'uri': 'spotify:track:ram2',
+                          'title': 'Get Lucky',
+                          'subtitle': 'Daft Punk',
+                          'duration': 369000,
+                        },
+                      ],
+                    }
+                  }
+                }
+              }
+            }
+          };
+          return http.Response(
+            '<html><body><script id="__NEXT_DATA__" type="application/json">${jsonEncode(data)}</script></body></html>',
+            200,
+            headers: {'content-type': 'text/html; charset=utf-8'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist(
+        'https://open.spotify.com/intl-en/album/4m2880jivSbbyEGAKfITCa?si=xyz',
+      );
+
+      expect(playlist.name, equals('Random Access Memories (Album)'));
+      expect(playlist.description, contains('Daft Punk'));
+      expect(playlist.tracks.length, equals(2));
+      expect(playlist.tracks.first.title, equals('Give Life Back to Music'));
+      expect(playlist.tracks.last.title, equals('Get Lucky'));
+    });
+
+    test('imports single Spotify track link cleanly as a 1-track import', () async {
+      final client = MockClient((request) async {
+        if (request.url.toString().contains('/embed/track/11hcBLPtbMp4aQI6zGQLub')) {
+          final data = {
+            'props': {
+              'pageProps': {
+                'state': {
+                  'data': {
+                    'entity': {
+                      'name': 'Patient Zero',
+                      'artists': [{'name': 'Taylor Swift'}],
+                      'duration': 225000,
+                      'visualIdentity': [
+                        {'url': 'https://i.scdn.co/image/track-cover'}
+                      ],
+                      'uri': 'spotify:track:11hcBLPtbMp4aQI6zGQLub',
+                    }
+                  }
+                }
+              }
+            }
+          };
+          return http.Response(
+            '<html><body><script id="__NEXT_DATA__" type="application/json">${jsonEncode(data)}</script></body></html>',
+            200,
+            headers: {'content-type': 'text/html; charset=utf-8'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final playlist = await importer.fetchPlaylist(
+        'https://open.spotify.com/track/11hcBLPtbMp4aQI6zGQLub',
+      );
+
+      expect(playlist.name, equals('Patient Zero'));
+      expect(playlist.tracks.length, equals(1));
+      expect(playlist.tracks.first.title, equals('Patient Zero'));
+      expect(playlist.tracks.first.artist, equals('Taylor Swift'));
     });
   });
 }

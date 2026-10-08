@@ -7,9 +7,28 @@ import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_spotify_importer.dart';
 import 'player_providers.dart';
 
+import '../../data/services/spotify_auth_service.dart';
+
+final spotifyAuthServiceProvider = Provider<SpotifyAuthService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return SpotifyAuthService(db: db);
+});
+
 final spotifyImporterProvider = Provider<ISpotifyImporter>((ref) {
   final catalog = ref.watch(catalogRepositoryProvider);
-  return KeylessSpotifyImporter(catalog: catalog);
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  return KeylessSpotifyImporter(
+    catalog: catalog,
+    authService: authService,
+  );
+});
+
+final spotifyAuthStateProvider =
+    FutureProvider.autoDispose<({bool isLoggedIn, String? userName})>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  final userName = await authService.getConnectedUserName();
+  return (isLoggedIn: loggedIn, userName: userName);
 });
 
 enum SpotifyImportStatus {
@@ -169,9 +188,13 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         playlist: playlist.copyWith(tracks: results),
       );
     } catch (e) {
+      final cleanMessage = e
+          .toString()
+          .replaceAll('Exception: ', '')
+          .replaceAll('FormatException: ', '');
       state = state.copyWith(
         status: SpotifyImportStatus.error,
-        errorMessage: 'Failed to import playlist: ${e.toString().replaceAll('Exception: ', '')}',
+        errorMessage: cleanMessage,
       );
     }
   }
