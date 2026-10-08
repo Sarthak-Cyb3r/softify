@@ -13,7 +13,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-170%2F170%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Release](https://img.shields.io/badge/Release-v2.0.0-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
+[![Release](https://img.shields.io/badge/Release-v2.0.1-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -97,7 +97,7 @@ chmod +x install.sh
 | `Ctrl` + `,` | Open Settings Screen |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v2.0.0-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v2.0.1-Android-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
