@@ -30,8 +30,15 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
   /// Hard ceiling for the whole Web API pass.
   static const Duration _fetchDeadline = Duration(seconds: 60);
 
+  static const String _pathfinderUrl =
+      'https://api-partner.spotify.com/pathfinder/v1/query';
+  static const String _playlistSha256 =
+      'a65e12194ed5fc443a1cdebed5fabe33ca5b07b987185d63c72483867ad13cb4';
+
   String? _accessToken;
   DateTime? _tokenExpiresAt;
+  String? _sessionToken;
+  DateTime? _sessionTokenExpiresAt;
 
   KeylessSpotifyImporter({
     http.Client? client,
@@ -136,29 +143,49 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       }
     }
 
-    // For playlists: attempt Web API pagination (using user token if logged in, or anonymous token)
-    String? userToken;
+    // For playlists:
+    // 1. Try Pathfinder GraphQL pagination first (primary high-capacity engine: supports 10,000+ tracks)
+    String? token;
     try {
-      userToken = await _authService?.getValidAccessToken();
+      token = await _getBestAvailableToken();
     } catch (_) {}
 
+    if (token != null && token.isNotEmpty) {
+      try {
+        final pathfinderTracks = await _fetchViaPathfinder(
+          entity.id,
+          token: token,
+          fallbackCover: playlist.coverUrl,
+          onProgress: onProgress,
+        ).timeout(_fetchDeadline);
+
+        if (pathfinderTracks != null && pathfinderTracks.isNotEmpty) {
+          if (pathfinderTracks.length >= playlist.tracks.length) {
+            return playlist.copyWith(tracks: pathfinderTracks);
+          }
+        }
+      } catch (_) {
+        // Fall back to Web API pagination
+      }
+    }
+
+    // 2. Fall back to Web API pagination (/items and /tracks)
     List<SpotifyTrackItem>? fullTracks;
     String? notice;
     try {
       fullTracks = await _fetchAllTracks(
         entity.id,
         coverUrl: playlist.coverUrl,
-        authToken: userToken,
+        authToken: token,
         onProgress: onProgress,
       ).timeout(_fetchDeadline);
     } on FormatException catch (e) {
       notice = e.message;
       fullTracks = null;
     } catch (_) {
-      notice =
-          'Spotify\u2019s Web API is unavailable right now \u2014 imported the '
-          'first ${playlist.tracks.length} tracks only. Retry later for the '
-          'full list.';
+      notice = playlist.tracks.length >= 100
+          ? 'Spotify returned the first ${playlist.tracks.length} tracks.'
+          : null;
       fullTracks = null;
     }
 
@@ -185,7 +212,23 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     if (nextDataMatch != null) {
       final jsonStr = nextDataMatch.group(1)!;
       final parsed = jsonDecode(jsonStr) as Map<String, dynamic>;
-      final entity = parsed['props']?['pageProps']?['state']?['data']?['entity'];
+      final state = parsed['props']?['pageProps']?['state'] as Map<String, dynamic>?;
+
+      // Extract high-trust session token from embed payload
+      final session = state?['settings']?['session'] as Map<String, dynamic>?;
+      if (session != null) {
+        final sToken = session['accessToken'] as String?;
+        final expiresMs =
+            (session['accessTokenExpirationTimestampMs'] as num?)?.toInt() ?? 0;
+        if (sToken != null && sToken.isNotEmpty) {
+          _sessionToken = sToken;
+          _sessionTokenExpiresAt = expiresMs > 0
+              ? DateTime.fromMillisecondsSinceEpoch(expiresMs)
+              : DateTime.now().add(const Duration(minutes: 30));
+        }
+      }
+
+      final entity = state?['data']?['entity'];
 
       if (entity != null) {
         final name = (entity['name'] ?? entity['title'] ?? 'Imported Spotify Playlist') as String;
@@ -495,6 +538,194 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     return token;
   }
 
+  Future<String?> _getBestAvailableToken() async {
+    // 1. User OAuth token if logged in
+    try {
+      final userToken = await _authService?.getValidAccessToken();
+      if (userToken != null && userToken.isNotEmpty) {
+        return userToken;
+      }
+    } catch (_) {}
+
+    // 2. High-trust session token extracted from embed page payload
+    final now = DateTime.now();
+    if (_sessionToken != null &&
+        _sessionTokenExpiresAt != null &&
+        now.isBefore(_sessionTokenExpiresAt!.subtract(const Duration(seconds: 30)))) {
+      return _sessionToken;
+    }
+
+    // 3. Fallback to embed/api/token
+    try {
+      return await _getAccessToken();
+    } catch (_) {
+      return _sessionToken;
+    }
+  }
+
+  Future<List<SpotifyTrackItem>?> _fetchViaPathfinder(
+    String playlistId, {
+    required String token,
+    String? fallbackCover,
+    void Function(int loaded)? onProgress,
+  }) async {
+    final tracks = <SpotifyTrackItem>[];
+    var offset = 0;
+    const limit = 100;
+    int? totalCount;
+
+    var currentToken = token;
+    var tokenRefreshed = false;
+
+    while (tracks.length < _maxTracks) {
+      final variables = jsonEncode({
+        'uri': 'spotify:playlist:$playlistId',
+        'offset': offset,
+        'limit': limit,
+        'enableWatchFeedEntrypoint': false,
+      });
+      final extensions = jsonEncode({
+        'persistedQuery': {
+          'version': 1,
+          'sha256Hash': _playlistSha256,
+        },
+      });
+
+      final uri = Uri.parse(_pathfinderUrl).replace(queryParameters: {
+        'operationName': 'fetchPlaylist',
+        'variables': variables,
+        'extensions': extensions,
+      });
+
+      var response = await _getWithRetry(uri, currentToken);
+      if (response.statusCode == 401 && !tokenRefreshed) {
+        tokenRefreshed = true;
+        try {
+          currentToken = await _getAccessToken(forceRefresh: true);
+          response = await _getWithRetry(uri, currentToken);
+        } catch (_) {}
+      }
+      if (response.statusCode != 200) {
+        break;
+      }
+
+      final json = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true))
+          as Map<String, dynamic>;
+      final playlistV2 = json['data']?['playlistV2'] as Map<String, dynamic>?;
+      if (playlistV2 == null) break;
+
+      final content = playlistV2['content'] as Map<String, dynamic>?;
+      if (content == null) break;
+
+      totalCount ??= (content['totalCount'] as num?)?.toInt();
+      final items = (content['items'] as List<dynamic>?) ?? [];
+      if (items.isEmpty) break;
+
+      for (final item in items) {
+        if (item is! Map<String, dynamic>) continue;
+        final track = _mapPathfinderItem(item, fallbackCover);
+        if (track != null) {
+          tracks.add(track);
+        }
+      }
+
+      onProgress?.call(tracks.length);
+
+      offset += items.length;
+      if (totalCount != null && offset >= totalCount) break;
+      if (items.length < limit) break;
+    }
+
+    return tracks.isNotEmpty ? tracks : null;
+  }
+
+  SpotifyTrackItem? _mapPathfinderItem(
+    Map<String, dynamic> item,
+    String? fallbackCover,
+  ) {
+    // 1. Primary extraction from itemV2
+    final itemV2Data = item['itemV2']?['data'];
+    if (itemV2Data is Map<String, dynamic>) {
+      final name = itemV2Data['name'] as String?;
+      if (name != null && name.isNotEmpty) {
+        final uri = (itemV2Data['uri'] as String?) ?? '';
+        final durationMs =
+            (itemV2Data['trackDuration']?['totalMilliseconds'] as num?)?.toInt() ?? 0;
+
+        final artistItems =
+            (itemV2Data['artists']?['items'] as List<dynamic>?) ?? [];
+        final artistNames = artistItems
+            .map((a) {
+              if (a is! Map<String, dynamic>) return '';
+              final profile = a['profile'];
+              if (profile is Map<String, dynamic>) {
+                return (profile['name'] as String?) ?? '';
+              }
+              return (a['name'] as String?) ?? '';
+            })
+            .where((n) => n.isNotEmpty)
+            .join(', ');
+
+        String? cover = fallbackCover;
+        final coverSources =
+            itemV2Data['albumOfTrack']?['coverArt']?['sources'] as List<dynamic>?;
+        if (coverSources != null && coverSources.isNotEmpty) {
+          final first = coverSources.first;
+          if (first is Map<String, dynamic>) {
+            cover = first['url'] as String? ?? cover;
+          }
+        }
+
+        return SpotifyTrackItem(
+          spotifyUri: uri,
+          title: name,
+          artist: artistNames.isEmpty ? 'Unknown Artist' : artistNames,
+          duration: Duration(milliseconds: durationMs),
+          coverUrl: cover,
+        );
+      }
+    }
+
+    // 2. Fallback extraction from itemV3
+    final itemV3Data = item['itemV3']?['data'];
+    if (itemV3Data is Map<String, dynamic>) {
+      final idTrait = itemV3Data['identityTrait'] as Map<String, dynamic>?;
+      final name = idTrait?['name'] as String?;
+      if (name != null && name.isNotEmpty) {
+        final uri = (itemV3Data['uri'] as String?) ?? '';
+        final durSeconds =
+            (itemV3Data['consumptionExperienceTrait']?['duration']?['seconds'] as num?)?.toInt() ?? 0;
+
+        final contributors =
+            (idTrait?['contributors']?['items'] as List<dynamic>?) ?? [];
+        final artistNames = contributors
+            .map((c) => (c['name'] as String?) ?? '')
+            .where((n) => n.isNotEmpty)
+            .join(', ');
+
+        String? cover = fallbackCover;
+        final visTrait = itemV3Data['visualIdentityTrait'];
+        if (visTrait is Map<String, dynamic>) {
+          final squareCover =
+              visTrait['squareCoverImage']?['image']?['data']?['sources'] as List<dynamic>?;
+          if (squareCover != null && squareCover.isNotEmpty && squareCover.first is Map) {
+            cover = (squareCover.first as Map)['url'] as String? ?? cover;
+          }
+        }
+
+        return SpotifyTrackItem(
+          spotifyUri: uri,
+          title: name,
+          artist: artistNames.isEmpty ? 'Unknown Artist' : artistNames,
+          duration: Duration(seconds: durSeconds),
+          coverUrl: cover,
+        );
+      }
+    }
+
+    return null;
+  }
+
   Future<List<SpotifyTrackItem>> _fetchAllTracks(
     String playlistId, {
     String? coverUrl,
@@ -502,19 +733,25 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     void Function(int loaded)? onProgress,
   }) async {
     var token = authToken ?? await _getAccessToken();
-    final isUserToken = authToken != null;
     final tracks = <SpotifyTrackItem>[];
     var offset = 0;
     var tokenRefreshed = false;
 
     while (tracks.length < _maxTracks) {
-      final uri = Uri.parse(
-        '$_apiBase/playlists/$playlistId/tracks?offset=$offset&limit=$_pageSize',
+      var uri = Uri.parse(
+        '$_apiBase/playlists/$playlistId/items?offset=$offset&limit=$_pageSize',
       );
 
       var response = await _getWithRetry(uri, token);
 
-      if (response.statusCode == 401 && !tokenRefreshed && !isUserToken) {
+      if (response.statusCode == 404) {
+        uri = Uri.parse(
+          '$_apiBase/playlists/$playlistId/tracks?offset=$offset&limit=$_pageSize',
+        );
+        response = await _getWithRetry(uri, token);
+      }
+
+      if (response.statusCode == 401 && !tokenRefreshed) {
         tokenRefreshed = true;
         token = await _getAccessToken(forceRefresh: true);
         response = await _getWithRetry(uri, token);
@@ -546,7 +783,7 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
 
       for (final item in items) {
         if (item is! Map<String, dynamic>) continue;
-        final track = item['track'];
+        final track = item['track'] ?? item['item'];
         if (track is! Map<String, dynamic>) continue;
         tracks.add(_mapApiTrack(track, coverUrl));
       }

@@ -1,12 +1,33 @@
-# Softify — Change Log (v2.0.0 → v2.0.3)
+# Softify — Change Log (v2.0.0 → v2.0.4)
 
 Everything changed in this session, grouped by workstream. Commits are on `main`.
 
 | | |
 |---|---|
-| **Releases shipped** | `v2.0.1`, `v2.0.2`, `v2.0.3` (all built, signed and verified in CI) |
-| **Version** | `2.0.0+200` → `2.0.3+203` |
-| **Tests** | 177 → **181 passing** (`flutter analyze`: 0 issues) |
+| **Releases shipped** | `v2.0.1`, `v2.0.2`, `v2.0.3`, `v2.0.4` (all built, signed and verified in CI) |
+| **Version** | `2.0.0+200` → `2.0.4+204` |
+| **Tests** | 177 → **182 passing** (`flutter analyze`: 0 issues) |
+
+---
+
+## 0. Spotify Playlist Importer — Unlimited Pagination via Pathfinder GraphQL (v2.0.4)
+
+**Problem:** Even after connecting Spotify OAuth, playlist imports were still capped at 100 tracks because the legacy Web API endpoint (`/v1/playlists/{id}/tracks`) has been deprecated by Spotify and rate-limited to 429 quota exhaustion or blocked with 403 Forbidden for development apps.
+
+**Fix:**
+- Implemented **Spotify Pathfinder GraphQL** engine (`https://api-partner.spotify.com/pathfinder/v1/query`, operation `fetchPlaylist`, SHA-256 `a65e12194ed5fc443a1cdebed5fabe33ca5b07b987185d63c72483867ad13cb4`).
+- Extracts high-trust session tokens directly from the embed page's `__NEXT_DATA__` state, or uses user OAuth tokens.
+- Paginates seamlessly past 100 tracks through 500, 1,000, and up to 10,000 tracks without hitting 429 rate limits or developer app restrictions.
+- Live-tested against real Spotify playlists:
+  - `37i9dQZF1DX4sWSpwq3LiO` (Peaceful Piano): **All 150 tracks imported** (was capped at 100).
+  - `0vvXsWCC9xrXsKd4FyS8kM` (Lofi Girl): **All 500 tracks imported** (was capped at 100).
+- Secondary fallback to Web API `/items` and `/tracks`, and tertiary fallback to embed tracks.
+
+**Files:**
+- `lib/data/importer/keyless_spotify_importer.dart`
+- `test/spotify_importer_test.dart`
+- `pubspec.yaml`
+- `lib/presentation/providers/settings_providers.dart`
 
 ---
 

@@ -601,5 +601,116 @@ void main() {
       expect(playlist.tracks.first.title, equals('Patient Zero'));
       expect(playlist.tracks.first.artist, equals('Taylor Swift'));
     });
+
+    test('paginates large playlists (>100 tracks) seamlessly using Spotify Pathfinder GraphQL', () async {
+      final client = MockClient((request) async {
+        final url = request.url.toString();
+        if (url.contains('/embed/playlist/')) {
+          final data = {
+            'props': {
+              'pageProps': {
+                'state': {
+                  'settings': {
+                    'session': {
+                      'accessToken': 'mock-pathfinder-token',
+                      'accessTokenExpirationTimestampMs':
+                          DateTime.now().millisecondsSinceEpoch + 3600000,
+                    }
+                  },
+                  'data': {
+                    'entity': {
+                      'name': 'Massive 150 Track Playlist',
+                      'subtitle': 'Curator',
+                      'coverArt': {
+                        'sources': [
+                          {'url': 'https://i.scdn.co/image/playlist-cover'}
+                        ]
+                      },
+                      'trackList': List.generate(
+                        100,
+                        (i) => {
+                          'uri': 'spotify:track:embed$i',
+                          'title': 'Embed Track $i',
+                          'subtitle': 'Embed Artist $i',
+                          'duration': (i + 1) * 1000,
+                        },
+                      ),
+                    }
+                  }
+                }
+              }
+            }
+          };
+          return http.Response(
+            '<html><body><script id="__NEXT_DATA__" type="application/json">${jsonEncode(data)}</script></body></html>',
+            200,
+            headers: {'content-type': 'text/html; charset=utf-8'},
+          );
+        }
+        if (url.contains('/pathfinder/v1/query')) {
+          final rawVariables = request.url.queryParameters['variables'] ?? '{}';
+          final vars = jsonDecode(rawVariables) as Map<String, dynamic>;
+          final offset = vars['offset'] as int? ?? 0;
+
+          final itemsCount = offset == 0 ? 100 : (offset == 100 ? 50 : 0);
+          final items = List.generate(itemsCount, (i) {
+            final idx = offset + i;
+            return {
+              'itemV2': {
+                'data': {
+                  '__typename': 'Track',
+                  'name': 'Pathfinder Song $idx',
+                  'uri': 'spotify:track:pf$idx',
+                  'trackDuration': {'totalMilliseconds': 210000 + idx},
+                  'artists': {
+                    'items': [
+                      {
+                        'profile': {'name': 'Artist $idx'}
+                      }
+                    ]
+                  },
+                  'albumOfTrack': {
+                    'coverArt': {
+                      'sources': [
+                        {'url': 'https://i.scdn.co/image/pf-cover-$idx'}
+                      ]
+                    }
+                  }
+                }
+              }
+            };
+          });
+
+          final responseData = {
+            'data': {
+              'playlistV2': {
+                'content': {
+                  'totalCount': 150,
+                  'items': items,
+                }
+              }
+            }
+          };
+          return jsonResponse(responseData, 200);
+        }
+        return http.Response('not found', 404);
+      });
+
+      final importer = KeylessSpotifyImporter(client: client);
+      final progress = <int>[];
+      final playlist = await importer.fetchPlaylist(
+        'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+        onProgress: progress.add,
+      );
+
+      expect(playlist.name, equals('Massive 150 Track Playlist'));
+      expect(playlist.tracks.length, equals(150));
+      expect(playlist.tracks.first.title, equals('Pathfinder Song 0'));
+      expect(playlist.tracks.first.artist, equals('Artist 0'));
+      expect(playlist.tracks[99].title, equals('Pathfinder Song 99'));
+      expect(playlist.tracks[149].title, equals('Pathfinder Song 149'));
+      expect(playlist.tracks[149].artist, equals('Artist 149'));
+      expect(progress, equals([100, 150]));
+    });
   });
 }
