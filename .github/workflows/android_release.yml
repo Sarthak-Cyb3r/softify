@@ -1,0 +1,159 @@
+name: Release Build (Android)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      upload_release:
+        description: 'Upload APK to GitHub Releases'
+        required: false
+        default: 'true'
+        type: string
+
+jobs:
+  build-android:
+    name: Build Android Universal APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java Development Kit
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Generate Drift Code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Verify Tag Matches pubspec Version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          PUBSPEC_LINE="$(grep '^version:' pubspec.yaml | head -n1 || true)"
+          if [ -z "$PUBSPEC_LINE" ]; then
+            echo "::error::No 'version:' entry found in pubspec.yaml."
+            exit 1
+          fi
+          PUBSPEC_VERSION="$(printf '%s' "$PUBSPEC_LINE" | awk '{print $2}')"
+          PUBSPEC_VERSION="${PUBSPEC_VERSION%%+*}"   # strip build metadata after '+'
+          echo "pubspec_version=$PUBSPEC_VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_version=$PUBSPEC_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$EVENT_NAME" != "push" ]; then
+            echo "Manual workflow_dispatch run — skipping tag comparison, using pubspec version $PUBSPEC_VERSION."
+            exit 0
+          fi
+
+          TAG_VERSION="${GITHUB_REF_NAME#v}"          # strip leading 'v'
+          if [ "$TAG_VERSION" != "$PUBSPEC_VERSION" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' does not match pubspec.yaml version '$PUBSPEC_VERSION'. Bump 'version:' in pubspec.yaml before tagging."
+            exit 1
+          fi
+          echo "Tag '$GITHUB_REF_NAME' matches pubspec version '$PUBSPEC_VERSION'."
+
+      # NOTE: `secrets` is not a valid context in a step-level `if:`, so the
+      # empty-secret case is handled inside the script instead.
+      - name: Write Release Keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "::warning::Release keystore secrets are not configured (ANDROID_KEYSTORE_BASE64 is empty) — this APK will be signed with the ephemeral debug keystore, so updates will NOT install over existing installs. Set ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD to fix this."
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/softify-release.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=softify-release.jks\n' \
+            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_PASSWORD" "${ANDROID_KEY_ALIAS:-softify}" \
+            > android/key.properties
+          echo "Wrote android/app/softify-release.jks and android/key.properties (alias: ${ANDROID_KEY_ALIAS:-softify})."
+
+      - name: Run Tests & Analysis
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      - name: Audit APK Signing Certificate
+        shell: bash
+        run: |
+          set -uo pipefail
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          APKSIGNER="$(ls "${ANDROID_HOME:-/nonexistent}/build-tools"/*/apksigner 2>/dev/null | sort -V | tail -n1 || true)"
+          if [ -n "$APKSIGNER" ] && [ -f "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs "$APK" || echo "::warning::apksigner verify reported a problem (see log above)."
+          else
+            echo "apksigner not found under \$ANDROID_HOME/build-tools — skipping certificate printout."
+          fi
+
+      - name: Compute APK SHA-256
+        id: checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          HASH="$(sha256sum "$APK" | awk '{print $1}')"
+          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
+          echo "sha-256: $HASH"
+
+      - name: Stage Release APK
+        id: stage
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            REF="$GITHUB_REF_NAME"
+          else
+            REF="v${{ steps.version.outputs.release_version }}"
+          fi
+          STAGED="Softify-${REF}-Android-Universal.apk"
+          cp "build/app/outputs/flutter-apk/app-release.apk" "$STAGED"
+          echo "filename=$STAGED" >> "$GITHUB_OUTPUT"
+          ls -lh "$STAGED"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.stage.outputs.filename }}
+          path: ${{ steps.stage.outputs.filename }}
+
+      - name: Attach APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.upload_release == 'true')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.stage.outputs.filename }}
+          body: |
+            Android Universal APK (signed via CI, when release keystore secrets are configured).
+
+            sha-256: ${{ steps.checksum.outputs.sha256 }}
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

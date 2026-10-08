@@ -60,7 +60,7 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v2.0.0-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Universal)** | `.apk` | All Android devices (ARM64, ARMv7, x86_64) • Android 8.0+ | ~65 MB | [`Softify-v2.0.1-Android-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **Linux (Desktop / CLI Installer)** | Script / Binary | Ubuntu, Debian, Arch, Fedora, openSUSE (x86_64, ARM64) | ~45 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 
@@ -100,6 +100,34 @@ chmod +x install.sh
 1. Download **`Softify-v2.0.0-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
+
+### Android release signing
+Production APKs **must** be signed with the stable release keystore `android/app/softify-release.jks` (key alias `softify`) configured through `android/key.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`). Both files are **gitignored** and must never be committed.
+
+CI injects them at build time from GitHub Actions secrets:
+
+| Secret | Contents |
+| :--- | :--- |
+| `ANDROID_KEYSTORE_BASE64` | Base64-encoded `softify-release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias (defaults to `softify`) |
+| `ANDROID_KEY_PASSWORD` | Key password |
+
+```bash
+# Store the keystore as base64
+base64 -w0 android/app/softify-release.jks | gh secret set ANDROID_KEYSTORE_BASE64
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
+
+> [!WARNING]
+> **Losing the keystore or its passwords makes future updates impossible** — there is no recovery path. Back it up offline (encrypted drive / password manager), separate from the repository. If the signing key ever changes, existing installs will show a signature conflict **once**; users must uninstall and reinstall the app.
+
+**Cutting an Android release**: bump `version:` in `pubspec.yaml`, tag `vX.Y.Z`, push the tag — the *Release Build (Android)* workflow enforces that the tag matches `pubspec.yaml`, then builds, verifies, and uploads the signed APK:
+```bash
+git tag v2.0.1 && git push origin v2.0.1
+```
 
 ### 🍎 iOS Installation & Sideloading Guide:
 Because Softify is open-source and not distributed via the App Store, iOS users can install **`Softify-iOS-Universal.ipa`** using standard iOS sideloading tools:
