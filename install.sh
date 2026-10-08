@@ -57,7 +57,7 @@ print_banner() {
   ███████║╚██████╔╝██║        ██║   ██║██║        ██║   
   ╚══════╝ ╚═════╝ ╚═╝        ╚═╝   ╚═╝╚═╝        ╚═╝   
 EOF
-    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v2.0.0${COLOR_RESET}\n"
+    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v2.0.4${COLOR_RESET}\n"
     printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Fast Local-First UI${COLOR_RESET}\n\n"
 }
 
@@ -76,8 +76,6 @@ if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/pubspec.yaml" ]]; then
     LOCAL_REPO="$SCRIPT_DIR"
 elif [[ -f "$(pwd)/pubspec.yaml" && $(grep -c "name: softify" "$(pwd)/pubspec.yaml" 2>/dev/null || true) -gt 0 ]]; then
     LOCAL_REPO="$(pwd)"
-elif [[ -f "${HOME}/Desktop/Projects/softify/pubspec.yaml" ]]; then
-    LOCAL_REPO="${HOME}/Desktop/Projects/softify"
 fi
 
 INSTALL_PREFIX="${HOME}/.local"
@@ -349,10 +347,16 @@ trap cleanup_temp EXIT
 
 BUNDLE_DIR=""
 GITHUB_REPO="Sarthak-Cyb3r/softify"
-RELEASE_TAG="v2.0.0"
+RELEASE_TAG="${SOFTIFY_VERSION:-latest}"
 TARBALL_NAME="Softify-Linux-x64.tar.gz"
-RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${TARBALL_NAME}"
-LATEST_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${TARBALL_NAME}"
+
+if [[ "$RELEASE_TAG" == "latest" ]]; then
+    RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${TARBALL_NAME}"
+    FALLBACK_URL=""
+else
+    RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${TARBALL_NAME}"
+    FALLBACK_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${TARBALL_NAME}"
+fi
 
 try_download_prebuilt() {
     log_info "Searching for pre-built Linux release package (${RELEASE_TAG})..."
@@ -361,9 +365,9 @@ try_download_prebuilt() {
     local http_code
     http_code=$(curl -sIL -o /dev/null -w "%{http_code}" "$download_url" 2>/dev/null || echo "000")
 
-    if [[ "$http_code" != "200" && "$http_code" != "302" ]]; then
+    if [[ "$http_code" != "200" && "$http_code" != "302" ]] && [[ -n "$FALLBACK_URL" ]]; then
         # Try latest release fallback
-        download_url="$LATEST_URL"
+        download_url="$FALLBACK_URL"
         http_code=$(curl -sIL -o /dev/null -w "%{http_code}" "$download_url" 2>/dev/null || echo "000")
     fi
 
