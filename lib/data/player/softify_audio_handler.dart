@@ -667,6 +667,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
       // Track failed after fresh resolution
       _consecutiveFailures++;
+      if (_currentTrackSource == 'youtube_link') {
+        rethrow;
+      }
       if (_consecutiveFailures < 3) {
         await _libraryRepo.markTrackUnavailable(track.id, true);
         await skipToNext();
