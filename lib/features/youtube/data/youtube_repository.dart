@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../../../data/resolvers/youtube_innertube_service.dart';
+import '../../../data/resolvers/youtube_stream_resolver.dart';
 import '../../../domain/entities/track.dart';
 import '../domain/youtube_failure.dart';
 
@@ -32,6 +33,10 @@ class YoutubeRepository {
       final innerTubeData = await _innertubeService.queryPlayer(videoId);
       if (innerTubeData != null) {
         final meta = _innertubeService.parseMetadata(videoId, innerTubeData);
+        final stream = _innertubeService.extractStream(videoId, innerTubeData);
+        if (stream != null) {
+          YoutubeStreamResolver.precacheStream('yt_${meta.videoId}', stream);
+        }
         return Track(
           id: 'yt_${meta.videoId}',
           sourceId: 'yt_${meta.videoId}',

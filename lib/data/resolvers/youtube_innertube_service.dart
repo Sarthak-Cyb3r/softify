@@ -31,13 +31,31 @@ class YoutubeInnertubeService {
   static const String _playerEndpoint =
       'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
 
+  static const String androidUserAgent =
+      'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip';
+  static const String iosUserAgent =
+      'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)';
+
+  bool _isPlayable(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    final playability = data['playabilityStatus'] as Map<String, dynamic>? ?? {};
+    final status = (playability['status'] as String? ?? '').toUpperCase();
+    if (status != 'OK') return false;
+    final streamingData = data['streamingData'] as Map<String, dynamic>?;
+    if (streamingData == null) return false;
+    final adaptive = streamingData['adaptiveFormats'] as List<dynamic>? ?? [];
+    final formats = streamingData['formats'] as List<dynamic>? ?? [];
+    return adaptive.any((f) => f is Map<String, dynamic> && (f['url'] as String? ?? '').isNotEmpty) ||
+        formats.any((f) => f is Map<String, dynamic> && (f['url'] as String? ?? '').isNotEmpty);
+  }
+
   /// Fetches video metadata and direct stream info via YouTube's InnerTube API.
   /// Completely bypasses web watch-page HTML scraping and bot-detection rate limits.
   Future<Map<String, dynamic>?> queryPlayer(String videoId) async {
     // 1. Try Android Client
     final androidData = await _postPlayer(
       videoId: videoId,
-      userAgent: 'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip',
+      userAgent: androidUserAgent,
       clientContext: {
         'clientName': 'ANDROID',
         'clientVersion': '20.10.38',
@@ -49,13 +67,12 @@ class YoutubeInnertubeService {
       },
     );
 
-    if (androidData != null) return androidData;
+    if (androidData != null && _isPlayable(androidData)) return androidData;
 
     // 2. Fallback to iOS Client
-    return _postPlayer(
+    final iosData = await _postPlayer(
       videoId: videoId,
-      userAgent:
-          'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)',
+      userAgent: iosUserAgent,
       clientContext: {
         'clientName': 'IOS',
         'clientVersion': '20.10.4',
@@ -68,6 +85,10 @@ class YoutubeInnertubeService {
         'utcOffsetMinutes': 0,
       },
     );
+
+    if (iosData != null && _isPlayable(iosData)) return iosData;
+
+    return androidData ?? iosData;
   }
 
   Future<Map<String, dynamic>?> _postPlayer({
@@ -189,38 +210,65 @@ class YoutubeInnertubeService {
         })
         .toList();
 
-    if (audioFormats.isEmpty) return null;
+    Map<String, dynamic>? selected;
+    String streamContainer = 'm4a';
+    String streamCodec = 'aac';
 
-    // Prioritize M4A (AAC itag 140 / 139) for container consistency
-    final m4aFormats = audioFormats
-        .where((f) => (f['mimeType'] as String? ?? '').contains('mp4'))
-        .toList();
-    final candidates = m4aFormats.isNotEmpty ? m4aFormats : audioFormats;
+    if (audioFormats.isNotEmpty) {
+      // Prioritize M4A (AAC itag 140 / 139) for container consistency
+      final m4aFormats = audioFormats
+          .where((f) => (f['mimeType'] as String? ?? '').contains('mp4'))
+          .toList();
+      final candidates = m4aFormats.isNotEmpty ? m4aFormats : audioFormats;
 
-    final targetBitrate =
-        quality == AudioQualityPreset.standard ? 130000 : 55000;
+      final targetBitrate =
+          quality == AudioQualityPreset.standard ? 130000 : 55000;
 
-    candidates.sort((a, b) {
-      final bitA = (a['bitrate'] as num?)?.toInt() ?? 0;
-      final bitB = (b['bitrate'] as num?)?.toInt() ?? 0;
-      return (bitA - targetBitrate)
-          .abs()
-          .compareTo((bitB - targetBitrate).abs());
-    });
+      candidates.sort((a, b) {
+        final bitA = (a['bitrate'] as num?)?.toInt() ?? 0;
+        final bitB = (b['bitrate'] as num?)?.toInt() ?? 0;
+        return (bitA - targetBitrate)
+            .abs()
+            .compareTo((bitB - targetBitrate).abs());
+      });
 
-    final selected = candidates.first;
+      selected = candidates.first;
+      final mime = (selected['mimeType'] as String? ?? '');
+      streamContainer = mime.contains('mp4') ? 'm4a' : 'webm';
+      streamCodec = mime.contains('mp4') ? 'aac' : 'opus';
+    } else {
+      // Fallback: Check progressive muxed formats with audio (itag 18, 22)
+      final formats = streamingData['formats'] as List<dynamic>? ?? [];
+      final muxedWithUrl = formats
+          .whereType<Map<String, dynamic>>()
+          .where((f) => (f['url'] as String? ?? '').isNotEmpty)
+          .toList();
+
+      if (muxedWithUrl.isNotEmpty) {
+        // Tag 18 is 360p MP4 with AAC audio, lightweight and universally playable
+        final tag18 = muxedWithUrl.where((f) => f['itag'] == 18).toList();
+        selected = tag18.isNotEmpty ? tag18.first : muxedWithUrl.first;
+        streamContainer = 'm4a';
+        streamCodec = 'aac';
+      }
+    }
+
+    if (selected == null) return null;
+
     final streamUrl = Uri.parse(selected['url'] as String);
     final bitrate = (selected['bitrate'] as num?)?.toInt() ?? 128000;
-    final mime = (selected['mimeType'] as String? ?? '');
     final itag = selected['itag'];
 
     return StreamInfo(
       url: streamUrl,
-      container: mime.contains('mp4') ? 'm4a' : 'webm',
+      container: streamContainer,
       bitrate: bitrate,
-      codec: mime.contains('mp4') ? 'aac' : 'opus',
+      codec: streamCodec,
       expiresAt: DateTime.now().add(const Duration(hours: 4)),
       providerName: 'innertube_android (itag $itag)',
+      headers: const {
+        'User-Agent': androidUserAgent,
+      },
       sizeBytes: (selected['contentLength'] as String?) != null
           ? int.tryParse(selected['contentLength'] as String)
           : null,

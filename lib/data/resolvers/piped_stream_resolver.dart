@@ -47,9 +47,10 @@ class PipedStreamResolver implements IStreamResolver {
       final instanceUrl = _instances[instanceIndex];
 
       try {
+        final rawVideoId = track.sourceId.replaceFirst('yt_', '').trim();
         final streamInfo = await _fetchFromInstance(
           instanceUrl,
-          track.sourceId,
+          rawVideoId,
           quality,
         );
 

@@ -13,9 +13,17 @@ class YoutubeStreamResolver implements IStreamResolver {
   final YoutubeInnertubeService _innertubeService;
   final PipedStreamResolver? _fallbackResolver;
   final Map<String, StreamInfo> _cache = {};
+  static final Map<String, StreamInfo> _staticCache = {};
 
   static const String youtubeUserAgent =
       'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip';
+
+  /// Pre-caches a freshly resolved stream so subsequent playback requires 0 extra network calls.
+  static void precacheStream(String sourceId, StreamInfo stream) {
+    for (final q in AudioQualityPreset.values) {
+      _staticCache['${sourceId}_${q.name}'] = stream;
+    }
+  }
 
   YoutubeStreamResolver({
     YoutubeExplode? yt,
@@ -32,10 +40,14 @@ class YoutubeStreamResolver implements IStreamResolver {
     bool forceFresh = false,
   }) async {
     final cacheKey = '${track.sourceId}_${quality.name}';
-    if (!forceFresh && _cache.containsKey(cacheKey)) {
-      final cached = _cache[cacheKey]!;
-      if (!cached.isExpired) {
-        return cached;
+    if (!forceFresh) {
+      if (_cache.containsKey(cacheKey)) {
+        final cached = _cache[cacheKey]!;
+        if (!cached.isExpired) return cached;
+      }
+      if (_staticCache.containsKey(cacheKey)) {
+        final cached = _staticCache[cacheKey]!;
+        if (!cached.isExpired) return cached;
       }
     }
 
@@ -181,7 +193,9 @@ class YoutubeStreamResolver implements IStreamResolver {
         codec: selected is AudioStreamInfo ? selected.audioCodec : 'aac',
         expiresAt: DateTime.now().add(const Duration(minutes: 45)),
         providerName: 'youtube_explode (itag ${selected.tag})',
-        headers: null,
+        headers: const {
+          'User-Agent': youtubeUserAgent,
+        },
         sizeBytes: selected.size.totalBytes,
       );
 
