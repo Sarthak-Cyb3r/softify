@@ -119,12 +119,21 @@ class YoutubeController extends Notifier<YoutubeState> {
         );
 
         audioHandler.setTrackSource('youtube_link');
-        await audioHandler.setQueue(tracks, startIndex: 0);
-
         state = YoutubeReady(
           track: firstTrack,
           playlistId: parsed.playlistId,
           playlistTracks: tracks,
+        );
+
+        unawaited(
+          audioHandler.setQueue(tracks, startIndex: 0).catchError((e) {
+            if (_submissionCounter == currentSubmissionId) {
+              state = YoutubeErrorState(
+                GenericYoutubeFailure(e.toString()),
+                lastInput: input,
+              );
+            }
+          }),
         );
       } else if (parsed is VideoLink || parsed is VideoInPlaylist) {
         final String videoId;
@@ -154,15 +163,30 @@ class YoutubeController extends Notifier<YoutubeState> {
           lastPlayedAt: DateTime.now().millisecondsSinceEpoch,
         );
 
-        audioHandler.setTrackSource('youtube_link');
-        await audioHandler.playTrack(track);
+        state = YoutubeReady(
+          track: track,
+          playlistId: playlistId,
+          playlistTracks: null,
+          startSeconds: startSeconds,
+        );
 
-        if (startSeconds != null && startSeconds > 0) {
-          await audioHandler.seek(Duration(seconds: startSeconds));
-        }
+        audioHandler.setTrackSource('youtube_link');
+        unawaited(
+          audioHandler.playTrack(track).then((_) {
+            if (startSeconds != null && startSeconds > 0) {
+              return audioHandler.seek(Duration(seconds: startSeconds));
+            }
+          }).catchError((e) {
+            if (_submissionCounter == currentSubmissionId) {
+              state = YoutubeErrorState(
+                GenericYoutubeFailure(e.toString()),
+                lastInput: input,
+              );
+            }
+          }),
+        );
 
         // If part of playlist, lazily fetch playlist tracks for "Play whole playlist"
-        List<Track>? playlistTracks;
         if (playlistId != null) {
           unawaited(
             repo.fetchPlaylistTracks(playlistId).then((plTracks) {
@@ -181,13 +205,6 @@ class YoutubeController extends Notifier<YoutubeState> {
             }).catchError((_) {}),
           );
         }
-
-        state = YoutubeReady(
-          track: track,
-          playlistId: playlistId,
-          playlistTracks: playlistTracks,
-          startSeconds: startSeconds,
-        );
       }
     } on YoutubeException catch (e) {
       if (_submissionCounter == currentSubmissionId) {

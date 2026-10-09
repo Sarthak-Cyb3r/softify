@@ -114,7 +114,10 @@ class YoutubeInnertubeService {
         return null;
       }
 
-      final body = await res.transform(utf8.decoder).join();
+      final body = await res
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 6));
       return jsonDecode(body) as Map<String, dynamic>;
     } catch (_) {
       return null;
@@ -267,7 +270,8 @@ class YoutubeInnertubeService {
       expiresAt: DateTime.now().add(const Duration(hours: 4)),
       providerName: 'innertube_android (itag $itag)',
       headers: const {
-        'User-Agent': androidUserAgent,
+        'User-Agent':
+            'com.google.android.youtube/20.10.38 (Linux; U; Android 11)',
       },
       sizeBytes: (selected['contentLength'] as String?) != null
           ? int.tryParse(selected['contentLength'] as String)
@@ -289,7 +293,10 @@ class YoutubeInnertubeService {
       }
       if (res.statusCode != 200) return null;
 
-      final body = await res.transform(utf8.decoder).join();
+      final body = await res
+          .transform(utf8.decoder)
+          .join()
+          .timeout(const Duration(seconds: 5));
       final json = jsonDecode(body) as Map<String, dynamic>;
 
       return InnertubeMetadata(

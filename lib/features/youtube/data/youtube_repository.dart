@@ -56,7 +56,9 @@ class YoutubeRepository {
 
     // Tier 2: YoutubeExplode client
     try {
-      final video = await _yt.videos.get(VideoId(videoId));
+      final video = await _yt.videos
+          .get(VideoId(videoId))
+          .timeout(const Duration(seconds: 5));
 
       if (video.isLive) {
         throw const YoutubeException(LiveStreamFailure());

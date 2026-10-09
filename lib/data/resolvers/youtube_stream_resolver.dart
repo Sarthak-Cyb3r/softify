@@ -16,7 +16,7 @@ class YoutubeStreamResolver implements IStreamResolver {
   static final Map<String, StreamInfo> _staticCache = {};
 
   static const String youtubeUserAgent =
-      'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip';
+      'com.google.android.youtube/20.10.38 (Linux; U; Android 11)';
 
   /// Pre-caches a freshly resolved stream so subsequent playback requires 0 extra network calls.
   static void precacheStream(String sourceId, StreamInfo stream) {
@@ -61,7 +61,8 @@ class YoutubeStreamResolver implements IStreamResolver {
       } else {
         // Query YouTube and rank results by official production metrics
         final query = '${track.title} ${track.artist}'.trim();
-        final searchResults = await _yt.search.search(query);
+        final searchResults =
+            await _yt.search.search(query).timeout(const Duration(seconds: 5));
         if (searchResults.isEmpty) {
           throw Exception('No YouTube search results found for "$query"');
         }
@@ -108,10 +109,12 @@ class YoutubeStreamResolver implements IStreamResolver {
       String? resolvedVideoId;
       for (final candId in candidateIds) {
         try {
-          manifest = await _yt.videos.streamsClient.getManifest(
-            candId,
-            requireWatchPage: false,
-          );
+          manifest = await _yt.videos.streamsClient
+              .getManifest(
+                candId,
+                requireWatchPage: false,
+              )
+              .timeout(const Duration(seconds: 5));
           resolvedVideoId = candId;
           break;
         } catch (_) {
@@ -122,14 +125,17 @@ class YoutubeStreamResolver implements IStreamResolver {
       // If all initial candidates failed manifest (e.g. geo/age restrictions), try fallback search
       if (manifest == null) {
         final query = '${track.title} ${track.artist} official audio'.trim();
-        final fallbackResults = await _yt.search.search(query);
+        final fallbackResults =
+            await _yt.search.search(query).timeout(const Duration(seconds: 5));
         for (final alt in fallbackResults.take(3)) {
           if (candidateIds.contains(alt.id.value)) continue;
           try {
-            manifest = await _yt.videos.streamsClient.getManifest(
-              alt.id.value,
-              requireWatchPage: false,
-            );
+            manifest = await _yt.videos.streamsClient
+                .getManifest(
+                  alt.id.value,
+                  requireWatchPage: false,
+                )
+                .timeout(const Duration(seconds: 5));
             resolvedVideoId = alt.id.value;
             break;
           } catch (_) {
