@@ -485,8 +485,9 @@ mkdir -p "${DESKTOP_DIR}"
 mkdir -p "${ICON_DIR_SVG}"
 mkdir -p "${ICON_DIR_PNG}"
 
-# Copy bundle files
-cp -r "${BUNDLE_DIR}/." "${APP_DIR}/"
+# Copy bundle files safely (unlink existing binary if running)
+rm -f "${APP_DIR}/softify"
+cp -rf "${BUNDLE_DIR}/." "${APP_DIR}/"
 chmod +x "${APP_DIR}/softify"
 
 # Create CLI launcher script
