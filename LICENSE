@@ -22,5 +22,19 @@ SOFTWARE.
 
 ---
 
-DISCLAIMER:
-This project is built for educational purposes and personal use. It is not affiliated with, endorsed by, or connected to Spotify, YouTube, or JioSaavn. No copyrighted content is hosted on this app.
+### LEGAL NOTICE & DISCLAIMER
+
+1. **Non-Commercial & Educational Research**:
+   Softify is an independent, non-commercial, open-source software project developed strictly for educational research, fair interoperability, and personal evaluation.
+
+2. **No Content Hosting**:
+   Softify does not host, store, index, cache, or distribute any copyrighted audio, video, or digital media files on any servers. All metadata retrieval and media stream parsing occur strictly locally on the end-user's device using publicly accessible endpoints and third-party content distribution networks.
+
+3. **Third-Party Services & Trademarks**:
+   All trademarks, service marks, trade names, product names, and logos appearing within the application (including but not limited to YouTube, Spotify, JioSaavn, Apple, and LRCLIB) are the property of their respective owners. Softify is not affiliated with, authorized by, sponsored by, or in any way officially associated with YouTube, Google LLC, Spotify AB, Saavn Media Pvt. Ltd., Apple Inc., or any of their affiliates or subsidiaries.
+
+4. **API & Engine Disclaimer**:
+   Network scrapers, reverse-engineered player interfaces, and stream resolvers are experimental research tools for interoperability. The developers and contributors assume no liability for service changes, network throttling, API deprecations, or any third-party service disruptions.
+
+5. **User Responsibility**:
+   Users of this software are solely responsible for ensuring that their playback, downloading, and general usage comply with applicable local laws, copyright regulations, and the terms of service of any third-party providers accessed.
