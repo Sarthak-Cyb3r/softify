@@ -22,7 +22,7 @@ import 'settings_screen.dart';
 import 'equalizer_screen.dart';
 import '../providers/settings_providers.dart';
 import '../../data/database/app_database.dart';
-import '../../data/services/auto_update_service.dart';
+import '../../domain/ports/i_update_checker.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
 
 /// Centralized application tab icon registry for consistent styling and quick theme swaps
@@ -105,8 +105,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         },
       );
 
-      // 2. Silent Auto Background Update Check (No prompts, headless)
-      AutoUpdateService().runSilentBackgroundUpdateCheck();
+      // 2. Automated background update check & prompt
+      _checkAutoUpdate();
     });
   }
 
@@ -518,6 +518,96 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         ],
       ),
     );
+  }
+
+  Future<void> _checkAutoUpdate() async {
+    await Future.delayed(const Duration(milliseconds: 2500));
+    if (!mounted) return;
+
+    try {
+      final currentVersion = ref.read(currentAppVersionProvider);
+      final checker = ref.read(updateCheckerProvider);
+      final release = await checker.checkForUpdate(currentVersion);
+      if (release == null || !mounted) return;
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 12),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF141915),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0x334EDEA3)),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.system_update_rounded, color: Color(0xFF4EDEA3), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Update ${release.tagName} available',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          action: SnackBarAction(
+            label: 'Install',
+            textColor: const Color(0xFF4EDEA3),
+            onPressed: () => _installUpdate(release),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _installUpdate(AppReleaseInfo release) async {
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF141915),
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4EDEA3)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Downloading ${release.tagName}...',
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final checker = ref.read(updateCheckerProvider);
+      await checker.downloadAndInstallUpdate(release);
+    } catch (e) {
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red.shade900,
+          content: Text('Update failed: $e', style: const TextStyle(color: Colors.white)),
+        ),
+      );
+    }
   }
 }
 

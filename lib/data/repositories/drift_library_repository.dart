@@ -534,9 +534,23 @@ class DriftLibraryRepository implements ILibraryRepository {
   @override
   Future<void> recordPlayHistory(Track track, double completedRatio) async {
     await upsertTrack(track);
+
+    final normTitle = track.title.toLowerCase().trim();
+    final normArtist = track.artist.toLowerCase().trim();
+
+    final matchingRows = await (_db.select(_db.tracks)
+          ..where((t) =>
+              t.id.equals(track.id) |
+              (t.title.lower().equals(normTitle) &
+                  t.artist.lower().equals(normArtist))))
+        .get();
+
+    final trackIds = matchingRows.map((t) => t.id).toSet()..add(track.id);
+
     await (_db.delete(_db.playHistories)
-          ..where((ph) => ph.trackId.equals(track.id)))
+          ..where((ph) => ph.trackId.isIn(trackIds)))
         .go();
+
     await _db.into(_db.playHistories).insert(
           PlayHistoriesCompanion.insert(
             trackId: track.id,
@@ -558,19 +572,29 @@ class DriftLibraryRepository implements ILibraryRepository {
         OrderingTerm.desc(_db.playHistories.playedAt),
         OrderingTerm.desc(_db.playHistories.id),
       ])
-      ..limit(limit);
+      ..limit(limit * 4);
 
     return query.watch().map((rows) {
-      return rows.map((r) {
+      final seenTrackKeys = <String>{};
+      final items = <HistoryItem>[];
+      for (final r in rows) {
         final ph = r.readTable(_db.playHistories);
         final t = r.readTable(_db.tracks);
-        return HistoryItem(
-          id: ph.id,
-          track: _trackFromRow(t),
-          playedAt: DateTime.fromMillisecondsSinceEpoch(ph.playedAt),
-          completedRatio: ph.completedRatio,
-        );
-      }).toList();
+        final track = _trackFromRow(t);
+        final key = '${track.title.toLowerCase().trim()}_${track.artist.toLowerCase().trim()}';
+        if (seenTrackKeys.add(key) && seenTrackKeys.add(track.id)) {
+          items.add(
+            HistoryItem(
+              id: ph.id,
+              track: track,
+              playedAt: DateTime.fromMillisecondsSinceEpoch(ph.playedAt),
+              completedRatio: ph.completedRatio,
+            ),
+          );
+          if (items.length >= limit) break;
+        }
+      }
+      return items;
     });
   }
 

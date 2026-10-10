@@ -7,6 +7,7 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
@@ -91,6 +92,9 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
 
     return Scaffold(
       backgroundColor: tokens.background,
+      bottomNavigationBar: MediaQuery.of(context).size.width < 800
+          ? const SafeArea(top: false, child: MiniPlayer())
+          : null,
       floatingActionButton: _tracks.isNotEmpty
           ? BouncingScaleButton(
               scaleFactor: 0.94,

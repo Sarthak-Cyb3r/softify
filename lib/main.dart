@@ -79,8 +79,9 @@ void main() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.softify.audio',
       androidNotificationChannelName: 'Softify Playback',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
+      androidNotificationChannelDescription: 'Softify Background Media Playback',
+      androidNotificationOngoing: false,
+      androidStopForegroundOnPause: false,
     ),
   );
 

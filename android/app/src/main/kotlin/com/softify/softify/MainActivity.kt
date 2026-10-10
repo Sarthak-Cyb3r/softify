@@ -314,7 +314,12 @@ class MainActivity : AudioServiceActivity() {
 
     private fun newSessionParams() =
         PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-            .apply { setAppPackageName(packageName) }
+            .apply {
+                setAppPackageName(packageName)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                }
+            }
 
     private fun statusPendingIntent(sessionId: Int, operation: String): PendingIntent {
         // A component would make ActivityManagerService skip registered receivers entirely,

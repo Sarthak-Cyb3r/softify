@@ -215,8 +215,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   void _broadcastPlaybackState(PlaybackEvent event) {
-    final playing = _player.playing;
-    final processingState = _mapProcessingState(_player.processingState);
+    final playing = _isTransitioningTrack ? true : _player.playing;
+    final processingState = _isTransitioningTrack
+        ? AudioProcessingState.buffering
+        : _mapProcessingState(_player.processingState);
 
     playbackState.add(
       PlaybackState(
@@ -287,6 +289,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
   @override
   Future<void> play() async {
     if (_queue.isEmpty) return;
+
+    try {
+      final session = await AudioSession.instance;
+      await session.setActive(true);
+    } catch (_) {}
 
     if (_player.processingState == ProcessingState.idle ||
         _player.processingState == ProcessingState.completed) {

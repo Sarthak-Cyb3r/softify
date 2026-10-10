@@ -51,21 +51,105 @@ class MiniPlayer extends ConsumerWidget {
     final currentTrack = ref.watch(currentTrackProvider).value;
     final playbackState = ref.watch(playbackStateStreamProvider).value;
     final audioHandler = ref.watch(audioHandlerProvider);
+    final historyTrack =
+        ref.watch(playHistoryStreamProvider).value?.firstOrNull?.track;
+    final queueTrack = ref.watch(queueProvider).value?.firstOrNull;
 
-    if (currentTrack == null) {
-      return const SizedBox.shrink();
+    final effectiveTrack = currentTrack ?? historyTrack ?? queueTrack;
+
+    if (effectiveTrack == null) {
+      // Sleek idle placeholder when library has never played any track
+      return RepaintBoundary(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(tokens.radiusLg),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(tokens.radiusLg),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xF0121714),
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: tokens.surfaceHighlight,
+                        borderRadius: BorderRadius.circular(tokens.radiusSm),
+                      ),
+                      child: Icon(Icons.music_note_rounded, color: tokens.accent, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Softify Music',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: tokens.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Tap a track or search to listen',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: tokens.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.graphic_eq_rounded, color: tokens.textMuted, size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
     }
 
-    final isPlaying = playbackState?.playing ?? false;
-    final isLikedAsync = ref.watch(isTrackLikedProvider(currentTrack.id));
-    final isLiked = isLikedAsync.value ?? currentTrack.isLiked;
+    final isPlaying = (currentTrack != null) && (playbackState?.playing ?? false);
+    final isLikedAsync = ref.watch(isTrackLikedProvider(effectiveTrack.id));
+    final isLiked = isLikedAsync.value ?? effectiveTrack.isLiked;
 
     return RepaintBoundary(
       child: GestureDetector(
-        onTap: () => _openFullPlayer(context),
+        onTap: () {
+          if (currentTrack == null) {
+            audioHandler.playTrack(effectiveTrack);
+          }
+          _openFullPlayer(context);
+        },
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! < -150) {
+            if (currentTrack == null) {
+              audioHandler.playTrack(effectiveTrack);
+            }
             _openFullPlayer(context);
           }
         },
@@ -92,8 +176,8 @@ class MiniPlayer extends ConsumerWidget {
                 offset: const Offset(0, 6),
               ),
               BoxShadow(
-                color: Colors.white.withValues(alpha: 0.03),
-                blurRadius: 1,
+                color: tokens.accent.withValues(alpha: isPlaying ? 0.08 : 0.02),
+                blurRadius: 8,
                 offset: const Offset(0, -1),
               ),
             ],
@@ -104,10 +188,12 @@ class MiniPlayer extends ConsumerWidget {
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xE816171B),
+                  color: const Color(0xF0121714),
                   borderRadius: BorderRadius.circular(tokens.radiusLg),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: isPlaying
+                        ? tokens.accent.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.08),
                     width: 1.0,
                   ),
                 ),
@@ -134,13 +220,13 @@ class MiniPlayer extends ConsumerWidget {
                             ),
                             padding: const EdgeInsets.all(2.5),
                             child: Hero(
-                              tag: 'now_playing_artwork_${currentTrack.id}',
+                              tag: 'now_playing_artwork_${effectiveTrack.id}',
                               child: ClipRRect(
                                 borderRadius:
                                     BorderRadius.circular(tokens.radiusSm),
-                                child: currentTrack.coverUrl != null
+                                child: effectiveTrack.coverUrl != null
                                     ? Image.network(
-                                        currentTrack.coverUrl!,
+                                        effectiveTrack.coverUrl!,
                                         width: 44,
                                         height: 44,
                                         cacheWidth: 132,
@@ -161,20 +247,43 @@ class MiniPlayer extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  currentTrack.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.2,
-                                    color: tokens.textPrimary,
-                                  ),
+                                Row(
+                                  children: [
+                                    if (isPlaying) ...[
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        margin: const EdgeInsets.only(right: 6),
+                                        decoration: BoxDecoration(
+                                          color: tokens.accent,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: tokens.accent.withValues(alpha: 0.6),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        effectiveTrack.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: -0.2,
+                                          color: tokens.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  currentTrack.artist,
+                                  effectiveTrack.artist,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -193,22 +302,22 @@ class MiniPlayer extends ConsumerWidget {
                             onTap: () {
                               ref
                                   .read(libraryRepositoryProvider)
-                                  .setLiked(currentTrack.id, !isLiked,
-                                      track: currentTrack);
+                                  .setLiked(effectiveTrack.id, !isLiked,
+                                      track: effectiveTrack);
                             },
                             child: Padding(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(6),
                               child: Icon(
                                 isLiked ? Icons.favorite : Icons.favorite_border,
                                 color: isLiked
                                     ? tokens.accent
                                     : tokens.textSecondary.withValues(alpha: 0.7),
-                                size: 22,
+                                size: 21,
                               ),
                             ),
                           ),
 
-                          const SizedBox(width: 2),
+                          const SizedBox(width: 4),
 
                           // Play/Pause Morph Action
                           PlayPauseMorphButton(
@@ -219,12 +328,33 @@ class MiniPlayer extends ConsumerWidget {
                             iconColor: Colors.black,
                             showGlow: true,
                             onTap: () {
-                              if (isPlaying) {
+                              if (currentTrack == null) {
+                                audioHandler.playTrack(effectiveTrack);
+                              } else if (isPlaying) {
                                 audioHandler.pause();
                               } else {
                                 audioHandler.play();
                               }
                             },
+                          ),
+
+                          const SizedBox(width: 2),
+
+                          // Skip Next Action
+                          BouncingScaleButton(
+                            scaleFactor: 0.85,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              audioHandler.skipToNext();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              child: Icon(
+                                Icons.skip_next_rounded,
+                                color: tokens.textPrimary,
+                                size: 26,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -233,7 +363,7 @@ class MiniPlayer extends ConsumerWidget {
                     // Ultra-thin Animated Progress Indicator (Isolated RepaintBoundary)
                     RepaintBoundary(
                       child: _MiniPlayerProgressBar(
-                        trackFallbackDuration: currentTrack.duration,
+                        trackFallbackDuration: effectiveTrack.duration,
                       ),
                     ),
                   ],

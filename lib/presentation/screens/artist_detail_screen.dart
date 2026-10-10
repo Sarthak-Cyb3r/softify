@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
 class ArtistDetailScreen extends ConsumerStatefulWidget {
@@ -62,6 +63,9 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      bottomNavigationBar: MediaQuery.of(context).size.width < 800
+          ? const SafeArea(top: false, child: MiniPlayer())
+          : null,
       body: CustomScrollView(
         slivers: [
           // Collapsible App Bar with Artist Visual
