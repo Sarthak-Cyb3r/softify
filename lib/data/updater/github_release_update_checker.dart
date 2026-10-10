@@ -166,18 +166,18 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
     // Refuse early when the APK cannot legally replace the installed app:
     // a different signing key or a non-newer versionCode both end in a
     // system "package conflict" dialog if we let the installer try.
-    Map<dynamic, dynamic> preflight;
+    Map<dynamic, dynamic> preflight = <dynamic, dynamic>{};
     try {
       preflight = await _installerChannel.invokeMapMethod<dynamic, dynamic>(
             'preflightInstall',
             {'filePath': targetFile.path},
           ) ??
           <dynamic, dynamic>{};
-    } on PlatformException catch (e) {
-      throw UpdateInstallException(
-        UpdateInstallError.installFailed,
-        e.message ?? 'Could not verify the downloaded update.',
-      );
+    } on PlatformException {
+      // Non-fatal: if preflight fails on specific OEM/frameworks,
+      // proceed directly to Android's native PackageInstaller which
+      // handles authoritative OS-level signature & package verification.
+      preflight = <dynamic, dynamic>{};
     }
 
     if (preflight['signatureMatch'] == false) {

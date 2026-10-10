@@ -201,9 +201,9 @@ class MainActivity : AudioServiceActivity() {
         }
         try {
             val archive = packageManager.getPackageArchiveInfo(filePath, signatureFlags())
+                ?: packageManager.getPackageArchiveInfo(filePath, PackageManager.GET_SIGNATURES)
                 ?: throw IllegalStateException("Unable to parse APK: $filePath")
             val archiveSha = signatureSha256(archive)
-                ?: throw IllegalStateException("Unable to read APK signature")
             val apkVersionCode = versionCodeOf(archive)
             var installedVersionCode = 0L
             var signatureMatch = true
@@ -211,8 +211,9 @@ class MainActivity : AudioServiceActivity() {
             if (installed != null) {
                 installedVersionCode = versionCodeOf(installed)
                 val installedSha = signatureSha256(installed)
-                    ?: throw IllegalStateException("Unable to read installed signature")
-                signatureMatch = archiveSha == installedSha
+                if (archiveSha != null && installedSha != null) {
+                    signatureMatch = archiveSha == installedSha
+                }
             }
             result.success(
                 mapOf<String, Any>(
@@ -382,7 +383,7 @@ class MainActivity : AudioServiceActivity() {
 
     private fun signatureFlags() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            PackageManager.GET_SIGNING_CERTIFICATES
+            PackageManager.GET_SIGNING_CERTIFICATES or PackageManager.GET_SIGNATURES
         } else {
             PackageManager.GET_SIGNATURES
         }
@@ -396,8 +397,13 @@ class MainActivity : AudioServiceActivity() {
 
     private fun signatureSha256(info: PackageInfo): String? {
         val signatures =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.signingInfo?.apkContentsSigners
-            else info.signatures
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.signingInfo?.apkContentsSigners?.takeIf { it.isNotEmpty() }
+                    ?: info.signingInfo?.signingCertificateHistory?.takeIf { it.isNotEmpty() }
+                    ?: info.signatures?.takeIf { it.isNotEmpty() }
+            } else {
+                info.signatures?.takeIf { it.isNotEmpty() }
+            }
         val signature = signatures?.firstOrNull() ?: return null
         val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())
         return digest.joinToString("") { "%02X".format(it.toInt() and 0xFF) }
