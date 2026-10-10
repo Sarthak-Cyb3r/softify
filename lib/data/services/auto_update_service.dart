@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 class AutoUpdateService {
   final http.Client _client;
   static const String _releasesEndpoint =
-      'https://api.github.com/repos/softify/softify/releases/latest';
+      'https://api.github.com/repos/Sarthak-Cyb3r/softify/releases/latest';
 
   AutoUpdateService({http.Client? client}) : _client = client ?? http.Client();
 
