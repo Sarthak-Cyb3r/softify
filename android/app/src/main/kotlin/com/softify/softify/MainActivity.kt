@@ -125,6 +125,11 @@ class MainActivity : AudioServiceActivity() {
             receiverRegistered = false
         }
         mainHandler.removeCallbacksAndMessages(null)
+        if (isFinishing) {
+            runCatching {
+                stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
+            }
+        }
         super.onDestroy()
     }
 

@@ -104,8 +104,31 @@ void main() async {
   );
 }
 
-class SoftifyApp extends StatelessWidget {
+class SoftifyApp extends ConsumerStatefulWidget {
   const SoftifyApp({super.key});
+
+  @override
+  ConsumerState<SoftifyApp> createState() => _SoftifyAppState();
+}
+
+class _SoftifyAppState extends ConsumerState<SoftifyApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onDetach: () {
+        ref.read(audioHandlerProvider).stop();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -310,9 +310,21 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   @override
+  Future<void> onTaskRemoved() async {
+    await stop();
+  }
+
+  @override
   Future<void> stop() async {
+    await _player.pause();
     await _player.stop();
     await _saveQueueStateImmediately();
+    playbackState.add(
+      playbackState.value.copyWith(
+        processingState: AudioProcessingState.idle,
+        playing: false,
+      ),
+    );
   }
 
   @override

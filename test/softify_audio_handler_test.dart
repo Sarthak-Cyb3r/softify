@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
@@ -531,6 +532,28 @@ void main() {
       expect(handler.speed, 2.0);
       expect(fakePlayer.speed, 2.0);
       expect(handler.playbackState.value.speed, 2.0);
+
+      await handler.dispose();
+    });
+
+    test('onTaskRemoved and stop() transition playbackState to idle and pause player', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+        enableAudioSession: false,
+        autoRestoreState: false,
+      );
+
+      await handler.setQueue([track1]);
+      await handler.play();
+      expect(handler.playbackState.value.playing, isTrue);
+
+      await handler.onTaskRemoved();
+      expect(fakePlayer.playing, isFalse);
+      expect(handler.playbackState.value.playing, isFalse);
+      expect(handler.playbackState.value.processingState, AudioProcessingState.idle);
 
       await handler.dispose();
     });
