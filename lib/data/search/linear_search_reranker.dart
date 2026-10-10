@@ -24,6 +24,7 @@ class LinearSearchReranker implements ISearchReranker {
     required String query,
     required List<SearchCandidate> candidates,
     Map<String, double>? weights,
+    bool deduplicate = false,
   }) {
     if (candidates.isEmpty) return [];
 
@@ -75,12 +76,17 @@ class LinearSearchReranker implements ISearchReranker {
       final popularityProxy = candidate.features['popularity_proxy'] ??
           (track.matchConfidence ?? 0.5);
 
+      // 7. Track originality / canonical studio authority
+      final originality = candidate.features['originality'] ??
+          TextNormalizer.scoreTrackOriginality(track, query: query);
+
       candidate.features['is_exact'] = isExact;
       candidate.features['prefix_match'] = prefixMatch;
       candidate.features['played_count'] = playedCount;
       candidate.features['taste_similarity'] = tasteSimilarity;
       candidate.features['popularity_proxy'] = popularityProxy;
       candidate.features['edit_distance_penalty'] = editPenalty;
+      candidate.features['originality'] = originality;
 
       // Linear scoring: dot product of weights and features
       double score = 0.0;
@@ -88,6 +94,9 @@ class LinearSearchReranker implements ISearchReranker {
         final featVal = candidate.features[entry.key] ?? 0.0;
         score += entry.value * featVal;
       }
+
+      // Add originality bonus directly
+      score += originality;
 
       // Hard constraint: Exact match always scores higher than fuzzy matches
       if (isExact == 1.0) {
@@ -100,6 +109,21 @@ class LinearSearchReranker implements ISearchReranker {
     final sorted = List<SearchCandidate>.from(candidates)
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    return sorted;
+    if (!deduplicate) {
+      return sorted;
+    }
+
+    // Cluster deduplication: for tracks of the same song from different people,
+    // keep the canonical original / most popular track on top and clean redundant clones.
+    final List<SearchCandidate> deduped = [];
+    for (final candidate in sorted) {
+      final isDup = deduped.any((existing) =>
+          TextNormalizer.isSameSongCluster(a: existing.track, b: candidate.track));
+      if (!isDup) {
+        deduped.add(candidate);
+      }
+    }
+
+    return deduped;
   }
 }

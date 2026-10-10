@@ -34,10 +34,6 @@ class ExplanationGenerator {
       return 'Mix inspired by ${track.artist}';
     }
 
-    if (shelfId == 'release_radar') {
-      return 'New release from ${track.artist}';
-    }
-
     final tasteRepo = _tasteRepo;
     if (tasteRepo != null) {
       final topArtists = await tasteRepo.getTopEntities(entityType: 'artist', limit: 5);

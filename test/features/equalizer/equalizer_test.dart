@@ -59,6 +59,10 @@ class TestMockAudioPlayer implements ISoftifyAudioPlayer {
   @override
   double get speed => 1.0;
   @override
+  Stream<double> get speedStream => const Stream.empty();
+  @override
+  Future<void> setSpeed(double speed) async {}
+  @override
   double get volume => 1.0;
   @override
   Future<void> setVolume(double volume) async {}

@@ -5,5 +5,6 @@ abstract class ISearchReranker {
     required String query,
     required List<SearchCandidate> candidates,
     Map<String, double>? weights,
+    bool deduplicate = false,
   });
 }

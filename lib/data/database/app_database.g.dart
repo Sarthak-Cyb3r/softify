@@ -6984,6 +6984,503 @@ class YoutubeHistoryCompanion extends UpdateCompanion<YoutubeHistoryRow> {
   }
 }
 
+class $PodcastHistoryTable extends PodcastHistory
+    with TableInfo<$PodcastHistoryTable, PodcastHistoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PodcastHistoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _episodeIdMeta =
+      const VerificationMeta('episodeId');
+  @override
+  late final GeneratedColumn<String> episodeId = GeneratedColumn<String>(
+      'episode_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _showIdMeta = const VerificationMeta('showId');
+  @override
+  late final GeneratedColumn<String> showId = GeneratedColumn<String>(
+      'show_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _showNameMeta =
+      const VerificationMeta('showName');
+  @override
+  late final GeneratedColumn<String> showName = GeneratedColumn<String>(
+      'show_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+      'title', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _descriptionMeta =
+      const VerificationMeta('description');
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+      'description', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _thumbnailUrlMeta =
+      const VerificationMeta('thumbnailUrl');
+  @override
+  late final GeneratedColumn<String> thumbnailUrl = GeneratedColumn<String>(
+      'thumbnail_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _durationSecondsMeta =
+      const VerificationMeta('durationSeconds');
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+      'duration_seconds', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _resumePositionMsMeta =
+      const VerificationMeta('resumePositionMs');
+  @override
+  late final GeneratedColumn<int> resumePositionMs = GeneratedColumn<int>(
+      'resume_position_ms', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lastPlayedAtMeta =
+      const VerificationMeta('lastPlayedAt');
+  @override
+  late final GeneratedColumn<int> lastPlayedAt = GeneratedColumn<int>(
+      'last_played_at', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        episodeId,
+        showId,
+        showName,
+        title,
+        description,
+        thumbnailUrl,
+        durationSeconds,
+        resumePositionMs,
+        lastPlayedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'podcast_history';
+  @override
+  VerificationContext validateIntegrity(Insertable<PodcastHistoryRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('episode_id')) {
+      context.handle(_episodeIdMeta,
+          episodeId.isAcceptableOrUnknown(data['episode_id']!, _episodeIdMeta));
+    } else if (isInserting) {
+      context.missing(_episodeIdMeta);
+    }
+    if (data.containsKey('show_id')) {
+      context.handle(_showIdMeta,
+          showId.isAcceptableOrUnknown(data['show_id']!, _showIdMeta));
+    } else if (isInserting) {
+      context.missing(_showIdMeta);
+    }
+    if (data.containsKey('show_name')) {
+      context.handle(_showNameMeta,
+          showName.isAcceptableOrUnknown(data['show_name']!, _showNameMeta));
+    } else if (isInserting) {
+      context.missing(_showNameMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+          _titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+          _descriptionMeta,
+          description.isAcceptableOrUnknown(
+              data['description']!, _descriptionMeta));
+    }
+    if (data.containsKey('thumbnail_url')) {
+      context.handle(
+          _thumbnailUrlMeta,
+          thumbnailUrl.isAcceptableOrUnknown(
+              data['thumbnail_url']!, _thumbnailUrlMeta));
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+          _durationSecondsMeta,
+          durationSeconds.isAcceptableOrUnknown(
+              data['duration_seconds']!, _durationSecondsMeta));
+    } else if (isInserting) {
+      context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('resume_position_ms')) {
+      context.handle(
+          _resumePositionMsMeta,
+          resumePositionMs.isAcceptableOrUnknown(
+              data['resume_position_ms']!, _resumePositionMsMeta));
+    }
+    if (data.containsKey('last_played_at')) {
+      context.handle(
+          _lastPlayedAtMeta,
+          lastPlayedAt.isAcceptableOrUnknown(
+              data['last_played_at']!, _lastPlayedAtMeta));
+    } else if (isInserting) {
+      context.missing(_lastPlayedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {episodeId};
+  @override
+  PodcastHistoryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PodcastHistoryRow(
+      episodeId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}episode_id'])!,
+      showId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}show_id'])!,
+      showName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}show_name'])!,
+      title: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
+      description: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}description']),
+      thumbnailUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}thumbnail_url']),
+      durationSeconds: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}duration_seconds'])!,
+      resumePositionMs: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}resume_position_ms'])!,
+      lastPlayedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}last_played_at'])!,
+    );
+  }
+
+  @override
+  $PodcastHistoryTable createAlias(String alias) {
+    return $PodcastHistoryTable(attachedDatabase, alias);
+  }
+}
+
+class PodcastHistoryRow extends DataClass
+    implements Insertable<PodcastHistoryRow> {
+  final String episodeId;
+  final String showId;
+  final String showName;
+  final String title;
+  final String? description;
+  final String? thumbnailUrl;
+  final int durationSeconds;
+  final int resumePositionMs;
+  final int lastPlayedAt;
+  const PodcastHistoryRow(
+      {required this.episodeId,
+      required this.showId,
+      required this.showName,
+      required this.title,
+      this.description,
+      this.thumbnailUrl,
+      required this.durationSeconds,
+      required this.resumePositionMs,
+      required this.lastPlayedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['episode_id'] = Variable<String>(episodeId);
+    map['show_id'] = Variable<String>(showId);
+    map['show_name'] = Variable<String>(showName);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || thumbnailUrl != null) {
+      map['thumbnail_url'] = Variable<String>(thumbnailUrl);
+    }
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['resume_position_ms'] = Variable<int>(resumePositionMs);
+    map['last_played_at'] = Variable<int>(lastPlayedAt);
+    return map;
+  }
+
+  PodcastHistoryCompanion toCompanion(bool nullToAbsent) {
+    return PodcastHistoryCompanion(
+      episodeId: Value(episodeId),
+      showId: Value(showId),
+      showName: Value(showName),
+      title: Value(title),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      thumbnailUrl: thumbnailUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbnailUrl),
+      durationSeconds: Value(durationSeconds),
+      resumePositionMs: Value(resumePositionMs),
+      lastPlayedAt: Value(lastPlayedAt),
+    );
+  }
+
+  factory PodcastHistoryRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PodcastHistoryRow(
+      episodeId: serializer.fromJson<String>(json['episodeId']),
+      showId: serializer.fromJson<String>(json['showId']),
+      showName: serializer.fromJson<String>(json['showName']),
+      title: serializer.fromJson<String>(json['title']),
+      description: serializer.fromJson<String?>(json['description']),
+      thumbnailUrl: serializer.fromJson<String?>(json['thumbnailUrl']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      resumePositionMs: serializer.fromJson<int>(json['resumePositionMs']),
+      lastPlayedAt: serializer.fromJson<int>(json['lastPlayedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'episodeId': serializer.toJson<String>(episodeId),
+      'showId': serializer.toJson<String>(showId),
+      'showName': serializer.toJson<String>(showName),
+      'title': serializer.toJson<String>(title),
+      'description': serializer.toJson<String?>(description),
+      'thumbnailUrl': serializer.toJson<String?>(thumbnailUrl),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'resumePositionMs': serializer.toJson<int>(resumePositionMs),
+      'lastPlayedAt': serializer.toJson<int>(lastPlayedAt),
+    };
+  }
+
+  PodcastHistoryRow copyWith(
+          {String? episodeId,
+          String? showId,
+          String? showName,
+          String? title,
+          Value<String?> description = const Value.absent(),
+          Value<String?> thumbnailUrl = const Value.absent(),
+          int? durationSeconds,
+          int? resumePositionMs,
+          int? lastPlayedAt}) =>
+      PodcastHistoryRow(
+        episodeId: episodeId ?? this.episodeId,
+        showId: showId ?? this.showId,
+        showName: showName ?? this.showName,
+        title: title ?? this.title,
+        description: description.present ? description.value : this.description,
+        thumbnailUrl:
+            thumbnailUrl.present ? thumbnailUrl.value : this.thumbnailUrl,
+        durationSeconds: durationSeconds ?? this.durationSeconds,
+        resumePositionMs: resumePositionMs ?? this.resumePositionMs,
+        lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      );
+  PodcastHistoryRow copyWithCompanion(PodcastHistoryCompanion data) {
+    return PodcastHistoryRow(
+      episodeId: data.episodeId.present ? data.episodeId.value : this.episodeId,
+      showId: data.showId.present ? data.showId.value : this.showId,
+      showName: data.showName.present ? data.showName.value : this.showName,
+      title: data.title.present ? data.title.value : this.title,
+      description:
+          data.description.present ? data.description.value : this.description,
+      thumbnailUrl: data.thumbnailUrl.present
+          ? data.thumbnailUrl.value
+          : this.thumbnailUrl,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      resumePositionMs: data.resumePositionMs.present
+          ? data.resumePositionMs.value
+          : this.resumePositionMs,
+      lastPlayedAt: data.lastPlayedAt.present
+          ? data.lastPlayedAt.value
+          : this.lastPlayedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PodcastHistoryRow(')
+          ..write('episodeId: $episodeId, ')
+          ..write('showId: $showId, ')
+          ..write('showName: $showName, ')
+          ..write('title: $title, ')
+          ..write('description: $description, ')
+          ..write('thumbnailUrl: $thumbnailUrl, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('resumePositionMs: $resumePositionMs, ')
+          ..write('lastPlayedAt: $lastPlayedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      episodeId,
+      showId,
+      showName,
+      title,
+      description,
+      thumbnailUrl,
+      durationSeconds,
+      resumePositionMs,
+      lastPlayedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PodcastHistoryRow &&
+          other.episodeId == this.episodeId &&
+          other.showId == this.showId &&
+          other.showName == this.showName &&
+          other.title == this.title &&
+          other.description == this.description &&
+          other.thumbnailUrl == this.thumbnailUrl &&
+          other.durationSeconds == this.durationSeconds &&
+          other.resumePositionMs == this.resumePositionMs &&
+          other.lastPlayedAt == this.lastPlayedAt);
+}
+
+class PodcastHistoryCompanion extends UpdateCompanion<PodcastHistoryRow> {
+  final Value<String> episodeId;
+  final Value<String> showId;
+  final Value<String> showName;
+  final Value<String> title;
+  final Value<String?> description;
+  final Value<String?> thumbnailUrl;
+  final Value<int> durationSeconds;
+  final Value<int> resumePositionMs;
+  final Value<int> lastPlayedAt;
+  final Value<int> rowid;
+  const PodcastHistoryCompanion({
+    this.episodeId = const Value.absent(),
+    this.showId = const Value.absent(),
+    this.showName = const Value.absent(),
+    this.title = const Value.absent(),
+    this.description = const Value.absent(),
+    this.thumbnailUrl = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.resumePositionMs = const Value.absent(),
+    this.lastPlayedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PodcastHistoryCompanion.insert({
+    required String episodeId,
+    required String showId,
+    required String showName,
+    required String title,
+    this.description = const Value.absent(),
+    this.thumbnailUrl = const Value.absent(),
+    required int durationSeconds,
+    this.resumePositionMs = const Value.absent(),
+    required int lastPlayedAt,
+    this.rowid = const Value.absent(),
+  })  : episodeId = Value(episodeId),
+        showId = Value(showId),
+        showName = Value(showName),
+        title = Value(title),
+        durationSeconds = Value(durationSeconds),
+        lastPlayedAt = Value(lastPlayedAt);
+  static Insertable<PodcastHistoryRow> custom({
+    Expression<String>? episodeId,
+    Expression<String>? showId,
+    Expression<String>? showName,
+    Expression<String>? title,
+    Expression<String>? description,
+    Expression<String>? thumbnailUrl,
+    Expression<int>? durationSeconds,
+    Expression<int>? resumePositionMs,
+    Expression<int>? lastPlayedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (episodeId != null) 'episode_id': episodeId,
+      if (showId != null) 'show_id': showId,
+      if (showName != null) 'show_name': showName,
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (thumbnailUrl != null) 'thumbnail_url': thumbnailUrl,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (resumePositionMs != null) 'resume_position_ms': resumePositionMs,
+      if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PodcastHistoryCompanion copyWith(
+      {Value<String>? episodeId,
+      Value<String>? showId,
+      Value<String>? showName,
+      Value<String>? title,
+      Value<String?>? description,
+      Value<String?>? thumbnailUrl,
+      Value<int>? durationSeconds,
+      Value<int>? resumePositionMs,
+      Value<int>? lastPlayedAt,
+      Value<int>? rowid}) {
+    return PodcastHistoryCompanion(
+      episodeId: episodeId ?? this.episodeId,
+      showId: showId ?? this.showId,
+      showName: showName ?? this.showName,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      resumePositionMs: resumePositionMs ?? this.resumePositionMs,
+      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (episodeId.present) {
+      map['episode_id'] = Variable<String>(episodeId.value);
+    }
+    if (showId.present) {
+      map['show_id'] = Variable<String>(showId.value);
+    }
+    if (showName.present) {
+      map['show_name'] = Variable<String>(showName.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (thumbnailUrl.present) {
+      map['thumbnail_url'] = Variable<String>(thumbnailUrl.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (resumePositionMs.present) {
+      map['resume_position_ms'] = Variable<int>(resumePositionMs.value);
+    }
+    if (lastPlayedAt.present) {
+      map['last_played_at'] = Variable<int>(lastPlayedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PodcastHistoryCompanion(')
+          ..write('episodeId: $episodeId, ')
+          ..write('showId: $showId, ')
+          ..write('showName: $showName, ')
+          ..write('title: $title, ')
+          ..write('description: $description, ')
+          ..write('thumbnailUrl: $thumbnailUrl, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('resumePositionMs: $resumePositionMs, ')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7011,6 +7508,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TrackEmbeddingsTable trackEmbeddings =
       $TrackEmbeddingsTable(this);
   late final $YoutubeHistoryTable youtubeHistory = $YoutubeHistoryTable(this);
+  late final $PodcastHistoryTable podcastHistory = $PodcastHistoryTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7036,7 +7534,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         artistSnoozes,
         interleaveOutcomes,
         trackEmbeddings,
-        youtubeHistory
+        youtubeHistory,
+        podcastHistory
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -11943,6 +12442,250 @@ typedef $$YoutubeHistoryTableProcessedTableManager = ProcessedTableManager<
     ),
     YoutubeHistoryRow,
     PrefetchHooks Function()>;
+typedef $$PodcastHistoryTableCreateCompanionBuilder = PodcastHistoryCompanion
+    Function({
+  required String episodeId,
+  required String showId,
+  required String showName,
+  required String title,
+  Value<String?> description,
+  Value<String?> thumbnailUrl,
+  required int durationSeconds,
+  Value<int> resumePositionMs,
+  required int lastPlayedAt,
+  Value<int> rowid,
+});
+typedef $$PodcastHistoryTableUpdateCompanionBuilder = PodcastHistoryCompanion
+    Function({
+  Value<String> episodeId,
+  Value<String> showId,
+  Value<String> showName,
+  Value<String> title,
+  Value<String?> description,
+  Value<String?> thumbnailUrl,
+  Value<int> durationSeconds,
+  Value<int> resumePositionMs,
+  Value<int> lastPlayedAt,
+  Value<int> rowid,
+});
+
+class $$PodcastHistoryTableFilterComposer
+    extends Composer<_$AppDatabase, $PodcastHistoryTable> {
+  $$PodcastHistoryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get episodeId => $composableBuilder(
+      column: $table.episodeId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get showId => $composableBuilder(
+      column: $table.showId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get showName => $composableBuilder(
+      column: $table.showName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get thumbnailUrl => $composableBuilder(
+      column: $table.thumbnailUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+      column: $table.durationSeconds,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get resumePositionMs => $composableBuilder(
+      column: $table.resumePositionMs,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PodcastHistoryTableOrderingComposer
+    extends Composer<_$AppDatabase, $PodcastHistoryTable> {
+  $$PodcastHistoryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get episodeId => $composableBuilder(
+      column: $table.episodeId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get showId => $composableBuilder(
+      column: $table.showId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get showName => $composableBuilder(
+      column: $table.showName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get thumbnailUrl => $composableBuilder(
+      column: $table.thumbnailUrl,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+      column: $table.durationSeconds,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get resumePositionMs => $composableBuilder(
+      column: $table.resumePositionMs,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$PodcastHistoryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PodcastHistoryTable> {
+  $$PodcastHistoryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get episodeId =>
+      $composableBuilder(column: $table.episodeId, builder: (column) => column);
+
+  GeneratedColumn<String> get showId =>
+      $composableBuilder(column: $table.showId, builder: (column) => column);
+
+  GeneratedColumn<String> get showName =>
+      $composableBuilder(column: $table.showName, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => column);
+
+  GeneratedColumn<String> get thumbnailUrl => $composableBuilder(
+      column: $table.thumbnailUrl, builder: (column) => column);
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+      column: $table.durationSeconds, builder: (column) => column);
+
+  GeneratedColumn<int> get resumePositionMs => $composableBuilder(
+      column: $table.resumePositionMs, builder: (column) => column);
+
+  GeneratedColumn<int> get lastPlayedAt => $composableBuilder(
+      column: $table.lastPlayedAt, builder: (column) => column);
+}
+
+class $$PodcastHistoryTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PodcastHistoryTable,
+    PodcastHistoryRow,
+    $$PodcastHistoryTableFilterComposer,
+    $$PodcastHistoryTableOrderingComposer,
+    $$PodcastHistoryTableAnnotationComposer,
+    $$PodcastHistoryTableCreateCompanionBuilder,
+    $$PodcastHistoryTableUpdateCompanionBuilder,
+    (
+      PodcastHistoryRow,
+      BaseReferences<_$AppDatabase, $PodcastHistoryTable, PodcastHistoryRow>
+    ),
+    PodcastHistoryRow,
+    PrefetchHooks Function()> {
+  $$PodcastHistoryTableTableManager(
+      _$AppDatabase db, $PodcastHistoryTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PodcastHistoryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PodcastHistoryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PodcastHistoryTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> episodeId = const Value.absent(),
+            Value<String> showId = const Value.absent(),
+            Value<String> showName = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String?> description = const Value.absent(),
+            Value<String?> thumbnailUrl = const Value.absent(),
+            Value<int> durationSeconds = const Value.absent(),
+            Value<int> resumePositionMs = const Value.absent(),
+            Value<int> lastPlayedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PodcastHistoryCompanion(
+            episodeId: episodeId,
+            showId: showId,
+            showName: showName,
+            title: title,
+            description: description,
+            thumbnailUrl: thumbnailUrl,
+            durationSeconds: durationSeconds,
+            resumePositionMs: resumePositionMs,
+            lastPlayedAt: lastPlayedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String episodeId,
+            required String showId,
+            required String showName,
+            required String title,
+            Value<String?> description = const Value.absent(),
+            Value<String?> thumbnailUrl = const Value.absent(),
+            required int durationSeconds,
+            Value<int> resumePositionMs = const Value.absent(),
+            required int lastPlayedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PodcastHistoryCompanion.insert(
+            episodeId: episodeId,
+            showId: showId,
+            showName: showName,
+            title: title,
+            description: description,
+            thumbnailUrl: thumbnailUrl,
+            durationSeconds: durationSeconds,
+            resumePositionMs: resumePositionMs,
+            lastPlayedAt: lastPlayedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$PodcastHistoryTable, PodcastHistoryRow>(table),
+                    BaseReferences<_$AppDatabase, $PodcastHistoryTable,
+                        PodcastHistoryRow>(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PodcastHistoryTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PodcastHistoryTable,
+    PodcastHistoryRow,
+    $$PodcastHistoryTableFilterComposer,
+    $$PodcastHistoryTableOrderingComposer,
+    $$PodcastHistoryTableAnnotationComposer,
+    $$PodcastHistoryTableCreateCompanionBuilder,
+    $$PodcastHistoryTableUpdateCompanionBuilder,
+    (
+      PodcastHistoryRow,
+      BaseReferences<_$AppDatabase, $PodcastHistoryTable, PodcastHistoryRow>
+    ),
+    PodcastHistoryRow,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -11989,4 +12732,6 @@ class $AppDatabaseManager {
       $$TrackEmbeddingsTableTableManager(_db, _db.trackEmbeddings);
   $$YoutubeHistoryTableTableManager get youtubeHistory =>
       $$YoutubeHistoryTableTableManager(_db, _db.youtubeHistory);
+  $$PodcastHistoryTableTableManager get podcastHistory =>
+      $$PodcastHistoryTableTableManager(_db, _db.podcastHistory);
 }

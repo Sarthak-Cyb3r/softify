@@ -295,6 +295,26 @@ class YoutubeHistory extends Table {
   Set<Column> get primaryKey => {videoId};
 }
 
+// 22. Spotify Podcast Playback History Table
+@DataClassName('PodcastHistoryRow')
+class PodcastHistory extends Table {
+  @override
+  String get tableName => 'podcast_history';
+
+  TextColumn get episodeId => text()();
+  TextColumn get showId => text()();
+  TextColumn get showName => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get thumbnailUrl => text().nullable()();
+  IntColumn get durationSeconds => integer()();
+  IntColumn get resumePositionMs => integer().withDefault(const Constant(0))();
+  IntColumn get lastPlayedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {episodeId};
+}
+
 LazyDatabase openDefaultConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
@@ -325,13 +345,14 @@ LazyDatabase openDefaultConnection() {
   InterleaveOutcomes,
   TrackEmbeddings,
   YoutubeHistory,
+  PodcastHistory,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? openDefaultConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -385,6 +406,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 10) {
             await m.createTable(youtubeHistory);
+          }
+          if (from < 11) {
+            await m.createTable(podcastHistory);
           }
         },
       );

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/equalizer_preset.dart';
 import '../providers/equalizer_providers.dart';
-import '../theme/app_theme.dart';
 import '../widgets/equalizer_curve_visualizer.dart';
 
 class EqualizerScreen extends ConsumerWidget {
@@ -17,12 +16,67 @@ class EqualizerScreen extends ConsumerWidget {
     final eqNotifier = ref.read(equalizerProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: const Color(0xFF121316),
       appBar: AppBar(
-        title: const Text('Equalizer'),
+        backgroundColor: const Color(0xFF121316),
+        elevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Equalizer',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFE3E2E6),
+              ),
+            ),
+            Text(
+              'Acoustic Profile • Softify Smart EQ 2.0',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF86948A),
+              ),
+            ),
+          ],
+        ),
         actions: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F1F23),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFF292A2D), width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF4EDEA3),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Active Output: Softify Smart EQ 2.0',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF4EDEA3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppTheme.textSecondary),
+            icon: const Icon(Icons.refresh, color: Color(0xFFBBCABF)),
             tooltip: 'Reset to Flat',
             onPressed: () {
               eqNotifier.resetToFlat();
@@ -37,101 +91,251 @@ class EqualizerScreen extends ConsumerWidget {
           ),
           Switch(
             value: eqState.enabled,
-            activeColor: AppTheme.primary,
+            activeColor: const Color(0xFF4EDEA3),
             onChanged: (val) => eqNotifier.setEnabled(val),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                children: [
-                  // 1. Interactive Spline Curve Visualizer
-                  EqualizerCurveVisualizer(
-                    bandGains: eqState.bandGains,
-                    bandFrequencies: eqState.bandFrequencies,
-                    bassBoost: eqState.bassBoost,
-                    isEnabled: eqState.enabled,
-                    isBypassed: eqState.isBypassed,
-                    minDecibels: eqState.minDecibels,
-                    maxDecibels: eqState.maxDecibels,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // 2. Presets Selector Carousel
-                  SizedBox(
-                    height: 38,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: EqualizerPreset.defaultPresets.length +
-                          (eqState.currentPreset == 'Custom' ? 1 : 0),
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final isCustom = index == EqualizerPreset.defaultPresets.length;
-                        final name = isCustom
-                            ? 'Custom'
-                            : EqualizerPreset.defaultPresets[index].name;
-                        final isSelected = eqState.currentPreset == name;
-
-                        return ChoiceChip(
-                          label: Text(name),
-                          selected: isSelected,
-                          onSelected: eqState.enabled
-                              ? (selected) {
-                                  if (selected && !isCustom) {
-                                    eqNotifier.selectPreset(name);
-                                  }
-                                }
-                              : null,
-                          selectedColor: AppTheme.primary,
-                          backgroundColor: AppTheme.surfaceElevated,
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.black
-                                : (eqState.enabled
-                                    ? Colors.white
-                                    : AppTheme.textMuted),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.surfaceHighlight,
-                              width: 1,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isDesktop = constraints.maxWidth >= 800;
+                  if (isDesktop) {
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Left Column
+                                Expanded(
+                                  flex: 6,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildPresetsCarousel(eqState, eqNotifier),
+                                      const SizedBox(height: 16),
+                                      EqualizerCurveVisualizer(
+                                        bandGains: eqState.bandGains,
+                                        bandFrequencies: eqState.bandFrequencies,
+                                        bassBoost: eqState.bassBoost,
+                                        isEnabled: eqState.enabled,
+                                        isBypassed: eqState.isBypassed,
+                                        minDecibels: eqState.minDecibels,
+                                        maxDecibels: eqState.maxDecibels,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      _buildEnhancersCard(context, ref, eqState, eqNotifier),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 20),
+                                // Right Column
+                                Expanded(
+                                  flex: 6,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildStudioMasterCard(),
+                                      const SizedBox(height: 16),
+                                      _buildBandsCard(context, ref, eqState, eqNotifier),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-                  const SizedBox(height: 24),
-
-                  // 3. Multi-band Sliders Card
-                  _buildBandsCard(context, ref, eqState, eqNotifier),
-
-                  const SizedBox(height: 20),
-
-                  // 4. Sound Enhancers: Bass Boost & Loudness Maximizer
-                  _buildEnhancersCard(context, ref, eqState, eqNotifier),
-
-                  const SizedBox(height: 24),
-                ],
+                  // Mobile Layout
+                  return ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    children: [
+                      EqualizerCurveVisualizer(
+                        bandGains: eqState.bandGains,
+                        bandFrequencies: eqState.bandFrequencies,
+                        bassBoost: eqState.bassBoost,
+                        isEnabled: eqState.enabled,
+                        isBypassed: eqState.isBypassed,
+                        minDecibels: eqState.minDecibels,
+                        maxDecibels: eqState.maxDecibels,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildPresetsCarousel(eqState, eqNotifier),
+                      const SizedBox(height: 20),
+                      _buildBandsCard(context, ref, eqState, eqNotifier),
+                      const SizedBox(height: 16),
+                      _buildEnhancersCard(context, ref, eqState, eqNotifier),
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                },
               ),
             ),
 
-            // 5. Instant A/B Compare Audition Bar
+            // Instant A/B Compare Audition Bar
             _buildAbCompareBar(context, eqState, eqNotifier),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPresetsCarousel(
+    EqualizerState eqState,
+    EqualizerNotifier eqNotifier,
+  ) {
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: EqualizerPreset.defaultPresets.length +
+            (eqState.currentPreset == 'Custom' ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final isCustom = index == EqualizerPreset.defaultPresets.length;
+          final name = isCustom
+              ? 'Custom'
+              : EqualizerPreset.defaultPresets[index].name;
+          final isSelected = eqState.currentPreset == name;
+
+          return ChoiceChip(
+            label: Text(name),
+            selected: isSelected,
+            onSelected: eqState.enabled
+                ? (selected) {
+                    if (selected && !isCustom) {
+                      eqNotifier.selectPreset(name);
+                    }
+                  }
+                : null,
+            selectedColor: const Color(0xFF4EDEA3),
+            backgroundColor: const Color(0xFF1F1F23),
+            labelStyle: TextStyle(
+              color: isSelected
+                  ? const Color(0xFF003824)
+                  : (eqState.enabled
+                      ? const Color(0xFFE3E2E6)
+                      : const Color(0xFF86948A)),
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 12.5,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: isSelected
+                    ? const Color(0xFF4EDEA3)
+                    : const Color(0xFF292A2D),
+                width: 1,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStudioMasterCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B1B1F),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF292A2D),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF292A2D),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.graphic_eq_rounded,
+                        color: Color(0xFF4EDEA3),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Spatial Engine 24-BIT 96k',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFE3E2E6),
+                            ),
+                          ),
+                          Text(
+                            'Studio Master Pipeline Active',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF86948A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF292A2D),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'HI-RES',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4EDEA3),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Direct bit-perfect streaming through OpenSL ES / ALSA audio pipelines with sub-1ms buffer jitter and zero resampling distortion.',
+            style: TextStyle(
+              fontSize: 11.5,
+              height: 1.5,
+              color: Color(0xFFBBCABF),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -145,32 +349,40 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
+        color: const Color(0xFF1B1B1F),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF292A2D),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 8),
                 child: Text(
                   'Frequency Bands',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFFE3E2E6),
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Text(
-                  'Double-tap band to reset',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary.withOpacity(0.7),
-                    fontSize: 11,
+              Flexible(
+                child: Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Text(
+                    'Double-tap band to reset',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Color(0xFF86948A),
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ),
@@ -228,7 +440,7 @@ class EqualizerScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: isBoosted && isEnabled
-                    ? AppTheme.primary.withOpacity(0.18)
+                    ? const Color(0xFF4EDEA3).withValues(alpha: 0.18)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -236,10 +448,10 @@ class EqualizerScreen extends ConsumerWidget {
                 '${gain > 0 ? '+' : ''}${gain.toStringAsFixed(1)}',
                 style: TextStyle(
                   color: !isEnabled
-                      ? AppTheme.textMuted
+                      ? const Color(0xFF86948A)
                       : isBoosted
-                          ? AppTheme.primary
-                          : (isCut ? AppTheme.textSecondary : Colors.white),
+                          ? const Color(0xFF4EDEA3)
+                          : (isCut ? const Color(0xFFBBCABF) : const Color(0xFFE3E2E6)),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -255,10 +467,10 @@ class EqualizerScreen extends ConsumerWidget {
                   data: SliderThemeData(
                     trackHeight: 3.5,
                     activeTrackColor: isEnabled
-                        ? (isBoosted ? AppTheme.primary : AppTheme.primaryLight)
-                        : AppTheme.textMuted,
-                    inactiveTrackColor: AppTheme.surfaceHighlight,
-                    thumbColor: isEnabled ? AppTheme.primary : AppTheme.textMuted,
+                        ? (isBoosted ? const Color(0xFF4EDEA3) : const Color(0xFF6FFBBE))
+                        : const Color(0xFF86948A),
+                    inactiveTrackColor: const Color(0xFF292A2D),
+                    thumbColor: isEnabled ? const Color(0xFF4EDEA3) : const Color(0xFF86948A),
                     thumbShape: const RoundSliderThumbShape(
                       enabledThumbRadius: 7,
                       elevation: 2,
@@ -281,7 +493,7 @@ class EqualizerScreen extends ConsumerWidget {
             Text(
               _formatFreq(freq),
               style: TextStyle(
-                color: isEnabled ? AppTheme.textSecondary : AppTheme.textMuted,
+                color: isEnabled ? const Color(0xFFBBCABF) : const Color(0xFF86948A),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -303,8 +515,12 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
+        color: const Color(0xFF1B1B1F),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF292A2D),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +528,7 @@ class EqualizerScreen extends ConsumerWidget {
           const Text(
             'Audio Enhancers',
             style: TextStyle(
-              color: Colors.white,
+              color: Color(0xFFE3E2E6),
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -325,8 +541,8 @@ class EqualizerScreen extends ConsumerWidget {
               Icon(
                 Icons.surround_sound,
                 color: active && eqState.bassBoost > 0
-                    ? AppTheme.primary
-                    : AppTheme.textSecondary,
+                    ? const Color(0xFF4EDEA3)
+                    : const Color(0xFFBBCABF),
                 size: 22,
               ),
               const SizedBox(width: 12),
@@ -339,14 +555,14 @@ class EqualizerScreen extends ConsumerWidget {
                       children: [
                         const Text(
                           'Bass Boost',
-                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: Color(0xFFE3E2E6), fontSize: 13, fontWeight: FontWeight.w500),
                         ),
                         Text(
                           '+${(eqState.bassBoost * 5.0).toStringAsFixed(1)} dB (${(eqState.bassBoost * 100).round()}%)',
                           style: TextStyle(
                             color: active && eqState.bassBoost > 0
-                                ? AppTheme.primary
-                                : AppTheme.textSecondary,
+                                ? const Color(0xFF4EDEA3)
+                                : const Color(0xFFBBCABF),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -356,9 +572,9 @@ class EqualizerScreen extends ConsumerWidget {
                     SliderTheme(
                       data: SliderThemeData(
                         trackHeight: 3,
-                        activeTrackColor: active ? AppTheme.primary : AppTheme.textMuted,
-                        inactiveTrackColor: AppTheme.surfaceHighlight,
-                        thumbColor: active ? AppTheme.primary : AppTheme.textMuted,
+                        activeTrackColor: active ? const Color(0xFF4EDEA3) : const Color(0xFF86948A),
+                        inactiveTrackColor: const Color(0xFF292A2D),
+                        thumbColor: active ? const Color(0xFF4EDEA3) : const Color(0xFF86948A),
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                       ),
@@ -383,8 +599,8 @@ class EqualizerScreen extends ConsumerWidget {
               Icon(
                 Icons.equalizer,
                 color: active && eqState.loudnessGain > 0
-                    ? AppTheme.primary
-                    : AppTheme.textSecondary,
+                    ? const Color(0xFF4EDEA3)
+                    : const Color(0xFFBBCABF),
                 size: 22,
               ),
               const SizedBox(width: 12),
@@ -397,14 +613,14 @@ class EqualizerScreen extends ConsumerWidget {
                       children: [
                         const Text(
                           'Loudness Maximizer',
-                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: Color(0xFFE3E2E6), fontSize: 13, fontWeight: FontWeight.w500),
                         ),
                         Text(
                           '+${(eqState.loudnessGain * 10.0).toStringAsFixed(1)} dB (${(eqState.loudnessGain * 100).round()}%)',
                           style: TextStyle(
                             color: active && eqState.loudnessGain > 0
-                                ? AppTheme.primary
-                                : AppTheme.textSecondary,
+                                ? const Color(0xFF4EDEA3)
+                                : const Color(0xFFBBCABF),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -414,9 +630,9 @@ class EqualizerScreen extends ConsumerWidget {
                     SliderTheme(
                       data: SliderThemeData(
                         trackHeight: 3,
-                        activeTrackColor: active ? AppTheme.primary : AppTheme.textMuted,
-                        inactiveTrackColor: AppTheme.surfaceHighlight,
-                        thumbColor: active ? AppTheme.primary : AppTheme.textMuted,
+                        activeTrackColor: active ? const Color(0xFF4EDEA3) : const Color(0xFF86948A),
+                        inactiveTrackColor: const Color(0xFF292A2D),
+                        thumbColor: active ? const Color(0xFF4EDEA3) : const Color(0xFF86948A),
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                       ),
@@ -447,9 +663,9 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        color: AppTheme.surface,
+        color: Color(0xFF121316),
         border: Border(
-          top: BorderSide(color: AppTheme.surfaceHighlight, width: 1),
+          top: BorderSide(color: Color(0xFF1F1F23), width: 1),
         ),
       ),
       child: GestureDetector(
@@ -461,13 +677,13 @@ class EqualizerScreen extends ConsumerWidget {
           height: 48,
           decoration: BoxDecoration(
             color: eqState.isBypassed
-                ? Colors.amber.withOpacity(0.25)
-                : AppTheme.surfaceElevated,
+                ? Colors.amber.withValues(alpha: 0.25)
+                : const Color(0xFF1B1B1F),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: eqState.isBypassed
                   ? Colors.amber
-                  : AppTheme.surfaceHighlight,
+                  : const Color(0xFF292A2D),
               width: 1.5,
             ),
           ),
@@ -477,7 +693,7 @@ class EqualizerScreen extends ConsumerWidget {
             children: [
               Icon(
                 eqState.isBypassed ? Icons.volume_off : Icons.compare_arrows,
-                color: eqState.isBypassed ? Colors.amber : (canCompare ? Colors.white : AppTheme.textMuted),
+                color: eqState.isBypassed ? Colors.amber : (canCompare ? const Color(0xFFE3E2E6) : const Color(0xFF86948A)),
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -488,7 +704,7 @@ class EqualizerScreen extends ConsumerWidget {
                 style: TextStyle(
                   color: eqState.isBypassed
                       ? Colors.amber
-                      : (canCompare ? Colors.white : AppTheme.textMuted),
+                      : (canCompare ? const Color(0xFFE3E2E6) : const Color(0xFF86948A)),
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),

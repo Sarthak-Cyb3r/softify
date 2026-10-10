@@ -31,6 +31,8 @@ abstract class ISoftifyAudioPlayer {
   Duration get position;
   Duration get bufferedPosition;
   double get speed;
+  Stream<double> get speedStream;
+  Future<void> setSpeed(double speed);
   bool get playing;
   ProcessingState get processingState;
 
@@ -71,6 +73,8 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       BehaviorSubject<Duration?>.seeded(null);
   final BehaviorSubject<double> _volumeSubject =
       BehaviorSubject<double>.seeded(1.0);
+  final BehaviorSubject<double> _speedSubject =
+      BehaviorSubject<double>.seeded(1.0);
 
   StreamSubscription? _playerStateSub;
   StreamSubscription? _playbackEventSub;
@@ -78,6 +82,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   StreamSubscription? _bufferedPositionSub;
   StreamSubscription? _durationSub;
   StreamSubscription? _volumeSub;
+  StreamSubscription? _speedSub;
 
   final AndroidEqualizer? _equalizerA;
   final AndroidLoudnessEnhancer? _loudnessA;
@@ -151,6 +156,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     _bufferedPositionSub?.cancel();
     _durationSub?.cancel();
     _volumeSub?.cancel();
+    _speedSub?.cancel();
 
     _playerStateSub = _activePlayer.playerStateStream.listen(_playerStateSubject.add);
     _playbackEventSub = _activePlayer.playbackEventStream.listen(_playbackEventSubject.add);
@@ -158,12 +164,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     _bufferedPositionSub = _activePlayer.bufferedPositionStream.listen(_bufferedPositionSubject.add);
     _durationSub = _activePlayer.durationStream.listen(_durationSubject.add);
     _volumeSub = _activePlayer.volumeStream.listen(_volumeSubject.add);
+    _speedSub = _activePlayer.speedStream.listen(_speedSubject.add);
 
     _playerStateSubject.add(_activePlayer.playerState);
     _positionSubject.add(_activePlayer.position);
     _bufferedPositionSubject.add(_activePlayer.bufferedPosition);
     _durationSubject.add(_activePlayer.duration);
     _volumeSubject.add(_activePlayer.volume);
+    _speedSubject.add(_activePlayer.speed);
     _playbackEventSubject.add(PlaybackEvent(
       processingState: _activePlayer.processingState,
       updatePosition: _activePlayer.position,
@@ -258,6 +266,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
     _bindActivePlayerStreams();
     _syncEqualizerEffects();
+    await _activePlayer.setSpeed(_speedSubject.value);
     await _activePlayer.play();
   }
 
@@ -293,6 +302,19 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   double get speed => _activePlayer.speed;
+
+  @override
+  Stream<double> get speedStream => _speedSubject.stream;
+
+  @override
+  Future<void> setSpeed(double speed) async {
+    final clamped = speed.clamp(0.25, 4.0);
+    await _activePlayer.setSpeed(clamped);
+    if (_standbyPlayer != null) {
+      await _standbyPlayer!.setSpeed(clamped);
+    }
+    _speedSubject.add(clamped);
+  }
 
   @override
   bool get playing => _activePlayer.playing;
@@ -399,6 +421,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     _bufferedPositionSub?.cancel();
     _durationSub?.cancel();
     _volumeSub?.cancel();
+    _speedSub?.cancel();
 
     await _playerStateSubject.close();
     await _playbackEventSubject.close();
@@ -406,6 +429,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     await _bufferedPositionSubject.close();
     await _durationSubject.close();
     await _volumeSubject.close();
+    await _speedSubject.close();
 
     await Future.wait([
       _playerA.dispose(),

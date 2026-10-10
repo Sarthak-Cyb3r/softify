@@ -14,6 +14,7 @@ import '../../domain/ports/i_shelf_repository.dart';
 import '../../domain/ports/i_taste_profile_repository.dart';
 import '../database/app_database.dart';
 import '../repositories/remote_config_repository.dart';
+import '../services/spotify_api_service.dart';
 import 'logistic_regression_ranker.dart';
 
 class ShelfEngine implements IShelfRepository {
@@ -25,6 +26,7 @@ class ShelfEngine implements IShelfRepository {
   final IEventLogger? _eventLogger;
   final IBanditCalibrator? _banditCalibrator;
   final IDiversityController? _diversityController;
+  final SpotifyApiService _spotifyApi;
 
   List<Shelf>? _cachedShelves;
   DateTime? _lastRefreshedAt;
@@ -40,6 +42,7 @@ class ShelfEngine implements IShelfRepository {
     IEventLogger? eventLogger,
     IBanditCalibrator? banditCalibrator,
     IDiversityController? diversityController,
+    SpotifyApiService? spotifyApi,
   })  : _db = db,
         _tasteProfileRepo = tasteProfileRepo,
         _cooccurrenceRepo = cooccurrenceRepo,
@@ -47,7 +50,8 @@ class ShelfEngine implements IShelfRepository {
         _remoteConfig = remoteConfig,
         _eventLogger = eventLogger,
         _banditCalibrator = banditCalibrator,
-        _diversityController = diversityController;
+        _diversityController = diversityController,
+        _spotifyApi = spotifyApi ?? SpotifyApiService();
 
   @override
   Future<List<Shelf>> loadShelves({bool forceRefresh = false}) async {
@@ -75,9 +79,6 @@ class ShelfEngine implements IShelfRepository {
           break;
         case 'novelty_with_familiar_anchor':
           shelf = await _buildDiscoverWeeklyShelf(def);
-          break;
-        case 'followed_new_releases':
-          shelf = await _buildReleaseRadarShelf(def);
           break;
         default:
           shelf = await _buildJumpBackInShelf(def);
@@ -175,6 +176,7 @@ class ShelfEngine implements IShelfRepository {
   }
 
   /// 2. Daily Mix (rule: kmeans_clusters)
+  /// Blends familiar anchor tracks with rich Spotify recommendation engine training
   Future<Shelf> _buildDailyMixShelf(ShelfDefinition def) async {
     try {
       // Find top artists from taste profiles
@@ -184,66 +186,163 @@ class ShelfEngine implements IShelfRepository {
             ..limit(5))
           .get();
 
-      final candidateTracks = <Track>[];
+      final familiarTracks = <Track>[];
+      final discoveryTracks = <Track>[];
+      final seenKeys = <String>{};
       final seenIds = <String>{};
 
+      // 1. Collect familiar tracks from local database
       if (topArtists.isNotEmpty) {
         for (final artistRow in topArtists) {
           final rows = await (_db.select(_db.tracks)
                 ..where((tbl) => tbl.artist.equals(artistRow.entityId))
-                ..limit(6))
+                ..limit(4))
               .get();
           for (final r in rows) {
-            if (seenIds.add(r.id)) {
-              candidateTracks.add(_mapRowToTrack(r));
+            final t = _mapRowToTrack(r);
+            final key = _normalizeKey(t.title, t.artist);
+            if (seenIds.add(t.id) && seenKeys.add(key)) {
+              familiarTracks.add(t);
             }
           }
         }
       }
 
-      // If insufficient tracks from taste profile, supplement from catalog
-      if (candidateTracks.length < def.limit) {
+      // If no taste profile artists yet, pull from recent tracks
+      if (familiarTracks.isEmpty) {
+        final recentRows = await (_db.select(_db.tracks)
+              ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+              ..limit(8))
+            .get();
+        for (final r in recentRows) {
+          final t = _mapRowToTrack(r);
+          final key = _normalizeKey(t.title, t.artist);
+          if (seenIds.add(t.id) && seenKeys.add(key)) {
+            familiarTracks.add(t);
+          }
+        }
+      }
+
+      // 2. Train Daily Mix directly on Spotify recommendations for user's top tastes
+      final targetArtists = topArtists.isNotEmpty
+          ? topArtists.map((a) => a.entityId).toList()
+          : familiarTracks.map((t) => t.artist).toSet().take(3).toList();
+
+      for (final artistName in targetArtists) {
+        try {
+          // Resolve Spotify Artist
+          final searchRes = await _spotifyApi.search(artistName, limit: 1);
+          if (searchRes.artists.isNotEmpty) {
+            final artistRef = searchRes.artists.first;
+            // A. Extract Spotify Artist Radio
+            final radioTracks = await _spotifyApi.getArtistRadio(artistRef.id);
+            for (final t in radioTracks) {
+              final key = _normalizeKey(t.title, t.artist);
+              if (seenIds.add(t.id) && seenKeys.add(key)) {
+                discoveryTracks.add(t);
+              }
+            }
+            // B. Extract Spotify Artist Top Tracks
+            final topSpotifyTracks = await _spotifyApi.getArtistTopTracks(artistRef.id);
+            for (final t in topSpotifyTracks) {
+              final key = _normalizeKey(t.title, t.artist);
+              if (seenIds.add(t.id) && seenKeys.add(key)) {
+                discoveryTracks.add(t);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Also enrich from familiar seed tracks via Spotify Track Radio
+      for (final seed in familiarTracks.take(3)) {
+        try {
+          String? sId;
+          if (seed.sourceId.startsWith('spotify_')) {
+            sId = seed.sourceId.replaceFirst('spotify_', '');
+          } else {
+            final searchRes = await _spotifyApi.search('${seed.title} ${seed.artist}', limit: 1);
+            if (searchRes.tracks.isNotEmpty) {
+              sId = searchRes.tracks.first.id.replaceFirst('spotify_', '');
+            }
+          }
+          if (sId != null && sId.isNotEmpty && RegExp(r'^[a-zA-Z0-9]{22}$').hasMatch(sId)) {
+            final trackRadio = await _spotifyApi.getTrackRadio(sId);
+            for (final t in trackRadio) {
+              final key = _normalizeKey(t.title, t.artist);
+              if (seenIds.add(t.id) && seenKeys.add(key)) {
+                discoveryTracks.add(t);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. Fallback to co-occurrence neighbors and local catalog if offline / insufficient Spotify
+      if (discoveryTracks.length + familiarTracks.length < def.limit) {
+        for (final track in familiarTracks.take(5)) {
+          final neighbors = await _cooccurrenceRepo.getTopNeighbors(track.id, limit: 3);
+          for (final neighborId in neighbors) {
+            if (!seenIds.contains(neighborId)) {
+              final row = await (_db.select(_db.tracks)
+                    ..where((tbl) => tbl.id.equals(neighborId)))
+                  .getSingleOrNull();
+              if (row != null) {
+                final t = _mapRowToTrack(row);
+                final key = _normalizeKey(t.title, t.artist);
+                if (seenIds.add(t.id) && seenKeys.add(key)) {
+                  discoveryTracks.add(t);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // If still insufficient (e.g. unit tests without network), supplement from tracks table
+      if (discoveryTracks.length + familiarTracks.length < def.limit) {
         final moreRows = await (_db.select(_db.tracks)
               ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
               ..limit(def.limit * 2))
             .get();
         for (final r in moreRows) {
-          if (seenIds.add(r.id)) {
-            candidateTracks.add(_mapRowToTrack(r));
+          final t = _mapRowToTrack(r);
+          final key = _normalizeKey(t.title, t.artist);
+          if (seenIds.add(t.id) && seenKeys.add(key)) {
+            discoveryTracks.add(t);
           }
-          if (candidateTracks.length >= def.limit * 2) break;
+          if (discoveryTracks.length + familiarTracks.length >= def.limit * 2) break;
         }
       }
 
-      // Expand candidates using co-occurrence graph neighbors
-      for (final track in candidateTracks.take(5).toList()) {
-        final neighbors = await _cooccurrenceRepo.getTopNeighbors(track.id, limit: 3);
-        for (final neighborId in neighbors) {
-          if (!seenIds.contains(neighborId)) {
-            final row = await (_db.select(_db.tracks)
-                  ..where((tbl) => tbl.id.equals(neighborId)))
-                .getSingleOrNull();
-            if (row != null && seenIds.add(row.id)) {
-              candidateTracks.add(_mapRowToTrack(row));
-            }
-          }
-        }
-      }
-
-      // Rank candidates using LogisticRegressionRanker
+      // 4. Score and Rank candidates
       final recCandidates = <RecommendationCandidate>[];
-      for (final t in candidateTracks) {
+      for (final t in familiarTracks) {
         final tasteSim = await _tasteProfileRepo.computeTasteSimilarity(t);
-        final skipPenalty =
-            await _ranker.computeArtistSkipPenaltyFromHistory(t.artist);
+        recCandidates.add(
+          RecommendationCandidate(
+            track: t,
+            features: {
+              'taste_sim': math.max(tasteSim, 0.8),
+              'cooccurrence': 0.7,
+              'recency': 0.8,
+              'novelty': 0.1,
+              'artist_skip_penalty': 0.0,
+            },
+          ),
+        );
+      }
+      for (final t in discoveryTracks) {
+        final tasteSim = await _tasteProfileRepo.computeTasteSimilarity(t);
+        final skipPenalty = await _ranker.computeArtistSkipPenaltyFromHistory(t.artist);
         recCandidates.add(
           RecommendationCandidate(
             track: t,
             features: {
               'taste_sim': tasteSim,
               'cooccurrence': 0.5,
-              'recency': 0.5,
-              'novelty': 0.3,
+              'recency': 0.2,
+              'novelty': 0.7,
               'artist_skip_penalty': skipPenalty,
             },
           ),
@@ -261,6 +360,9 @@ class ShelfEngine implements IShelfRepository {
         }
         tracks = diversity.applyMmr(tracks, maxPerArtist: 2);
       }
+
+      // 5. Ensure authentic artwork resolution (guarantees real album art instead of radio banners)
+      tracks = await _spotifyApi.resolveAuthenticCovers(tracks);
 
       return Shelf(
         id: def.id,
@@ -281,7 +383,8 @@ class ShelfEngine implements IShelfRepository {
   }
 
   /// 3. Discover Weekly (rule: novelty_with_familiar_anchor)
-  /// Guaranteed Invariant: ~10% familiar tracks inserted as trust anchors
+  /// Guaranteed Invariant: ~10% familiar tracks inserted as trust anchors,
+  /// with remainder extracted directly from Spotify's recommendation models.
   Future<Shelf> _buildDiscoverWeeklyShelf(ShelfDefinition def) async {
     try {
       // 1. Identify played/familiar tracks
@@ -304,8 +407,11 @@ class ShelfEngine implements IShelfRepository {
 
       final novelPool = <Track>[];
       final familiarPool = <Track>[];
+      final seenKeys = <String>{};
 
       for (final t in allTracks) {
+        final key = _normalizeKey(t.title, t.artist);
+        seenKeys.add(key);
         if (historyTrackIds.contains(t.id)) {
           familiarPool.add(t);
         } else {
@@ -313,7 +419,48 @@ class ShelfEngine implements IShelfRepository {
         }
       }
 
-      // Rank novel pool
+      // 2. Extract deep recommendations directly from Spotify
+      final seeds = familiarPool.isNotEmpty
+          ? familiarPool.take(4).toList()
+          : allTracks.take(4).toList();
+
+      for (final seed in seeds) {
+        try {
+          String? sId;
+          if (seed.sourceId.startsWith('spotify_')) {
+            sId = seed.sourceId.replaceFirst('spotify_', '');
+          } else {
+            final searchRes = await _spotifyApi.search('${seed.title} ${seed.artist}', limit: 1);
+            if (searchRes.tracks.isNotEmpty) {
+              sId = searchRes.tracks.first.id.replaceFirst('spotify_', '');
+            }
+          }
+          if (sId != null && sId.isNotEmpty && RegExp(r'^[a-zA-Z0-9]{22}$').hasMatch(sId)) {
+            // A. Spotify Recommended Tracks
+            final recs = await _spotifyApi.getRecommendedTracks(sId);
+            for (final r in recs) {
+              final key = _normalizeKey(r.title, r.artist);
+              if (!historyTrackIds.contains(r.id) &&
+                  !novelPool.any((x) => x.id == r.id) &&
+                  seenKeys.add(key)) {
+                novelPool.add(r);
+              }
+            }
+            // B. Spotify Track Radio
+            final radio = await _spotifyApi.getTrackRadio(sId);
+            for (final r in radio) {
+              final key = _normalizeKey(r.title, r.artist);
+              if (!historyTrackIds.contains(r.id) &&
+                  !novelPool.any((x) => x.id == r.id) &&
+                  seenKeys.add(key)) {
+                novelPool.add(r);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. Rank novel pool
       final novelCandidates = <RecommendationCandidate>[];
       for (final t in novelPool) {
         final tasteSim = await _tasteProfileRepo.computeTasteSimilarity(t);
@@ -335,7 +482,7 @@ class ShelfEngine implements IShelfRepository {
       final rankedNovel =
           _ranker.rank(novelCandidates).map((c) => c.track).toList();
 
-      // Interleave familiar tracks according to novelty arm ratio
+      // 4. Interleave familiar trust anchors according to novelty arm ratio
       final totalCapacity = math.min(def.limit, rankedNovel.length + familiarPool.length);
       final finalTracks = <Track>[];
       int novelIdx = 0;
@@ -348,6 +495,8 @@ class ShelfEngine implements IShelfRepository {
         if (ratio > 0.0) {
           anchorInterval = (1.0 / ratio).round().clamp(2, 20);
         }
+      } else if (def.familiarRatio > 0.0) {
+        anchorInterval = (1.0 / def.familiarRatio).round().clamp(2, 20);
       }
 
       for (int i = 0; i < totalCapacity; i++) {
@@ -383,6 +532,9 @@ class ShelfEngine implements IShelfRepository {
         calibratedTracks = diversity.applyMmr(calibratedTracks, maxPerArtist: 2);
       }
 
+      // 5. Ensure authentic artwork resolution (guarantees real album art instead of radio banners)
+      calibratedTracks = await _spotifyApi.resolveAuthenticCovers(calibratedTracks);
+
       return Shelf(
         id: def.id,
         title: def.title,
@@ -401,61 +553,8 @@ class ShelfEngine implements IShelfRepository {
     }
   }
 
-  /// 4. Release Radar (rule: followed_new_releases)
-  Future<Shelf> _buildReleaseRadarShelf(ShelfDefinition def) async {
-    try {
-      // Find top artists
-      final topArtists = await (_db.select(_db.tasteProfiles)
-            ..where((tbl) => tbl.entityType.equals('artist'))
-            ..orderBy([(tbl) => OrderingTerm.desc(tbl.slowWeight)])
-            ..limit(10))
-          .get();
-
-      final topArtistNames = topArtists.map((a) => a.entityId).toSet();
-
-      final candidateRows = await (_db.select(_db.tracks)
-            ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
-            ..limit(def.limit * 3))
-          .get();
-
-      final tracks = <Track>[];
-      final remainder = <Track>[];
-
-      for (final r in candidateRows) {
-        final track = _mapRowToTrack(r);
-        if (topArtistNames.contains(track.artist)) {
-          tracks.add(track);
-        } else {
-          remainder.add(track);
-        }
-        if (tracks.length >= def.limit) break;
-      }
-
-      // If not enough releases from top artists, fill with latest tracks
-      if (tracks.length < def.limit) {
-        for (final r in remainder) {
-          tracks.add(r);
-          if (tracks.length >= def.limit) break;
-        }
-      }
-
-      return Shelf(
-        id: def.id,
-        title: def.title,
-        subtitle: 'Catch all the latest music from artists you follow',
-        rule: def.rule,
-        tracks: tracks,
-      );
-    } catch (_) {
-      return Shelf(
-        id: def.id,
-        title: def.title,
-        subtitle: 'Release Radar',
-        rule: def.rule,
-        tracks: const [],
-      );
-    }
-  }
+  String _normalizeKey(String title, String artist) =>
+      '${title.toLowerCase().trim()}:::${artist.toLowerCase().trim()}';
 
   Track _mapRowToTrack(TrackRow row) {
     return Track(

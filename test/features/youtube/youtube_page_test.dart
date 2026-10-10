@@ -31,6 +31,12 @@ class DummyAudioHandler extends Fake implements SoftifyAudioHandler {
   Stream<bool> get shuffleModeStream => Stream.value(false);
 
   @override
+  double get speed => 1.0;
+
+  @override
+  Stream<double> get speedStream => Stream.value(1.0);
+
+  @override
   void setTrackSource(String source) {}
 }
 

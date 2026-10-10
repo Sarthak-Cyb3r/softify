@@ -10,7 +10,10 @@ import '../../domain/entities/playlist.dart';
 import '../../domain/entities/playlist_entry.dart';
 import '../../domain/entities/track.dart';
 import '../../data/catalog/keyless_youtube_catalog.dart';
+import '../../data/lyrics/composite_lyrics_provider.dart';
 import '../../data/lyrics/lrclib_lyrics_provider.dart';
+import '../../data/lyrics/spotify_lyrics_provider.dart';
+import 'settings_providers.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_download_repository.dart';
 import '../../domain/ports/i_event_logger.dart';
@@ -24,10 +27,17 @@ import '../../data/repositories/drift_event_logger.dart';
 import '../../data/repositories/remote_config_repository.dart';
 import '../../data/search/drift_fts_repository.dart';
 import '../../data/search/linear_search_reranker.dart';
+import '../../data/services/spotify_api_service.dart';
+import 'spotify_import_providers.dart';
 
 // ==========================================
 // Core Dependency Providers (Injected at Startup)
 // ==========================================
+
+final spotifyApiServiceProvider = Provider<SpotifyApiService>((ref) {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  return SpotifyApiService(authService: authService);
+});
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   throw UnimplementedError('databaseProvider must be overridden at startup');
@@ -55,7 +65,8 @@ final audioHandlerProvider = Provider<SoftifyAudioHandler>((ref) {
 });
 
 final catalogRepositoryProvider = Provider<ICatalogRepository>((ref) {
-  return KeylessYouTubeCatalog();
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return KeylessYouTubeCatalog(spotifyApi: spotifyApi);
 });
 
 final ftsRepositoryProvider = Provider<IFtsRepository>((ref) {
@@ -121,6 +132,11 @@ final volumeStreamProvider = StreamProvider<double>((ref) {
   return handler.volumeStream;
 });
 
+final playbackSpeedStreamProvider = StreamProvider<double>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.speedStream;
+});
+
 // ==========================================
 // Library & Downloads Streams
 // ==========================================
@@ -160,29 +176,38 @@ final isTrackDownloadedProvider = StreamProvider.family<bool, String>((ref, trac
 // Synced Lyrics Provider with Local Cache
 // ==========================================
 
-final lyricsProvider = Provider<ILyricsProvider>((ref) => LrclibLyricsProvider());
+final lyricsProvider = Provider<ILyricsProvider>((ref) {
+  final config = ref.watch(spotifyLyricsConfigProvider);
+  return CompositeLyricsProvider(
+    spotify: SpotifyLyricsProvider(
+      tokenGetter: () => config.token,
+      customEndpointGetter: () => config.endpoint,
+    ),
+  );
+});
 
 final trackLyricsProvider =
     FutureProvider.family<SyncedLyrics?, Track>((ref, track) async {
   final libraryRepo = ref.watch(libraryRepositoryProvider);
   final lyricsEngine = ref.watch(lyricsProvider);
 
-  // 1. Check local SQLite cache first
+  // 1. Check local SQLite cache first (if valid synced lyrics exist)
   final cached = await libraryRepo.getCachedLyrics(track.id);
   if (cached != null) {
-    if (cached.isNotFound) return null;
-    if (cached.syncedLrc != null) {
+    if (cached.syncedLrc != null && cached.syncedLrc!.trim().isNotEmpty) {
       final lines = LrclibLyricsProvider.parseLrc(cached.syncedLrc!);
-      return SyncedLyrics(
-        trackId: track.id,
-        lines: lines,
-        plainLyrics: cached.plainText,
-        rawLrc: cached.syncedLrc,
-      );
+      if (lines.isNotEmpty) {
+        return SyncedLyrics(
+          trackId: track.id,
+          lines: lines,
+          plainLyrics: cached.plainText,
+          rawLrc: cached.syncedLrc,
+        );
+      }
     }
   }
 
-  // 2. Query LRCLIB
+  // 2. Query multi-source lyrics engine (LRCLIB smart search + Kugou fallback)
   final lyrics = await lyricsEngine.getLyrics(track);
   if (lyrics != null) {
     await libraryRepo.cacheLyrics(
@@ -192,7 +217,7 @@ final trackLyricsProvider =
       isNotFound: false,
     );
   } else {
-    // Negative response caching (DESIGN.md Section 2)
+    // Negative response caching
     await libraryRepo.cacheLyrics(
       track.id,
       isNotFound: true,

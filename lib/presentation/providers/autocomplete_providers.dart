@@ -11,10 +11,12 @@ final autocompleteRepositoryProvider = Provider<IAutocompleteRepository>((ref) {
   final db = ref.watch(databaseProvider);
   final remoteConfig = ref.watch(remoteConfigProvider);
   final diversityController = ref.watch(diversityControllerProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return MultiSourceAutocomplete(
     db: db,
     remoteConfig: remoteConfig,
     diversityController: diversityController,
+    spotifyApi: spotifyApi,
   );
 });
 

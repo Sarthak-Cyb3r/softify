@@ -92,4 +92,11 @@ class Track {
 
   @override
   String toString() => 'Track(id: $id, sourceId: $sourceId, title: "$title", artist: "$artist")';
+
+  bool get supportsSpeedPlayback =>
+      id.startsWith('yt_') ||
+      sourceId.startsWith('yt_') ||
+      id.startsWith('podcast_') ||
+      sourceId.startsWith('podcast_') ||
+      album == 'YouTube';
 }

@@ -364,7 +364,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // Section 2: In-App Updates
+          // Section 2: Lyrics & Synchronization
+          _buildSectionHeader('Lyrics & Synchronization'),
+          Material(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: Consumer(
+              builder: (context, ref, _) {
+                final lyricsConfig = ref.watch(spotifyLyricsConfigProvider);
+                final hasToken = lyricsConfig.token != null && lyricsConfig.token!.isNotEmpty;
+                final hasEndpoint = lyricsConfig.endpoint != null && lyricsConfig.endpoint!.isNotEmpty;
+
+                return Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.sync,
+                        color: (hasToken || hasEndpoint) ? AppTheme.primary : AppTheme.textSecondary,
+                      ),
+                      title: const Text('Primary Lyrics Engine',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        hasToken || hasEndpoint
+                            ? 'Spotify Color-Lyrics API (Active)'
+                            : 'LRCLIB & Kugou Synced Catalogs (Active - Millisecond Calibrated)',
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                    const Divider(color: Colors.black26, height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.key, color: Colors.white70),
+                      title: const Text('Spotify Web Token / sp_dc',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        hasToken
+                            ? 'Configured • ${lyricsConfig.token!.substring(0, lyricsConfig.token!.length.clamp(0, 10))}...'
+                            : 'Optional: Spotify Web Player Bearer token for native Color-Lyrics',
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
+                      trailing: hasToken
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.redAccent),
+                              tooltip: 'Remove Token',
+                              onPressed: () => ref.read(spotifyLyricsConfigProvider.notifier).setToken(null),
+                            )
+                          : const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                      onTap: () => _showTokenInputDialog(context, ref, lyricsConfig.token),
+                    ),
+                    const Divider(color: Colors.black26, height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.dns, color: Colors.white70),
+                      title: const Text('Custom Lyrics Proxy Endpoint',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        hasEndpoint
+                            ? lyricsConfig.endpoint!
+                            : 'Optional: Self-hosted reverse-engineered Spotify lyrics proxy URL',
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
+                      trailing: hasEndpoint
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.redAccent),
+                              tooltip: 'Remove Endpoint',
+                              onPressed: () => ref.read(spotifyLyricsConfigProvider.notifier).setEndpoint(null),
+                            )
+                          : const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                      onTap: () => _showEndpointInputDialog(context, ref, lyricsConfig.endpoint),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Section 3: App Updates
           _buildSectionHeader('App Updates'),
           Container(
             padding: const EdgeInsets.all(16),
@@ -747,6 +823,107 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           fontWeight: FontWeight.bold,
           letterSpacing: 0.8,
         ),
+      ),
+    );
+  }
+
+  void _showTokenInputDialog(BuildContext context, WidgetRef ref, String? currentToken) {
+    final controller = TextEditingController(text: currentToken ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        title: const Text('Spotify Web Token', style: TextStyle(color: Colors.white, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter your Spotify Web Player access token or sp_dc token to pull synchronized color-lyrics directly from spclient.wg.spotify.com.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Paste Bearer token here...',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                filled: true,
+                fillColor: const Color(0xFF1B1B1F),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF292A2D)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            onPressed: () {
+              ref.read(spotifyLyricsConfigProvider.notifier).setToken(controller.text.trim());
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEndpointInputDialog(BuildContext context, WidgetRef ref, String? currentEndpoint) {
+    final controller = TextEditingController(text: currentEndpoint ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        title: const Text('Custom Lyrics Endpoint', style: TextStyle(color: Colors.white, fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter a custom reverse-engineered Spotify lyrics proxy URL (e.g. https://lyrics.myserver.com).',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'https://...',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                filled: true,
+                fillColor: const Color(0xFF1B1B1F),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF292A2D)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            onPressed: () {
+              ref.read(spotifyLyricsConfigProvider.notifier).setEndpoint(controller.text.trim());
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

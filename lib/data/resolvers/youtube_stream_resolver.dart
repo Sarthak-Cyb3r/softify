@@ -33,6 +33,9 @@ class YoutubeStreamResolver implements IStreamResolver {
         _innertubeService = innertubeService ?? YoutubeInnertubeService(),
         _fallbackResolver = fallbackResolver ?? PipedStreamResolver();
 
+  YoutubeExplode get yt => _yt;
+  YoutubeInnertubeService get innertubeService => _innertubeService;
+
   @override
   Future<StreamInfo> resolve(
     Track track, {
@@ -59,32 +62,50 @@ class YoutubeStreamResolver implements IStreamResolver {
       if (rawSourceId.length == 11 && !rawSourceId.startsWith('itunes_')) {
         candidateIds.add(rawSourceId);
       } else {
-        // Query YouTube and rank results by official production metrics
         final query = '${track.title} ${track.artist}'.trim();
-        final searchResults =
-            await _yt.search.search(query).timeout(const Duration(seconds: 5));
-        if (searchResults.isEmpty) {
-          throw Exception('No YouTube search results found for "$query"');
+
+        // Priority 0: YouTube Music (WEB_REMIX) official tracks & Topic releases.
+        // Pure studio master recordings with zero movie dialogue, zero promo voiceovers (e.g. Saregama Carvaan ads).
+        try {
+          final ytmTracks = await _innertubeService.searchMusicTracks(query);
+          if (ytmTracks.isNotEmpty) {
+            candidateIds.addAll(ytmTracks);
+          }
+        } catch (_) {}
+
+        // Fallback / supplement: Query YouTube video catalog and rank
+        try {
+          final searchResults =
+              await _yt.search.search(query).timeout(const Duration(seconds: 5));
+          if (searchResults.isNotEmpty) {
+            final scored = searchResults.take(10).toList();
+            scored.sort((a, b) {
+              final sA = _scoreCandidate(
+                targetTitle: track.title,
+                targetArtist: track.artist,
+                targetDuration: track.duration,
+                candidate: a,
+              );
+              final sB = _scoreCandidate(
+                targetTitle: track.title,
+                targetArtist: track.artist,
+                targetDuration: track.duration,
+                candidate: b,
+              );
+              return sB.compareTo(sA);
+            });
+
+            for (final v in scored) {
+              if (!candidateIds.contains(v.id.value)) {
+                candidateIds.add(v.id.value);
+              }
+            }
+          }
+        } catch (_) {}
+
+        if (candidateIds.isEmpty) {
+          throw Exception('No playable audio candidates found for "$query"');
         }
-
-        final scored = searchResults.take(10).toList();
-        scored.sort((a, b) {
-          final sA = _scoreCandidate(
-            targetTitle: track.title,
-            targetArtist: track.artist,
-            targetDuration: track.duration,
-            candidate: a,
-          );
-          final sB = _scoreCandidate(
-            targetTitle: track.title,
-            targetArtist: track.artist,
-            targetDuration: track.duration,
-            candidate: b,
-          );
-          return sB.compareTo(sA);
-        });
-
-        candidateIds = scored.map((v) => v.id.value).toList();
       }
  
       // Priority 0: Instant InnerTube direct audio resolution (bypasses watch-page scraping & IP rate limits)
@@ -271,6 +292,7 @@ class YoutubeStreamResolver implements IStreamResolver {
     }
 
     // 2. Official Record Label / VEVO
+    // (Note: 'saregama' video channel excluded because their video uploads embed Carvaan audio promo ads)
     const officialLabels = [
       'vevo',
       't-series',
@@ -279,7 +301,6 @@ class YoutubeStreamResolver implements IStreamResolver {
       'zee music',
       'yrf',
       'tips official',
-      'saregama',
       'speed records',
       'white hill',
       'universal music',
@@ -304,8 +325,18 @@ class YoutubeStreamResolver implements IStreamResolver {
       }
     }
 
-    // 4. Negative junk keywords
+    // 4. Heavy penalty for promotional ads / Carvaan voiceovers
+    if (candTitle.contains('carvaan') || candAuthor.contains('carvaan')) {
+      score -= 500;
+    }
+
+    // 5. Negative junk keywords
     const negativeKeywords = [
+      'carvaan',
+      'saregama carvaan',
+      'promo',
+      'advertisement',
+      'bumper',
       'reaction',
       'review',
       'teaser',
@@ -365,8 +396,6 @@ class YoutubeStreamResolver implements IStreamResolver {
       'album version',
       'studio version',
       'audio',
-      'lyric video',
-      'lyrics',
     ];
     for (final a in pureAudioKeywords) {
       if (candTitle.contains(a)) {

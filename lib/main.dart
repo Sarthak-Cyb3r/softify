@@ -11,6 +11,11 @@ import 'data/repositories/drift_library_repository.dart';
 import 'data/recommendations/automix_tail_reorderer.dart';
 import 'data/recommendations/drift_taste_profile_repository.dart';
 import 'data/resolvers/hybrid_stream_resolver.dart';
+import 'data/services/spotify_api_service.dart';
+import 'data/services/spotify_auth_service.dart';
+import 'features/podcasts/data/podcast_metadata_service.dart';
+import 'features/podcasts/data/podcast_rss_resolver.dart';
+import 'features/podcasts/presentation/podcast_controller.dart';
 import 'presentation/providers/player_providers.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
@@ -45,11 +50,15 @@ void main() async {
 
   // 1. Core Data Persistence & Repositories
   final db = AppDatabase();
+  final authService = SpotifyAuthService(db: db);
+  final spotifyApi = SpotifyApiService(authService: authService);
   final eventLogger = DriftEventLogger(db: db);
   final tasteRepo = DriftTasteProfileRepository(db);
   final libraryRepo = DriftLibraryRepository(db);
-  final streamResolver = HybridStreamResolver();
-  final catalogRepo = KeylessYouTubeCatalog();
+  final podcastMetadata = PodcastMetadataService();
+  final podcastResolver = PodcastRssResolver(metadataService: podcastMetadata);
+  final streamResolver = HybridStreamResolver(podcastResolver: podcastResolver);
+  final catalogRepo = KeylessYouTubeCatalog(spotifyApi: spotifyApi);
   final downloadRepo = BackgroundDownloadRepository(
     db: db,
     streamResolver: streamResolver,
@@ -83,6 +92,9 @@ void main() async {
         libraryRepositoryProvider.overrideWithValue(libraryRepo),
         downloadRepositoryProvider.overrideWithValue(downloadRepo),
         streamResolverProvider.overrideWithValue(streamResolver),
+        podcastMetadataServiceProvider.overrideWithValue(podcastMetadata),
+        podcastRssResolverProvider.overrideWithValue(podcastResolver),
+        spotifyApiServiceProvider.overrideWithValue(spotifyApi),
         catalogRepositoryProvider.overrideWithValue(catalogRepo),
         audioHandlerProvider.overrideWithValue(audioHandler),
       ],

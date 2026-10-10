@@ -13,6 +13,7 @@ import '../../domain/ports/i_fts_repository.dart';
 import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_remote_config.dart';
 import '../../domain/ports/i_search_reranker.dart';
+import '../../data/services/spotify_api_service.dart';
 import 'player_providers.dart';
 
 class SearchState {
@@ -44,16 +45,14 @@ class SearchState {
     if (networkResults.isEmpty) return localResults;
 
     final seenIds = <String>{for (final t in localResults) t.id};
-    final seenTitles = <String>{
-      for (final t in localResults)
-        '${t.title.trim().toLowerCase()}_${t.artist.trim().toLowerCase()}'
-    };
-
     final merged = List<Track>.from(localResults);
+
     for (final netTrack in networkResults) {
-      final key =
-          '${netTrack.title.trim().toLowerCase()}_${netTrack.artist.trim().toLowerCase()}';
-      if (!seenIds.contains(netTrack.id) && !seenTitles.contains(key)) {
+      if (seenIds.contains(netTrack.id)) continue;
+      final isDup = merged.any(
+        (locTrack) => TextNormalizer.isSameSongCluster(a: locTrack, b: netTrack),
+      );
+      if (!isDup) {
         merged.add(netTrack);
       }
     }
@@ -178,6 +177,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         query: query,
         candidates: localCandidates,
         weights: rankerWeights,
+        deduplicate: true,
       );
 
       if (mounted && _latestRequestId == requestId) {
@@ -226,6 +226,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
         query: query,
         candidates: networkCandidates,
         weights: rankerWeights,
+        deduplicate: true,
       );
 
       if (mounted && _latestRequestId == requestId) {
@@ -284,3 +285,28 @@ final searchNotifierProvider =
     remoteConfig: remoteConfig,
   );
 });
+
+final artistDiscographySearchProvider =
+    FutureProvider.family<ArtistDiscography?, String>((ref, query) async {
+  final clean = query.trim();
+  if (clean.length < 2) return null;
+
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  try {
+    final searchResult = await spotifyApi.search(clean, limit: 5);
+    if (searchResult.artists.isEmpty) return null;
+
+    final topArtist = searchResult.artists.first;
+    final normArtist = TextNormalizer.normalize(topArtist.name);
+    final normQuery = TextNormalizer.normalize(clean);
+
+    if (!normArtist.contains(normQuery) && !normQuery.contains(normArtist)) {
+      return null;
+    }
+
+    return await spotifyApi.getArtistCompleteDiscography(topArtist.uri);
+  } catch (_) {
+    return null;
+  }
+});
+

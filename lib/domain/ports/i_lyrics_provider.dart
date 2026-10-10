@@ -1,12 +1,24 @@
 import '../entities/track.dart';
 
+class LyricWord {
+  final Duration timestamp;
+  final String text;
+
+  const LyricWord({
+    required this.timestamp,
+    required this.text,
+  });
+}
+
 class LyricLine {
   final Duration timestamp;
   final String text;
+  final List<LyricWord>? words;
 
   const LyricLine({
     required this.timestamp,
     required this.text,
+    this.words,
   });
 }
 

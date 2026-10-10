@@ -6,6 +6,8 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_catalog_repository.dart';
+import '../search/text_normalizer.dart';
+import '../services/spotify_api_service.dart';
 
 enum SoftifyTrackVibe {
   party,
@@ -23,16 +25,19 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
   final YoutubeExplode _yt;
   final List<String> _instances;
   final HttpClient _httpClient;
+  final SpotifyApiService _spotifyApi;
   int _currentInstanceIndex = 0;
 
   final Map<String, List<Track>> _searchCache = {};
   final Map<String, List<Track>> _genreCandidatePoolCache = {};
+  final List<String> _recentlyServedTrackIds = [];
   List<Track>? _trendingCache;
 
   KeylessYouTubeCatalog({
     YoutubeExplode? yt,
     List<String>? instances,
     HttpClient? httpClient,
+    SpotifyApiService? spotifyApi,
   })  : _yt = yt ?? YoutubeExplode(),
         _instances = instances ??
             [
@@ -42,7 +47,8 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         _httpClient = httpClient ??
             (HttpClient()
               ..idleTimeout = const Duration(seconds: 45)
-              ..maxConnectionsPerHost = 8);
+              ..maxConnectionsPerHost = 8),
+        _spotifyApi = spotifyApi ?? SpotifyApiService();
 
   void _cacheResult(Map<String, List<Track>> cache, String key, List<Track> tracks) {
     if (cache.length >= 60) {
@@ -61,7 +67,19 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       return _searchCache[cacheKey]!;
     }
 
-    // 1. Primary: JioSaavn Studio Engine (320kbps studio masters, direct PID matching)
+    // 1. Primary: Reverse Engineered Spotify Pathfinder Search (Official catalog, canonical tracks & art)
+    try {
+      final spotifyRes = await _spotifyApi.search(cleanQuery, limit: limit).catchError((_) => const SpotifySearchResult());
+      if (spotifyRes.tracks.isNotEmpty) {
+        final deduped = _deduplicateTracks(spotifyRes.tracks, limit: limit, query: cleanQuery);
+        _cacheResult(_searchCache, cacheKey, deduped);
+        return deduped;
+      }
+    } catch (_) {
+      // Fall through to JioSaavn & iTunes
+    }
+
+    // 2. Secondary: JioSaavn Studio Engine (320kbps studio masters, direct PID matching)
     try {
       final saavnResults = await _searchSaavn(cleanQuery, limit: limit).catchError((_) => <Track>[]);
       if (saavnResults.isNotEmpty) {
@@ -206,7 +224,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         ),
       );
     }
-    return _deduplicateTracks(rawTracks, limit: limit);
+    return _deduplicateTracks(rawTracks, limit: limit, query: query);
   }
 
   Future<List<Track>> _searchSaavn(String query, {int limit = 20}) async {
@@ -287,7 +305,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         ),
       );
     }
-    return _deduplicateTracks(rawTracks, limit: limit);
+    return _deduplicateTracks(rawTracks, limit: limit, query: query);
   }
 
   Future<List<Track>> _searchCuratedYouTube(String query, {int limit = 20}) async {
@@ -334,53 +352,40 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         ),
       );
     }
-    return _deduplicateTracks(rawTracks, limit: limit);
+    return _deduplicateTracks(rawTracks, limit: limit, query: query);
   }
 
-  List<Track> _deduplicateTracks(List<Track> rawTracks, {int limit = 20}) {
+  List<Track> _deduplicateTracks(
+    List<Track> rawTracks, {
+    int limit = 20,
+    String? query,
+  }) {
+    // Score all tracks first so the canonical original / most popular track is on top,
+    // using catalog's native rank as a deterministic tie-breaker.
+    final scored = [
+      for (int i = 0; i < rawTracks.length; i++)
+        (
+          track: rawTracks[i],
+          index: i,
+          score: TextNormalizer.scoreTrackOriginality(rawTracks[i], query: query),
+        )
+    ];
+
+    scored.sort((a, b) {
+      final cmp = b.score.compareTo(a.score);
+      if (cmp != 0) return cmp;
+      return a.index.compareTo(b.index);
+    });
+
+    final sorted = scored.map((s) => s.track).toList();
     final List<Track> deduplicated = [];
 
-    for (final track in rawTracks) {
-      final normTitle = _normalizeForDeduplication(track.title);
-      final normArtistWords = track.artist
-          .toLowerCase()
-          .split(RegExp(r'[,&\s/]+'))
-          .where((w) => w.length > 2)
-          .toSet();
+    for (final track in sorted) {
+      final isDup = deduplicated.any((existing) =>
+          TextNormalizer.isSameSongCluster(a: existing, b: track));
 
-      final existingIndex = deduplicated.indexWhere((existing) {
-        final exTitle = _normalizeForDeduplication(existing.title);
-        if (exTitle != normTitle) return false;
-
-        // 1. Durations within 12s -> same recording
-        if (existing.duration > Duration.zero && track.duration > Duration.zero) {
-          final diff = (existing.duration.inSeconds - track.duration.inSeconds).abs();
-          if (diff <= 12) return true;
-        }
-
-        // 2. Artist tokens overlap -> same song
-        final exArtistWords = existing.artist
-            .toLowerCase()
-            .split(RegExp(r'[,&\s/]+'))
-            .where((w) => w.length > 2)
-            .toSet();
-        if (exArtistWords.intersection(normArtistWords).isNotEmpty) {
-          return true;
-        }
-
-        return false;
-      });
-
-      if (existingIndex == -1) {
+      if (!isDup) {
         deduplicated.add(track);
-      } else {
-        // Prefer official original album & cleaner title over compilation re-releases
-        final existing = deduplicated[existingIndex];
-        final exScore = _scoreTrackQuality(existing);
-        final newScore = _scoreTrackQuality(track);
-        if (newScore > exScore) {
-          deduplicated[existingIndex] = track;
-        }
       }
 
       if (deduplicated.length >= limit) break;
@@ -389,69 +394,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     return deduplicated;
   }
 
-  bool _isCompilationAlbum(String? album) {
-    if (album == null || album.isEmpty) return true;
-    final l = album.toLowerCase();
-    const compilationKeywords = [
-      'compilation',
-      'greatest hits',
-      'best of',
-      'collection',
-      'hits',
-      'love songs',
-      'special',
-      'romantic',
-      'monsoon',
-      'party',
-      'valentine',
-      'world music',
-      'top 20',
-      'top 10',
-      'now that',
-      'mix',
-      'playlist',
-      'mashup',
-      'remix',
-      'recall',
-      'celebration',
-      'vol.',
-      'volume',
-    ];
-    return compilationKeywords.any((k) => l.contains(k));
-  }
-
-  int _scoreTrackQuality(Track t) {
-    int score = 0;
-    // Prefer original studio album over compilation
-    if (!_isCompilationAlbum(t.album)) {
-      score += 50;
-    }
-    // Prefer clean title without "From <Movie>" brackets
-    if (!t.title.contains('(From') && !t.title.contains('[From')) {
-      score += 20;
-    }
-    // Prefer recognized singer in artist (e.g. Arijit Singh)
-    final a = t.artist.toLowerCase();
-    if (a.contains('arijit') || a.contains('pritam') || a.contains('atif') || a.contains('shreya')) {
-      score += 15;
-    }
-    return score;
-  }
-
-  String _normalizeForDeduplication(String text) {
-    return text
-        .toLowerCase()
-        // Strip out noisy tags like "(From "Agneepath")", "(Official Audio)", "[Soundtrack]"
-        .replaceAll(
-          RegExp(
-            r'\s*[\(\[]\s*(from|original motion picture|soundtrack|ost|audio song|official video|full video|lyrics|lyric video|audio|video)\b.*?[\]\)]',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .replaceAll(RegExp(r'[^a-z0-9]'), '')
-        .trim();
-  }
 
   String _decodeHtml(String raw) {
     return raw
@@ -554,6 +496,12 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     final clean = query.trim();
     if (clean.isEmpty) return [];
 
+    // 1. Primary: Reverse engineered Spotify Search Suggestions
+    try {
+      final spotifySuggestions = await _spotifyApi.getSearchSuggestions(clean);
+      if (spotifySuggestions.isNotEmpty) return spotifySuggestions;
+    } catch (_) {}
+
     try {
       final uri = Uri.parse(
         'https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${Uri.encodeComponent(clean)}',
@@ -595,6 +543,12 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
   @override
   Future<List<Track>> getArtistTracks(String artist, {int limit = 25}) async {
+    // 1. Primary: Reverse engineered Spotify Artist Top Tracks
+    try {
+      final spotifyTracks = await _spotifyApi.getArtistTopTracks(artist);
+      if (spotifyTracks.isNotEmpty) return spotifyTracks.take(limit).toList();
+    } catch (_) {}
+
     try {
       final saavn = await search('$artist songs', limit: limit);
       if (saavn.isNotEmpty) return saavn;
@@ -618,6 +572,15 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     String artist, {
     int limit = 25,
   }) async {
+    // 1. Primary: Reverse engineered Spotify Album Tracks
+    try {
+      final sRes = await _spotifyApi.search('$album $artist', limit: 5);
+      if (sRes.albums.isNotEmpty) {
+        final spotifyTracks = await _spotifyApi.getAlbumTracks(sRes.albums.first.id);
+        if (spotifyTracks.isNotEmpty) return spotifyTracks.take(limit).toList();
+      }
+    } catch (_) {}
+
     try {
       final saavn = await search('$album $artist', limit: limit);
       if (saavn.isNotEmpty) return saavn;
@@ -703,13 +666,50 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       diverseCandidates.add(cand);
     }
 
-    // 3. Randomize selection across the same genre pool
+    // 3. Dynamic session rotation & anti-repetition queue generation
+    // Spotify's track radio order has highest affinity near the top.
+    // We maintain high-affinity anchors while rotating discovery candidates across listens.
+    final List<Track> selected = [];
+
+    // Tracks not recently served to the user take precedence for novelty
+    final freshPool = diverseCandidates
+        .where((c) =>
+            !_recentlyServedTrackIds.contains(c.id) &&
+            !_recentlyServedTrackIds.contains(c.sourceId))
+        .toList();
+    final previouslyServedPool = diverseCandidates
+        .where((c) =>
+            _recentlyServedTrackIds.contains(c.id) ||
+            _recentlyServedTrackIds.contains(c.sourceId))
+        .toList();
+
+    // 3a. Top Anchor: Take top-affinity track directly from the front of Spotify's model
+    // to guarantee seamless immediate transition from seed track
+    if (freshPool.isNotEmpty) {
+      selected.add(freshPool.removeAt(0));
+    } else if (diverseCandidates.isNotEmpty) {
+      selected.add(diverseCandidates.first);
+      previouslyServedPool.remove(diverseCandidates.first);
+    }
+
+    // 3b. Sample remaining slots dynamically from fresh candidates first
     final random = Random();
-    diverseCandidates.shuffle(random);
+    freshPool.shuffle(random);
+    while (selected.length < limit && freshPool.isNotEmpty) {
+      selected.add(freshPool.removeAt(0));
+    }
+
+    // 3c. If fresh pool was smaller than limit, fill remaining slots from previously served pool
+    if (selected.length < limit && previouslyServedPool.isNotEmpty) {
+      previouslyServedPool.shuffle(random);
+      while (selected.length < limit && previouslyServedPool.isNotEmpty) {
+        selected.add(previouslyServedPool.removeAt(0));
+      }
+    }
 
     // If strict 1-per-artist filtering yielded fewer than limit, relax filter to fill limit
     // but STRICTLY using candidates from the same genre pool and strictly compatible vibe!
-    if (diverseCandidates.length < limit) {
+    if (selected.length < limit) {
       for (final cand in candidatePool) {
         if (!seenIds.contains(cand.id) &&
             !seenIds.contains(cand.sourceId) &&
@@ -718,14 +718,26 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
             _cleanTitle(cand.title).toLowerCase() != cleanSeedTitle) {
           seenIds.add(cand.id);
           seenIds.add(cand.sourceId);
-          diverseCandidates.add(cand);
-          if (diverseCandidates.length >= limit) break;
+          selected.add(cand);
+          if (selected.length >= limit) break;
         }
       }
-      diverseCandidates.shuffle(random);
     }
 
-    return diverseCandidates.take(limit).toList();
+    // Record selected tracks in session history for anti-repetition rotation
+    for (final s in selected) {
+      _recentlyServedTrackIds.add(s.id);
+      _recentlyServedTrackIds.add(s.sourceId);
+    }
+    // Prune history if it grows too large (keep last 120 track IDs)
+    if (_recentlyServedTrackIds.length > 120) {
+      _recentlyServedTrackIds.removeRange(0, _recentlyServedTrackIds.length - 120);
+    }
+
+    final finalTracks = selected.take(limit).toList();
+
+    // Resolve authentic album covers from Spotify (guarantees real album art instead of radio banners)
+    return await _spotifyApi.resolveAuthenticCovers(finalTracks);
   }
 
   static final _indianArtists = <String>{
@@ -932,6 +944,102 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     final itunesGenre = await _detectTrackGenre(track);
     final isIndian = _isIndianTrack(track, itunesGenre);
     final vibe = _classifyTrackVibe(track, itunesGenre);
+
+    // 0. Primary: Reverse Engineered Spotify Recommendation Engine
+    // (Track Radio via inspiredby-mix, SEO recommendations, Artist Radio)
+    try {
+      String? spotifyId;
+      String? spotifyArtistId;
+      if (track.sourceId.startsWith('spotify_')) {
+        spotifyId = track.sourceId.replaceFirst('spotify_', '');
+      } else if (track.id.startsWith('spotify_')) {
+        spotifyId = track.id.replaceFirst('spotify_', '');
+      } else {
+        final sRes = await _spotifyApi.search('${track.title} ${track.artist}', limit: 3);
+        if (sRes.tracks.isNotEmpty) {
+          spotifyId = sRes.tracks.first.id.replaceFirst('spotify_', '');
+        }
+        if (sRes.artists.isNotEmpty) {
+          spotifyArtistId = sRes.artists.first.id;
+        }
+      }
+
+      if (spotifyId != null && spotifyId.isNotEmpty) {
+        // A. Primary: Spotify Track Radio (50 tracks directly trained on this seed song)
+        final radioTracks = await _spotifyApi.getTrackRadio(spotifyId);
+        for (final rec in radioTracks) {
+          if (!seenIds.contains(rec.id) &&
+              !seenIds.contains(rec.sourceId) &&
+              !_isJunkOrMashup(rec) &&
+              _isVibeCompatible(rec, vibe)) {
+            if (isIndian || !_isIndianTrack(rec, null)) {
+              seenIds.add(rec.id);
+              seenIds.add(rec.sourceId);
+              pool.add(rec);
+            }
+          }
+        }
+
+        // B. Secondary: Spotify Pathfinder algorithmic recommendations
+        final recs = await _spotifyApi.getRecommendedTracks(spotifyId);
+        for (final rec in recs) {
+          if (!seenIds.contains(rec.id) &&
+              !seenIds.contains(rec.sourceId) &&
+              !_isJunkOrMashup(rec) &&
+              _isVibeCompatible(rec, vibe)) {
+            if (isIndian || !_isIndianTrack(rec, null)) {
+              seenIds.add(rec.id);
+              seenIds.add(rec.sourceId);
+              pool.add(rec);
+            }
+          }
+        }
+
+        // C. Tertiary: Enrich with Spotify Related Artists to ensure deep artist diversity
+        if (spotifyArtistId == null && track.artist.isNotEmpty) {
+          final aRes = await _spotifyApi.search(track.artist, limit: 1);
+          if (aRes.artists.isNotEmpty) {
+            spotifyArtistId = aRes.artists.first.id;
+          }
+        }
+
+        if (spotifyArtistId != null) {
+          try {
+            final relatedArtists = await _spotifyApi.getRelatedArtists(spotifyArtistId);
+            final cleanSeedArtist = track.artist.toLowerCase();
+            final topRelated = relatedArtists
+                .where((a) =>
+                    !cleanSeedArtist.contains(a.name.toLowerCase()) &&
+                    !a.name.toLowerCase().contains(cleanSeedArtist))
+                .take(3)
+                .toList();
+
+            for (final relArtist in topRelated) {
+              if (pool.length >= 80) break;
+              final relRadio = await _spotifyApi.getArtistRadio(relArtist.id);
+              for (final rec in relRadio) {
+                if (!seenIds.contains(rec.id) &&
+                    !seenIds.contains(rec.sourceId) &&
+                    !_isJunkOrMashup(rec) &&
+                    _isVibeCompatible(rec, vibe)) {
+                  if (isIndian || !_isIndianTrack(rec, null)) {
+                    seenIds.add(rec.id);
+                    seenIds.add(rec.sourceId);
+                    pool.add(rec);
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    // If Spotify returned a healthy candidate pool (>= 20 tracks), return immediately!
+    // Zero hard-coded playlists or external keyword pollution needed!
+    if (pool.length >= 20) {
+      return pool;
+    }
 
     if (!isIndian) {
       // STRICT ENGLISH / INTERNATIONAL QUEUE:

@@ -165,3 +165,80 @@ final hasCompletedNamePromptProvider = FutureProvider<bool>((ref) async {
   final row = await (db.select(db.settings)..where((t) => t.key.equals('has_completed_name_prompt'))).getSingleOrNull();
   return row?.value == 'true';
 });
+
+// ==========================================
+// Spotify Color-Lyrics Configuration
+// ==========================================
+
+class SpotifyLyricsConfig {
+  final String? token;
+  final String? endpoint;
+
+  const SpotifyLyricsConfig({this.token, this.endpoint});
+
+  bool get isConfigured =>
+      (token != null && token!.trim().isNotEmpty) ||
+      (endpoint != null && endpoint!.trim().isNotEmpty);
+}
+
+class SpotifyLyricsConfigNotifier extends StateNotifier<SpotifyLyricsConfig> {
+  final AppDatabase _db;
+
+  SpotifyLyricsConfigNotifier(this._db) : super(const SpotifyLyricsConfig()) {
+    _loadFromDb();
+  }
+
+  Future<void> _loadFromDb() async {
+    try {
+      final tokenRow = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals('spotify_lyrics_token')))
+          .getSingleOrNull();
+      final endpointRow = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals('spotify_lyrics_endpoint')))
+          .getSingleOrNull();
+
+      final tokenVal = tokenRow?.value.trim();
+      final endpointVal = endpointRow?.value.trim();
+
+      state = SpotifyLyricsConfig(
+        token: (tokenVal != null && tokenVal.isNotEmpty) ? tokenVal : null,
+        endpoint: (endpointVal != null && endpointVal.isNotEmpty) ? endpointVal : null,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> setToken(String? token) async {
+    final clean = token?.trim();
+    state = SpotifyLyricsConfig(
+      token: (clean != null && clean.isNotEmpty) ? clean : null,
+      endpoint: state.endpoint,
+    );
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingRow(
+            key: 'spotify_lyrics_token',
+            value: clean ?? '',
+          ),
+        );
+  }
+
+  Future<void> setEndpoint(String? endpoint) async {
+    final clean = endpoint?.trim();
+    state = SpotifyLyricsConfig(
+      token: state.token,
+      endpoint: (clean != null && clean.isNotEmpty) ? clean : null,
+    );
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingRow(
+            key: 'spotify_lyrics_endpoint',
+            value: clean ?? '',
+          ),
+        );
+  }
+}
+
+final spotifyLyricsConfigProvider =
+    StateNotifierProvider<SpotifyLyricsConfigNotifier, SpotifyLyricsConfig>((ref) {
+  final db = ref.watch(databaseProvider);
+  return SpotifyLyricsConfigNotifier(db);
+});
+

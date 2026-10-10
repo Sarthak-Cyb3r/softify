@@ -23,12 +23,12 @@ class MiniPlayer extends ConsumerWidget {
             curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
           );
           final slide = Tween<Offset>(
-            begin: const Offset(0.0, 0.06),
+            begin: const Offset(0.0, 0.05),
             end: Offset.zero,
           ).animate(
             CurvedAnimation(
               parent: animation,
-              curve: Curves.easeOutCubic,
+              curve: const Cubic(0.2, 0.0, 0.0, 1.0),
             ),
           );
           return FadeTransition(
@@ -87,23 +87,28 @@ class MiniPlayer extends ConsumerWidget {
             borderRadius: BorderRadius.circular(tokens.radiusLg),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.45),
-                blurRadius: 18,
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 20,
                 offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.03),
+                blurRadius: 1,
+                offset: const Offset(0, -1),
               ),
             ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(tokens.radiusLg),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xE8161616),
+                  color: const Color(0xE816171B),
                   borderRadius: BorderRadius.circular(tokens.radiusLg),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.07),
-                    width: 0.8,
+                    color: Colors.white.withValues(alpha: 0.08),
+                    width: 1.0,
                   ),
                 ),
                 child: Column(
@@ -116,25 +121,37 @@ class MiniPlayer extends ConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          // Album Artwork Hero Thumbnail
-                          Hero(
-                            tag: 'now_playing_artwork_${currentTrack.id}',
-                            child: ClipRRect(
+                          // Album Artwork Hero Thumbnail with concentric bezel
+                          Container(
+                            decoration: BoxDecoration(
+                              color: tokens.surfaceHighlight,
                               borderRadius:
-                                  BorderRadius.circular(tokens.radiusSm),
-                              child: currentTrack.coverUrl != null
-                                  ? Image.network(
-                                      currentTrack.coverUrl!,
-                                      width: 44,
-                                      height: 44,
-                                      cacheWidth: 132,
-                                      cacheHeight: 132,
-                                      gaplessPlayback: true,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          _fallbackCover(tokens),
-                                    )
-                                  : _fallbackCover(tokens),
+                                  BorderRadius.circular(tokens.radiusSm + 3),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                width: 0.8,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(2.5),
+                            child: Hero(
+                              tag: 'now_playing_artwork_${currentTrack.id}',
+                              child: ClipRRect(
+                                borderRadius:
+                                    BorderRadius.circular(tokens.radiusSm),
+                                child: currentTrack.coverUrl != null
+                                    ? Image.network(
+                                        currentTrack.coverUrl!,
+                                        width: 44,
+                                        height: 44,
+                                        cacheWidth: 132,
+                                        cacheHeight: 132,
+                                        gaplessPlayback: true,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            _fallbackCover(tokens),
+                                      )
+                                    : _fallbackCover(tokens),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -200,6 +217,7 @@ class MiniPlayer extends ConsumerWidget {
                             iconSize: 20,
                             backgroundColor: Colors.white,
                             iconColor: Colors.black,
+                            showGlow: true,
                             onTap: () {
                               if (isPlaying) {
                                 audioHandler.pause();

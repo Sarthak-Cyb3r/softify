@@ -593,6 +593,8 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
       final track = state.track;
       final pbState = ref.watch(playbackStateStreamProvider).value;
       final currentTrack = ref.watch(currentTrackProvider).value;
+      final currentSpeed = ref.watch(playbackSpeedStreamProvider).value ??
+          ref.watch(audioHandlerProvider).speed;
       final isPlayingThisTrack =
           currentTrack?.id == track.id && (pbState?.playing ?? false);
 
@@ -796,6 +798,77 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                   },
                 ),
               ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Playback Speed Controls (1x, 1.5x, 2x, 2.5x, 3x)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: tokens.surfaceHighlight.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(tokens.radiusMd),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.speed_rounded,
+                    size: 15,
+                    color: tokens.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Speed',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  for (final spd in const [1.0, 1.5, 2.0, 2.5, 3.0])
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ref.read(audioHandlerProvider).setSpeed(spd);
+                        },
+                        borderRadius: BorderRadius.circular(tokens.radiusSm),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (currentSpeed - spd).abs() < 0.05
+                                ? tokens.accent
+                                : Colors.transparent,
+                            borderRadius:
+                                BorderRadius.circular(tokens.radiusSm),
+                          ),
+                          child: Text(
+                            spd == 1.0
+                                ? '1x'
+                                : (spd == 2.0
+                                    ? '2x'
+                                    : (spd == 3.0 ? '3x' : '${spd}x')),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: (currentSpeed - spd).abs() < 0.05
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: (currentSpeed - spd).abs() < 0.05
+                                  ? Colors.black
+                                  : tokens.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
 
             // If Playlist detected: "Play whole playlist" button

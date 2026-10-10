@@ -25,6 +25,7 @@ final shelfRepositoryProvider = Provider<IShelfRepository>((ref) {
   final eventLogger = ref.watch(eventLoggerProvider);
   final banditCalibrator = ref.watch(banditCalibratorProvider);
   final diversityController = ref.watch(diversityControllerProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
 
   return ShelfEngine(
     db: db,
@@ -35,6 +36,7 @@ final shelfRepositoryProvider = Provider<IShelfRepository>((ref) {
     eventLogger: eventLogger,
     banditCalibrator: banditCalibrator,
     diversityController: diversityController,
+    spotifyApi: spotifyApi,
   );
 });
 

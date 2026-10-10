@@ -4,19 +4,26 @@ import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_stream_resolver.dart';
+import '../../features/podcasts/data/podcast_rss_resolver.dart';
 import 'saavn_stream_resolver.dart';
 import 'youtube_stream_resolver.dart';
 
 class HybridStreamResolver implements IStreamResolver {
   final SaavnStreamResolver _saavnResolver;
   final YoutubeStreamResolver _ytResolver;
+  final PodcastRssResolver _podcastResolver;
   final Map<String, StreamInfo> _cache = {};
 
   HybridStreamResolver({
     SaavnStreamResolver? saavnResolver,
     YoutubeStreamResolver? ytResolver,
+    PodcastRssResolver? podcastResolver,
   })  : _saavnResolver = saavnResolver ?? SaavnStreamResolver(),
-        _ytResolver = ytResolver ?? YoutubeStreamResolver();
+        _ytResolver = ytResolver ?? YoutubeStreamResolver(),
+        _podcastResolver = podcastResolver ??
+            PodcastRssResolver(ytResolver: ytResolver ?? YoutubeStreamResolver());
+
+  PodcastRssResolver get podcastResolver => _podcastResolver;
 
   @override
   Future<StreamInfo> resolve(
@@ -37,6 +44,17 @@ class HybridStreamResolver implements IStreamResolver {
     // Direct YouTube link tracks bypass Saavn
     if (track.sourceId.startsWith('yt_')) {
       info = await _ytResolver.resolve(
+        track,
+        quality: quality,
+        forceFresh: forceFresh,
+      );
+      _cache[cacheKey] = info;
+      return info;
+    }
+
+    // Podcast tracks route to PodcastRssResolver
+    if (track.sourceId.startsWith('podcast_')) {
+      info = await _podcastResolver.resolve(
         track,
         quality: quality,
         forceFresh: forceFresh,
@@ -79,5 +97,6 @@ class HybridStreamResolver implements IStreamResolver {
 
   void close() {
     _ytResolver.close();
+    _podcastResolver.close();
   }
 }

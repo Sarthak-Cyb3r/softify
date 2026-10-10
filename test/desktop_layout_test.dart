@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:softify/data/player/softify_audio_handler.dart';
 import 'package:softify/domain/entities/track.dart';
 import 'package:softify/presentation/providers/player_providers.dart';
+import 'package:softify/presentation/screens/app_scaffold.dart';
 import 'package:softify/presentation/theme/app_theme.dart';
 import 'package:softify/presentation/widgets/desktop_player_bar.dart';
 import 'package:softify/presentation/widgets/desktop_sidebar.dart';
@@ -29,6 +31,12 @@ class DummyAudioHandler extends Fake implements SoftifyAudioHandler {
 
   @override
   Stream<bool> get shuffleModeStream => Stream.value(false);
+
+  @override
+  double get speed => 1.0;
+
+  @override
+  Stream<double> get speedStream => Stream.value(1.0);
 }
 
 void main() {
@@ -63,6 +71,8 @@ void main() {
     // Verify primary navigation items
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Search'), findsNWidgets(2)); // Nav item & shortcut hint
+    expect(find.text('YouTube'), findsOneWidget);
+    expect(find.text('Podcasts'), findsNWidgets(2)); // Nav item & shortcut hint
     expect(find.text('Library'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
@@ -127,4 +137,86 @@ void main() {
     expect(find.text('1:30'), findsOneWidget);
     expect(find.text('4:12'), findsOneWidget);
   });
+
+  testWidgets('Space key enters space inside EditableText without toggling play/pause',
+      (tester) async {
+    bool toggled = false;
+    final controller = TextEditingController(text: 'tum');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Shortcuts(
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.space): PlayPauseIntent(),
+          },
+          child: Actions(
+            actions: {
+              PlayPauseIntent: PlayPauseAction(() {
+                toggled = true;
+              }),
+            },
+            child: Scaffold(
+              body: TextField(
+                controller: controller,
+                autofocus: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    expect(controller.text, 'tum');
+
+    final action = PlayPauseAction(() => toggled = true);
+    expect(action.isEnabled(const PlayPauseIntent()), isFalse,
+        reason: 'PlayPauseAction must be disabled when focused inside TextField');
+
+    // Type space into the focused TextField
+    await tester.sendKeyEvent(LogicalKeyboardKey.space, character: ' ');
+    await tester.pump();
+
+    // Verify play/pause was NOT triggered!
+    expect(toggled, isFalse);
+  });
+
+  testWidgets('Space key toggles play/pause when focus is outside EditableText',
+      (tester) async {
+    bool toggled = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Shortcuts(
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.space): PlayPauseIntent(),
+          },
+          child: Actions(
+            actions: {
+              PlayPauseIntent: PlayPauseAction(() {
+                toggled = true;
+              }),
+            },
+            child: const Scaffold(
+              body: Focus(
+                autofocus: true,
+                child: SizedBox(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    expect(toggled, isFalse);
+
+    // Send space key
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+
+    // Verify play/pause was toggled!
+    expect(toggled, isTrue);
+  });
 }
+

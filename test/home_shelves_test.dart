@@ -140,7 +140,7 @@ void main() {
 
       expect(shelfIds.contains('jump_back_in'), isTrue);
       expect(shelfIds.contains('daily_mix'), isTrue);
-      expect(shelfIds.contains('release_radar'), isTrue);
+      expect(shelfIds.contains('discover_weekly'), isTrue);
     });
 
     test('caches shelves and respects forceRefresh', () async {

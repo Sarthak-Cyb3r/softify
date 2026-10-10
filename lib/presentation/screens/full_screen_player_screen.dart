@@ -73,6 +73,8 @@ class _FullScreenPlayerScreenState
     final audioHandler = ref.watch(audioHandlerProvider);
 
     final isPlaying = playbackState?.playing ?? false;
+    final currentSpeed =
+        ref.watch(playbackSpeedStreamProvider).value ?? audioHandler.speed;
 
     if (currentTrack == null) {
       return Scaffold(
@@ -113,20 +115,68 @@ class _FullScreenPlayerScreenState
         builder: (context, animatedColor, child) {
           final effectiveColor = animatedColor ?? const Color(0xFF0A0A0A);
 
-          return Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, -0.35),
-                radius: 1.15,
-                colors: [
-                  effectiveColor.withValues(alpha: 0.42),
-                  tokens.background.withValues(alpha: 0.92),
-                  tokens.background,
-                ],
-                stops: const [0.0, 0.65, 1.0],
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Root OLED Obsidian Canvas
+              Container(color: tokens.background),
+
+              // 2. Primary ambient color mesh glow node behind artwork
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(0, -0.38),
+                      radius: 1.25,
+                      colors: [
+                        effectiveColor.withValues(alpha: 0.44),
+                        effectiveColor.withValues(alpha: 0.16),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.52, 1.0],
+                    ),
+                  ),
+                ),
               ),
-            ),
-            child: child,
+
+              // 3. Secondary subtle offset mesh node for natural chromatic dispersion
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(-0.55, -0.15),
+                      radius: 0.95,
+                      colors: [
+                        effectiveColor.withValues(alpha: 0.18),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.85],
+                    ),
+                  ),
+                ),
+              ),
+
+              // 4. Downward vignette ensuring high-contrast controls readability
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        tokens.background.withValues(alpha: 0.65),
+                        tokens.background.withValues(alpha: 0.96),
+                      ],
+                      stops: const [0.3, 0.72, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+              // 5. Forefront Player Interface
+              child!,
+            ],
           );
         },
         child: SafeArea(
@@ -199,6 +249,7 @@ class _FullScreenPlayerScreenState
                             borderRadius: BorderRadius.circular(tokens.radiusXl),
                             child: LyricsView(
                               track: currentTrack,
+                              ambientColor: _ambientColor,
                               onClose: () => setState(() => _showLyrics = false),
                             ),
                           ),
@@ -221,34 +272,57 @@ class _FullScreenPlayerScreenState
                               child: AspectRatio(
                                 aspectRatio: 1,
                                 child: Container(
+                                  // Outer Bezel (Surface Level 1 / Elevated with hairline highlight)
                                   decoration: BoxDecoration(
-                                    borderRadius:
-                                        BorderRadius.circular(tokens.radiusXl),
+                                    color: tokens.surfaceElevated,
+                                    borderRadius: BorderRadius.circular(28),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.08),
+                                      width: 1.0,
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
                                         color: _ambientColor.withValues(alpha: 0.38),
-                                        blurRadius: 40,
+                                        blurRadius: 48,
                                         spreadRadius: 4,
-                                        offset: const Offset(0, 16),
+                                        offset: const Offset(0, 18),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.55),
+                                        blurRadius: 22,
+                                        offset: const Offset(0, 8),
                                       ),
                                     ],
                                   ),
-                                  child: Hero(
-                                    tag: 'now_playing_artwork_${currentTrack.id}',
-                                    child: ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(tokens.radiusXl),
-                                      child: currentTrack.coverUrl != null
-                                          ? Image.network(
-                                              currentTrack.coverUrl!,
-                                              fit: BoxFit.cover,
-                                              cacheWidth: 800,
-                                              cacheHeight: 800,
-                                              gaplessPlayback: true,
-                                              errorBuilder: (_, __, ___) =>
-                                                  _artworkFallback(tokens),
-                                            )
-                                          : _artworkFallback(tokens),
+                                  padding: const EdgeInsets.all(7),
+                                  child: Container(
+                                    // Inner Bezel (concentric radius: 28 - 7 = 21)
+                                    decoration: BoxDecoration(
+                                      color: tokens.surfaceHighlight,
+                                      borderRadius: BorderRadius.circular(21),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.06),
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.all(3),
+                                    child: Hero(
+                                      tag: 'now_playing_artwork_${currentTrack.id}',
+                                      child: ClipRRect(
+                                        // Concentric inner radius: 21 - 3 = 18
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: currentTrack.coverUrl != null
+                                            ? Image.network(
+                                                currentTrack.coverUrl!,
+                                                fit: BoxFit.cover,
+                                                cacheWidth: 800,
+                                                cacheHeight: 800,
+                                                gaplessPlayback: true,
+                                                errorBuilder: (_, __, ___) =>
+                                                    _artworkFallback(tokens),
+                                              )
+                                            : _artworkFallback(tokens),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -371,12 +445,26 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.setShuffleEnabled(!isShuffle);
                       },
-                      child: Padding(
+                      child: Container(
                         padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: isShuffle
+                              ? tokens.accent.withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isShuffle
+                                ? tokens.accent.withValues(alpha: 0.3)
+                                : Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
+                        ),
                         child: Icon(
                           Icons.shuffle_rounded,
-                          color: isShuffle ? tokens.accent : tokens.textSecondary.withValues(alpha: 0.7),
-                          size: 24,
+                          color: isShuffle
+                              ? tokens.accent
+                              : tokens.textSecondary.withValues(alpha: 0.7),
+                          size: 22,
                         ),
                       ),
                     ),
@@ -386,12 +474,20 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.skipToPrevious();
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(
+                      child: Container(
+                        padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: const Icon(
                           Icons.skip_previous_rounded,
                           color: Colors.white,
-                          size: 38,
+                          size: 34,
                         ),
                       ),
                     ),
@@ -419,12 +515,20 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.skipToNext();
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(
+                      child: Container(
+                        padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: const Icon(
                           Icons.skip_next_rounded,
                           color: Colors.white,
-                          size: 38,
+                          size: 34,
                         ),
                       ),
                     ),
@@ -434,8 +538,20 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.setAudioRepeatMode(repeatMode.next());
                       },
-                      child: Padding(
+                      child: Container(
                         padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: repeatMode != AudioRepeatMode.off
+                              ? tokens.accent.withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: repeatMode != AudioRepeatMode.off
+                                ? tokens.accent.withValues(alpha: 0.3)
+                                : Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
+                        ),
                         child: Icon(
                           repeatMode == AudioRepeatMode.one
                               ? Icons.repeat_one_rounded
@@ -443,7 +559,7 @@ class _FullScreenPlayerScreenState
                           color: repeatMode != AudioRepeatMode.off
                               ? tokens.accent
                               : tokens.textSecondary.withValues(alpha: 0.7),
-                          size: 24,
+                          size: 22,
                         ),
                       ),
                     ),
@@ -474,6 +590,12 @@ class _FullScreenPlayerScreenState
                               ? tokens.accent.withValues(alpha: 0.15)
                               : Colors.white.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(tokens.radiusFull),
+                          border: Border.all(
+                            color: _showLyrics
+                                ? tokens.accent.withValues(alpha: 0.3)
+                                : Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -497,6 +619,61 @@ class _FullScreenPlayerScreenState
                       ),
                     ),
 
+                    // Playback Speed Button (YouTube & Podcasts only)
+                    if (currentTrack.supportsSpeedPlayback)
+                      BouncingScaleButton(
+                        scaleFactor: 0.9,
+                        onTap: _cycleSpeed,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (currentSpeed > 1.05)
+                                ? tokens.accent.withValues(alpha: 0.15)
+                                : Colors.white.withValues(alpha: 0.06),
+                            borderRadius:
+                                BorderRadius.circular(tokens.radiusFull),
+                            border: Border.all(
+                              color: (currentSpeed > 1.05)
+                                  ? tokens.accent.withValues(alpha: 0.3)
+                                  : Colors.white.withValues(alpha: 0.04),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.speed_rounded,
+                                size: 16,
+                                color: (currentSpeed > 1.05)
+                                    ? tokens.accent
+                                    : tokens.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                currentSpeed == 1.0
+                                    ? '1x'
+                                    : (currentSpeed == 2.0
+                                        ? '2x'
+                                        : (currentSpeed == 3.0
+                                            ? '3x'
+                                            : '${currentSpeed}x')),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: (currentSpeed > 1.05)
+                                      ? tokens.accent
+                                      : tokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () => _openQueueSheet(context),
@@ -505,6 +682,10 @@ class _FullScreenPlayerScreenState
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.06),
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
                         ),
                         child: Icon(
                           Icons.queue_music_rounded,
@@ -522,6 +703,21 @@ class _FullScreenPlayerScreenState
         ),
       ),
     );
+  }
+
+  void _cycleSpeed() {
+    HapticFeedback.selectionClick();
+    const speeds = [1.0, 1.5, 2.0, 2.5, 3.0];
+    final current = ref.read(playbackSpeedStreamProvider).value ??
+        ref.read(audioHandlerProvider).speed;
+    int nextIdx = 0;
+    for (int i = 0; i < speeds.length; i++) {
+      if ((current - speeds[i]).abs() < 0.05) {
+        nextIdx = (i + 1) % speeds.length;
+        break;
+      }
+    }
+    ref.read(audioHandlerProvider).setSpeed(speeds[nextIdx]);
   }
 
   void _openQueueSheet(BuildContext context) {

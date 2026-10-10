@@ -36,6 +36,9 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
   double _volume = 1.0;
   final BehaviorSubject<double> _volumeSubject =
       BehaviorSubject<double>.seeded(1.0);
+  double _speed = 1.0;
+  final BehaviorSubject<double> _speedSubject =
+      BehaviorSubject<double>.seeded(1.0);
 
   @override
   bool get playing => _playing;
@@ -50,7 +53,16 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
   Duration get bufferedPosition => Duration.zero;
 
   @override
-  double get speed => 1.0;
+  double get speed => _speed;
+
+  @override
+  Stream<double> get speedStream => _speedSubject.stream;
+
+  @override
+  Future<void> setSpeed(double speed) async {
+    _speed = speed;
+    _speedSubject.add(speed);
+  }
 
   @override
   double get volume => _volume;
@@ -495,6 +507,30 @@ void main() {
       expect(throwingPlayer.lastLoadedUrl, 'https://example.com/audio_t-1.m4a');
       expect(throwingPlayer.playing, isTrue);
       expect(streamResolver.resolveCalls, 1);
+
+      await handler.dispose();
+    });
+
+    test('setSpeed updates player speed and broadcasts speed stream and playbackState', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      expect(handler.speed, 1.0);
+      expect(fakePlayer.speed, 1.0);
+
+      await handler.setSpeed(1.5);
+      expect(handler.speed, 1.5);
+      expect(fakePlayer.speed, 1.5);
+      expect(handler.playbackState.value.speed, 1.5);
+
+      await handler.setSpeed(2.0);
+      expect(handler.speed, 2.0);
+      expect(fakePlayer.speed, 2.0);
+      expect(handler.playbackState.value.speed, 2.0);
 
       await handler.dispose();
     });

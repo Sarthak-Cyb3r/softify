@@ -162,6 +162,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration> get bufferedPositionStream => _player.bufferedPositionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
+  Duration get position => _player.position;
 
   Track? get currentTrack =>
       (_currentIndex >= 0 && _currentIndex < _queue.length)
@@ -326,6 +327,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
         await _player.playPreloadedNext();
+        if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
+          await _player.setSpeed(1.0);
+        }
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
         if (nextTrack != null) {
@@ -348,6 +352,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
         await _player.playPreloadedNext();
+        if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
+          await _player.setSpeed(1.0);
+        }
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
         if (nextTrack != null) {
@@ -410,7 +417,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
   // Custom Playback Operations
   // ==========================================
 
-  Future<void> playTrack(Track track) async {
+  Future<void> playTrack(Track track, {List<Track>? queue, int? startIndex}) async {
+    if (queue != null && queue.isNotEmpty) {
+      final index = startIndex ?? queue.indexWhere((t) => t.id == track.id);
+      await setQueue(queue, startIndex: index >= 0 ? index : 0);
+      return;
+    }
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
     _queue.clear();
@@ -581,6 +593,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
   double get volume => _player.volume;
   Stream<double> get volumeStream => _player.volumeStream;
 
+  @override
+  Future<void> setSpeed(double speed) async {
+    await _player.setSpeed(speed);
+    _broadcastPlaybackState(PlaybackEvent());
+  }
+
+  double get speed => _player.speed;
+  Stream<double> get speedStream => _player.speedStream;
+
   // Equalizer API
   Future<void> setEqualizerEnabled(bool enabled) => _player.setEqualizerEnabled(enabled);
   Future<void> setEqualizerBands(List<double> gains) => _player.setEqualizerBands(gains);
@@ -603,6 +624,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
     final track = _queue[_currentIndex];
     _syncQueueState();
     _currentTrackStartedAt = DateTime.now();
+
+    // Reset playback speed to 1.0x for standard music tracks
+    if (!track.supportsSpeedPlayback && _player.speed != 1.0) {
+      await _player.setSpeed(1.0);
+    }
 
     try {
       // 1. Check offline download first (D7: zero network data usage)

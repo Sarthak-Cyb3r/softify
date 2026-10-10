@@ -6,20 +6,24 @@ import '../../domain/ports/i_autocomplete_repository.dart';
 import '../../domain/ports/i_diversity_controller.dart';
 import '../../domain/ports/i_remote_config.dart';
 import '../database/app_database.dart';
+import '../services/spotify_api_service.dart';
 import 'text_normalizer.dart';
 
 class MultiSourceAutocomplete implements IAutocompleteRepository {
   final AppDatabase _db;
   final IRemoteConfig? _remoteConfig;
   final IDiversityController? _diversityController;
+  final SpotifyApiService? _spotifyApi;
 
   MultiSourceAutocomplete({
     required AppDatabase db,
     IRemoteConfig? remoteConfig,
     IDiversityController? diversityController,
+    SpotifyApiService? spotifyApi,
   })  : _db = db,
         _remoteConfig = remoteConfig,
-        _diversityController = diversityController;
+        _diversityController = diversityController,
+        _spotifyApi = spotifyApi;
 
   @override
   Future<List<String>> getSuggestions(String prefix) async {
@@ -119,6 +123,17 @@ class MultiSourceAutocomplete implements IAutocompleteRepository {
           if (aliasTarget != cleanPrefix) {
             addCandidate(aliasTarget, 45.0);
           }
+        }
+      } catch (_) {}
+    }
+
+    // 6. Source 6: Reverse Engineered Spotify Real-Time Search Suggestions
+    if (_spotifyApi != null && cleanPrefix.length >= 2) {
+      try {
+        final spotifySuggestions = await _spotifyApi.getSearchSuggestions(prefix);
+        for (var i = 0; i < spotifySuggestions.length; i++) {
+          final rankScore = 75.0 - (i * 3.0);
+          addCandidate(spotifySuggestions[i], rankScore);
         }
       } catch (_) {}
     }

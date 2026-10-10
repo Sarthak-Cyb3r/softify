@@ -76,20 +76,35 @@ class SaavnStreamResolver implements IStreamResolver {
       return _pidCache[cacheKey];
     }
 
-    final query = '${track.title} ${track.artist}'.trim();
+    List<dynamic> results = [];
+    final primaryArtist = track.artist.split(RegExp(r'[,&/]')).first.trim();
+    final queriesToTry = <String>{
+      '${track.title} ${track.artist}'.trim(),
+      if (primaryArtist.isNotEmpty && primaryArtist != track.artist)
+        '${track.title} $primaryArtist'.trim(),
+      track.title.trim(),
+    }.toList();
 
-    final uri = Uri.parse(
-      'https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=10&p=1&q=${Uri.encodeComponent(query)}',
-    );
+    for (final q in queriesToTry) {
+      final uri = Uri.parse(
+        'https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=10&p=1&q=${Uri.encodeComponent(q)}',
+      );
+      try {
+        final req = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
+        req.headers.set('User-Agent', _userAgent);
+        final res = await req.close().timeout(const Duration(seconds: 4));
+        if (res.statusCode == 200) {
+          final body = await res.transform(utf8.decoder).join();
+          final json = jsonDecode(body);
+          final list = (json['results'] as List<dynamic>?) ?? [];
+          if (list.isNotEmpty) {
+            results = list;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
 
-    final req = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 6));
-    req.headers.set('User-Agent', _userAgent);
-    final res = await req.close().timeout(const Duration(seconds: 6));
-    if (res.statusCode != 200) return null;
-
-    final body = await res.transform(utf8.decoder).join();
-    final json = jsonDecode(body);
-    final results = (json['results'] as List<dynamic>?) ?? [];
     if (results.isEmpty) return null;
 
     double bestScore = -1.0;
@@ -99,8 +114,19 @@ class SaavnStreamResolver implements IStreamResolver {
       final pid = r['id']?.toString();
       if (pid == null) continue;
 
+      final moreInfo = r['more_info'] as Map<String, dynamic>?;
       final candTitle = _normalize((r['title'] ?? r['song'] ?? '').toString());
       final candLanguage = (r['language'] ?? '').toString().toLowerCase();
+
+      // Extract candidate artists from primary_artists in artistMap, music, subtitle, or singers
+      final primaryArtistsList = (moreInfo?['artistMap']?['primary_artists'] as List<dynamic>?)
+          ?.map((a) => (a['name'] ?? '').toString())
+          .join(', ');
+      final candSingers = _normalize(
+        (primaryArtistsList != null && primaryArtistsList.isNotEmpty)
+            ? primaryArtistsList
+            : (moreInfo?['music'] ?? r['subtitle'] ?? r['singers'] ?? r['primary_artists'] ?? '').toString(),
+      );
 
       double score = 0.0;
 
@@ -131,18 +157,29 @@ class SaavnStreamResolver implements IStreamResolver {
         score += 15.0;
       }
 
-      // 4. Exact singer / artist match if available
-      final candSingers = _normalize((r['singers'] ?? r['primary_artists'] ?? '').toString());
+      // 4. Strict singer / artist verification:
+      // A cover or recreation by an unrelated artist (e.g. Avinash Gupta) must NEVER be matched
+      final targetWords = cleanArtist.split(' ').where((w) => w.length > 2).toSet();
+      final candWords = candSingers.split(' ').where((w) => w.length > 2).toSet();
+      final hasArtistOverlap = targetWords.any((w) => candWords.contains(w) || candSingers.contains(w));
+
       if (candSingers.isNotEmpty && cleanArtist.isNotEmpty) {
-        if (candSingers.contains(cleanArtist) || cleanArtist.contains(candSingers)) {
-          score += 25.0;
+        if (hasArtistOverlap) {
+          score += 35.0;
         } else {
-          final aWords = cleanArtist.split(' ').where((w) => w.length > 2).toSet();
-          final sWords = candSingers.split(' ').where((w) => w.length > 2).toSet();
-          if (aWords.isNotEmpty) {
-            final inter = aWords.intersection(sWords).length;
-            score += 20.0 * (inter / aWords.length);
-          }
+          // Unrelated artist singing a track with same title -> heavy penalty to trigger fallback
+          score -= 90.0;
+        }
+      }
+
+      // 5. Proximity to expected duration
+      final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
+      if (track.duration > Duration.zero && candDurSec > 0) {
+        final diffSec = (track.duration.inSeconds - candDurSec).abs();
+        if (diffSec > 35) {
+          score -= 60.0; // Major discrepancy (remix, cut, or cover)
+        } else if (diffSec <= 10) {
+          score += 20.0;
         }
       }
 
@@ -152,8 +189,8 @@ class SaavnStreamResolver implements IStreamResolver {
       }
     }
 
-    // Require at least 45 points confidence to prevent erroneous matches
-    if (bestScore >= 45.0 && bestPid != null) {
+    // Require at least 50 points confidence to prevent erroneous matches
+    if (bestScore >= 50.0 && bestPid != null) {
       _pidCache[cacheKey] = bestPid;
       return bestPid;
     }

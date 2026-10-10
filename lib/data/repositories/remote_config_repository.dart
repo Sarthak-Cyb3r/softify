@@ -61,13 +61,7 @@ class RemoteConfigRepository implements IRemoteConfig {
       title: 'Discover Weekly',
       rule: 'novelty_with_familiar_anchor',
       familiarRatio: 0.1,
-      limit: 25,
-    ),
-    ShelfDefinition(
-      id: 'release_radar',
-      title: 'Release Radar',
-      rule: 'followed_new_releases',
-      limit: 15,
+      limit: 20,
     ),
   ];
 

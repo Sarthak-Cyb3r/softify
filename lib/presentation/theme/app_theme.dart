@@ -5,16 +5,18 @@ import 'app_tokens.dart';
 export 'app_tokens.dart';
 
 class AppTheme {
-  static const Color background = Color(0xFF0A0A0A); // Cinematic near-black
-  static const Color surface = Color(0xFF121212);
-  static const Color surfaceElevated = Color(0xFF181818);
-  static const Color surfaceHighlight = Color(0xFF222222);
-  static const Color primary = Color(0xFF1DB954); // Restrained Accent Green
-  static const Color primaryLight = Color(0xFF1ED760);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFA3A3A3);
-  static const Color textMuted = Color(0xFF525252);
-  static const Color error = Color(0xFFE91429);
+  static const Color background = Color(0xFF121316); // Stitch surface dark
+  static const Color surface = Color(0xFF121316);
+  static const Color surfaceElevated = Color(0xFF1F1F23);
+  static const Color surfaceHighlight = Color(0xFF292A2D);
+  static const Color surfaceContainerHighest = Color(0xFF343538);
+  static const Color primary = Color(0xFF4EDEA3); // Stitch Mint Emerald
+  static const Color primaryLight = Color(0xFF6FFBBE);
+  static const Color primaryContainer = Color(0xFF10B981);
+  static const Color textPrimary = Color(0xFFE3E2E6);
+  static const Color textSecondary = Color(0xFFBBCABF);
+  static const Color textMuted = Color(0xFF86948A);
+  static const Color error = Color(0xFFFFB4AB);
 
   static ThemeData get darkTheme {
     const tokens = AppTokens();

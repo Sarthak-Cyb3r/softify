@@ -361,6 +361,59 @@ class YoutubeInnertubeService {
     }
   }
 
+  /// Searches YouTube Music (WEB_REMIX) for pure studio master audio recordings.
+  /// YouTube Music results consist strictly of official distributor releases and Topic tracks,
+  /// with ZERO promotional audio intros, ZERO video skits, and ZERO movie dialogue.
+  Future<List<String>> searchMusicTracks(String query) async {
+    try {
+      final uri = Uri.parse('https://music.youtube.com/youtubei/v1/search?prettyPrint=false');
+      final req = await _client.postUrl(uri).timeout(const Duration(seconds: 4));
+      req.headers.set(
+        'User-Agent',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      );
+      req.headers.set('Referer', 'https://music.youtube.com/');
+      req.headers.set('Content-Type', 'application/json');
+
+      final payload = {
+        'context': {
+          'client': {
+            'clientName': 'WEB_REMIX',
+            'clientVersion': '1.20240422.01.00',
+            'hl': 'en',
+            'gl': 'IN',
+          }
+        },
+        'query': query,
+        'params': 'EgWKAQIIAWoQEAMQBBAJEAoQBRAREBAQFQ%3D%3D', // Filter for Songs
+      };
+
+      req.add(utf8.encode(jsonEncode(payload)));
+      final res = await req.close().timeout(const Duration(seconds: 4));
+      if (res.statusCode != 200) return [];
+
+      final body = await res.transform(utf8.decoder).join();
+      final json = jsonDecode(body);
+      final contents = json['contents'];
+      if (contents == null) return [];
+
+      final str = jsonEncode(contents);
+      final matches = RegExp(r'"videoId":"([a-zA-Z0-9_-]{11})"').allMatches(str);
+      final seen = <String>{};
+      final ids = <String>[];
+      for (final m in matches) {
+        final id = m.group(1);
+        if (id != null && seen.add(id)) {
+          ids.add(id);
+          if (ids.length >= 6) break;
+        }
+      }
+      return ids;
+    } catch (_) {
+      return [];
+    }
+  }
+
   void close() {
     _client.close();
   }
