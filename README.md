@@ -13,7 +13,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-170%2F170%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Release](https://img.shields.io/badge/Release-v2.0.2-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
+[![Release](https://img.shields.io/badge/Release-v2.0.6--beta--0.3-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -90,9 +90,9 @@ To update Softify on Linux to the latest version, simply run the one-line instal
 curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash
 ```
 
-To update or pin to a specific release tag (e.g. `v2.0.5`):
+To update or pin to a specific release tag (e.g. `v2.0.6-beta-0.3`):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v2.0.5 bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v2.0.6-beta-0.3 bash
 ```
 
 If you installed from a local git repository:
@@ -114,37 +114,9 @@ git pull
 | `Ctrl` + `,` | Open Settings Screen |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v2.0.2-Android-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v2.0.6-beta-0.3-Android-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
-
-### Android release signing
-Production APKs **must** be signed with the stable release keystore `android/app/softify-release.jks` (key alias `softify`) configured through `android/key.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`). Both files are **gitignored** and must never be committed.
-
-CI injects them at build time from GitHub Actions secrets:
-
-| Secret | Contents |
-| :--- | :--- |
-| `ANDROID_KEYSTORE_BASE64` | Base64-encoded `softify-release.jks` |
-| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
-| `ANDROID_KEY_ALIAS` | Key alias (defaults to `softify`) |
-| `ANDROID_KEY_PASSWORD` | Key password |
-
-```bash
-# Store the keystore as base64
-base64 -w0 android/app/softify-release.jks | gh secret set ANDROID_KEYSTORE_BASE64
-gh secret set ANDROID_KEYSTORE_PASSWORD
-gh secret set ANDROID_KEY_ALIAS
-gh secret set ANDROID_KEY_PASSWORD
-```
-
-> [!WARNING]
-> **Losing the keystore or its passwords makes future updates impossible** — there is no recovery path. Back it up offline (encrypted drive / password manager), separate from the repository. If the signing key ever changes, existing installs will show a signature conflict **once**; users must uninstall and reinstall the app.
-
-**Cutting an Android release**: bump `version:` in `pubspec.yaml`, tag `vX.Y.Z`, push the tag — the *Release Build (Android)* workflow enforces that the tag matches `pubspec.yaml`, then builds, verifies, and uploads the signed APK:
-```bash
-git tag v2.0.1 && git push origin v2.0.1
-```
 
 ### 🍎 iOS Installation & Sideloading Guide:
 Because Softify is open-source and not distributed via the App Store, iOS users can install **`Softify-iOS-Universal.ipa`** using standard iOS sideloading tools:
@@ -190,12 +162,14 @@ If your device is running a TrollStore-compatible iOS version:
 - **Browse by Genre**: Tap on genre cards (Bollywood, Pop, Hip-Hop, Punjabi, Rock, Indie, Lo-Fi) to explore curated playlists instantly.
 
 ### 3. 🎵 Music Playback & Full-Screen Player
-- **Persistent MiniPlayer**: While browsing other screens, the bottom MiniPlayer keeps playback running with track details, artwork, and quick Play/Pause controls.
+- **Persistent MiniPlayer**: Docked across all screens (Home, Search, Library, Albums, Artists, Playlists) with instant playback recovery, history fallback, and smooth controls.
+- **Uninterrupted Background Playback**: Engineered with robust foreground media session services so audio keeps streaming in the background with zero sleep timeouts when your screen is locked.
 - **Expanding the Player**: Tap or swipe up on the MiniPlayer to open the immersive **Full-Screen Player**.
 - **Playback Controls**:
   - **Seek Bar / Scrubber**: Drag the scrubber to any position with live timestamp indicators.
   - **Shuffle**: Toggle random track progression with one tap.
-  - **Repeat Modes**: Tap to cycle between **Repeat Off**, **Repeat Queue**, and **Repeat One Track**.
+  - **Repeat Modes**: Tap to cycle between **Repeat Off**, **Repeat Playlist**, and **Repeat Song**.
+  - **Playback Speed**: Adjust speed (0.5x to 2.0x) for podcasts and YouTube audio streams.
   - **Favorite (Heart)**: Tap the heart icon to instantly save the track to your Liked Songs.
 
 ### 4. 🎤 Synchronized Karaoke Lyrics
@@ -236,7 +210,7 @@ If your device is running a TrollStore-compatible iOS version:
   - **Medium (160 kbps)**: Balanced fidelity and bandwidth for mobile data.
   - **Low (96 kbps)**: Data-saver mode for limited connectivity.
 - **Cache Management**: One-tap tools to clear lyrics cache or reset application cache.
-- **Built-in Direct GitHub Updater**: Check and download updates directly within Settings with live download progress, SHA-256 integrity verification, and one-tap Android installer launch.
+- **Built-in In-App Auto Updater**: Automatically detects new GitHub Releases upon app startup with an update notification banner, or on-demand within Settings. Features live download percentage, background integrity verification, and seamless one-tap installation on Android and Linux.
 
 ### 10. 🍎 Native iOS Experience & Audio Session
 - **Lock Screen & Dynamic Island (MPRemoteCommandCenter)**: Full native iOS media integration with live album art, track scrub bar, and interactive playback controls.
@@ -413,21 +387,6 @@ flutter analyze
   - Team-Draft Interleaving & Latency Guardrails (`TeamDraftInterleaver`, `GuardrailRunner`, 54 golden query benchmarks)
   - Semantic Vector Search (`VectorSearchEngine`, cosine similarity, 128-dim subword trigram vector hashing)
   - Core Audio & Stream Engines (`SaavnStreamResolver` 320kbps verification, `HybridStreamResolver`, `YoutubeStreamResolver`, `M4aAtomTagger`, `SoftifyAudioHandler`)
-
----
-
-## 🤖 AI-Assisted Changes
-
-Assisted by **`Antigravity`** & **`opencode/mimo-v2.6-flash-free`**.
-
-| Milestone | Key Implementations & Guardrails |
-|---|---|
-| **v2.0.0 (Search & Recommendations)** | Implemented the complete 17-feature search and recommendation roadmap (Sprints 1–9) with 100% on-device SQLite/Drift persistence (Schemas v2–v9), sub-100ms instant search, FTS5 full-text indexing, dual-band taste decay ($W_{\text{fast}}$: 4h, $W_{\text{slow}}$: 14d), session co-occurrence graph (PPMI), pointwise logistic regression ranker, algotorial home shelves with 10% familiar anchor ratio, multi-source autocomplete, rule-based intent router, automix tail reordering respecting the untouchable $N+1$ player pre-buffer invariant, $\varepsilon$-greedy bandit with KL calibration, MMR diversity ranker with hard `maxPerArtist = 2` cap, 30-day artist snoozing, Radlinski team-draft interleaving with 10% holdback, 54-query golden benchmark latency runner, and 128-dim zero-network semantic vector search. All 170/170 tests pass cleanly with 0 lint issues. |
-| **v1.0.1 (Audio & Platform Stability)** | Eliminated song transition latency (<10ms) using a dual-engine standby pre-buffering pipeline in `JustAudioPlayerAdapter`. Fixed offline download audio playback by dynamically recalculating ISO-BMFF MP4 sample table chunk offsets (`stco`/`co64`) in `M4aAtomTagger` with automatic on-the-fly healing. Connected in-app OTA updater directly to GitHub Releases. |
-| `d72f048` | Removed vestigial `ios/Podfile` in favor of Swift Package Manager for clean Xcode archiving. |
-| `4532c2c` | `watchPlayHistory` tie-breaks `playedAt` with `id DESC` for consistent millisecond re-plays. |
-
-Result: Production-ready v2.0.0 milestone with all 17 roadmap features fully integrated and verified.
 
 ---
 
