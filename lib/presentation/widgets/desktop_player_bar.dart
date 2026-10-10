@@ -380,7 +380,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                             iconSize: 19,
                             splashRadius: 16,
                             visualDensity: VisualDensity.compact,
-                            tooltip: 'Repeat: ${repeatMode.name.toUpperCase()}',
+                            tooltip: repeatMode.label,
                             icon: Icon(
                               repeatMode == AudioRepeatMode.one
                                   ? Icons.repeat_one_rounded
@@ -390,12 +390,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                                   : const Color(0xFF86948A),
                             ),
                             onPressed: () {
-                              final nextMode = switch (repeatMode) {
-                                AudioRepeatMode.off => AudioRepeatMode.all,
-                                AudioRepeatMode.all => AudioRepeatMode.one,
-                                AudioRepeatMode.one => AudioRepeatMode.off,
-                              };
-                              audioHandler.setAudioRepeatMode(nextMode);
+                              audioHandler.setAudioRepeatMode(repeatMode.next());
                             },
                           ),
                         ),

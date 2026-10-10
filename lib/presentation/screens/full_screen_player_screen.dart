@@ -435,7 +435,7 @@ class _FullScreenPlayerScreenState
 
               // 5. Playback Controls (Shuffle, Prev, Morph Play/Pause, Next, Repeat)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -536,7 +536,44 @@ class _FullScreenPlayerScreenState
                       scaleFactor: 0.9,
                       onTap: () {
                         HapticFeedback.selectionClick();
-                        audioHandler.setAudioRepeatMode(repeatMode.next());
+                        final next = repeatMode.next();
+                        audioHandler.setAudioRepeatMode(next);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    next == AudioRepeatMode.one
+                                        ? Icons.repeat_one_rounded
+                                        : Icons.repeat_rounded,
+                                    color: next != AudioRepeatMode.off
+                                        ? tokens.accent
+                                        : Colors.white70,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    next.label,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              duration: const Duration(milliseconds: 1400),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: const Color(0xFF1F1F23),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(tokens.radiusFull),
+                              ),
+                            ),
+                          );
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
@@ -569,7 +606,7 @@ class _FullScreenPlayerScreenState
 
               // 6. Bottom Bar: Synced Lyrics Toggle & Queue Sheet
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

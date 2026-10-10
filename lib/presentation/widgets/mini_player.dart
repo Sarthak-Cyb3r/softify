@@ -82,7 +82,7 @@ class MiniPlayer extends ConsumerWidget {
           }
         },
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(tokens.radiusLg),
             boxShadow: [

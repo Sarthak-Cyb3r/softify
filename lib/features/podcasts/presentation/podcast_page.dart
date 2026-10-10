@@ -1252,7 +1252,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
             },
           ),
           const SliverToBoxAdapter(
-            child: SizedBox(height: 80),
+            child: SizedBox(height: 140),
           ),
         ],
       ),

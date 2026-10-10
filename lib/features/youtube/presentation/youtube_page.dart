@@ -436,7 +436,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
           ),
 
           const SliverToBoxAdapter(
-            child: SizedBox(height: 120),
+            child: SizedBox(height: 140),
           ),
         ],
       ),

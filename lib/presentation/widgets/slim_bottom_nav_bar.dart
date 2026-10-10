@@ -34,13 +34,13 @@ class SlimBottomNavBar extends StatelessWidget {
 
     return RepaintBoundary(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(tokens.radiusFull),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 20,
+              color: Colors.black.withValues(alpha: 0.55),
+              blurRadius: 24,
               offset: const Offset(0, 8),
             ),
           ],
@@ -48,12 +48,12 @@ class SlimBottomNavBar extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(tokens.radiusFull),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xE0121212),
+                color: const Color(0xE8141518),
                 borderRadius: BorderRadius.circular(tokens.radiusFull),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.08),
@@ -61,7 +61,6 @@ class SlimBottomNavBar extends StatelessWidget {
                 ),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(items.length, (index) {
                   final item = items[index];
                   final isSelected = index == currentIndex;
@@ -69,49 +68,54 @@ class SlimBottomNavBar extends StatelessWidget {
                   return Expanded(
                     child: BouncingScaleButton(
                       onTap: () => onTap(index),
-                      scaleFactor: 0.94,
+                      scaleFactor: 0.92,
                       child: Container(
-                        height: 48,
+                        color: Colors.transparent,
                         alignment: Alignment.center,
-                        child: AnimatedContainer(
-                          duration: tokens.motionStandard,
-                          curve: tokens.curveDecel,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : Colors.transparent,
-                            borderRadius:
-                                BorderRadius.circular(tokens.radiusFull),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                isSelected ? item.activeIcon : item.icon,
-                                size: 22,
-                                color: isSelected
-                                    ? tokens.textPrimary
-                                    : tokens.textSecondary.withValues(alpha: 0.7),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 2,
                               ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  item.label,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: tokens.textPrimary,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? tokens.accent.withValues(alpha: 0.15)
+                                    : Colors.transparent,
+                                borderRadius:
+                                    BorderRadius.circular(tokens.radiusFull),
+                              ),
+                              child: Icon(
+                                isSelected ? item.activeIcon : item.icon,
+                                size: 21,
+                                color: isSelected
+                                    ? tokens.accent
+                                    : tokens.textSecondary.withValues(alpha: 0.75),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? tokens.accent
+                                    : tokens.textSecondary.withValues(alpha: 0.75),
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

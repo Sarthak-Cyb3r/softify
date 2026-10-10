@@ -789,6 +789,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _checkAndPrefetchRecommendations() {
     if (_currentTrackSource == 'youtube_link') return;
+    if (_repeatMode != AudioRepeatMode.off) return; // Never append autoplay recommendations when repeat is active
     if (!_autoPlay || _catalogRepo == null || _isPrefetchingRecommendations) return;
     if (_queue.isEmpty || _currentIndex < 0) return;
 
