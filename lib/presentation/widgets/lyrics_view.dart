@@ -1423,6 +1423,44 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               ref.read(audioHandlerProvider).seek(line.timestamp);
             } catch (_) {}
           },
+          onLongPress: () {
+            HapticFeedback.mediumImpact();
+            final quoteText =
+                _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
+            final shareString =
+                '"$quoteText"\n— ${widget.track.artist} (${widget.track.title})\nShared via Softify 🎧';
+            Clipboard.setData(ClipboardData(text: shareString));
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.copy_rounded, color: accentColor, size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Lyric quote copied to clipboard',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: const Color(0xFF1B1B1F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  side: BorderSide(
+                    color: accentColor.withValues(alpha: 0.35),
+                    width: 0.8,
+                  ),
+                ),
+              ),
+            );
+          },
           borderRadius: BorderRadius.circular(tokens.radiusLg),
           splashColor: accentColor.withValues(alpha: 0.08),
           highlightColor: Colors.transparent,
