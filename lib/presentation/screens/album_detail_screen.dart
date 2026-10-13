@@ -5,9 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/shared/track_row.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
@@ -76,11 +77,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     }
   }
 
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes;
-    final s = d.inSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,13 +104,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                 decoration: BoxDecoration(
                   color: tokens.accent,
                   borderRadius: BorderRadius.circular(tokens.radiusFull),
-                  boxShadow: [
-                    BoxShadow(
-                      color: tokens.accent.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -279,7 +268,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     Text(
                       widget.albumName,
                       style: TextStyle(
-                        fontSize: 22,
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
                         color: tokens.textPrimary,
@@ -295,6 +285,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.2,
+                            fontFamily: AppTheme.fontUi,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -309,35 +300,10 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                             color: tokens.textSecondary,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w400,
+                            fontFamily: AppTheme.fontUi,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    // High-res audio pill badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tokens.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        border: Border.all(
-                          color: tokens.accent.withValues(alpha: 0.25),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        'STUDIO MASTER 320K • FLAC LOSSLESS',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          color: tokens.accent,
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -355,13 +321,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                                 color: tokens.accent,
                                 borderRadius:
                                     BorderRadius.circular(tokens.radiusFull),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: tokens.accent.withValues(alpha: 0.25),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
                               ),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -504,198 +463,59 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                       ref.watch(isTrackDownloadedProvider(track.id));
                   final isDownloaded = isDownloadedAsync.value ?? false;
 
-                  final durationFormatted =
-                      _formatDuration(track.duration);
+                  final isCurrent = audioHandler.currentTrack?.id == track.id;
 
-                  return RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 2,
+                  return TrackRow(
+                    track: track.copyWith(isLiked: isLiked),
+                    index: index + 1,
+                    showArtwork: false,
+                    isPlaying: isCurrent,
+                    onTap: () {
+                      audioHandler.setQueue(_tracks, startIndex: index);
+                    },
+                    onPlayTap: () {
+                      audioHandler.setQueue(_tracks, startIndex: index);
+                    },
+                    onLikeTap: () {
+                      HapticFeedback.selectionClick();
+                      ref
+                          .read(libraryRepositoryProvider)
+                          .setLiked(track.id, !isLiked, track: track);
+                    },
+                    onOptionsTap: () {
+                      HapticFeedback.selectionClick();
+                      TrackOptionsBottomSheet.show(context, track: track);
+                    },
+                    trailing: IconButton(
+                      iconSize: 18.0,
+                      splashRadius: 18.0,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: Icon(
+                        isDownloaded
+                            ? Icons.download_done_rounded
+                            : Icons.download_for_offline_outlined,
+                        color: isDownloaded ? tokens.accent : tokens.textMuted,
                       ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(tokens.radiusMd),
-                          hoverColor:
-                              tokens.surfaceHighlight.withValues(alpha: 0.35),
-                          splashColor: tokens.accent.withValues(alpha: 0.08),
-                          highlightColor:
-                              tokens.surfaceHighlight.withValues(alpha: 0.2),
-                          onTap: () {
-                            audioHandler.setQueue(_tracks, startIndex: index);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 10,
-                            ),
-                            child: Row(
-                              children: [
-                                // High-contrast track list numbers (tabular monospace)
-                                SizedBox(
-                                  width: 28,
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                      fontFamily: 'monospace',
-                                      color: tokens.textMuted,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
+                      tooltip: isDownloaded ? 'Downloaded' : 'Download Offline',
+                      onPressed: isDownloaded
+                          ? null
+                          : () async {
+                              HapticFeedback.lightImpact();
+                              await ref
+                                  .read(downloadRepositoryProvider)
+                                  .queueDownload(track);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Downloading "${track.title}"...'),
+                                    duration: const Duration(seconds: 2),
+                                    backgroundColor: tokens.surfaceElevated,
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        track.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: tokens.textPrimary,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14.5,
-                                          letterSpacing: -0.2,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        track.artist,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: tokens.textSecondary,
-                                          fontSize: 12,
-                                          letterSpacing: -0.1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                // Duration Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tokens.surfaceHighlight
-                                        .withValues(alpha: 0.45),
-                                    borderRadius:
-                                        BorderRadius.circular(tokens.radiusSm),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.04),
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    durationFormatted,
-                                    style: TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: tokens.textMuted,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                // Like Button
-                                BouncingScaleButton(
-                                  scaleFactor: 0.88,
-                                  minTouchTarget: 0,
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    ref
-                                        .read(libraryRepositoryProvider)
-                                        .setLiked(
-                                          track.id,
-                                          !isLiked,
-                                          track: track,
-                                        );
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(7.0),
-                                    child: Icon(
-                                      isLiked
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      color: isLiked
-                                          ? tokens.accent
-                                          : tokens.textSecondary
-                                              .withValues(alpha: 0.7),
-                                      size: 19,
-                                    ),
-                                  ),
-                                ),
-                                // Download Button
-                                BouncingScaleButton(
-                                  scaleFactor: 0.88,
-                                  minTouchTarget: 0,
-                                  onTap: () async {
-                                    if (!isDownloaded) {
-                                      HapticFeedback.lightImpact();
-                                      await ref
-                                          .read(downloadRepositoryProvider)
-                                          .queueDownload(track);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Downloading "${track.title}"...',
-                                            ),
-                                            duration: const Duration(seconds: 2),
-                                            backgroundColor:
-                                                tokens.surfaceElevated,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(7.0),
-                                    child: Icon(
-                                      isDownloaded
-                                          ? Icons.download_done_rounded
-                                          : Icons.download_for_offline_outlined,
-                                      color: isDownloaded
-                                          ? tokens.accent
-                                          : tokens.textSecondary
-                                              .withValues(alpha: 0.7),
-                                      size: 19,
-                                    ),
-                                  ),
-                                ),
-                                // More Options
-                                BouncingScaleButton(
-                                  scaleFactor: 0.88,
-                                  minTouchTarget: 0,
-                                  onTap: () {
-                                    TrackOptionsBottomSheet.show(
-                                      context,
-                                      track: track,
-                                    );
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(7.0),
-                                    child: Icon(
-                                      Icons.more_vert_rounded,
-                                      color: tokens.textSecondary
-                                          .withValues(alpha: 0.7),
-                                      size: 19,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                                );
+                              }
+                            },
                     ),
                   );
                 },

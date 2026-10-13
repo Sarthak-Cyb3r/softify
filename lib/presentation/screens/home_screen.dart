@@ -7,8 +7,9 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
 import '../providers/shelf_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import 'equalizer_screen.dart';
@@ -25,6 +26,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String _selectedFilter = 'All';
+
   @override
   void initState() {
     super.initState();
@@ -311,9 +314,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
                     children: [
-                      // 1. Listening Room Header & Spotify Import Button
+                      // Filter Chips Bar
+                      _buildFilterChips(tokens),
+                      // 1. Listening Room Header & Status Indicator
                       _buildGreetingHeader(tokens, userName, true),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 20),
 
                       // 2. 6-Card Quick-Access Bento Grid
                       _buildBentoGrid(
@@ -386,6 +391,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
                 _buildGreetingHeader(tokens, userName, false),
+                const SizedBox(height: 12),
+                _buildFilterChips(tokens),
                 const SizedBox(height: 14),
                 _buildSpotifyImportCard(tokens),
                 const SizedBox(height: 16),
@@ -465,7 +472,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     shelf.title,
                     style: TextStyle(
-                      fontSize: 18,
+                      fontFamily: AppTheme.fontPageTitle,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.3,
                       color: tokens.textPrimary,
@@ -478,6 +486,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
                         fontSize: 12,
                         color: tokens.textSecondary,
                       ),
@@ -506,6 +515,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Text(
                   'Play All',
                   style: TextStyle(
+                    fontFamily: AppTheme.fontUi,
                     color: tokens.accent,
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
@@ -517,7 +527,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 204,
+          height: 215,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: shelf.tracks.length,
@@ -534,113 +544,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildRecentTrackCard(
       AppTokens tokens, Track track, dynamic audioHandler) {
-    return BouncingScaleButton(
-      scaleFactor: 0.95,
-      minTouchTarget: 0,
+    return MediaCard(
+      title: track.title,
+      subtitle: track.artist,
+      imageUrl: track.coverUrl,
+      width: 140,
       onTap: () => audioHandler.playTrack(track),
-      child: Container(
-        width: 136,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: tokens.surfaceElevated,
-          borderRadius: BorderRadius.circular(tokens.radiusLg),
-          border: Border.all(
-            color: tokens.surfaceHighlight.withValues(alpha: 0.8),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(tokens.radiusMd),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    track.coverUrl != null
-                        ? Image.network(
-                            track.coverUrl!,
-                            width: 120,
-                            height: 120,
-                            cacheWidth: 360,
-                            cacheHeight: 360,
-                            gaplessPlayback: true,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _fallbackThumb(tokens),
-                          )
-                        : _fallbackThumb(tokens),
-                    Positioned(
-                      bottom: 6,
-                      right: 6,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: tokens.accent,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.play_arrow_rounded,
-                            size: 18,
-                            color: Color(0xFF080F11),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Text(
-                track.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
-                  letterSpacing: -0.3,
-                  color: tokens.textPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Text(
-                track.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.1,
-                  color: tokens.textSecondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      onPlayTap: () => audioHandler.playTrack(track),
     );
   }
 
@@ -745,13 +655,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   );
 }
 
+  Widget _buildFilterChips(AppTokens tokens) {
+    const filters = ['All', 'Music', 'Podcasts'];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: filters.map((f) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: AppFilterChip(
+              label: f,
+              isSelected: _selectedFilter == f,
+              onTap: () => setState(() => _selectedFilter = f),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildGreetingHeader(AppTokens tokens, String? userName, bool isDesktop) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Column(
@@ -760,20 +689,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     _getGreeting(userName),
                     style: TextStyle(
-                      fontSize: isDesktop ? 30 : 23,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
+                      fontFamily: AppTheme.fontPageTitle,
+                      fontSize: isDesktop ? 30 : 24,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                       color: tokens.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     isDesktop
                         ? 'Pick up right where you left off, or explore your library.'
                         : 'Quiet melodies for an unhurried day.',
                     style: TextStyle(
-                      fontSize: isDesktop ? 13 : 14,
-                      fontStyle: isDesktop ? FontStyle.normal : FontStyle.italic,
+                      fontFamily: AppTheme.fontUi,
+                      fontSize: 13,
                       color: tokens.textSecondary,
                     ),
                   ),
@@ -781,45 +711,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             if (isDesktop)
-              BouncingScaleButton(
-                scaleFactor: 0.94,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SpotifyImportScreen(),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: tokens.accent.withValues(alpha: 0.4),
-                      width: 1.2,
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.accent,
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.sync_alt_rounded,
-                        color: tokens.accent,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Import Spotify Playlist',
-                        style: TextStyle(
-                          color: tokens.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Linux Desktop Client',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  AppPillButton(
+                    label: 'Import Spotify',
+                    icon: const Icon(Icons.sync_alt_rounded, size: 16),
+                    variant: AppPillButtonVariant.secondary,
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SpotifyImportScreen(),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
+                ],
               ),
           ],
         ),
@@ -831,19 +756,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(tokens.radiusLg),
-        border: Border.all(
-          color: tokens.surfaceHighlight.withValues(alpha: 0.8),
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
       ),
       child: Row(
         children: [
@@ -851,15 +765,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: tokens.surfaceHighlight,
-              borderRadius: BorderRadius.circular(tokens.radiusMd),
+              color: tokens.surfaceElevated,
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
             ),
-            child: Center(
-              child: Icon(
-                Icons.link_rounded,
-                color: tokens.accent,
-                size: 20,
-              ),
+            child: const Icon(
+              Icons.sync_alt_rounded,
+              color: AppTheme.accent,
+              size: 20,
             ),
           ),
           const SizedBox(width: 12),
@@ -869,69 +781,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Import Spotify Playlist',
+                  'Import Spotify Playlists',
                   style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
+                    fontFamily: AppTheme.fontUi,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                     color: tokens.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
                   'Instant synchronization to Softify vault',
                   style: TextStyle(
-                    fontSize: 11,
-                    letterSpacing: -0.1,
+                    fontFamily: AppTheme.fontUi,
+                    fontSize: 12,
                     color: tokens.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          BouncingScaleButton(
-            scaleFactor: 0.95,
-            minTouchTarget: 0,
-            onTap: () {
+          AppPillButton(
+            label: 'Connect',
+            variant: AppPillButtonVariant.primary,
+            onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => const SpotifyImportScreen(),
                 ),
               );
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: tokens.accent,
-                borderRadius: BorderRadius.circular(tokens.radiusFull),
-                boxShadow: [
-                  BoxShadow(
-                    color: tokens.accent.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Connect',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.1,
-                      color: Colors.black,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 14,
-                    color: Colors.black,
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -946,52 +825,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required VoidCallback onDownloadsTap,
     required bool isDesktop,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = isDesktop ? 4 : 2;
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: isDesktop ? 2.8 : 2.2,
-          children: [
-            _buildBentoItem(
-              tokens: tokens,
-              title: 'Liked Songs',
-              subtitle: 'Auto-synced • $likedCount tracks',
-              icon: Icons.favorite_rounded,
-              iconColor: const Color(0xFFFC7C78), // Tertiary container
-              onTap: onLikedTap,
-            ),
-            _buildBentoItem(
-              tokens: tokens,
-              title: 'Offline Vault',
-              subtitle: '$downloadsCount Stored Tracks',
-              icon: Icons.download_done_rounded,
-              iconColor: tokens.accent,
-              onTap: onDownloadsTap,
-            ),
-            _buildBentoItem(
-              tokens: tokens,
-              title: 'Recently Played',
-              subtitle: 'Playback history',
-              icon: Icons.history_rounded,
-              iconColor: tokens.textSecondary,
-              onTap: onLikedTap,
-            ),
-            _buildBentoItem(
-              tokens: tokens,
-              title: 'Your Library',
-              subtitle: 'Saved playlists & albums',
-              icon: Icons.library_music_rounded,
-              iconColor: tokens.textSecondary,
-              onTap: onDownloadsTap,
-            ),
-          ],
-        );
-      },
+    final crossAxisCount = isDesktop ? 3 : 2;
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: crossAxisCount,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: isDesktop ? 3.4 : 2.5,
+      children: [
+        _buildBentoItem(
+          tokens: tokens,
+          title: 'Liked Songs',
+          subtitle: '$likedCount songs',
+          isGradient: true,
+          icon: Icons.favorite_rounded,
+          iconColor: Colors.white,
+          onTap: onLikedTap,
+        ),
+        _buildBentoItem(
+          tokens: tokens,
+          title: 'Downloads',
+          subtitle: '$downloadsCount tracks',
+          icon: Icons.download_done_rounded,
+          iconColor: tokens.accent,
+          onTap: onDownloadsTap,
+        ),
+        _buildBentoItem(
+          tokens: tokens,
+          title: 'Rainy Twilight',
+          subtitle: 'Curated mix',
+          icon: Icons.music_note_rounded,
+          iconColor: tokens.accent,
+          onTap: onLikedTap,
+        ),
+        _buildBentoItem(
+          tokens: tokens,
+          title: 'Deep Focus',
+          subtitle: 'Ambient beats',
+          icon: Icons.headphones_rounded,
+          iconColor: tokens.accent,
+          onTap: onDownloadsTap,
+        ),
+        _buildBentoItem(
+          tokens: tokens,
+          title: 'Daily Mix 1',
+          subtitle: 'Made for you',
+          icon: Icons.album_rounded,
+          iconColor: tokens.accent,
+          onTap: onLikedTap,
+        ),
+        _buildBentoItem(
+          tokens: tokens,
+          title: 'Discover Weekly',
+          subtitle: 'Fresh arrivals',
+          icon: Icons.auto_awesome_rounded,
+          iconColor: tokens.accent,
+          onTap: onDownloadsTap,
+        ),
+      ],
     );
   }
 
@@ -1002,79 +894,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required IconData icon,
     required Color iconColor,
     required VoidCallback onTap,
+    bool isGradient = false,
   }) {
-    return BouncingScaleButton(
-      scaleFactor: 0.96,
-      minTouchTarget: 0,
+    return _BentoHoverItem(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      iconColor: iconColor,
+      isGradient: isGradient,
+      tokens: tokens,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: tokens.surfaceElevated,
-          borderRadius: BorderRadius.circular(tokens.radiusLg),
-          border: Border.all(
-            color: tokens.surfaceHighlight.withValues(alpha: 0.8),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.20),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: tokens.surfaceHighlight,
-                borderRadius: BorderRadius.circular(tokens.radiusMd),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Icon(icon, color: iconColor, size: 18),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: tokens.textPrimary,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: tokens.textSecondary,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1479,52 +1308,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: tokens.accent,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Popular Artists',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                    color: tokens.textPrimary,
-                  ),
-                ),
-              ],
-            ),
             Text(
-              'DISCOGRAPHY ARCHIVE',
+              'Popular Artists',
               style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: AppTheme.fontPageTitle,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: tokens.textMuted,
+                letterSpacing: -0.4,
+                color: tokens.textPrimary,
               ),
             ),
           ],
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 160,
+          height: 180,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: popularArtists.length,
             separatorBuilder: (_, __) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               final a = popularArtists[index];
-              return BouncingScaleButton(
-                scaleFactor: 0.95,
-                minTouchTarget: 0,
+              return ArtistCard(
+                name: a['name']!,
+                subtitle: a['tag'],
+                imageUrl: null,
+                width: 130,
                 onTap: () async {
                   final disco = await ref.read(artistDiscographySearchProvider(a['name']!).future);
                   if (disco != null && context.mounted) {
@@ -1535,70 +1344,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                   }
                 },
-                child: Container(
-                  width: 124,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(tokens.radiusLg),
-                    border: Border.all(
-                      color: tokens.surfaceHighlight.withValues(alpha: 0.8),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.20),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: tokens.surfaceHighlight,
-                          border: Border.all(
-                            color: tokens.accent.withValues(alpha: 0.35),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.person_rounded,
-                            size: 28,
-                            color: tokens.accent,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        a['name']!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                          color: tokens.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Artist',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          letterSpacing: -0.1,
-                          color: tokens.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                onPlayTap: () async {
+                  final disco = await ref.read(artistDiscographySearchProvider(a['name']!).future);
+                  if (disco != null && disco.allTracks.isNotEmpty) {
+                    ref.read(audioHandlerProvider).setQueue(disco.allTracks);
+                  }
+                },
               );
             },
           ),
@@ -1769,10 +1520,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             children: [
                               Text(
                                 '${index + 1}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                  color: isCurrent ? const Color(0xFF4EDEA3) : const Color(0xFF86948A),
+                                style: AppTheme.tabularTimestamp(
+                                  fontSize: 12,
+                                  color: isCurrent ? tokens.accent : tokens.textMuted,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1786,18 +1536,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
+                                        fontFamily: AppTheme.fontUi,
                                         fontSize: 12,
                                         fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                                        color: isCurrent ? const Color(0xFF4EDEA3) : const Color(0xFFE3E2E6),
+                                        color: isCurrent ? tokens.accent : tokens.textPrimary,
                                       ),
                                     ),
                                     Text(
                                       track.artist,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 10.5,
-                                        color: Color(0xFF86948A),
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontUi,
+                                        fontSize: 12, // Strict 12px floor
+                                        color: tokens.textSecondary,
                                       ),
                                     ),
                                   ],
@@ -1805,10 +1557,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                               Text(
                                 _formatDuration(track.duration),
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontFamily: 'monospace',
-                                  color: Color(0xFF86948A),
+                                style: AppTheme.tabularTimestamp(
+                                  fontSize: 12,
+                                  color: tokens.textMuted,
                                 ),
                               ),
                             ],
@@ -1825,12 +1576,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F1F23),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFF292A2D),
-                width: 0.8,
-              ),
+              color: tokens.card,
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
             ),
             child: Row(
               children: [
@@ -1843,10 +1590,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: const Text(
                     'Space',
                     style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'monospace',
+                      fontSize: 12, // Strict 12px floor
+                      fontFamily: AppTheme.fontUi,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF4EDEA3),
+                      color: AppTheme.accent,
                     ),
                   ),
                 ),
@@ -1855,8 +1602,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Text(
                     'Press [Space] anywhere to pause or play immediately.',
                     style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFBBCABF),
+                      fontSize: 12, // Strict 12px floor
+                      fontFamily: AppTheme.fontUi,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -1864,6 +1612,134 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BentoHoverItem extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color iconColor;
+  final bool isGradient;
+  final AppTokens tokens;
+  final VoidCallback onTap;
+
+  const _BentoHoverItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.iconColor,
+    required this.tokens,
+    required this.onTap,
+    this.isGradient = false,
+  });
+
+  @override
+  State<_BentoHoverItem> createState() => _BentoHoverItemState();
+}
+
+class _BentoHoverItemState extends State<_BentoHoverItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = widget.tokens;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          decoration: BoxDecoration(
+            color: _isHovered ? tokens.cardHover : tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: widget.isGradient
+                      ? const LinearGradient(
+                          colors: [Color(0xFF450AF5), Color(0xFFC4EFD9)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: widget.isGradient ? null : tokens.surfaceElevated,
+                  borderRadius: BorderRadius.horizontal(
+                    left: Radius.circular(tokens.radiusCard),
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    widget.icon,
+                    color: widget.iconColor,
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: tokens.textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 12, // Strict 12px floor
+                        color: tokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 140),
+                opacity: _isHovered ? 1.0 : 0.0,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.accent,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      size: 20,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

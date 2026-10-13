@@ -73,7 +73,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     // Check AppBar title
-    expect(find.text('YouTube'), findsOneWidget);
+    expect(find.text('Paste a Link'), findsOneWidget);
 
     // Check Input field
     expect(

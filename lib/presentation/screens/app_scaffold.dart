@@ -138,15 +138,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         final isDesktop = constraints.maxWidth >= 800;
 
         if (isDesktop) {
-          return _buildDesktopLayout(context, AppTokens.linuxTokens);
+          return _buildDesktopLayout(context, AppTokens.standardTokens);
         } else {
-          return Theme(
-            data: AppTheme.mobileDarkTheme,
-            child: Builder(
-              builder: (mobileContext) =>
-                  _buildMobileLayout(mobileContext, AppTokens.mobileStitchTokens),
-            ),
-          );
+          return _buildMobileLayout(context, AppTokens.standardTokens);
         }
       },
     );
@@ -275,15 +269,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF121316),
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFF1F1F23),
-            width: 1,
-          ),
-        ),
-      ),
+      color: tokens.background, // Pure #121212
       child: Row(
         children: [
           // Navigation Chevrons
@@ -323,44 +309,42 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 height: 36,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F1F23),
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
-                  border: Border.all(
-                    color: const Color(0xFF292A2D),
-                    width: 1,
-                  ),
+                  color: tokens.card, // #181818
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.search_rounded,
-                      size: 17,
-                      color: Color(0xFF86948A),
+                      size: 18,
+                      color: tokens.textSecondary,
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Search songs, albums, or artists...',
+                        'What do you want to play?',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF86948A),
+                          fontFamily: AppTheme.fontUi,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: tokens.textSecondary,
                         ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF292A2D),
+                        color: tokens.cardHover,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        '⌘K',
+                      child: Text(
+                        'Ctrl+K',
                         style: TextStyle(
-                          fontSize: 9.5,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF86948A),
+                          fontSize: 12, // Strict 12px min floor
+                          fontFamily: AppTheme.fontUi,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.textSecondary,
                         ),
                       ),
                     ),
@@ -375,7 +359,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           // Right Actions
           _buildHeaderCircleButton(
             icon: Icons.tune_rounded,
-            tooltip: 'Equalizer & Sound',
+            tooltip: 'Equalizer & Audio DSP',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -394,44 +378,42 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
           // User Profile Pill
           Container(
-            height: 30,
+            height: 32,
             padding: const EdgeInsets.only(left: 4, right: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F1F23),
-              borderRadius: BorderRadius.circular(tokens.radiusFull),
-              border: Border.all(
-                color: const Color(0xFF292A2D),
-                width: 0.8,
-              ),
+              color: tokens.card,
+              borderRadius: BorderRadius.circular(tokens.radiusPill),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 22,
-                  height: 22,
+                  width: 24,
+                  height: 24,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xFF292A2D),
+                    color: AppTheme.accent,
                   ),
                   child: Center(
                     child: Text(
                       userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF4EDEA3),
+                        color: Colors.black,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Text(
                   userName,
                   style: const TextStyle(
+                    fontFamily: AppTheme.fontUi,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFE3E2E6),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ],
@@ -477,16 +459,14 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   }
 
   Widget _buildMobileLayout(BuildContext context, AppTokens tokens) {
-    final mobileIndex = _currentIndex.clamp(0, 4);
-
     return Scaffold(
       backgroundColor: tokens.background,
       body: Stack(
         children: [
-          // Current Tab Page (IndexedStack preserves state)
+          // Current Tab Page (IndexedStack preserves state for all 6 tabs)
           IndexedStack(
-            index: mobileIndex,
-            children: _screens.sublist(0, 5),
+            index: _currentIndex,
+            children: _screens,
           ),
 
           // Floating MiniPlayer docked cleanly above SlimBottomNavBar
@@ -502,7 +482,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 children: [
                   const MiniPlayer(),
                   SlimBottomNavBar(
-                    currentIndex: mobileIndex,
+                    currentIndex: _currentIndex,
                     onTap: (index) {
                       setState(() {
                         _currentIndex = index;
@@ -511,28 +491,33 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                     items: const [
                       SlimNavItem(
                         icon: Icons.home_outlined,
-                        activeIcon: Icons.home_filled,
+                        activeIcon: Icons.home_rounded,
                         label: 'Home',
                       ),
                       SlimNavItem(
-                        icon: Icons.search_outlined,
+                        icon: Icons.search_rounded,
                         activeIcon: Icons.search_rounded,
                         label: 'Search',
                       ),
                       SlimNavItem(
-                        icon: AppTabIcons.youtube,
-                        activeIcon: AppTabIcons.youtubeActive,
-                        label: 'YouTube',
+                        icon: Icons.link_rounded,
+                        activeIcon: Icons.link_rounded,
+                        label: 'Paste Link',
                       ),
                       SlimNavItem(
-                        icon: AppTabIcons.podcasts,
-                        activeIcon: AppTabIcons.podcastsActive,
+                        icon: Icons.podcasts_outlined,
+                        activeIcon: Icons.podcasts_rounded,
                         label: 'Podcasts',
                       ),
                       SlimNavItem(
-                        icon: Icons.library_music_outlined,
-                        activeIcon: Icons.library_music_rounded,
+                        icon: Icons.local_library_outlined,
+                        activeIcon: Icons.local_library_rounded,
                         label: 'Library',
+                      ),
+                      SlimNavItem(
+                        icon: Icons.settings_outlined,
+                        activeIcon: Icons.settings_rounded,
+                        label: 'Settings',
                       ),
                     ],
                   ),

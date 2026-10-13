@@ -9,6 +9,7 @@ import '../../../presentation/providers/player_providers.dart';
 import '../../../presentation/theme/app_theme.dart';
 import '../../../presentation/widgets/bouncing_scale_button.dart';
 import '../../../presentation/widgets/shimmer_skeleton.dart';
+import '../../../presentation/widgets/shared/app_dialog.dart';
 import '../../../presentation/widgets/track_options_bottom_sheet.dart';
 import '../domain/parse_youtube_link.dart';
 import 'youtube_controller.dart';
@@ -118,8 +119,9 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
       backgroundColor: tokens.background,
       appBar: AppBar(
         title: Text(
-          'YouTube',
+          'Paste a Link',
           style: TextStyle(
+            fontFamily: AppTheme.fontDisplay,
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.4,
@@ -150,7 +152,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                     onSubmitted: (_) => _submitCurrentText(),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: tokens.surfaceElevated,
+                      fillColor: tokens.card,
                       hintText: 'Paste YouTube link (watch, youtu.be, shorts)...',
                       hintStyle: TextStyle(
                         color: tokens.textMuted,
@@ -192,21 +194,21 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                         vertical: 14,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
                         borderSide: BorderSide(
                           color: tokens.surfaceHighlight,
                           width: 1,
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
                         borderSide: BorderSide(
                           color: tokens.surfaceHighlight,
                           width: 1,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
                         borderSide: BorderSide(
                           color: tokens.accent,
                           width: 1.5,
@@ -228,14 +230,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                             decoration: BoxDecoration(
                               color: tokens.accent,
                               borderRadius:
-                                  BorderRadius.circular(tokens.radiusFull),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: tokens.accent.withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                                  BorderRadius.circular(tokens.radiusPill),
                             ),
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -271,7 +266,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                         _urlController.text = _detectedClipboardUrl!;
                         _submitCurrentText();
                       },
-                      borderRadius: BorderRadius.circular(tokens.radiusMd),
+                      borderRadius: BorderRadius.circular(tokens.radiusCard),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -279,7 +274,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                         ),
                         decoration: BoxDecoration(
                           color: tokens.accent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(tokens.radiusMd),
+                          borderRadius: BorderRadius.circular(tokens.radiusCard),
                           border: Border.all(
                             color: tokens.accent.withValues(alpha: 0.35),
                             width: 1,
@@ -311,7 +306,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: tokens.textMuted,
-                                      fontSize: 11,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
@@ -350,6 +345,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                   Text(
                     'Recent Links',
                     style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: tokens.textPrimary,
@@ -601,12 +597,8 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: tokens.surfaceElevated,
-          borderRadius: BorderRadius.circular(tokens.radiusLg),
-          border: Border.all(
-            color: tokens.accent.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          color: tokens.card,
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,7 +612,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: tokens.accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    borderRadius: BorderRadius.circular(tokens.radiusCard),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -635,7 +627,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                         'AUDIO STREAM ACTIVE',
                         style: TextStyle(
                           color: tokens.accent,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.4,
                         ),
@@ -646,9 +638,9 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                 if (state.startSeconds != null && state.startSeconds! > 0)
                   Text(
                     'Started at ${_formatDuration(state.startSeconds!)}',
-                    style: TextStyle(
+                    style: AppTheme.tabularTimestamp(
                       color: tokens.textMuted,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -662,7 +654,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
               children: [
                 // Thumbnail
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(tokens.radiusMd),
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
                   child: Container(
                     width: 72,
                     height: 72,
@@ -716,7 +708,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                       const SizedBox(height: 4),
                       Text(
                         _formatDuration(track.duration.inSeconds),
-                        style: TextStyle(
+                        style: AppTheme.tabularTimestamp(
                           color: tokens.textMuted,
                           fontSize: 12,
                         ),
@@ -807,7 +799,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
                 color: tokens.surfaceHighlight.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(tokens.radiusMd),
+                borderRadius: BorderRadius.circular(tokens.radiusCard),
               ),
               child: Row(
                 children: [
@@ -834,19 +826,19 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                           HapticFeedback.selectionClick();
                           ref.read(audioHandlerProvider).setSpeed(spd);
                         },
-                        borderRadius: BorderRadius.circular(tokens.radiusSm),
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
+                            horizontal: 8,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
                             color: (currentSpeed - spd).abs() < 0.05
                                 ? tokens.accent
                                 : Colors.transparent,
                             borderRadius:
-                                BorderRadius.circular(tokens.radiusSm),
+                                BorderRadius.circular(tokens.radiusPill),
                           ),
                           child: Text(
                             spd == 1.0
@@ -855,7 +847,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                                     ? '2x'
                                     : (spd == 3.0 ? '3x' : '${spd}x')),
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: (currentSpeed - spd).abs() < 0.05
                                   ? FontWeight.w700
                                   : FontWeight.w500,
@@ -919,8 +911,8 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(tokens.radiusLg),
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
         border: Border.all(
           color: tokens.surfaceHighlight.withValues(alpha: 0.5),
         ),
@@ -985,7 +977,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: ClipRRect(
-          borderRadius: BorderRadius.circular(tokens.radiusSm),
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
           child: Container(
             width: 48,
             height: 48,
@@ -1021,7 +1013,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
           '${item.channel} • ${_formatDuration(item.durationSeconds)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
+          style: AppTheme.tabularTimestamp(
             color: tokens.textMuted,
             fontSize: 12,
           ),
@@ -1043,32 +1035,18 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
     );
   }
 
-  void _confirmClearHistory(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.tokens.surfaceElevated,
-        title: const Text('Clear YouTube History?'),
-        content: const Text(
+  Future<void> _confirmClearHistory(BuildContext context) async {
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Clear YouTube History?',
+      message:
           'This will remove all recently played YouTube links from your history.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              ref.read(youtubeHistoryDaoProvider).clearAll();
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              'Clear All',
-              style: TextStyle(color: AppTheme.error),
-            ),
-          ),
-        ],
-      ),
+      confirmText: 'Clear All',
+      cancelText: 'Cancel',
+      isDestructive: true,
     );
+    if (confirmed == true) {
+      ref.read(youtubeHistoryDaoProvider).clearAll();
+    }
   }
 }

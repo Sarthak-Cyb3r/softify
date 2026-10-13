@@ -5,9 +5,10 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../providers/search_providers.dart';
 import '../theme/app_theme.dart';
-import '../widgets/animated_music_wave_indicator.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/shared/app_pill_button.dart';
+import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import 'artist_discography_screen.dart';
 
@@ -111,7 +112,9 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
               title: Text(
                 widget.artistName,
                 style: TextStyle(
+                  fontFamily: AppTheme.fontDisplay,
                   fontWeight: FontWeight.bold,
+                  fontSize: 18,
                   color: tokens.textPrimary,
                 ),
               ),
@@ -142,60 +145,43 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
             ),
           ),
 
-          // Action Buttons: Play All & Shuffle
+          // Action Buttons: Play All, Shuffle & Discography
           if (!_isLoading && _tracks.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: tokens.accent,
-                        foregroundColor: const Color(0xFF080F11),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        ),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: tokens.accent,
+                        shape: BoxShape.circle,
                       ),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text(
-                        'Play All',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      child: IconButton(
+                        icon: const Icon(Icons.play_arrow_rounded, size: 30, color: Color(0xFF000000)),
+                        tooltip: 'Play',
+                        onPressed: () {
+                          audioHandler.setQueue(_tracks);
+                        },
                       ),
-                      onPressed: () {
-                        audioHandler.setQueue(_tracks);
-                      },
                     ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: tokens.textPrimary,
-                        side: BorderSide(color: tokens.surfaceHighlight),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        ),
-                      ),
-                      icon: const Icon(Icons.shuffle),
-                      label: const Text('Shuffle'),
+                    const SizedBox(width: 14),
+                    AppPillButton(
+                      label: 'Shuffle',
+                      icon: const Icon(Icons.shuffle_rounded, size: 18),
+                      variant: AppPillButtonVariant.secondary,
                       onPressed: () {
                         final shuffled = List<Track>.from(_tracks)..shuffle();
                         audioHandler.setQueue(shuffled);
                       },
                     ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: tokens.textPrimary,
-                        side: BorderSide(color: tokens.surfaceHighlight),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        ),
-                      ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Discography',
                       icon: const Icon(Icons.album_rounded, size: 18),
-                      label: const Text('Discography'),
+                      variant: AppPillButtonVariant.secondary,
                       onPressed: () async {
                         final disco = await ref.read(
                             artistDiscographySearchProvider(widget.artistName).future);
@@ -209,6 +195,23 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+            ),
+
+          // Popular Section Header
+          if (!_isLoading && _tracks.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Text(
+                  'Popular',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontDisplay,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: tokens.textPrimary,
+                  ),
                 ),
               ),
             ),
@@ -238,72 +241,39 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                   final isLiked = isLikedAsync.value ?? track.isLiked;
                   final currentTrack = ref.watch(currentTrackProvider).value;
                   final isCurrent = currentTrack?.id == track.id;
-                  final isPlaying = ref.watch(isPlayingProvider);
 
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  return TrackRow(
+                    track: track.copyWith(isLiked: isLiked),
+                    index: index + 1,
+                    showArtwork: true,
+                    isPlaying: isCurrent,
                     onTap: () {
                       audioHandler.setQueue(_tracks, startIndex: index);
                     },
-                    leading: SizedBox(
-                      width: 24,
-                      child: Center(
-                        child: isCurrent
-                            ? AnimatedMusicWaveIndicator(
-                                isPlaying: isPlaying,
-                                color: tokens.accent,
-                                size: 16,
-                                barCount: 3,
-                              )
-                            : Text(
-                                '${index + 1}',
-                                style: TextStyle(color: tokens.textSecondary, fontSize: 14),
-                              ),
+                    onPlayTap: () {
+                      audioHandler.setQueue(_tracks, startIndex: index);
+                    },
+                    onLikeTap: () {
+                      ref
+                          .read(libraryRepositoryProvider)
+                          .setLiked(track.id, !isLiked, track: track);
+                    },
+                    onOptionsTap: () {
+                      TrackOptionsBottomSheet.show(context, track: track);
+                    },
+                    trailing: IconButton(
+                      iconSize: 18.0,
+                      splashRadius: 18.0,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: Icon(
+                        Icons.download_for_offline_outlined,
+                        color: tokens.textMuted,
                       ),
-                    ),
-                    title: Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: isCurrent ? tokens.accent : tokens.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      track.album ?? widget.artistName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: tokens.textSecondary, fontSize: 12),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? tokens.accent : tokens.textSecondary,
-                            size: 20,
-                          ),
-                          onPressed: () {
-                            ref
-                                .read(libraryRepositoryProvider)
-                                .setLiked(track.id, !isLiked, track: track);
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.download_for_offline_outlined, color: tokens.textSecondary, size: 20),
-                          onPressed: () {
-                            ref.read(downloadRepositoryProvider).queueDownload(track);
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.more_vert, color: tokens.textSecondary, size: 20),
-                          onPressed: () {
-                            TrackOptionsBottomSheet.show(context, track: track);
-                          },
-                        ),
-                      ],
+                      tooltip: 'Download Offline',
+                      onPressed: () {
+                        ref.read(downloadRepositoryProvider).queueDownload(track);
+                      },
                     ),
                   );
                 },

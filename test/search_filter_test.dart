@@ -22,7 +22,7 @@ void main() {
 
     test('verifies SearchResultFilter enum labels', () {
       expect(SearchResultFilter.all.label, equals('All'));
-      expect(SearchResultFilter.studioMaster.label, equals('Studio (320k)'));
+      expect(SearchResultFilter.tracks.label, equals('Songs'));
       expect(SearchResultFilter.downloaded.label, equals('Downloaded'));
     });
 

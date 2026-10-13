@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
 
 /// Unskippable First-Run Terms & Conditions Modal Dialog.
@@ -55,19 +55,8 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 600),
         decoration: BoxDecoration(
-          color: const Color(0xFF101014),
-          borderRadius: BorderRadius.circular(tokens.radiusXl),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.85),
-              blurRadius: 32,
-              spreadRadius: 4,
-            ),
-          ],
+          color: tokens.card,
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
         ),
         child: Material(
           color: Colors.transparent,
@@ -84,10 +73,6 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
                       decoration: BoxDecoration(
                         color: tokens.accent.withValues(alpha: 0.16),
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: tokens.accent.withValues(alpha: 0.35),
-                          width: 1,
-                        ),
                       ),
                       child: Icon(
                         Icons.verified_user_rounded,
@@ -103,6 +88,7 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
                           Text(
                             'Welcome to Softify',
                             style: TextStyle(
+                              fontFamily: AppTheme.fontDisplay,
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                               color: tokens.textPrimary,
@@ -130,11 +116,8 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: tokens.surfaceElevated.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(tokens.radiusMd),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.06),
-                      ),
+                      color: tokens.surfaceElevated,
+                      borderRadius: BorderRadius.circular(tokens.radiusCard),
                     ),
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
@@ -239,16 +222,7 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
                       color: _agreedToTerms
                           ? tokens.accent
                           : tokens.surfaceHighlight,
-                      borderRadius: BorderRadius.circular(tokens.radiusFull),
-                      boxShadow: _agreedToTerms
-                          ? [
-                              BoxShadow(
-                                color: tokens.accent.withValues(alpha: 0.40),
-                                blurRadius: 14,
-                                offset: const Offset(0, 3),
-                              ),
-                            ]
-                          : null,
+                      borderRadius: BorderRadius.circular(tokens.radiusPill),
                     ),
                     child: Center(
                       child: Text(
@@ -289,7 +263,7 @@ class _TermsAndConditionsDialogState extends State<TermsAndConditionsDialog> {
           Text(
             body,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 12.0,
               height: 1.45,
               color: Colors.white.withValues(alpha: 0.70),
             ),

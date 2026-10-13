@@ -5,8 +5,7 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../providers/player_providers.dart';
-import '../theme/app_tokens.dart';
-import '../widgets/audiophile_quality_badge.dart';
+import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/play_pause_morph_button.dart';
@@ -213,7 +212,7 @@ class _FullScreenPlayerScreenState
                           Text(
                             'PLAYING FROM',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 12,
                               letterSpacing: 1.5,
                               color: tokens.textSecondary.withValues(alpha: 0.8),
                               fontWeight: FontWeight.w700,
@@ -242,7 +241,7 @@ class _FullScreenPlayerScreenState
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: tokens.accent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(tokens.radiusFull),
                             border: Border.all(
                               color: tokens.accent.withValues(alpha: 0.4),
                               width: 0.8,
@@ -259,7 +258,7 @@ class _FullScreenPlayerScreenState
                                     : '${sleepRemaining?.inMinutes ?? 0}m',
                                 style: TextStyle(
                                   color: tokens.accent,
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -400,26 +399,15 @@ class _FullScreenPlayerScreenState
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  currentTrack.artist,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w400,
-                                    color: tokens.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              AudiophileQualityBadge(
-                                track: currentTrack,
-                                compact: true,
-                              ),
-                            ],
+                          Text(
+                            currentTrack.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                              color: tokens.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -557,7 +545,7 @@ class _FullScreenPlayerScreenState
                       iconSize: 34,
                       backgroundColor: tokens.accent,
                       iconColor: const Color(0xFF080F11),
-                      showGlow: true,
+                      showGlow: false,
                       onTap: () {
                         if (isPlaying) {
                           audioHandler.pause();
@@ -980,18 +968,16 @@ class _FullScreenPlayerScrubberState
                   _formatDuration(
                     Duration(seconds: currentSeconds.round()),
                   ),
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: AppTheme.tabularTimestamp(
+                    fontSize: 12.0,
                     color: tokens.textSecondary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 Text(
                   _formatDuration(duration),
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: AppTheme.tabularTimestamp(
+                    fontSize: 12.0,
                     color: tokens.textSecondary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],

@@ -36,8 +36,8 @@ class EqualizerCurveVisualizer extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(16),
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
         border: Border.all(
           color: (isEnabled && !isBypassed)
               ? activeAccent.withOpacity(0.25)
@@ -67,14 +67,14 @@ class EqualizerCurveVisualizer extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.amber.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
                   border: Border.all(color: Colors.amber, width: 1),
                 ),
                 child: const Text(
                   'A/B BYPASS ACTIVE',
                   style: TextStyle(
                     color: Colors.amber,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
@@ -139,12 +139,12 @@ class _SplineCurvePainter extends CustomPainter {
         text: '${db > 0 ? '+' : ''}${db.toInt()}dB',
         style: TextStyle(
           color: Colors.white.withOpacity(0.35),
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: isZero ? FontWeight.w600 : FontWeight.normal,
         ),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(4, y - 11));
+      textPainter.paint(canvas, Offset(4, y - 13));
     }
 
     if (bandGains.isEmpty) return;
@@ -266,7 +266,7 @@ class _SplineCurvePainter extends CustomPainter {
         text: freqLabel,
         style: TextStyle(
           color: isActive ? AppTheme.textSecondary : AppTheme.textMuted,
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
       );

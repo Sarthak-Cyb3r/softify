@@ -7,9 +7,10 @@ import '../../domain/entities/track.dart';
 import '../providers/autocomplete_providers.dart';
 import '../providers/player_providers.dart';
 import '../providers/search_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import '../widgets/artist_cd_artwork.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
@@ -17,7 +18,7 @@ import 'artist_discography_screen.dart';
 
 enum SearchResultFilter {
   all('All'),
-  studioMaster('Studio (320k)'),
+  tracks('Songs'),
   downloaded('Downloaded');
 
   final String label;
@@ -89,8 +90,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       switch (_activeFilter) {
         case SearchResultFilter.all:
           return true;
-        case SearchResultFilter.studioMaster:
-          return track.sourceId.startsWith('saavn_') || !track.supportsSpeedPlayback;
+        case SearchResultFilter.tracks:
+          return true;
         case SearchResultFilter.downloaded:
           return downloadedTrackIds.contains(track.id);
       }
@@ -103,14 +104,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final artistDisco = artistDiscoAsync.valueOrNull;
     final hasArtistBanner = artistDisco != null && artistDisco.allTracks.isNotEmpty;
     final int bannerOffset = hasArtistBanner ? 1 : 0;
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        backgroundColor: tokens.background,
+        elevation: 0,
         title: Text(
           'Search',
           style: TextStyle(
-            fontSize: 22,
+            fontFamily: AppTheme.fontPageTitle,
+            fontSize: isDesktop ? 28 : 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.4,
             color: tokens.textPrimary,
@@ -119,7 +124,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: Column(
         children: [
-          // Big Minimal Search Input Field with Subtle Focus Ring
+          // Search Input Field
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
@@ -132,8 +137,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 }
               },
               style: TextStyle(
+                fontFamily: AppTheme.fontUi,
                 color: tokens.textPrimary,
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
               textAlignVertical: TextAlignVertical.center,
@@ -143,10 +149,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 fillColor: tokens.surfaceElevated,
                 hintText: 'What do you want to listen to?',
                 hintStyle: TextStyle(
+                  fontFamily: AppTheme.fontUi,
                   color: tokens.textMuted,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
-                  letterSpacing: -0.1,
                 ),
                 prefixIconConstraints: const BoxConstraints(
                   minWidth: 44,
@@ -154,7 +160,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: tokens.accent.withValues(alpha: 0.85),
+                  color: tokens.textSecondary,
                   size: 22,
                 ),
                 suffixIconConstraints: const BoxConstraints(
@@ -178,27 +184,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     : null,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 14,
+                  vertical: 12,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
-                  borderSide: BorderSide(
-                    color: tokens.surfaceHighlight.withValues(alpha: 0.7),
-                    width: 0.8,
-                  ),
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
-                  borderSide: BorderSide(
-                    color: tokens.surfaceHighlight.withValues(alpha: 0.7),
-                    width: 0.8,
-                  ),
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
                   borderSide: BorderSide(
-                    color: tokens.accent.withValues(alpha: 0.75),
-                    width: 1.2,
+                    color: tokens.accent,
+                    width: 1.0,
                   ),
                 ),
               ),
@@ -474,6 +474,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           : filteredResults;
                                   final trackIndex = index - bannerOffset;
                                   final track = effectiveList[trackIndex];
+                                  if (trackIndex == 0 && _searchController.text.trim().isNotEmpty) {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildTopResultCard(tokens, track, audioHandler),
+                                        if (effectiveList.length > 1) ...[
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                                            child: Text(
+                                              'Songs',
+                                              style: TextStyle(
+                                                fontFamily: AppTheme.fontPageTitle,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                                color: tokens.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    );
+                                  }
                                   return _buildSearchResultTile(
                                       tokens, track, trackIndex, audioHandler);
                                 },
@@ -486,63 +508,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildFilterChips(AppTokens tokens) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: SizedBox(
         height: 32,
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: SearchResultFilter.values.map((filter) {
-            final isSelected = _activeFilter == filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: BouncingScaleButton(
-                scaleFactor: 0.94,
-                onTap: () {
-                  setState(() => _activeFilter = filter);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? tokens.accent.withValues(alpha: 0.16)
-                        : tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(tokens.radiusFull),
-                    border: Border.all(
-                      color: isSelected
-                          ? tokens.accent.withValues(alpha: 0.5)
-                          : Colors.white.withValues(alpha: 0.06),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (filter == SearchResultFilter.studioMaster) ...[
-                        Icon(
-                          Icons.verified_rounded,
-                          size: 13,
-                          color: isSelected ? tokens.accent : tokens.textMuted,
-                        ),
-                        const SizedBox(width: 4),
-                      ] else if (filter == SearchResultFilter.downloaded) ...[
-                        Icon(
-                          Icons.download_done_rounded,
-                          size: 13,
-                          color: isSelected ? tokens.accent : tokens.textMuted,
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      Text(
-                        filter.label,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected ? tokens.accent : tokens.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: AppFilterChip(
+                label: filter.label,
+                isSelected: _activeFilter == filter,
+                onTap: () => setState(() => _activeFilter = filter),
+                icon: filter == SearchResultFilter.downloaded
+                    ? const Icon(Icons.download_done_rounded, size: 14)
+                    : null,
               ),
             );
           }).toList(),
@@ -555,7 +535,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 2, bottom: 8),
       child: SizedBox(
-        height: 36,
+        height: 32,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -565,9 +545,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             final category = _quickCategories[index];
             final isSelected =
                 _searchController.text.trim().toLowerCase() == category.toLowerCase();
-            return BouncingScaleButton(
-              scaleFactor: 0.94,
-              minTouchTarget: 0,
+            return AppFilterChip(
+              label: category,
+              isSelected: isSelected,
               onTap: () {
                 _searchController.text = category;
                 _searchController.selection = TextSelection.fromPosition(
@@ -578,41 +558,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     .executeSearch(category);
                 setState(() {});
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isSelected ? tokens.accent : tokens.surfaceElevated,
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
-                  border: Border.all(
-                    color: isSelected
-                        ? tokens.accent
-                        : tokens.surfaceHighlight.withValues(alpha: 0.8),
-                    width: 0.8,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.tag_rounded,
-                      size: 13,
-                      color: isSelected ? const Color(0xFF080F11) : tokens.accent,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.1,
-                        color: isSelected
-                            ? const Color(0xFF080F11)
-                            : tokens.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             );
           },
         ),
@@ -624,27 +569,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
       children: [
-        Row(
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: tokens.accent,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Browse Categories',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-                color: tokens.textPrimary,
-              ),
-            ),
-          ],
+        Text(
+          'Browse Categories',
+          style: TextStyle(
+            fontFamily: AppTheme.fontPageTitle,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+            color: tokens.textPrimary,
+          ),
         ),
         const SizedBox(height: 14),
         GridView.builder(
@@ -675,19 +608,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: tokens.surfaceElevated,
-                  borderRadius: BorderRadius.circular(tokens.radiusLg),
-                  border: Border.all(
-                    color: tokens.surfaceHighlight.withValues(alpha: 0.8),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: tokens.card,
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
                 ),
                 child: Row(
                   children: [
@@ -695,14 +617,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: tokens.surfaceHighlight,
-                        borderRadius: BorderRadius.circular(tokens.radiusMd),
+                        color: tokens.surfaceElevated,
+                        borderRadius: BorderRadius.circular(tokens.radiusSm),
                       ),
-                      child: Center(
+                      child: const Center(
                         child: Icon(
                           Icons.music_note_rounded,
                           size: 16,
-                          color: tokens.accent,
+                          color: AppTheme.accent,
                         ),
                       ),
                     ),
@@ -713,9 +635,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
+                          fontWeight: FontWeight.w600,
                           color: tokens.textPrimary,
                         ),
                       ),
@@ -730,219 +652,204 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
+  Widget _buildTopResultCard(AppTokens tokens, Track track, dynamic audioHandler) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+      ),
+      child: Stack(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
+                child: track.coverUrl != null
+                    ? Image.network(
+                        track.coverUrl!,
+                        width: 76,
+                        height: 76,
+                        cacheWidth: 228,
+                        cacheHeight: 228,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallbackCover(tokens),
+                      )
+                    : _fallbackCover(tokens),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'TOP RESULT',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: tokens.textSecondary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontPageTitle,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: tokens.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            track.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 12,
+                              color: tokens.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: tokens.surfaceElevated,
+                            borderRadius: BorderRadius.circular(tokens.radiusPill),
+                          ),
+                          child: Text(
+                            'Song',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: tokens.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Semantics(
+              label: 'Play ${track.title}',
+              button: true,
+              child: BouncingScaleButton(
+                onTap: () {
+                  audioHandler.setTrackSource('search');
+                  audioHandler.playTrack(track);
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.accent,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.black,
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSearchResultTile(
       AppTokens tokens, Track track, int index, dynamic audioHandler) {
+    final currentTrack = ref.watch(currentTrackProvider).value;
+    final isPlaying = ref.watch(isPlayingProvider);
+    final isCurrentTrack = currentTrack?.id == track.id;
+
     final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
     final isLiked = isLikedAsync.value ?? track.isLiked;
 
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(track.id));
     final isDownloaded = isDownloadedAsync.value ?? false;
 
-    final durationFormatted = _formatSeconds(track.duration.inSeconds);
-
-    return RepaintBoundary(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(tokens.radiusMd),
-            hoverColor: tokens.surfaceHighlight.withValues(alpha: 0.35),
-            splashColor: tokens.accent.withValues(alpha: 0.08),
-            highlightColor: tokens.surfaceHighlight.withValues(alpha: 0.2),
-            onTap: () {
-              ref.read(searchNotifierProvider.notifier).onTrackClicked(track, index);
-              final currentQuery = _searchController.text.trim();
-              if (currentQuery.isNotEmpty) {
-                ref
-                    .read(autocompleteRepositoryProvider)
-                    .recordSuccessfulQuery(currentQuery);
-              }
-              audioHandler.setTrackSource('search');
-              audioHandler.playTrack(track);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: tokens.surfaceElevated,
-                      borderRadius: BorderRadius.circular(tokens.radiusSm),
-                      border: Border.all(
-                        color: tokens.surfaceHighlight.withValues(alpha: 0.8),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(tokens.radiusSm),
-                      child: track.coverUrl != null
-                          ? Image.network(
-                              track.coverUrl!,
-                              width: 48,
-                              height: 48,
-                              cacheWidth: 144,
-                              cacheHeight: 144,
-                              gaplessPlayback: true,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _fallbackCover(tokens),
-                            )
-                          : _fallbackCover(tokens),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: tokens.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          track.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: tokens.textSecondary,
-                            fontSize: 12,
-                            letterSpacing: -0.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (durationFormatted.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: tokens.surfaceHighlight.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(tokens.radiusSm),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.04),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        durationFormatted,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: tokens.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                  // Download Button
-                  BouncingScaleButton(
-                    scaleFactor: 0.88,
-                    minTouchTarget: 0,
-                    onTap: () async {
-                      if (!isDownloaded) {
-                        HapticFeedback.lightImpact();
-                        await ref
-                            .read(downloadRepositoryProvider)
-                            .queueDownload(track);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Downloading "${track.title}"...'),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: tokens.surfaceElevated,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        isDownloaded
-                            ? Icons.download_done_rounded
-                            : Icons.download_for_offline_outlined,
-                        color: isDownloaded
-                            ? tokens.accent
-                            : tokens.textSecondary.withValues(alpha: 0.7),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  // Like Button
-                  BouncingScaleButton(
-                    scaleFactor: 0.88,
-                    minTouchTarget: 0,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      ref
-                          .read(libraryRepositoryProvider)
-                          .setLiked(track.id, !isLiked, track: track);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        isLiked
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: isLiked
-                            ? tokens.accent
-                            : tokens.textSecondary.withValues(alpha: 0.7),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  // More Options
-                  BouncingScaleButton(
-                    scaleFactor: 0.88,
-                    minTouchTarget: 0,
-                    onTap: () {
-                      TrackOptionsBottomSheet.show(context, track: track);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.more_vert_rounded,
-                        color: tokens.textSecondary.withValues(alpha: 0.7),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
+    return TrackRow(
+      track: track,
+      index: index + 1,
+      isPlaying: isCurrentTrack && isPlaying,
+      isSelected: isCurrentTrack,
+      showArtwork: true,
+      showIndex: false,
+      showDuration: true,
+      showLikeButton: true,
+      showOptionsButton: true,
+      onTap: () {
+        ref.read(searchNotifierProvider.notifier).onTrackClicked(track, index);
+        final currentQuery = _searchController.text.trim();
+        if (currentQuery.isNotEmpty) {
+          ref
+              .read(autocompleteRepositoryProvider)
+              .recordSuccessfulQuery(currentQuery);
+        }
+        audioHandler.setTrackSource('search');
+        audioHandler.playTrack(track);
+      },
+      onPlayTap: () {
+        audioHandler.setTrackSource('search');
+        audioHandler.playTrack(track);
+      },
+      onLikeTap: () {
+        HapticFeedback.selectionClick();
+        ref
+            .read(libraryRepositoryProvider)
+            .setLiked(track.id, !isLiked, track: track);
+      },
+      onOptionsTap: () {
+        TrackOptionsBottomSheet.show(context, track: track);
+      },
+      trailing: isDownloaded
+          ? const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Icon(
+                Icons.download_done_rounded,
+                size: 16,
+                color: AppTheme.accent,
               ),
-            ),
-          ),
-        ),
-      ),
+            )
+          : null,
     );
-  }
-
-  String _formatSeconds(int totalSeconds) {
-    if (totalSeconds <= 0) return '';
-    final m = totalSeconds ~/ 60;
-    final s = (totalSeconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
   }
 
   Widget _fallbackCover(AppTokens tokens) {
     return Container(
-      width: 48,
-      height: 48,
-      color: tokens.surfaceHighlight,
-      child: Icon(
+      width: 76,
+      height: 76,
+      color: tokens.surfaceElevated,
+      child: const Icon(
         Icons.music_note_rounded,
-        color: tokens.textMuted,
-        size: 22,
+        color: AppTheme.textSecondary,
+        size: 24,
       ),
     );
   }
@@ -956,23 +863,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(tokens.radiusLg),
-        border: Border.all(
-          color: tokens.accent.withValues(alpha: 0.25),
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.40),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: tokens.accent.withValues(alpha: 0.06),
-            blurRadius: 28,
-          ),
-        ],
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
       ),
       child: Column(
         children: [
@@ -986,12 +878,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(tokens.radiusMd),
+            borderRadius: BorderRadius.circular(tokens.radiusSm),
             child: Row(
               children: [
                 ArtistCdArtwork(
                   artistImageUrl: disco.avatarUrl,
-                  size: 78,
+                  size: 72,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1007,50 +899,51 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontFamily: AppTheme.fontPageTitle,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: tokens.textPrimary,
                                 letterSpacing: -0.3,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 5),
-                          Icon(
+                          const SizedBox(width: 6),
+                          const Icon(
                             Icons.verified_rounded,
-                            color: tokens.accent,
+                            color: AppTheme.accent,
                             size: 16,
                           ),
                         ],
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '${disco.albums.length} Albums • ${disco.allTracks.length} Studio Masters',
+                        '${disco.albums.length} Albums • ${disco.allTracks.length} Songs',
                         style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
                           fontSize: 12,
                           color: tokens.textSecondary,
                           fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: tokens.accent,
+                              color: AppTheme.accent,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            'Canonical Master Discography',
+                          const Text(
+                            'Verified Artist Discography',
                             style: TextStyle(
-                              fontSize: 10.5,
-                              fontFamily: 'monospace',
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: tokens.accent,
+                              color: AppTheme.accent,
                             ),
                           ),
                         ],
@@ -1058,25 +951,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ],
                   ),
                 ),
-                Icon(
+                const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  size: 13,
-                  color: tokens.textMuted,
+                  size: 14,
+                  color: AppTheme.textSecondary,
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 14),
-
           // Row 2: Dual Action Pills (Play All & Shuffle)
           Row(
             children: [
               Expanded(
-                child: BouncingScaleButton(
-                  scaleFactor: 0.96,
-                  minTouchTarget: 0,
-                  onTap: () {
+                child: AppPillButton(
+                  label: 'Play All',
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  variant: AppPillButtonVariant.primary,
+                  onPressed: () {
                     HapticFeedback.mediumImpact();
                     if (disco.allTracks.isNotEmpty) {
                       audioHandler.setTrackSource('artist_discography');
@@ -1086,48 +978,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       );
                     }
                   },
-                  child: Container(
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: tokens.accent,
-                      borderRadius: BorderRadius.circular(tokens.radiusFull),
-                      boxShadow: [
-                        BoxShadow(
-                          color: tokens.accent.withValues(alpha: 0.30),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.black,
-                          size: 20,
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          'Play All',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: BouncingScaleButton(
-                  scaleFactor: 0.96,
-                  minTouchTarget: 0,
-                  onTap: () {
+                child: AppPillButton(
+                  label: 'Shuffle',
+                  icon: const Icon(Icons.shuffle_rounded, size: 18),
+                  variant: AppPillButtonVariant.secondary,
+                  onPressed: () {
                     HapticFeedback.mediumImpact();
                     if (disco.allTracks.isNotEmpty) {
                       final shuffled = List<Track>.from(disco.allTracks)..shuffle();
@@ -1138,75 +997,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       );
                     }
                   },
-                  child: Container(
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: tokens.surfaceHighlight,
-                      borderRadius: BorderRadius.circular(tokens.radiusFull),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.shuffle_rounded,
-                          color: tokens.textPrimary,
-                          size: 17,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Shuffle',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: tokens.textPrimary,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // Row 3: Smart Deduplication Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: tokens.surfaceHighlight.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(tokens.radiusFull),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.05),
-                width: 0.8,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.auto_fix_high_rounded,
-                  color: tokens.accent,
-                  size: 13,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Deduplicated Studio Masters • Bit-perfect FLAC 320k',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w500,
-                    color: tokens.textMuted,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'app_tokens.dart';
@@ -6,52 +5,73 @@ import 'app_tokens.dart';
 export 'app_tokens.dart';
 
 class AppTheme {
-  // Canonical Linux Desktop Colors (UNCHANGED)
-  static const Color background = Color(0xFF121316);
-  static const Color surface = Color(0xFF121316);
-  static const Color surfaceElevated = Color(0xFF1F1F23);
-  static const Color surfaceHighlight = Color(0xFF292A2D);
-  static const Color surfaceContainerHighest = Color(0xFF343538);
-  static const Color primary = Color(0xFF4EDEA3); // Emerald Mint
-  static const Color primaryLight = Color(0xFF6FFBBE);
-  static const Color primaryContainer = Color(0xFF10B981);
-  static const Color textPrimary = Color(0xFFE3E2E6);
-  static const Color textSecondary = Color(0xFFBBCABF);
-  static const Color textMuted = Color(0xFF86948A);
-  static const Color error = Color(0xFFFFB4AB);
+  // Canonical Content-First Token Palette
+  static const Color background = Color(0xFF121212);
+  static const Color sidebar = Color(0xFF000000);
+  static const Color surface = Color(0xFF121212);
+  static const Color card = Color(0xFF181818);
+  static const Color cardHover = Color(0xFF282828);
+  static const Color surfaceElevated = Color(0xFF2A2A2A);
+  static const Color surfaceHighlight = Color(0xFF282828);
+  static const Color surfaceContainerHighest = Color(0xFF2A2A2A);
+  
+  // Single Accent & Destructive
+  static const Color accent = Color(0xFF2EE66B); // ONE accent green
+  static const Color primary = Color(0xFF2EE66B);
+  static const Color primaryLight = Color(0xFF5CF08F);
+  static const Color primaryContainer = Color(0xFF2EE66B);
+  static const Color error = Color(0xFFF15E6C);
 
-  // Google Stitch Mobile Revamp Colors
-  static const Color stitchBackground = Color(0xFF0D1417);
-  static const Color stitchSurface = Color(0xFF0D1417);
-  static const Color stitchSurfaceContainerLow = Color(0xFF161D1F);
-  static const Color stitchSurfaceContainer = Color(0xFF1E2629);
-  static const Color stitchSurfaceContainerHigh = Color(0xFF262E31);
-  static const Color stitchSurfaceContainerHighest = Color(0xFF333A3D);
-  static const Color stitchAmber = Color(0xFFF59E0B); // Warm Amber
-  static const Color stitchAmberLight = Color(0xFFFBBF24);
-  static const Color stitchAmberSubtle = Color(0x1FF59E0B);
-  static const Color stitchTextPrimary = Color(0xFFF1F5F9);
-  static const Color stitchTextSecondary = Color(0xFFCBD5E1);
-  static const Color stitchTextMuted = Color(0xFF94A3B8);
+  // Typography Contrast
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFFB3B3B3);
+  static const Color textMuted = Color(0xFF6A6A6A);
 
-  static ThemeData get darkTheme =>
-      Platform.isLinux ? linuxDarkTheme : mobileDarkTheme;
+  // Bundled OFL Font Families
+  static const String fontUi = 'Manrope';
+  static const String fontPageTitle = 'BricolageGrotesque';
+  static const String fontDisplay = 'BricolageGrotesque';
+  static const String fontEditorial = 'InstrumentSerif';
 
-  static ThemeData get linuxDarkTheme {
-    const tokens = AppTokens.linuxTokens;
+  // Backward-compatibility aliases
+  static const Color stitchBackground = background;
+  static const Color stitchSurface = surface;
+  static const Color stitchSurfaceContainerLow = card;
+  static const Color stitchSurfaceContainer = cardHover;
+  static const Color stitchSurfaceContainerHigh = surfaceElevated;
+  static const Color stitchSurfaceContainerHighest = surfaceElevated;
+  static const Color stitchAmber = accent;
+  static const Color stitchAmberLight = primaryLight;
+  static const Color stitchAmberSubtle = Color(0x1F2EE66B);
+  static const Color stitchTextPrimary = textPrimary;
+  static const Color stitchTextSecondary = textSecondary;
+  static const Color stitchTextMuted = textMuted;
+
+  /// Single Unified Dark ThemeData for Linux, Android & iOS
+  static ThemeData get darkTheme => unifiedDarkTheme;
+  static ThemeData get linuxDarkTheme => unifiedDarkTheme;
+  static ThemeData get mobileDarkTheme => unifiedDarkTheme;
+
+  static ThemeData get unifiedDarkTheme {
+    const tokens = AppTokens.standardTokens;
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: background,
+      fontFamily: fontUi,
       extensions: const [tokens],
       colorScheme: const ColorScheme.dark(
-        primary: primary,
-        secondary: primaryLight,
-        surface: surface,
-        error: error,
+        primary: accent,
         onPrimary: Colors.black,
+        primaryContainer: accent,
+        onPrimaryContainer: Colors.black,
+        secondary: textSecondary,
+        onSecondary: Colors.black,
+        surface: card,
         onSurface: textPrimary,
+        error: error,
+        onError: Colors.white,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -59,169 +79,236 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
+          fontFamily: fontPageTitle,
           color: textPrimary,
-          fontSize: 22,
+          fontSize: 24,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.4,
         ),
         iconTheme: IconThemeData(color: textPrimary, size: 22),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: sidebar,
         selectedItemColor: textPrimary,
-        unselectedItemColor: textMuted,
+        unselectedItemColor: textSecondary,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
+        selectedLabelStyle: TextStyle(
+          fontFamily: fontUi,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontFamily: fontUi,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       sliderTheme: const SliderThemeData(
-        activeTrackColor: textPrimary,
+        activeTrackColor: accent,
         inactiveTrackColor: Color(0x33FFFFFF),
-        thumbColor: textPrimary,
+        thumbColor: accent,
         thumbShape: RoundSliderThumbShape(enabledThumbRadius: 5),
         overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
-        trackHeight: 2.5,
+        trackHeight: 3.0,
+      ),
+      cardTheme: CardThemeData(
+        color: card,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surfaceElevated,
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: surfaceElevated,
+        modalBackgroundColor: surfaceElevated,
+        elevation: 12,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+        ),
+      ),
+      chipTheme: const ChipThemeData(
+        backgroundColor: card,
+        selectedColor: accent,
+        disabledColor: card,
+        labelStyle: TextStyle(
+          fontFamily: fontUi,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: textPrimary,
+        ),
+        secondaryLabelStyle: TextStyle(
+          fontFamily: fontUi,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+        shape: StadiumBorder(),
+        side: BorderSide.none,
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       ),
       textTheme: const TextTheme(
         displayLarge: TextStyle(
+          fontFamily: fontPageTitle,
           color: textPrimary,
-          fontSize: 32,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.8,
+          fontSize: 36,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
         ),
         displayMedium: TextStyle(
+          fontFamily: fontPageTitle,
           color: textPrimary,
-          fontSize: 26,
+          fontSize: 28,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
+          letterSpacing: -0.4,
         ),
-        titleLarge: TextStyle(
+        displaySmall: TextStyle(
+          fontFamily: fontPageTitle,
           color: textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.3,
         ),
-        titleMedium: TextStyle(
+        headlineLarge: TextStyle(
+          fontFamily: fontUi,
+          color: textPrimary,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+        ),
+        headlineMedium: TextStyle(
+          fontFamily: fontUi,
+          color: textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        headlineSmall: TextStyle(
+          fontFamily: fontUi,
           color: textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
-        bodyLarge: TextStyle(
+        titleLarge: TextStyle(
+          fontFamily: fontUi,
+          color: textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+        titleMedium: TextStyle(
+          fontFamily: fontUi,
+          color: textPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        titleSmall: TextStyle(
+          fontFamily: fontUi,
           color: textPrimary,
           fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: fontUi,
+          color: textPrimary,
+          fontSize: 15,
           fontWeight: FontWeight.w400,
         ),
         bodyMedium: TextStyle(
+          fontFamily: fontUi,
           color: textSecondary,
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
         bodySmall: TextStyle(
+          fontFamily: fontUi,
           color: textMuted,
-          fontSize: 11,
+          fontSize: 12, // Strict 12px floor
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.2,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+        labelLarge: TextStyle(
+          fontFamily: fontUi,
+          color: textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: TextStyle(
+          fontFamily: fontUi,
+          color: textSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        labelSmall: TextStyle(
+          fontFamily: fontUi,
+          color: textMuted,
+          fontSize: 12, // Strict 12px floor
+          fontWeight: FontWeight.w500,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
           TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
         },
       ),
     );
   }
 
-  static ThemeData get mobileDarkTheme {
-    const tokens = AppTokens.mobileStitchTokens;
+  /// Page Title typography with Bricolage Grotesque
+  static TextStyle pageTitle({
+    double fontSize = 28,
+    FontWeight fontWeight = FontWeight.w700,
+    Color color = textPrimary,
+    double letterSpacing = -0.4,
+  }) {
+    return TextStyle(
+      fontFamily: fontPageTitle,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+    );
+  }
 
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: stitchBackground,
-      extensions: const [tokens],
-      colorScheme: const ColorScheme.dark(
-        primary: stitchAmber,
-        secondary: stitchAmberLight,
-        surface: stitchSurface,
-        error: error,
-        onPrimary: Color(0xFF080F11),
-        onSurface: stitchTextPrimary,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: stitchTextPrimary,
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.4,
-        ),
-        iconTheme: IconThemeData(color: stitchTextPrimary, size: 22),
-      ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.transparent,
-        selectedItemColor: stitchAmber,
-        unselectedItemColor: stitchTextMuted,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-      ),
-      sliderTheme: const SliderThemeData(
-        activeTrackColor: stitchAmber,
-        inactiveTrackColor: Color(0x26FFFFFF),
-        thumbColor: stitchAmber,
-        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 5),
-        overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
-        trackHeight: 2.5,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          color: stitchTextPrimary,
-          fontSize: 32,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.8,
-        ),
-        displayMedium: TextStyle(
-          color: stitchTextPrimary,
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
-        ),
-        titleLarge: TextStyle(
-          color: stitchTextPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
-        ),
-        titleMedium: TextStyle(
-          color: stitchTextPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
-        bodyLarge: TextStyle(
-          color: stitchTextPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
-        bodyMedium: TextStyle(
-          color: stitchTextSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-        ),
-        bodySmall: TextStyle(
-          color: stitchTextMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0.2,
-        ),
-      ),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
-        },
-      ),
+  /// Editorial typography with Instrument Serif (Italic) for lyrics & Wrapped
+  static TextStyle editorial({
+    double fontSize = 32,
+    FontWeight fontWeight = FontWeight.w400,
+    Color color = textPrimary,
+    FontStyle fontStyle = FontStyle.italic,
+    double height = 1.3,
+  }) {
+    return TextStyle(
+      fontFamily: fontEditorial,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
+      color: color,
+      height: height,
+    );
+  }
+
+  /// Monospaced tabular numeral helper using Manrope with tabular figures (no monospace fonts)
+  static TextStyle tabularTimestamp({
+    double fontSize = 12,
+    FontWeight fontWeight = FontWeight.w500,
+    Color color = textMuted,
+  }) {
+    return TextStyle(
+      fontFamily: fontUi,
+      fontSize: fontSize < 12 ? 12 : fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
   }
 }

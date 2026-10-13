@@ -254,7 +254,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
-        backgroundColor: tokens.surface,
+        backgroundColor: tokens.background,
         elevation: 0,
         leading: Navigator.of(context).canPop()
             ? IconButton(
@@ -265,7 +265,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             : null,
         title: Text(
           'Settings',
-          style: TextStyle(fontWeight: FontWeight.bold, color: tokens.textPrimary),
+          style: TextStyle(
+            fontFamily: AppTheme.fontDisplay,
+            fontWeight: FontWeight.bold,
+            color: tokens.textPrimary,
+          ),
         ),
       ),
       body: ListView(
@@ -274,8 +278,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 0: Profile
           _buildSectionHeader('Profile'),
           Material(
-            color: tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
             clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: CircleAvatar(
@@ -301,41 +305,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 1: Audio Quality & Playback
           _buildSectionHeader('Playback & Streaming'),
           Material(
-            color: tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 RadioListTile<AudioQualityPreset>(
                   activeColor: tokens.accent,
-                  title: Row(
-                    children: [
-                      const Text(
-                        'Studio Master (Ultra HD)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: tokens.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: tokens.accent.withValues(alpha: 0.4), width: 0.8),
-                        ),
-                        child: Text(
-                          '320 KBPS',
-                          style: TextStyle(
-                            color: tokens.accent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
+                  title: const Text(
+                    'High Quality',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text('~320 kbps AAC CD-Quality uncompressed studio stream.',
-                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
+                  subtitle: Text(
+                    'Enhanced audio streaming with wide dynamic range.',
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                  ),
                   value: AudioQualityPreset.high,
                   groupValue: currentQuality,
                   onChanged: (val) {
@@ -347,10 +331,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(color: Colors.black26, height: 1),
                 RadioListTile<AudioQualityPreset>(
                   activeColor: tokens.accent,
-                  title: const Text('Standard (Balanced)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text('~160 kbps AAC. High fidelity balanced streaming.',
-                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
+                  title: const Text(
+                    'Standard',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Balanced streaming for normal network conditions.',
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                  ),
                   value: AudioQualityPreset.standard,
                   groupValue: currentQuality,
                   onChanged: (val) {
@@ -362,10 +350,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const Divider(color: Colors.black26, height: 1),
                 RadioListTile<AudioQualityPreset>(
                   activeColor: tokens.accent,
-                  title: const Text('Data Saver',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text('~64 kbps. Lower data consumption on mobile networks.',
-                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
+                  title: const Text(
+                    'Data Saver',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Reduced data consumption on mobile networks.',
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                  ),
                   value: AudioQualityPreset.low,
                   groupValue: currentQuality,
                   onChanged: (val) {
@@ -525,8 +517,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 2: Lyrics & Synchronization
           _buildSectionHeader('Lyrics & Synchronization'),
           Material(
-            color: tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
             clipBehavior: Clip.antiAlias,
             child: Consumer(
               builder: (context, ref, _) {
@@ -603,8 +595,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: tokens.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
+              color: tokens.card,
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,8 +702,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 3: Fallback Instances & Health
           _buildSectionHeader('Fallback Instances (Piped)'),
           Material(
-            color: tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
@@ -767,7 +759,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               style: const TextStyle(color: Colors.white, fontSize: 13)),
                           subtitle: Text(
                             latency != null ? '$latency ms latency' : 'Offline / Unreachable',
-                            style: TextStyle(color: color, fontSize: 11),
+                            style: TextStyle(color: color, fontSize: 12),
                           ),
                           trailing: Icon(
                             inst.isHealthy ? Icons.check_circle : Icons.error,
@@ -796,8 +788,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 4: Storage & Cache
           _buildSectionHeader('Storage & Cache'),
           Material(
-            color: tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
@@ -987,8 +979,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 5: Discovery & Learning Controls
           _buildSectionHeader('Discovery & Taste Controls'),
           Material(
-            color: tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
@@ -1050,8 +1042,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: tokens.surfaceElevated,
-              borderRadius: BorderRadius.circular(12),
+              color: tokens.card,
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1113,8 +1105,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
+          fontFamily: AppTheme.fontDisplay,
           color: tokens.accent,
-          fontSize: 11.5,
+          fontSize: 12.0,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),
@@ -1404,7 +1397,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       showDialog<void>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) {
+          final tokens = ctx.tokens;
+          return AlertDialog(
           backgroundColor: AppTheme.surfaceElevated,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
@@ -1424,9 +1419,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.black38,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
                 ),
-                child: SelectableText(filePath, style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace')),
+                child: SelectableText(filePath, style: const TextStyle(color: Colors.white, fontSize: 12)),
               ),
             ],
           ),
@@ -1447,8 +1442,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: const Text('Done'),
             ),
           ],
-        ),
-      );
+        );
+      },
+    );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1560,7 +1556,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           label,
           style: TextStyle(
             color: tokens.textSecondary,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),

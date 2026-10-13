@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
+import 'shared/app_dialog.dart';
+import 'shared/app_pill_button.dart';
 
 /// Modal bottom sheet allowing users to set or cancel a playback sleep timer.
 class SleepTimerBottomSheet extends ConsumerWidget {
@@ -149,7 +151,7 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                           );
                         },
                         style: TextButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
+                          foregroundColor: tokens.error,
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           visualDensity: VisualDensity.compact,
                         ),
@@ -224,8 +226,8 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                         context,
                         label: 'Turn off timer',
                         icon: Icons.timer_off_outlined,
-                        textColor: Colors.redAccent,
-                        iconColor: Colors.redAccent,
+                        textColor: tokens.error,
+                        iconColor: tokens.error,
                         onTap: () {
                           audioHandler.cancelSleepTimer();
                           Navigator.pop(context);
@@ -292,25 +294,19 @@ class SleepTimerBottomSheet extends ConsumerWidget {
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: tokens.surfaceElevated,
-          title: Row(
-            children: [
-              Icon(Icons.bedtime_rounded, color: tokens.accent, size: 22),
-              const SizedBox(width: 10),
-              Text(
-                'Custom Sleep Timer',
-                style: TextStyle(color: tokens.textPrimary, fontSize: 17),
-              ),
-            ],
-          ),
+        return AppDialog(
+          title: 'Custom Sleep Timer',
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Enter minutes before music stops (1 - 1440):',
-                style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  color: tokens.textSecondary,
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -318,41 +314,46 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                 keyboardType: TextInputType.number,
                 autofocus: true,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TextStyle(color: tokens.textPrimary, fontSize: 16),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  color: tokens.textPrimary,
+                  fontSize: 16,
+                ),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: tokens.surface,
+                  fillColor: tokens.card,
                   suffixText: 'mins',
-                  suffixStyle: TextStyle(color: tokens.textSecondary),
+                  suffixStyle: TextStyle(
+                    fontFamily: AppTheme.fontUi,
+                    color: tokens.textSecondary,
+                  ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Colors.white24),
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
                     borderSide: BorderSide(color: tokens.accent),
                   ),
                 ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
+          customActions: [
+            AppPillButton(
+              label: 'Cancel',
+              variant: AppPillButtonVariant.ghost,
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: tokens.textSecondary)),
             ),
-            ElevatedButton(
+            AppPillButton(
+              label: 'Set Timer',
+              variant: AppPillButtonVariant.primary,
               onPressed: () {
                 final parsed = int.tryParse(controller.text.trim());
                 if (parsed != null && parsed > 0) {
                   Navigator.pop(ctx, parsed.clamp(1, 1440));
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: tokens.accent,
-                foregroundColor: const Color(0xFF080F11),
-              ),
-              child: const Text('Set Timer'),
             ),
           ],
         );

@@ -142,6 +142,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
         title: Text(
           'Podcasts',
           style: TextStyle(
+            fontFamily: AppTheme.fontDisplay,
             fontSize: 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.4,
@@ -332,7 +333,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: tokens.textSecondary,
-                                      fontSize: 11,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
@@ -398,7 +399,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                             Text(
                               'Resolving audio stream...',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: tokens.textMuted,
                               ),
                             ),
@@ -537,8 +538,8 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                                 const SizedBox(height: 4),
                                 Text(
                                   'Duration: ${_formatDuration(podcastState.episode.duration.inSeconds)}',
-                                  style: TextStyle(
-                                    fontSize: 11,
+                                  style: AppTheme.tabularTimestamp(
+                                    fontSize: 12,
                                     color: tokens.textMuted,
                                   ),
                                 ),
@@ -652,15 +653,15 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                                   children: [
                                     Text(
                                       _formatDuration(currentSec),
-                                      style: TextStyle(
-                                        fontSize: 11,
+                                      style: AppTheme.tabularTimestamp(
+                                        fontSize: 12,
                                         color: tokens.textMuted,
                                       ),
                                     ),
                                     Text(
                                       _formatDuration(durationSec),
-                                      style: TextStyle(
-                                        fontSize: 11,
+                                      style: AppTheme.tabularTimestamp(
+                                        fontSize: 12,
                                         color: tokens.textMuted,
                                       ),
                                     ),
@@ -731,7 +732,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                                               ? '2x'
                                               : (spd == 3.0 ? '3x' : '${spd}x')),
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         fontWeight:
                                             (currentSpeed - spd).abs() < 0.05
                                                 ? FontWeight.w700
@@ -872,7 +873,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                             Text(
                               '${podcastState.feedEpisodes?.length ?? 0} Episodes Available',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 12,
                                 color: tokens.textMuted,
                               ),
                             ),
@@ -897,7 +898,8 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                     Text(
                       'ALL EPISODES (${podcastState.feedEpisodes!.length})',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
                         color: tokens.textSecondary.withValues(alpha: 0.7),
@@ -981,7 +983,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                                     Text(
                                       metaInfo,
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         color: tokens.textMuted,
                                       ),
                                     ),
@@ -1017,7 +1019,8 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                   Text(
                     'RECENTLY PLAYED',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontFamily: AppTheme.fontDisplay,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
                       color: tokens.textSecondary.withValues(alpha: 0.7),
@@ -1029,7 +1032,7 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                         ? Text(
                             '${list.length} episodes',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: tokens.textMuted,
                             ),
                           )
@@ -1219,8 +1222,8 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                                           ? 'Resumes at ${_formatDuration((item.resumePositionMs / 1000).round())}'
                                           : _formatDuration(
                                               item.durationSeconds),
-                                      style: TextStyle(
-                                        fontSize: 10,
+                                      style: AppTheme.tabularTimestamp(
+                                        fontSize: 12,
                                         color: tokens.textMuted,
                                       ),
                                     ),

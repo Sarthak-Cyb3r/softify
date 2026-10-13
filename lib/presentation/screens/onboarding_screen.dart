@@ -82,21 +82,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: tokens.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: tokens.background,
         elevation: 0,
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
                 tooltip: 'Back',
                 onPressed: () => Navigator.of(context).maybePop(),
               )
             : null,
-        title: const Text(
+        title: Text(
           'Personalize Your Taste',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontFamily: AppTheme.fontDisplay,
+            fontWeight: FontWeight.bold,
+            color: tokens.textPrimary,
+          ),
         ),
       ),
       body: SafeArea(
@@ -106,20 +112,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Choose artists you love',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontFamily: AppTheme.fontDisplay,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: tokens.textPrimary,
+                  letterSpacing: -0.4,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Softify trains on-device models to personalize recommendations with zero cloud telemetry.',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: tokens.textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -130,16 +138,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Expanded(
                     child: TextField(
                       controller: _customArtistController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(color: tokens.textPrimary, fontSize: 14),
+                      cursorColor: tokens.accent,
                       decoration: InputDecoration(
                         hintText: 'Add any artist...',
-                        hintStyle: const TextStyle(color: AppTheme.textSecondary),
+                        hintStyle: TextStyle(color: tokens.textSecondary),
                         filled: true,
-                        fillColor: AppTheme.surfaceElevated,
+                        fillColor: tokens.card,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(tokens.radiusPill),
                           borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(tokens.radiusPill),
+                          borderSide: BorderSide(color: tokens.accent, width: 1.5),
                         ),
                       ),
                       onSubmitted: (_) => _addCustomArtist(),
@@ -148,7 +161,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: _addCustomArtist,
-                    icon: const Icon(Icons.add_circle, color: AppTheme.primary, size: 28),
+                    icon: Icon(Icons.add_circle, color: tokens.accent, size: 28),
                   ),
                 ],
               ),
@@ -174,18 +187,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               }
                             });
                           },
-                          backgroundColor: AppTheme.surfaceElevated,
-                          selectedColor: AppTheme.primary,
+                          backgroundColor: tokens.card,
+                          selectedColor: tokens.accent,
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.black : Colors.white,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.black : tokens.textPrimary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 13,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: isSelected ? AppTheme.primary : Colors.white12,
-                            ),
+                            borderRadius: BorderRadius.circular(tokens.radiusPill),
+                            side: BorderSide.none,
                           ),
+                          showCheckmark: false,
                         );
                       }),
                       ..._selectedArtists
@@ -199,16 +212,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               _selectedArtists.remove(artist);
                             });
                           },
-                          backgroundColor: AppTheme.surfaceElevated,
-                          selectedColor: AppTheme.primary,
+                          backgroundColor: tokens.card,
+                          selectedColor: tokens.accent,
                           labelStyle: const TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
+                            fontSize: 13,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: const BorderSide(color: AppTheme.primary),
+                            borderRadius: BorderRadius.circular(tokens.radiusPill),
+                            side: BorderSide.none,
                           ),
+                          showCheckmark: false,
                         );
                       }),
                     ],
@@ -222,10 +237,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
+                    backgroundColor: tokens.accent,
                     foregroundColor: Colors.black,
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                      borderRadius: BorderRadius.circular(tokens.radiusPill),
                     ),
                   ),
                   onPressed: _isSeeding ? null : _completeOnboarding,

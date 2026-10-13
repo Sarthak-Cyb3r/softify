@@ -6,6 +6,8 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/shared/app_dialog.dart';
+import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
 class PlaylistDetailScreen extends ConsumerStatefulWidget {
@@ -59,38 +61,21 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     }
   }
 
-  void _confirmDeletePlaylist(BuildContext context, Playlist playlist) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.tokens.surfaceElevated,
-        title: const Text('Delete Playlist?'),
-        content: Text(
-          'Are you sure you want to delete "${playlist.name}"? This action cannot be undone.',
-          style: TextStyle(color: context.tokens.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: context.tokens.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ref.read(libraryRepositoryProvider).deletePlaylist(playlist.id);
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+  void _confirmDeletePlaylist(BuildContext context, Playlist playlist) async {
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Delete Playlist?',
+      message: 'Are you sure you want to delete "${playlist.name}"? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      isDestructive: true,
     );
+    if (confirmed == true && context.mounted) {
+      await ref.read(libraryRepositoryProvider).deletePlaylist(playlist.id);
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override
@@ -159,8 +144,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
+                      fontFamily: AppTheme.fontDisplay,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 18,
                       color: tokens.textPrimary,
                     ),
                   ),
@@ -171,8 +157,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           playlist.isImported
-                              ? const Color(0xFF1DB954).withValues(alpha: 0.35)
-                              : Colors.deepPurple.shade900.withValues(alpha: 0.5),
+                              ? tokens.accent.withValues(alpha: 0.25)
+                              : tokens.surfaceElevated.withValues(alpha: 0.6),
                           tokens.background,
                         ],
                       ),
@@ -183,20 +169,21 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                         children: [
                           const SizedBox(height: 32),
                           Container(
-                            width: 130,
-                            height: 130,
+                            width: 140,
+                            height: 140,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
+                              color: tokens.card,
+                              borderRadius: BorderRadius.circular(tokens.radiusCard),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.5),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(tokens.radiusCard),
                               child: coverUrl != null
                                   ? Image.network(
                                       coverUrl,
@@ -204,31 +191,32 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                                       cacheWidth: 420,
                                       cacheHeight: 420,
                                       gaplessPlayback: true,
-                                      errorBuilder: (_, __, ___) => _defaultPlaylistCover(playlist),
+                                      errorBuilder: (_, __, ___) => _defaultPlaylistCover(playlist, tokens),
                                     )
-                                  : _defaultPlaylistCover(playlist),
+                                  : _defaultPlaylistCover(playlist, tokens),
                             ),
                           ),
                           const SizedBox(height: 10),
                           if (playlist.isImported)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1DB954).withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF1DB954), width: 0.8),
+                                color: tokens.accent.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(tokens.radiusPill),
+                                border: Border.all(color: tokens.accent.withValues(alpha: 0.35), width: 1),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle, size: 12, color: Color(0xFF1DB954)),
-                                  SizedBox(width: 4),
+                                  Icon(Icons.check_circle_rounded, size: 14, color: tokens.accent),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'Spotify Imported',
                                     style: TextStyle(
-                                      color: Color(0xFF1DB954),
-                                      fontSize: 11,
+                                      color: tokens.accent,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
+                                      fontFamily: AppTheme.fontUi,
                                     ),
                                   ),
                                 ],
@@ -254,9 +242,10 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                           children: [
                             Text(
                               '${tracks.length} tracks',
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
+                              style: TextStyle(
+                                color: tokens.textSecondary,
                                 fontSize: 13,
+                                fontFamily: AppTheme.fontUi,
                               ),
                             ),
                             if (playlist.description != null && playlist.description!.isNotEmpty)
@@ -264,9 +253,10 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                                 playlist.description!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white38,
+                                style: TextStyle(
+                                  color: tokens.textMuted,
                                   fontSize: 12,
+                                  fontFamily: AppTheme.fontUi,
                                 ),
                               ),
                           ],
@@ -275,27 +265,33 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
                       // Download All Button
                       IconButton(
-                        icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white70),
+                        icon: Icon(Icons.download_for_offline_outlined, color: tokens.textSecondary),
                         tooltip: 'Download All Offline',
                         onPressed: tracks.isNotEmpty ? () => _downloadAll(tracks) : null,
                       ),
 
                       // Shuffle Button
                       IconButton(
-                        icon: const Icon(Icons.shuffle, color: Colors.white70),
+                        icon: Icon(Icons.shuffle_rounded, color: tokens.textSecondary),
                         tooltip: 'Shuffle Play',
                         onPressed: tracks.isNotEmpty ? () => _playAll(tracks, shuffle: true) : null,
                       ),
 
                       const SizedBox(width: 8),
 
-                      // Big Play Button
-                      FloatingActionButton(
-                        mini: true,
-                        backgroundColor: tokens.accent,
-                        foregroundColor: const Color(0xFF080F11),
-                        onPressed: tracks.isNotEmpty ? () => _playAll(tracks, startIndex: 0) : null,
-                        child: const Icon(Icons.play_arrow, size: 28),
+                      // Big Play Button (56px circle)
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: tokens.accent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.play_arrow_rounded, size: 30, color: Color(0xFF000000)),
+                          tooltip: 'Play',
+                          onPressed: tracks.isNotEmpty ? () => _playAll(tracks, startIndex: 0) : null,
+                        ),
                       ),
                     ],
                   ),
@@ -364,142 +360,59 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     final isLiked = isLikedAsync.value ?? track.isLiked;
     final isDownloaded = isDownloadedAsync.value ?? false;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+    return TrackRow(
+      track: track.copyWith(isLiked: isLiked),
+      index: index + 1,
+      isPlaying: isPlayingThis,
       onTap: () => _playAll(allTracks, startIndex: index),
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '${index + 1}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isPlayingThis ? tokens.accent : tokens.textSecondary,
-                fontWeight: isPlayingThis ? FontWeight.bold : FontWeight.normal,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: track.coverUrl != null
-                ? Image.network(
-                    track.coverUrl!,
-                    width: 44,
-                    height: 44,
-                    cacheWidth: 132,
-                    cacheHeight: 132,
-                    gaplessPlayback: true,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _trackCoverFallback(tokens),
-                  )
-                : _trackCoverFallback(tokens),
-          ),
-        ],
-      ),
-      title: Text(
-        track.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: isPlayingThis ? tokens.accent : tokens.textPrimary,
-          fontWeight: isPlayingThis ? FontWeight.bold : FontWeight.w600,
-          fontSize: 14,
+      onPlayTap: () => _playAll(allTracks, startIndex: index),
+      onLikeTap: () {
+        ref.read(libraryRepositoryProvider).setLiked(track.id, !isLiked, track: track);
+      },
+      onOptionsTap: () {
+        TrackOptionsBottomSheet.show(
+          context,
+          track: track,
+          currentPlaylistId: playlistId,
+          currentPlaylistTrackIndex: index,
+        );
+      },
+      trailing: IconButton(
+        iconSize: 18.0,
+        splashRadius: 18.0,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        icon: Icon(
+          isDownloaded ? Icons.download_done_rounded : Icons.download_for_offline_outlined,
+          color: isDownloaded ? tokens.accent : tokens.textMuted,
         ),
-      ),
-      subtitle: Text(
-        '${track.artist} • ${_formatDuration(track.duration)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: tokens.textSecondary,
-          fontSize: 12,
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Download button
-          IconButton(
-            icon: Icon(
-              isDownloaded ? Icons.download_done : Icons.download_for_offline_outlined,
-              color: isDownloaded ? tokens.accent : Colors.white38,
-              size: 20,
-            ),
-            tooltip: isDownloaded ? 'Downloaded' : 'Download Offline',
-            onPressed: isDownloaded
-                ? null
-                : () async {
-                    await ref.read(downloadRepositoryProvider).queueDownload(track);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Downloading "${track.title}"...'),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-          ),
-
-          // Favorite / Liked toggle
-          IconButton(
-            icon: Icon(
-              isLiked ? Icons.favorite : Icons.favorite_border,
-              color: isLiked ? tokens.accent : Colors.white38,
-              size: 20,
-            ),
-            tooltip: isLiked ? 'Unlike' : 'Like',
-            onPressed: () {
-              ref.read(libraryRepositoryProvider).setLiked(track.id, !isLiked, track: track);
-            },
-          ),
-
-          // Track options
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white54, size: 20),
-            tooltip: 'Track Options',
-            onPressed: () {
-              TrackOptionsBottomSheet.show(
-                context,
-                track: track,
-                currentPlaylistId: playlistId,
-                currentPlaylistTrackIndex: index,
-              );
-            },
-          ),
-        ],
+        tooltip: isDownloaded ? 'Downloaded' : 'Download Offline',
+        onPressed: isDownloaded
+            ? null
+            : () async {
+                await ref.read(downloadRepositoryProvider).queueDownload(track);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Downloading "${track.title}"...'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
       ),
     );
   }
 
-  Widget _defaultPlaylistCover(Playlist playlist) {
+  Widget _defaultPlaylistCover(Playlist playlist, [AppTokens? tokens]) {
+    final accent = tokens?.accent ?? AppTheme.accent;
     return Container(
-      color: AppTheme.surfaceElevated,
+      color: tokens?.surfaceElevated ?? AppTheme.surfaceElevated,
       child: Icon(
         playlist.isImported ? Icons.cloud_download : Icons.queue_music,
-        color: playlist.isImported ? const Color(0xFF1DB954) : AppTheme.primary,
+        color: accent,
         size: 54,
       ),
     );
-  }
-
-  Widget _trackCoverFallback(AppTokens tokens) {
-    return Container(
-      width: 44,
-      height: 44,
-      color: tokens.surfaceElevated,
-      child: const Icon(Icons.music_note, color: Colors.white24, size: 20),
-    );
-  }
-
-  String _formatDuration(Duration d) {
-    if (d == Duration.zero) return '--:--';
-    final minutes = d.inMinutes;
-    final seconds = d.inSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }

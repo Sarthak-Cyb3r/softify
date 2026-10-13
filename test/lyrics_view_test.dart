@@ -219,12 +219,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Sync Live'), findsOneWidget);
-      expect(find.text('Stereo Hi-Fi'), findsOneWidget);
-      expect(find.text('171 BPM'), findsOneWidget);
       expect(find.text('VOCAL VOLUME MODE'), findsOneWidget);
       expect(find.text('Original'), findsOneWidget);
       expect(find.text('Karaoke'), findsOneWidget);
-      expect(find.text('VOCALS 92%'), findsOneWidget);
+      expect(find.text('Synced with audio'), findsOneWidget);
+      expect(find.text('Continuous Track Sync'), findsOneWidget);
     });
 
     testWidgets('renders font size scaler and romanize transliteration toggles', (tester) async {

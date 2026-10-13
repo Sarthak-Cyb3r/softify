@@ -11,6 +11,7 @@ import '../providers/player_providers.dart';
 import '../providers/shelf_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../widgets/wrapped_insights_dialog.dart';
@@ -88,49 +89,27 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     Widget? trailingAction,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          BouncingScaleButton(
-            scaleFactor: 0.94,
+          AppFilterChip(
+            label: currentSort.label,
+            isSelected: false,
+            height: 32,
+            icon: const Icon(Icons.swap_vert_rounded, size: 14),
             onTap: () {
               final nextIndex = (currentSort.index + 1) % LibrarySortOrder.values.length;
               onSortChanged(LibrarySortOrder.values[nextIndex]);
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: tokens.surfaceElevated,
-                borderRadius: BorderRadius.circular(tokens.radiusFull),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.swap_vert_rounded, size: 15, color: tokens.accent),
-                  const SizedBox(width: 4),
-                  Text(
-                    currentSort.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Text(
             '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
             style: TextStyle(
+              fontFamily: AppTheme.fontUi,
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: tokens.textMuted,
+              color: tokens.textSecondary,
             ),
           ),
           const Spacer(),
@@ -138,62 +117,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             trailingAction,
             const SizedBox(width: 8),
           ],
-          BouncingScaleButton(
-            scaleFactor: 0.9,
-            onTap: onShuffle,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: tokens.surfaceElevated,
-                borderRadius: BorderRadius.circular(tokens.radiusFull),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.shuffle_rounded, size: 14, color: tokens.textPrimary),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Shuffle',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          AppPillButton(
+            label: 'Shuffle',
+            icon: const Icon(Icons.shuffle_rounded, size: 16),
+            variant: AppPillButtonVariant.secondary,
+            height: 32,
+            onPressed: onShuffle,
           ),
           const SizedBox(width: 8),
-          BouncingScaleButton(
-            scaleFactor: 0.9,
-            onTap: onPlayAll,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: tokens.accent,
-                borderRadius: BorderRadius.circular(tokens.radiusFull),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.play_arrow_rounded, size: 16, color: Color(0xFF080F11)),
-                  SizedBox(width: 2),
-                  Text(
-                    'Play',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF080F11),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          AppPillButton(
+            label: 'Play',
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            variant: AppPillButtonVariant.primary,
+            height: 32,
+            onPressed: onPlayAll,
           ),
         ],
       ),
@@ -204,6 +141,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -243,42 +185,41 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: tokens.surfaceElevated,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(tokens.radiusLg),
-        ),
-        title: Text(
-          'New Playlist',
-          style: TextStyle(
-            color: tokens.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
+      builder: (dialogContext) => AppDialog(
+        title: 'New Playlist',
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: tokens.textPrimary),
+          style: TextStyle(
+            fontFamily: AppTheme.fontUi,
+            color: tokens.textPrimary,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: 'Playlist name',
-            hintStyle: TextStyle(color: tokens.textMuted),
-            border: UnderlineInputBorder(
-              borderSide: BorderSide(color: tokens.accent),
+            hintStyle: TextStyle(
+              fontFamily: AppTheme.fontUi,
+              color: tokens.textMuted,
+              fontSize: 14,
             ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: tokens.accent, width: 2),
+            filled: true,
+            fillColor: tokens.card,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
-        actions: [
-          TextButton(
+        customActions: [
+          AppPillButton(
+            label: 'Cancel',
+            variant: AppPillButtonVariant.ghost,
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Cancel', style: TextStyle(color: tokens.textSecondary)),
           ),
-          BouncingScaleButton(
-            scaleFactor: 0.94,
-            onTap: () async {
+          AppPillButton(
+            label: 'Create',
+            variant: AppPillButtonVariant.primary,
+            onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 await ref.read(libraryRepositoryProvider).createPlaylist(name);
@@ -287,21 +228,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 }
               }
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: tokens.accent,
-                borderRadius: BorderRadius.circular(tokens.radiusFull),
-              ),
-              child: const Text(
-                'Create',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -316,20 +242,45 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     final playlistsAsync = ref.watch(playlistsStreamProvider);
     final localTracksAsync = ref.watch(localTracksStreamProvider);
     final audioHandler = ref.watch(audioHandlerProvider);
+    final currentTrack = ref.watch(currentTrackProvider).value;
+    final isPlaying = ref.watch(isPlayingProvider);
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
       backgroundColor: tokens.background,
       appBar: AppBar(
+        backgroundColor: tokens.background,
+        elevation: 0,
         title: Text(
           'Your Library',
           style: TextStyle(
-            fontSize: 22,
+            fontFamily: AppTheme.fontPageTitle,
+            fontSize: isDesktop ? 28 : 22,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.4,
             color: tokens.textPrimary,
           ),
         ),
         actions: [
+          if (isDesktop) ...[
+            AppPillButton(
+              label: 'Create playlist',
+              icon: const Icon(Icons.add_rounded, size: 16),
+              variant: AppPillButtonVariant.primary,
+              height: 32,
+              onPressed: () => _showCreatePlaylistDialog(context),
+            ),
+            const SizedBox(width: 8),
+          ] else ...[
+            BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () => _showCreatePlaylistDialog(context),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.add_rounded, size: 24),
+              ),
+            ),
+          ],
           BouncingScaleButton(
             scaleFactor: 0.9,
             onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,
@@ -342,14 +293,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
                     )
                   : const Icon(Icons.sync_rounded, size: 22),
-            ),
-          ),
-          BouncingScaleButton(
-            scaleFactor: 0.9,
-            onTap: () => _showCreatePlaylistDialog(context),
-            child: const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Icon(Icons.add_rounded, size: 24),
             ),
           ),
           BouncingScaleButton(
@@ -369,33 +312,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(42),
-          child: Container(
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorColor: tokens.accent,
-              indicatorWeight: 2,
-              indicatorSize: TabBarIndicatorSize.label,
-              labelColor: tokens.textPrimary,
-              unselectedLabelColor: tokens.textMuted,
-              labelStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                letterSpacing: -0.2,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-              ),
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'Playlists'),
-                Tab(text: 'Liked Songs'),
-                Tab(text: 'Downloads'),
-                Tab(text: 'Device Music'),
+          child: SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                AppFilterChip(
+                  label: 'Playlists',
+                  isSelected: _tabController.index == 0,
+                  onTap: () => setState(() => _tabController.animateTo(0)),
+                ),
+                const SizedBox(width: 8),
+                AppFilterChip(
+                  label: 'Liked Songs',
+                  isSelected: _tabController.index == 1,
+                  onTap: () => setState(() => _tabController.animateTo(1)),
+                ),
+                const SizedBox(width: 8),
+                AppFilterChip(
+                  label: 'Downloads',
+                  isSelected: _tabController.index == 2,
+                  onTap: () => setState(() => _tabController.animateTo(2)),
+                ),
+                const SizedBox(width: 8),
+                AppFilterChip(
+                  label: 'Device Music',
+                  isSelected: _tabController.index == 3,
+                  onTap: () => setState(() => _tabController.animateTo(3)),
+                ),
               ],
             ),
           ),
@@ -405,23 +350,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         controller: _tabController,
         children: [
           // 1. Playlists Tab
-          _buildPlaylistsTab(tokens, playlistsAsync),
+          _buildPlaylistsTab(tokens, playlistsAsync, isDesktop),
 
           // 2. Liked Songs Tab
-          _buildLikedSongsTab(tokens, likedAsync, audioHandler),
+          _buildLikedSongsTab(tokens, likedAsync, audioHandler, currentTrack, isPlaying),
 
           // 3. Downloads Tab
-          _buildDownloadsTab(tokens, downloadsAsync, audioHandler),
+          _buildDownloadsTab(tokens, downloadsAsync, audioHandler, currentTrack, isPlaying),
 
           // 4. Device Music Tab
-          _buildDeviceMusicTab(tokens, localTracksAsync, audioHandler),
+          _buildDeviceMusicTab(tokens, localTracksAsync, audioHandler, currentTrack, isPlaying),
         ],
       ),
     );
   }
 
   Widget _buildPlaylistsTab(
-      AppTokens tokens, AsyncValue<List<Playlist>> playlistsAsync) {
+      AppTokens tokens, AsyncValue<List<Playlist>> playlistsAsync, bool isDesktop) {
     return playlistsAsync.when(
       loading: () => ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
@@ -448,7 +393,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     const SizedBox(height: 6),
                     ShimmerSkeleton(
                       width: 80,
-                      height: 10,
+                      height: 12,
                       borderRadius: BorderRadius.circular(tokens.radiusSm),
                     ),
                   ],
@@ -459,7 +404,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         ),
       ),
       error: (e, _) => Center(
-        child: Text('Error: $e', style: TextStyle(color: tokens.textSecondary)),
+        child: Text('Error: $e', style: TextStyle(color: tokens.textSecondary, fontFamily: AppTheme.fontUi, fontSize: 13)),
       ),
       data: (playlists) {
         if (playlists.isEmpty) {
@@ -470,50 +415,33 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 Icon(
                   Icons.queue_music_rounded,
                   size: 56,
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: tokens.textMuted.withValues(alpha: 0.4),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'No playlists yet',
-                  style: TextStyle(color: tokens.textSecondary, fontSize: 14),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontUi,
+                    color: tokens.textSecondary,
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    BouncingScaleButton(
-                      scaleFactor: 0.94,
-                      onTap: () => _showCreatePlaylistDialog(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: tokens.accent,
-                          borderRadius:
-                              BorderRadius.circular(tokens.radiusFull),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.add_rounded, size: 18, color: Colors.black),
-                            SizedBox(width: 6),
-                            Text(
-                              'New Playlist',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    AppPillButton(
+                      label: 'New Playlist',
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      variant: AppPillButtonVariant.primary,
+                      onPressed: () => _showCreatePlaylistDialog(context),
                     ),
                     const SizedBox(width: 12),
-                    BouncingScaleButton(
-                      scaleFactor: 0.94,
-                      onTap: () {
+                    AppPillButton(
+                      label: 'Import Spotify',
+                      icon: const Icon(Icons.cloud_download_rounded, size: 18),
+                      variant: AppPillButtonVariant.secondary,
+                      onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -521,36 +449,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                           ),
                         );
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: tokens.surfaceElevated,
-                          borderRadius:
-                              BorderRadius.circular(tokens.radiusFull),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.cloud_download_rounded,
-                                size: 18, color: tokens.textPrimary),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Import Spotify',
-                              style: TextStyle(
-                                color: tokens.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -563,47 +461,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           children: [
             _buildSmartPlaylistsSection(tokens),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
               child: Row(
                 children: [
-                  BouncingScaleButton(
-                    scaleFactor: 0.94,
-                    onTap: () => _showCreatePlaylistDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tokens.surfaceElevated,
-                        borderRadius:
-                            BorderRadius.circular(tokens.radiusFull),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_rounded,
-                              size: 16, color: tokens.textPrimary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'New Playlist',
-                            style: TextStyle(
-                              color: tokens.textPrimary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  AppPillButton(
+                    label: 'New Playlist',
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    variant: AppPillButtonVariant.secondary,
+                    height: 32,
+                    onPressed: () => _showCreatePlaylistDialog(context),
                   ),
                   const SizedBox(width: 10),
-                  BouncingScaleButton(
-                    scaleFactor: 0.94,
-                    onTap: () {
+                  AppPillButton(
+                    label: 'Import Spotify',
+                    icon: const Icon(Icons.cloud_download_rounded, size: 16),
+                    variant: AppPillButtonVariant.secondary,
+                    height: 32,
+                    onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -611,165 +485,199 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                         ),
                       );
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tokens.accent.withValues(alpha: 0.12),
-                        borderRadius:
-                            BorderRadius.circular(tokens.radiusFull),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.cloud_download_rounded,
-                              size: 16, color: tokens.accent),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Import Spotify',
-                            style: TextStyle(
-                              color: tokens.accent,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 140),
-                itemCount: playlists.length,
-                itemBuilder: (context, index) {
-                  final pl = playlists[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(tokens.radiusMd),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                PlaylistDetailScreen(playlistId: pl.id),
-                          ),
+              child: isDesktop
+                  ? GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 140),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.78,
+                      ),
+                      itemCount: playlists.length,
+                      itemBuilder: (context, index) {
+                        final pl = playlists[index];
+                        return MediaCard(
+                          title: pl.name,
+                          subtitle: '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
+                          imageUrl: null,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    PlaylistDetailScreen(playlistId: pl.id),
+                              ),
+                            );
+                          },
+                          onPlayTap: () async {
+                            final data = await ref
+                                .read(libraryRepositoryProvider)
+                                .getPlaylistWithTracks(pl.id);
+                            final tracks = data?.entries
+                                    .map((e) => e.track)
+                                    .whereType<Track>()
+                                    .toList() ??
+                                [];
+                            if (tracks.isNotEmpty) {
+                              ref
+                                  .read(audioHandlerProvider)
+                                  .setQueue(tracks);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Playing "${pl.name}" (${tracks.length} tracks)'),
+                                    duration: const Duration(seconds: 2),
+                                    backgroundColor:
+                                        tokens.surfaceElevated,
+                                  ),
+                                );
+                              }
+                            }
+                          },
                         );
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 140),
+                      itemCount: playlists.length,
+                      itemBuilder: (context, index) {
+                        final pl = playlists[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(tokens.radiusCard),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      PlaylistDetailScreen(playlistId: pl.id),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
                               decoration: BoxDecoration(
-                                color: tokens.surfaceHighlight,
-                                borderRadius:
-                                    BorderRadius.circular(tokens.radiusSm),
+                                color: tokens.card,
+                                borderRadius: BorderRadius.circular(tokens.radiusCard),
                               ),
-                              child: Icon(
-                                pl.isImported
-                                    ? Icons.cloud_download_rounded
-                                    : Icons.music_note_rounded,
-                                color: pl.isImported
-                                    ? tokens.accent
-                                    : tokens.textSecondary,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    pl.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: tokens.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      letterSpacing: -0.2,
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: tokens.surfaceElevated,
+                                      borderRadius:
+                                          BorderRadius.circular(tokens.radiusSm),
+                                    ),
+                                    child: Icon(
+                                      pl.isImported
+                                          ? Icons.cloud_download_rounded
+                                          : Icons.music_note_rounded,
+                                      color: pl.isImported
+                                          ? tokens.accent
+                                          : tokens.textSecondary,
+                                      size: 24,
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
-                                    style: TextStyle(
-                                      color: tokens.textSecondary,
-                                      fontSize: 12,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          pl.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontUi,
+                                            color: tokens.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontUi,
+                                            color: tokens.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  BouncingScaleButton(
+                                    scaleFactor: 0.88,
+                                    onTap: () async {
+                                      final data = await ref
+                                          .read(libraryRepositoryProvider)
+                                          .getPlaylistWithTracks(pl.id);
+                                      final tracks = data?.entries
+                                              .map((e) => e.track)
+                                              .whereType<Track>()
+                                              .toList() ??
+                                          [];
+                                      if (tracks.isNotEmpty) {
+                                        ref
+                                            .read(audioHandlerProvider)
+                                            .setQueue(tracks);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                  'Playing "${pl.name}" (${tracks.length} tracks)'),
+                                              duration: const Duration(seconds: 2),
+                                              backgroundColor:
+                                                  tokens.surfaceElevated,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Icon(
+                                        Icons.play_circle_fill_rounded,
+                                        color: AppTheme.accent,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ),
+                                  BouncingScaleButton(
+                                    scaleFactor: 0.88,
+                                    onTap: () {
+                                      ref
+                                          .read(libraryRepositoryProvider)
+                                          .deletePlaylist(pl.id);
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: tokens.textMuted,
+                                        size: 20,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            BouncingScaleButton(
-                              scaleFactor: 0.88,
-                              onTap: () async {
-                                final data = await ref
-                                    .read(libraryRepositoryProvider)
-                                    .getPlaylistWithTracks(pl.id);
-                                final tracks = data?.entries
-                                        .map((e) => e.track)
-                                        .whereType<Track>()
-                                        .toList() ??
-                                    [];
-                                if (tracks.isNotEmpty) {
-                                  ref
-                                      .read(audioHandlerProvider)
-                                      .setQueue(tracks);
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                            'Playing "${pl.name}" (${tracks.length} tracks)'),
-                                        duration: const Duration(seconds: 2),
-                                        backgroundColor:
-                                            tokens.surfaceElevated,
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  Icons.play_circle_fill_rounded,
-                                  color: tokens.accent,
-                                  size: 28,
-                                ),
-                              ),
-                            ),
-                            BouncingScaleButton(
-                              scaleFactor: 0.88,
-                              onTap: () {
-                                ref
-                                    .read(libraryRepositoryProvider)
-                                    .deletePlaylist(pl.id);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: tokens.textMuted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         );
@@ -777,8 +685,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     );
   }
 
-  Widget _buildLikedSongsTab(AppTokens tokens,
-      AsyncValue<List<Track>> likedAsync, dynamic audioHandler) {
+  Widget _buildLikedSongsTab(
+    AppTokens tokens,
+    AsyncValue<List<Track>> likedAsync,
+    dynamic audioHandler,
+    Track? currentTrack,
+    bool isPlaying,
+  ) {
     return likedAsync.when(
       loading: () => ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
@@ -862,106 +775,38 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 itemCount: sortedTracks.length,
                 itemBuilder: (context, index) {
                   final track = sortedTracks[index];
-                  return RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(tokens.radiusMd),
-                        onTap: () {
-                          audioHandler.setQueue(sortedTracks, startIndex: index);
-                        },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(tokens.radiusSm),
-                        child: track.coverUrl != null
-                            ? Image.network(
-                                track.coverUrl!,
-                                width: 48,
-                                height: 48,
-                                cacheWidth: 144,
-                                cacheHeight: 144,
-                                gaplessPlayback: true,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _fallbackCover(tokens),
-                              )
-                            : _fallbackCover(tokens),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              track.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: tokens.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              track.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: tokens.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      BouncingScaleButton(
-                        scaleFactor: 0.88,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          ref
-                              .read(libraryRepositoryProvider)
-                              .setLiked(track.id, false, track: track);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Icon(
-                            Icons.favorite_rounded,
-                            color: tokens.accent,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      BouncingScaleButton(
-                        scaleFactor: 0.88,
-                        onTap: () {
-                          TrackOptionsBottomSheet.show(context, track: track);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Icon(
-                            Icons.more_vert_rounded,
-                            color: tokens.textSecondary.withValues(alpha: 0.7),
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                  final isCurrentTrack = currentTrack?.id == track.id;
+                  return TrackRow(
+                    track: track.copyWith(isLiked: true),
+                    index: index + 1,
+                    isPlaying: isCurrentTrack && isPlaying,
+                    isSelected: isCurrentTrack,
+                    showArtwork: true,
+                    showIndex: false,
+                    showDuration: true,
+                    showLikeButton: true,
+                    showOptionsButton: true,
+                    onTap: () {
+                      audioHandler.setQueue(sortedTracks, startIndex: index);
+                    },
+                    onPlayTap: () {
+                      audioHandler.setQueue(sortedTracks, startIndex: index);
+                    },
+                    onLikeTap: () {
+                      HapticFeedback.selectionClick();
+                      ref
+                          .read(libraryRepositoryProvider)
+                          .setLiked(track.id, false, track: track);
+                    },
+                    onOptionsTap: () {
+                      TrackOptionsBottomSheet.show(context, track: track);
+                    },
+                  );
+                },
               ),
             ),
-          );
-        },
-      ),
-    ),
-  ],
-);
+          ],
+        );
       },
     );
   }
@@ -970,6 +815,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     AppTokens tokens,
     AsyncValue<List<DownloadItem>> downloadsAsync,
     dynamic audioHandler,
+    Track? currentTrack,
+    bool isPlaying,
   ) {
     return downloadsAsync.when(
       loading: () => ListView.builder(
@@ -1027,19 +874,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   style: TextStyle(color: tokens.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
-                OutlinedButton.icon(
+                AppPillButton(
+                  label: 'Open Downloads Folder',
+                  icon: const Icon(Icons.folder_open_rounded, size: 18),
+                  variant: AppPillButtonVariant.secondary,
                   onPressed: () =>
                       FolderLauncherService.openDownloadsFolder(context),
-                  icon: const Icon(Icons.folder_open_rounded, size: 18),
-                  label: const Text('Open Downloads Folder'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: tokens.accent,
-                    side: BorderSide(
-                        color: tokens.accent.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -1066,12 +906,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: tokens.surfaceElevated,
-                  borderRadius: BorderRadius.circular(tokens.radiusMd),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    width: 0.8,
-                  ),
+                  color: tokens.card,
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
                 ),
                 child: Row(
                   children: [
@@ -1104,7 +940,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     ? 'Repaired ${res.pruned} missing tracks. ${res.verified} verified offline.'
                                     : 'Verified ${res.verified} offline tracks. Library healthy!',
                               ),
-                              backgroundColor: AppTheme.primary,
+                              backgroundColor: tokens.card,
                             ),
                           );
                         }
@@ -1157,150 +993,156 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   final isDownloading = dl.status ==
                           DownloadStatus.downloading ||
                       dl.status == DownloadStatus.queued;
-                  final sizeMb = dl.fileSizeBytes > 0
-                      ? (dl.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)
-                      : null;
                   final progress = (dl.fileSizeBytes > 0 &&
                           dl.bytesDownloaded > 0)
                       ? (dl.bytesDownloaded / dl.fileSizeBytes).clamp(0.0, 1.0)
                       : null;
 
-                  return RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(tokens.radiusMd),
-                      onTap: isCompleted
-                          ? () {
-                              final completedTracks =
-                                  completed.map((d) => d.track!).toList();
-                              final compIdx = completedTracks
-                                  .indexWhere((t) => t.id == track.id);
-                              audioHandler.setQueue(completedTracks,
-                                  startIndex: compIdx >= 0 ? compIdx : 0);
-                            }
-                          : null,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 6),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius:
-                                  BorderRadius.circular(tokens.radiusSm),
-                              child: track.coverUrl != null
-                                  ? Image.network(
-                                      track.coverUrl!,
-                                      width: 48,
-                                      height: 48,
-                                      cacheWidth: 144,
-                                      cacheHeight: 144,
-                                      gaplessPlayback: true,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          _fallbackCover(tokens),
-                                    )
-                                  : _fallbackCover(tokens),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: tokens.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    isCompleted
-                                        ? '${track.artist} • ${sizeMb ?? "0.0"} MB'
-                                        : isDownloading
-                                            ? '${track.artist} • Downloading (${((progress ?? 0.0) * 100).toInt()}%)'
-                                            : '${track.artist} • ${dl.status.name}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: isDownloading
-                                          ? tokens.accent
-                                          : tokens.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  if (isDownloading) ...[
-                                    const SizedBox(height: 6),
-                                    // Ultra-thin animated progress line
-                                    ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(1),
-                                      child: LinearProgressIndicator(
-                                        value: progress,
-                                        backgroundColor:
-                                            Colors.white.withValues(alpha: 0.08),
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                                tokens.accent),
-                                        minHeight: 2,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            BouncingScaleButton(
-                              scaleFactor: 0.88,
-                              onTap: () {
-                                if (isCompleted) {
-                                  ref
-                                      .read(downloadRepositoryProvider)
-                                      .deleteDownload(dl.trackId);
-                                } else {
-                                  ref
-                                      .read(downloadRepositoryProvider)
-                                      .cancelDownload(dl.trackId);
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  isCompleted
-                                      ? Icons.delete_outline_rounded
-                                      : Icons.close_rounded,
-                                  color: tokens.textMuted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            BouncingScaleButton(
-                              scaleFactor: 0.88,
-                              onTap: () {
-                                TrackOptionsBottomSheet.show(context,
-                                    track: track);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  Icons.more_vert_rounded,
-                                  color: tokens.textSecondary
-                                      .withValues(alpha: 0.7),
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
+                  if (isCompleted) {
+                    final isCurrentTrack = currentTrack?.id == track.id;
+                    return TrackRow(
+                      track: track,
+                      index: index + 1,
+                      isPlaying: isCurrentTrack && isPlaying,
+                      isSelected: isCurrentTrack,
+                      showArtwork: true,
+                      showIndex: false,
+                      showDuration: true,
+                      showLikeButton: false,
+                      showOptionsButton: true,
+                      onTap: () {
+                        final compIdx = completedTracks
+                            .indexWhere((t) => t.id == track.id);
+                        audioHandler.setQueue(completedTracks,
+                            startIndex: compIdx >= 0 ? compIdx : 0);
+                      },
+                      onPlayTap: () {
+                        final compIdx = completedTracks
+                            .indexWhere((t) => t.id == track.id);
+                        audioHandler.setQueue(completedTracks,
+                            startIndex: compIdx >= 0 ? compIdx : 0);
+                      },
+                      onOptionsTap: () {
+                        TrackOptionsBottomSheet.show(context, track: track);
+                      },
+                      trailing: IconButton(
+                        icon: Icon(
+                          Icons.delete_outline_rounded,
+                          color: tokens.textMuted,
+                          size: 20,
                         ),
+                        splashRadius: 18,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                        tooltip: 'Delete download',
+                        onPressed: () {
+                          ref
+                              .read(downloadRepositoryProvider)
+                              .deleteDownload(dl.trackId);
+                        },
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: tokens.card,
+                        borderRadius: BorderRadius.circular(tokens.radiusCard),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(tokens.radiusSm),
+                            child: track.coverUrl != null
+                                ? Image.network(
+                                    track.coverUrl!,
+                                    width: 40,
+                                    height: 40,
+                                    cacheWidth: 120,
+                                    cacheHeight: 120,
+                                    gaplessPlayback: true,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        _fallbackCover(tokens),
+                                  )
+                                : _fallbackCover(tokens),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  track.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: tokens.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  isDownloading
+                                      ? '${track.artist} • Downloading (${((progress ?? 0.0) * 100).toInt()}%)'
+                                      : '${track.artist} • ${dl.status.name}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: isDownloading
+                                        ? tokens.accent
+                                        : tokens.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                if (isDownloading) ...[
+                                  const SizedBox(height: 6),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(1),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor:
+                                          Colors.white.withValues(alpha: 0.08),
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(
+                                              tokens.accent),
+                                      minHeight: 2,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: tokens.textMuted,
+                              size: 20,
+                            ),
+                            splashRadius: 18,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 32),
+                            tooltip: 'Cancel download',
+                            onPressed: () {
+                              ref
+                                  .read(downloadRepositoryProvider)
+                                  .cancelDownload(dl.trackId);
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
               ),
             ),
           ],
@@ -1436,9 +1278,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         width: 155,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: tokens.surfaceElevated,
-          borderRadius: BorderRadius.circular(tokens.radiusMd),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 0.8),
+          color: tokens.card,
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
         ),
         child: Row(
           children: [
@@ -1447,7 +1288,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               height: 36,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
               ),
               child: Icon(icon, color: color, size: 20),
             ),
@@ -1474,7 +1315,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: tokens.textMuted,
-                      fontSize: 10,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -1494,6 +1335,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     AppTokens tokens,
     AsyncValue<List<Track>> localAsync,
     dynamic audioHandler,
+    Track? currentTrack,
+    bool isPlaying,
   ) {
     return localAsync.when(
       loading: () => ListView.builder(
@@ -1560,38 +1403,21 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   ),
                 ),
                 const SizedBox(height: 20),
-                BouncingScaleButton(
-                  scaleFactor: 0.94,
-                  onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: tokens.accent,
-                      borderRadius: BorderRadius.circular(tokens.radiusFull),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_isScanningLocalAudio)
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                          )
-                        else
-                          const Icon(Icons.sync_rounded, size: 18, color: Colors.black),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Scan Device Storage',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                AppPillButton(
+                  label: _isScanningLocalAudio
+                      ? 'Scanning...'
+                      : 'Scan Device Storage',
+                  icon: _isScanningLocalAudio
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.sync_rounded,
+                          size: 18, color: Colors.black),
+                  variant: AppPillButtonVariant.primary,
+                  onPressed: _isScanningLocalAudio ? null : _scanDeviceAudio,
                 ),
               ],
             ),
@@ -1606,7 +1432,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               tokens: tokens,
               trackCount: sortedTracks.length,
               currentSort: _deviceMusicSort,
-              onSortChanged: (newSort) => setState(() => _deviceMusicSort = newSort),
+              onSortChanged: (newSort) =>
+                  setState(() => _deviceMusicSort = newSort),
               onPlayAll: () {
                 audioHandler.setQueue(sortedTracks, startIndex: 0);
               },
@@ -1614,41 +1441,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 final shuffled = List<Track>.from(sortedTracks)..shuffle();
                 audioHandler.setQueue(shuffled, startIndex: 0);
               },
-              trailingAction: BouncingScaleButton(
-                scaleFactor: 0.9,
-                onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(tokens.radiusFull),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _isScanningLocalAudio
-                          ? SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
-                            )
-                          : Icon(Icons.sync_rounded, size: 14, color: tokens.accent),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Scan',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: tokens.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              trailingAction: AppPillButton(
+                label: 'Scan',
+                icon: _isScanningLocalAudio
+                    ? SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: tokens.accent),
+                      )
+                    : Icon(Icons.sync_rounded, size: 14, color: tokens.accent),
+                variant: AppPillButtonVariant.ghost,
+                height: 32,
+                onPressed: _isScanningLocalAudio ? null : _scanDeviceAudio,
               ),
             ),
             Expanded(
@@ -1657,79 +1462,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 itemCount: sortedTracks.length,
                 itemBuilder: (context, index) {
                   final track = sortedTracks[index];
-                  final minutes = track.duration.inMinutes;
-                  final seconds = (track.duration.inSeconds % 60).toString().padLeft(2, '0');
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(tokens.radiusMd),
-                      onTap: () {
-                        audioHandler.setQueue(sortedTracks, startIndex: index);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: tokens.surfaceHighlight,
-                                borderRadius: BorderRadius.circular(tokens.radiusSm),
-                              ),
-                              child: Icon(
-                                Icons.audio_file_rounded,
-                                color: tokens.accent,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: tokens.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    '${track.artist} • $minutes:$seconds',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: tokens.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            BouncingScaleButton(
-                              scaleFactor: 0.88,
-                              onTap: () {
-                                TrackOptionsBottomSheet.show(context, track: track);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  Icons.more_vert_rounded,
-                                  color: tokens.textSecondary.withValues(alpha: 0.7),
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  final isCurrentTrack = currentTrack?.id == track.id;
+                  return TrackRow(
+                    track: track,
+                    index: index + 1,
+                    isPlaying: isCurrentTrack && isPlaying,
+                    isSelected: isCurrentTrack,
+                    showArtwork: true,
+                    showIndex: false,
+                    showDuration: true,
+                    showLikeButton: false,
+                    showOptionsButton: true,
+                    onTap: () {
+                      audioHandler.setQueue(sortedTracks, startIndex: index);
+                    },
+                    onPlayTap: () {
+                      audioHandler.setQueue(sortedTracks, startIndex: index);
+                    },
+                    onOptionsTap: () {
+                      TrackOptionsBottomSheet.show(context, track: track);
+                    },
                   );
                 },
               ),

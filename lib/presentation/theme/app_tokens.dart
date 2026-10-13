@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 
 @immutable
 class AppTokens extends ThemeExtension<AppTokens> {
-  // Colors
+  // Surface Colors
   final Color background;
+  final Color sidebar;
   final Color surface;
   final Color surfaceElevated;
   final Color surfaceHighlight;
+  final Color card;
+  final Color cardHover;
   final Color glass;
   final Color accent;
   final Color textPrimary;
   final Color textSecondary;
   final Color textMuted;
   final Color divider;
+  final Color error;
 
   // Spacing (4/8pt Grid)
   final double spaceXs; // 4
@@ -24,10 +28,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
 
   // Radii
   final double radiusSm; // 8
+  final double radiusCard; // 8
   final double radiusMd; // 14
   final double radiusLg; // 20
   final double radiusXl; // 28
   final double radiusFull; // 999
+  final double radiusPill; // 999
 
   // Motion
   final Duration motionQuick; // 150ms
@@ -38,16 +44,20 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Curve curveSpring;
 
   const AppTokens({
-    this.background = const Color(0xFF121316),
-    this.surface = const Color(0xFF121316),
-    this.surfaceElevated = const Color(0xFF1F1F23),
-    this.surfaceHighlight = const Color(0xFF292A2D),
-    this.glass = const Color(0xCC141414),
-    this.accent = const Color(0xFF4EDEA3),
+    this.background = const Color(0xFF121212),
+    this.sidebar = const Color(0xFF000000),
+    this.surface = const Color(0xFF121212),
+    this.surfaceElevated = const Color(0xFF2A2A2A),
+    this.surfaceHighlight = const Color(0xFF282828),
+    this.card = const Color(0xFF181818),
+    this.cardHover = const Color(0xFF282828),
+    this.glass = const Color(0xCC181818),
+    this.accent = const Color(0xFF2EE66B),
     this.textPrimary = const Color(0xFFFFFFFF),
-    this.textSecondary = const Color(0xFFBBCABF),
-    this.textMuted = const Color(0xFF86948A),
-    this.divider = const Color(0xFF292A2D),
+    this.textSecondary = const Color(0xFFB3B3B3),
+    this.textMuted = const Color(0xFF6A6A6A),
+    this.divider = const Color(0xFF282828),
+    this.error = const Color(0xFFF15E6C),
     this.spaceXs = 4.0,
     this.spaceSm = 8.0,
     this.spaceMd = 16.0,
@@ -55,10 +65,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.spaceXl = 32.0,
     this.spaceXxl = 48.0,
     this.radiusSm = 8.0,
+    this.radiusCard = 8.0,
     this.radiusMd = 14.0,
     this.radiusLg = 20.0,
     this.radiusXl = 28.0,
     this.radiusFull = 999.0,
+    this.radiusPill = 999.0,
     this.motionQuick = const Duration(milliseconds: 150),
     this.motionStandard = const Duration(milliseconds: 250),
     this.motionSmooth = const Duration(milliseconds: 350),
@@ -67,46 +79,29 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.curveSpring = Curves.easeOutCubic,
   });
 
-  /// Canonical Linux desktop theme tokens (Emerald #4EDEA3 / Charcoal #121316)
-  static const AppTokens linuxTokens = AppTokens(
-    background: Color(0xFF121316),
-    surface: Color(0xFF121316),
-    surfaceElevated: Color(0xFF1F1F23),
-    surfaceHighlight: Color(0xFF292A2D),
-    glass: Color(0xCC141414),
-    accent: Color(0xFF4EDEA3),
-    textPrimary: Color(0xFFFFFFFF),
-    textSecondary: Color(0xFFBBCABF),
-    textMuted: Color(0xFF86948A),
-    divider: Color(0xFF292A2D),
-  );
+  /// Canonical Unified Token Spec (Content-First)
+  static const AppTokens standardTokens = AppTokens();
 
-  /// Google Stitch mobile theme tokens (Warm Amber #F59E0B / Deep Slate #0D1417)
-  static const AppTokens mobileStitchTokens = AppTokens(
-    background: Color(0xFF0D1417),
-    surface: Color(0xFF0D1417),
-    surfaceElevated: Color(0xFF1E2629),
-    surfaceHighlight: Color(0xFF262E31),
-    glass: Color(0xE60D1417),
-    accent: Color(0xFFF59E0B),
-    textPrimary: Color(0xFFF1F5F9),
-    textSecondary: Color(0xFFCBD5E1),
-    textMuted: Color(0xFF94A3B8),
-    divider: Color(0x1FFFFFFF),
-  );
+  /// Aliases for platform symmetry
+  static const AppTokens linuxTokens = standardTokens;
+  static const AppTokens mobileStitchTokens = standardTokens;
 
   @override
   AppTokens copyWith({
     Color? background,
+    Color? sidebar,
     Color? surface,
     Color? surfaceElevated,
     Color? surfaceHighlight,
+    Color? card,
+    Color? cardHover,
     Color? glass,
     Color? accent,
     Color? textPrimary,
     Color? textSecondary,
     Color? textMuted,
     Color? divider,
+    Color? error,
     double? spaceXs,
     double? spaceSm,
     double? spaceMd,
@@ -114,10 +109,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
     double? spaceXl,
     double? spaceXxl,
     double? radiusSm,
+    double? radiusCard,
     double? radiusMd,
     double? radiusLg,
     double? radiusXl,
     double? radiusFull,
+    double? radiusPill,
     Duration? motionQuick,
     Duration? motionStandard,
     Duration? motionSmooth,
@@ -127,15 +124,19 @@ class AppTokens extends ThemeExtension<AppTokens> {
   }) {
     return AppTokens(
       background: background ?? this.background,
+      sidebar: sidebar ?? this.sidebar,
       surface: surface ?? this.surface,
       surfaceElevated: surfaceElevated ?? this.surfaceElevated,
       surfaceHighlight: surfaceHighlight ?? this.surfaceHighlight,
+      card: card ?? this.card,
+      cardHover: cardHover ?? this.cardHover,
       glass: glass ?? this.glass,
       accent: accent ?? this.accent,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
       textMuted: textMuted ?? this.textMuted,
       divider: divider ?? this.divider,
+      error: error ?? this.error,
       spaceXs: spaceXs ?? this.spaceXs,
       spaceSm: spaceSm ?? this.spaceSm,
       spaceMd: spaceMd ?? this.spaceMd,
@@ -143,10 +144,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
       spaceXl: spaceXl ?? this.spaceXl,
       spaceXxl: spaceXxl ?? this.spaceXxl,
       radiusSm: radiusSm ?? this.radiusSm,
+      radiusCard: radiusCard ?? this.radiusCard,
       radiusMd: radiusMd ?? this.radiusMd,
       radiusLg: radiusLg ?? this.radiusLg,
       radiusXl: radiusXl ?? this.radiusXl,
       radiusFull: radiusFull ?? this.radiusFull,
+      radiusPill: radiusPill ?? this.radiusPill,
       motionQuick: motionQuick ?? this.motionQuick,
       motionStandard: motionStandard ?? this.motionStandard,
       motionSmooth: motionSmooth ?? this.motionSmooth,
@@ -161,15 +164,19 @@ class AppTokens extends ThemeExtension<AppTokens> {
     if (other is! AppTokens) return this;
     return AppTokens(
       background: Color.lerp(background, other.background, t)!,
+      sidebar: Color.lerp(sidebar, other.sidebar, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
       surfaceElevated: Color.lerp(surfaceElevated, other.surfaceElevated, t)!,
       surfaceHighlight: Color.lerp(surfaceHighlight, other.surfaceHighlight, t)!,
+      card: Color.lerp(card, other.card, t)!,
+      cardHover: Color.lerp(cardHover, other.cardHover, t)!,
       glass: Color.lerp(glass, other.glass, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
+      error: Color.lerp(error, other.error, t)!,
       spaceXs: spaceXs,
       spaceSm: spaceSm,
       spaceMd: spaceMd,
@@ -177,10 +184,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
       spaceXl: spaceXl,
       spaceXxl: spaceXxl,
       radiusSm: radiusSm,
+      radiusCard: radiusCard,
       radiusMd: radiusMd,
       radiusLg: radiusLg,
       radiusXl: radiusXl,
       radiusFull: radiusFull,
+      radiusPill: radiusPill,
       motionQuick: motionQuick,
       motionStandard: motionStandard,
       motionSmooth: motionSmooth,
@@ -193,5 +202,5 @@ class AppTokens extends ThemeExtension<AppTokens> {
 
 extension AppTokensBuildContext on BuildContext {
   AppTokens get tokens =>
-      Theme.of(this).extension<AppTokens>() ?? const AppTokens();
+      Theme.of(this).extension<AppTokens>() ?? AppTokens.standardTokens;
 }

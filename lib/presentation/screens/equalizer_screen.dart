@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/equalizer_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import '../widgets/equalizer_curve_visualizer.dart';
 
 class EqualizerScreen extends ConsumerWidget {
@@ -38,17 +38,18 @@ class EqualizerScreen extends ConsumerWidget {
             Text(
               'Equalizer',
               style: TextStyle(
-                fontSize: 18,
+                fontFamily: AppTheme.fontDisplay,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: tokens.textPrimary,
               ),
             ),
             Text(
-              'Acoustic Profile • Softify Smart EQ 2.0',
+              'Acoustic Calibration & Hardware DSP',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: tokens.textSecondary,
               ),
@@ -62,7 +63,7 @@ class EqualizerScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
               decoration: BoxDecoration(
                 color: tokens.surfaceElevated,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(tokens.radiusPill),
                 border: Border.all(color: tokens.surfaceHighlight, width: 1),
               ),
               child: Row(
@@ -78,10 +79,9 @@ class EqualizerScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Active Output: Softify Smart EQ 2.0',
+                    'Hardware DSP Active',
                     style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: tokens.accent,
                     ),
@@ -236,10 +236,10 @@ class EqualizerScreen extends ConsumerWidget {
                   }
                 : null,
             selectedColor: tokens.accent,
-            backgroundColor: tokens.surfaceElevated,
+            backgroundColor: tokens.card,
             labelStyle: TextStyle(
               color: isSelected
-                  ? const Color(0xFF080F11)
+                  ? Colors.black
                   : (eqState.enabled
                       ? tokens.textPrimary
                       : tokens.textSecondary),
@@ -247,7 +247,7 @@ class EqualizerScreen extends ConsumerWidget {
               fontSize: 12.5,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(tokens.radiusPill),
               side: BorderSide(
                 color: isSelected
                     ? tokens.accent
@@ -265,8 +265,8 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(16),
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
         border: Border.all(
           color: tokens.surfaceHighlight,
           width: 1,
@@ -285,7 +285,7 @@ class EqualizerScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: tokens.surfaceHighlight,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(tokens.radiusCard),
                       ),
                       child: Icon(
                         Icons.graphic_eq_rounded,
@@ -299,21 +299,21 @@ class EqualizerScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Spatial Engine 24-BIT 96k',
+                            'Audio Calibration Engine',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 13.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: tokens.textPrimary,
                             ),
                           ),
                           Text(
-                            'Studio Master Pipeline Active',
+                            'Hardware DSP Processing Active',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: tokens.textSecondary,
                             ),
                           ),
@@ -328,13 +328,12 @@ class EqualizerScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: tokens.surfaceHighlight,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
                 ),
                 child: Text(
-                  'HI-RES',
+                  'DSP ACTIVE',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'monospace',
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: tokens.accent,
                   ),
@@ -344,9 +343,9 @@ class EqualizerScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Direct bit-perfect streaming through OpenSL ES / ALSA audio pipelines with sub-1ms buffer jitter and zero resampling distortion.',
+            'Parametric equalization with hardware-accelerated DSP filters and low-latency audio processing.',
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 12,
               height: 1.5,
               color: tokens.textSecondary,
             ),
@@ -366,12 +365,8 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
       decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: tokens.surfaceHighlight,
-          width: 1,
-        ),
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
       ),
       child: Column(
         children: [
@@ -398,7 +393,7 @@ class EqualizerScreen extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: tokens.textSecondary,
-                      fontSize: 11,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -508,7 +503,7 @@ class EqualizerScreen extends ConsumerWidget {
                       : isBoosted
                           ? tokens.accent
                           : (isCut ? tokens.textSecondary : tokens.textPrimary),
-                  fontSize: 10.5,
+                  fontSize: 12.0,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -550,7 +545,7 @@ class EqualizerScreen extends ConsumerWidget {
               _formatFreq(freq),
               style: TextStyle(
                 color: isEnabled ? tokens.textSecondary : tokens.textSecondary.withValues(alpha: 0.6),
-                fontSize: 10.5,
+                fontSize: 12.0,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -572,12 +567,8 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: tokens.surfaceHighlight,
-          width: 1,
-        ),
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -738,7 +729,7 @@ class EqualizerScreen extends ConsumerWidget {
                       'Balances playback volume across tracks to eliminate sudden jumps',
                       style: TextStyle(
                         color: tokens.textSecondary,
-                        fontSize: 11,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -787,14 +778,8 @@ class EqualizerScreen extends ConsumerWidget {
           decoration: BoxDecoration(
             color: eqState.isBypassed
                 ? tokens.accent.withValues(alpha: 0.25)
-                : tokens.surfaceElevated,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: eqState.isBypassed
-                  ? tokens.accent
-                  : tokens.surfaceHighlight,
-              width: 1.5,
-            ),
+                : tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusPill),
           ),
           alignment: Alignment.center,
           child: Row(

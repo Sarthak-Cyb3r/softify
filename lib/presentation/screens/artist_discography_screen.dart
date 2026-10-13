@@ -117,7 +117,7 @@ class _ArtistDiscographyScreenState
                             child: Text(
                               'COMPLETE DISCOGRAPHY',
                               style: TextStyle(
-                                fontSize: 9.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.8,
                                 color: tokens.accent,
@@ -334,7 +334,7 @@ class _ArtistDiscographyScreenState
                             Text(
                               'Release',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: tokens.textMuted,
                               ),
                             ),
@@ -376,7 +376,7 @@ class _ArtistDiscographyScreenState
                     child: Text(
                       '${filteredTracks.length}',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: tokens.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),

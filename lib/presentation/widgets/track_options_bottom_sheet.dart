@@ -8,6 +8,8 @@ import '../screens/artist_detail_screen.dart';
 import '../screens/car_mode_screen.dart';
 import '../screens/equalizer_screen.dart';
 import '../theme/app_theme.dart';
+import 'shared/app_dialog.dart';
+import 'shared/app_pill_button.dart';
 import 'sleep_timer_bottom_sheet.dart';
 
 class TrackOptionsBottomSheet extends ConsumerWidget {
@@ -217,7 +219,7 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       title: const Text('Start song radio', style: TextStyle(color: AppTheme.textPrimary)),
                       subtitle: const Text(
                         'Continuous queue musically matched to this track',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                       onTap: () async {
                         Navigator.pop(context);
@@ -372,7 +374,7 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       title: const Text('Car Mode', style: TextStyle(color: AppTheme.textPrimary)),
                       subtitle: const Text(
                         'Distraction-free driving interface with large touch targets',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                       onTap: () {
                         Navigator.pop(context);
@@ -389,7 +391,7 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       title: const Text('Equalizer & Audio FX', style: TextStyle(color: AppTheme.textPrimary)),
                       subtitle: const Text(
                         '10-band DSP, acoustic presets & bass boost',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                       onTap: () {
                         Navigator.pop(context);
@@ -403,8 +405,8 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                     // 8. Remove from this Playlist (if applicable)
                     if (currentPlaylistId != null && currentPlaylistTrackIndex != null)
                       ListTile(
-                        leading: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                        title: const Text('Remove from this playlist', style: TextStyle(color: Colors.redAccent)),
+                        leading: Icon(Icons.remove_circle_outline, color: tokens.error),
+                        title: Text('Remove from this playlist', style: TextStyle(color: tokens.error)),
                         onTap: () async {
                           await ref
                               .read(libraryRepositoryProvider)
@@ -604,36 +606,45 @@ class _AddToPlaylistModal extends ConsumerWidget {
   }
 
   void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {
+    final tokens = context.tokens;
     final controller = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceElevated,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('New Playlist', style: TextStyle(color: AppTheme.textPrimary)),
+      builder: (dialogCtx) => AppDialog(
+        title: 'New Playlist',
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: AppTheme.textPrimary),
-          decoration: const InputDecoration(
+          style: TextStyle(
+            fontFamily: AppTheme.fontUi,
+            color: tokens.textPrimary,
+            fontSize: 14,
+          ),
+          decoration: InputDecoration(
             hintText: 'Playlist name',
-            hintStyle: TextStyle(color: Colors.white38),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: AppTheme.primary),
+            hintStyle: TextStyle(
+              fontFamily: AppTheme.fontUi,
+              color: tokens.textMuted,
+              fontSize: 14,
+            ),
+            filled: true,
+            fillColor: tokens.card,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
-        actions: [
-          TextButton(
+        customActions: [
+          AppPillButton(
+            label: 'Cancel',
+            variant: AppPillButtonVariant.ghost,
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.black,
-            ),
+          AppPillButton(
+            label: 'Create & Add',
+            variant: AppPillButtonVariant.primary,
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
@@ -651,7 +662,6 @@ class _AddToPlaylistModal extends ConsumerWidget {
                 }
               }
             },
-            child: const Text('Create & Add'),
           ),
         ],
       ),

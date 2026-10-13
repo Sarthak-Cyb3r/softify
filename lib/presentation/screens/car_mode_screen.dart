@@ -1,9 +1,12 @@
+import 'dart:async';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
 
 /// High-contrast, large-touch-target Driving Interface for automotive head units & car mounts.
@@ -15,6 +18,9 @@ class CarModeScreen extends ConsumerStatefulWidget {
 }
 
 class _CarModeScreenState extends ConsumerState<CarModeScreen> {
+  Timer? _clockTimer;
+  String _timeString = '00:00';
+
   @override
   void initState() {
     super.initState();
@@ -24,10 +30,27 @@ class _CarModeScreenState extends ConsumerState<CarModeScreen> {
       DeviceOrientation.landscapeRight,
       DeviceOrientation.portraitUp,
     ]);
+    _updateTime();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+  }
+
+  void _updateTime() {
+    final now = DateTime.now();
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+    final formatted = '$hour:$minute';
+    if (mounted) {
+      setState(() {
+        _timeString = formatted;
+      });
+    } else {
+      _timeString = formatted;
+    }
   }
 
   @override
   void dispose() {
+    _clockTimer?.cancel();
     // Restore default portrait on mobile
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -42,169 +65,324 @@ class _CarModeScreenState extends ConsumerState<CarModeScreen> {
     final playbackState = ref.watch(playbackStateStreamProvider).value;
     final audioHandler = ref.watch(audioHandlerProvider);
     final isPlaying = playbackState?.playing ?? false;
+    final isLikedAsync = currentTrack != null
+        ? ref.watch(isTrackLikedProvider(currentTrack.id))
+        : null;
+    final isLiked = isLikedAsync?.value ?? currentTrack?.isLiked ?? false;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: tokens.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             children: [
-              // Header: Exit button & Car Mode Indicator
+              // Header: Exit button, Car Audio pill & Live Clock
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: tokens.accent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: tokens.accent, width: 1.5),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.directions_car_filled_rounded, color: tokens.accent, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'CAR MODE',
-                              style: TextStyle(
-                                color: tokens.accent,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                   BouncingScaleButton(
-                    scaleFactor: 0.9,
+                    scaleFactor: 0.95,
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.white12,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 1),
+                        color: tokens.surfaceElevated,
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
                       ),
-                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-                    ),
-                  ),
-                ],
-              ),
-
-              const Spacer(),
-
-              // Middle: Large Track & Artist Typography
-              if (currentTrack != null) ...[
-                Text(
-                  currentTrack.title,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 32,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  currentTrack.artist,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tokens.accent,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 22,
-                  ),
-                ),
-              ] else ...[
-                const Icon(Icons.music_off_rounded, color: Colors.white38, size: 64),
-                const SizedBox(height: 12),
-                const Text(
-                  'No music playing',
-                  style: TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ],
-
-              const Spacer(),
-
-              // Large Driving Controls
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Previous Track
-                  BouncingScaleButton(
-                    scaleFactor: 0.88,
-                    onTap: () => audioHandler.skipToPrevious(),
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 2),
-                      ),
-                      child: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 40),
-                    ),
-                  ),
-
-                  // Big Play / Pause Target (96x96)
-                  BouncingScaleButton(
-                    scaleFactor: 0.92,
-                    onTap: () {
-                      if (isPlaying) {
-                        audioHandler.pause();
-                      } else {
-                        audioHandler.play();
-                      }
-                    },
-                    child: Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        color: tokens.accent,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: tokens.accent, blurRadius: 24, spreadRadius: -4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close_rounded, color: tokens.textPrimary, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Exit',
+                            style: TextStyle(
+                              color: tokens.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
-                      child: Icon(
-                        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        color: Colors.black,
-                        size: 56,
-                      ),
                     ),
                   ),
-
-                  // Next Track
-                  BouncingScaleButton(
-                    scaleFactor: 0.88,
-                    onTap: () => audioHandler.skipToNext(),
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 2),
-                      ),
-                      child: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 40),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: tokens.card,
+                      borderRadius: BorderRadius.circular(tokens.radiusPill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bluetooth_connected_rounded, color: tokens.accent, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Car Audio',
+                          style: TextStyle(
+                            color: tokens.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _timeString,
+                    style: AppTheme.tabularTimestamp(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: tokens.textPrimary,
                     ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              // Body Content
+              Expanded(
+                child: isLandscape
+                    ? _buildLandscapeLayout(tokens, currentTrack, isPlaying, audioHandler, isLiked)
+                    : _buildPortraitLayout(tokens, currentTrack, isPlaying, audioHandler, isLiked),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitLayout(
+    AppTokens tokens,
+    Track? currentTrack,
+    bool isPlaying,
+    AudioHandler audioHandler,
+    bool isLiked,
+  ) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // Album art container
+        _buildAlbumArt(tokens, currentTrack, 240),
+        // Title & Artist
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              Text(
+                currentTrack?.title ?? 'No music playing',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontDisplay,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: tokens.textPrimary,
+                  letterSpacing: -0.4,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                currentTrack?.artist ?? 'Select a track to start playback',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: tokens.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        // Big Controls
+        _buildControlsRow(tokens, isPlaying, audioHandler),
+        // Favorite button
+        if (currentTrack != null)
+          _buildFavoriteButton(tokens, currentTrack, isLiked)
+        else
+          const SizedBox(height: 52),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout(
+    AppTokens tokens,
+    Track? currentTrack,
+    bool isPlaying,
+    AudioHandler audioHandler,
+    bool isLiked,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 4,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildAlbumArt(tokens, currentTrack, 150),
+              const SizedBox(height: 8),
+              Text(
+                currentTrack?.title ?? 'No music playing',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontDisplay,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: tokens.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                currentTrack?.artist ?? '',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: tokens.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          flex: 5,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildControlsRow(tokens, isPlaying, audioHandler),
+              if (currentTrack != null) ...[
+                const SizedBox(height: 16),
+                _buildFavoriteButton(tokens, currentTrack, isLiked),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAlbumArt(AppTokens tokens, Track? track, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: track?.coverUrl != null && track!.coverUrl!.isNotEmpty
+          ? Image.network(
+              track.coverUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _buildArtPlaceholder(tokens, size),
+            )
+          : _buildArtPlaceholder(tokens, size),
+    );
+  }
+
+  Widget _buildArtPlaceholder(AppTokens tokens, double size) {
+    return Center(
+      child: Icon(
+        Icons.music_note_rounded,
+        size: size * 0.4,
+        color: tokens.textSecondary,
+      ),
+    );
+  }
+
+  Widget _buildControlsRow(AppTokens tokens, bool isPlaying, AudioHandler audioHandler) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        BouncingScaleButton(
+          scaleFactor: 0.9,
+          onTap: () => audioHandler.skipToPrevious(),
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: tokens.surfaceElevated,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.skip_previous_rounded,
+              color: tokens.textPrimary,
+              size: 34,
+            ),
+          ),
+        ),
+        const SizedBox(width: 28),
+        BouncingScaleButton(
+          scaleFactor: 0.93,
+          onTap: () {
+            if (isPlaying) {
+              audioHandler.pause();
+            } else {
+              audioHandler.play();
+            }
+          },
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: tokens.accent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.black,
+              size: 46,
+            ),
+          ),
+        ),
+        const SizedBox(width: 28),
+        BouncingScaleButton(
+          scaleFactor: 0.9,
+          onTap: () => audioHandler.skipToNext(),
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: tokens.surfaceElevated,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.skip_next_rounded,
+              color: tokens.textPrimary,
+              size: 34,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFavoriteButton(AppTokens tokens, Track track, bool isLiked) {
+    return BouncingScaleButton(
+      scaleFactor: 0.9,
+      onTap: () {
+        ref.read(libraryRepositoryProvider).setLiked(track.id, !isLiked, track: track);
+      },
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: tokens.surfaceElevated,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          color: isLiked ? tokens.accent : tokens.textSecondary,
+          size: 28,
         ),
       ),
     );

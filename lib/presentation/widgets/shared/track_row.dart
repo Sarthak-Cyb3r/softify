@@ -1,0 +1,258 @@
+import 'package:flutter/material.dart';
+
+import '../../../domain/entities/track.dart';
+import '../../theme/app_theme.dart';
+import '../animated_music_wave_indicator.dart';
+
+/// Content-first 56px track data row for lists, queues, and search results.
+class TrackRow extends StatefulWidget {
+  final Track track;
+  final int? index;
+  final bool isPlaying;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final VoidCallback? onPlayTap;
+  final VoidCallback? onLikeTap;
+  final VoidCallback? onOptionsTap;
+  final bool showArtwork;
+  final bool showIndex;
+  final bool showDuration;
+  final bool showLikeButton;
+  final bool showOptionsButton;
+  final Widget? trailing;
+
+  const TrackRow({
+    super.key,
+    required this.track,
+    this.index,
+    this.isPlaying = false,
+    this.isSelected = false,
+    this.onTap,
+    this.onPlayTap,
+    this.onLikeTap,
+    this.onOptionsTap,
+    this.showArtwork = true,
+    this.showIndex = true,
+    this.showDuration = true,
+    this.showLikeButton = true,
+    this.showOptionsButton = true,
+    this.trailing,
+  });
+
+  @override
+  State<TrackRow> createState() => _TrackRowState();
+}
+
+class _TrackRowState extends State<TrackRow> {
+  bool _isHovered = false;
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final isHovered = _isHovered || widget.isSelected;
+    final rowColor = isHovered ? tokens.cardHover : Colors.transparent;
+
+    final semanticLabel =
+        '${widget.track.title} by ${widget.track.artist}, duration ${_formatDuration(widget.track.duration)}';
+
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      selected: widget.isPlaying || widget.isSelected,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: widget.onTap ?? widget.onPlayTap,
+          borderRadius: BorderRadius.circular(tokens.radiusSm),
+          splashColor: Colors.transparent,
+          highlightColor: tokens.cardHover.withValues(alpha: 0.4),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            height: 56.0,
+            padding: EdgeInsets.symmetric(
+              horizontal: tokens.spaceSm,
+              vertical: tokens.spaceXs,
+            ),
+            decoration: BoxDecoration(
+              color: rowColor,
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
+            ),
+            child: Row(
+              children: [
+                // Track Index / Play Trigger / Wave Indicator
+                if (widget.showIndex) _buildLeadingIndex(tokens),
+
+                // Artwork (40x40 square with 4px radius)
+                if (widget.showArtwork) ...[
+                  _buildArtwork(tokens),
+                  SizedBox(width: tokens.spaceMd),
+                ],
+
+                // Title & Artist Stack
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.track.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w600,
+                          color: widget.isPlaying
+                              ? tokens.accent
+                              : tokens.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2.0),
+                      Text(
+                        widget.track.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          fontSize: 12.0, // Strict 12px min floor
+                          fontWeight: FontWeight.w400,
+                          color: tokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Like Button (Desktop hover or mobile always if liked)
+                if (widget.showLikeButton && (isHovered || widget.track.isLiked))
+                  IconButton(
+                    iconSize: 18.0,
+                    splashRadius: 18.0,
+                    tooltip: widget.track.isLiked ? 'Unlike' : 'Like',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: Icon(
+                      widget.track.isLiked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: widget.track.isLiked
+                          ? tokens.accent
+                          : tokens.textSecondary,
+                    ),
+                    onPressed: widget.onLikeTap,
+                  ),
+
+                // Duration Text (tabular numerals, 12px min)
+                if (widget.showDuration) ...[
+                  SizedBox(width: tokens.spaceSm),
+                  Text(
+                    _formatDuration(widget.track.duration),
+                    style: AppTheme.tabularTimestamp(
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w400,
+                      color: tokens.textMuted,
+                    ),
+                  ),
+                ],
+
+                // Overflow / Options Trigger
+                if (widget.showOptionsButton)
+                  IconButton(
+                    iconSize: 18.0,
+                    splashRadius: 18.0,
+                    tooltip: 'More options',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: Icon(
+                      Icons.more_vert_rounded,
+                      color: isHovered ? tokens.textPrimary : tokens.textMuted,
+                    ),
+                    onPressed: widget.onOptionsTap,
+                  ),
+
+                // Custom trailing widget if provided
+                if (widget.trailing != null) widget.trailing!,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeadingIndex(AppTokens tokens) {
+    final indexNum = widget.index != null ? '${widget.index}' : '';
+
+    return SizedBox(
+      width: 32.0,
+      child: Center(
+        child: widget.isPlaying
+            ? SizedBox(
+                width: 14.0,
+                height: 14.0,
+                child: AnimatedMusicWaveIndicator(
+                  isPlaying: widget.isPlaying,
+                  color: AppTheme.accent,
+                  barCount: 3,
+                ),
+              )
+            : (_isHovered
+                ? IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    iconSize: 18.0,
+                    icon: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: AppTheme.accent,
+                    ),
+                    onPressed: widget.onPlayTap ?? widget.onTap,
+                  )
+                : Text(
+                    indexNum,
+                    style: AppTheme.tabularTimestamp(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w500,
+                      color: tokens.textMuted,
+                    ),
+                  )),
+      ),
+    );
+  }
+
+  Widget _buildArtwork(AppTokens tokens) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4.0),
+      child: Container(
+        width: 40.0,
+        height: 40.0,
+        color: tokens.card,
+        child: widget.track.coverUrl != null && widget.track.coverUrl!.isNotEmpty
+            ? Image.network(
+                widget.track.coverUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _fallbackCover(tokens),
+              )
+            : _fallbackCover(tokens),
+      ),
+    );
+  }
+
+  Widget _fallbackCover(AppTokens tokens) {
+    return Container(
+      color: tokens.surfaceElevated,
+      child: Icon(
+        Icons.music_note_rounded,
+        size: 20.0,
+        color: tokens.textMuted,
+      ),
+    );
+  }
+}

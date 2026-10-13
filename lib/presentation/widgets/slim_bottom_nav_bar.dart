@@ -1,7 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
 
 class SlimNavItem {
@@ -16,6 +15,10 @@ class SlimNavItem {
   });
 }
 
+/// 6-Tab mobile bottom navigation bar adhering to Stitch mobile design:
+/// - Background: Chrome #000000 / elevated #181818
+/// - Strict 12px font size floor with Manrope typography
+/// - Active accent highlight and tactile bouncing touch targets
 class SlimBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -32,97 +35,58 @@ class SlimBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
 
-    return RepaintBoundary(
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(tokens.radiusFull),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.55),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(tokens.radiusFull),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: tokens.surfaceElevated.withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(tokens.radiusFull),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                children: List.generate(items.length, (index) {
-                  final item = items[index];
-                  final isSelected = index == currentIndex;
+    return Container(
+      height: 64,
+      color: tokens.sidebar, // Pure #000000
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Row(
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              final isSelected = index == currentIndex;
+              final activeColor = tokens.accent;
+              final inactiveColor = tokens.textSecondary;
 
-                  return Expanded(
-                    child: BouncingScaleButton(
-                      onTap: () => onTap(index),
-                      scaleFactor: 0.92,
-                      child: Container(
-                        color: Colors.transparent,
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutCubic,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? tokens.accent.withValues(alpha: 0.15)
-                                    : Colors.transparent,
-                                borderRadius:
-                                    BorderRadius.circular(tokens.radiusFull),
-                              ),
-                              child: Icon(
-                                isSelected ? item.activeIcon : item.icon,
-                                size: 21,
-                                color: isSelected
-                                    ? tokens.accent
-                                    : tokens.textSecondary.withValues(alpha: 0.75),
-                              ),
+              return Expanded(
+                child: Semantics(
+                  selected: isSelected,
+                  button: true,
+                  label: item.label,
+                  child: BouncingScaleButton(
+                    onTap: () => onTap(index),
+                    scaleDown: 0.92,
+                    child: Container(
+                      color: Colors.transparent,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isSelected ? item.activeIcon : item.icon,
+                            size: 22,
+                            color: isSelected ? activeColor : inactiveColor,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 12, // Strict 12px floor
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? tokens.textPrimary : inactiveColor,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              item.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: isSelected
-                                    ? tokens.accent
-                                    : tokens.textSecondary.withValues(alpha: 0.75),
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }),
-              ),
-            ),
+                  ),
+                ),
+              );
+            }),
           ),
         ),
       ),

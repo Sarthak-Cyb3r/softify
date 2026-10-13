@@ -11,7 +11,7 @@ import '../../domain/ports/i_lyrics_provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/lyrics/script_romanizer.dart';
 import '../providers/player_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
 
 enum LyricFontSize {
@@ -721,47 +721,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                     Text(
                       'Sync Live',
                       style: TextStyle(
-                        fontSize: 10.5,
-                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        fontFamily: AppTheme.fontUi,
                         fontWeight: FontWeight.w700,
                         color: activeAccent,
                       ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B1F),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFF292A2D), width: 0.8),
-                ),
-                child: const Text(
-                  'Stereo Hi-Fi',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFBBCABF),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B1F),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFF292A2D), width: 0.8),
-                ),
-                child: const Text(
-                  '171 BPM',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF86948A),
-                  ),
                 ),
               ),
             ],
@@ -783,8 +749,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                 const Text(
                   'VOCAL VOLUME MODE',
                   style: TextStyle(
-                    fontSize: 9.5,
-                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontFamily: AppTheme.fontUi,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF86948A),
                     letterSpacing: 0.5,
@@ -811,7 +777,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           child: Text(
                             'Original',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: !_isKaraokeMode ? activeAccent : const Color(0xFFBBCABF),
                             ),
@@ -838,7 +804,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           child: Text(
                             'Karaoke',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: _isKaraokeMode ? activeAccent : const Color(0xFFBBCABF),
                             ),
@@ -873,8 +839,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                   child: const Text(
                     'SPACE',
                     style: TextStyle(
-                      fontSize: 9.5,
-                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontFamily: AppTheme.fontUi,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF4EDEA3),
                     ),
@@ -884,7 +850,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                 const Expanded(
                   child: Text(
                     'Play / Pause instant switch',
-                    style: TextStyle(fontSize: 11, color: Color(0xFFBBCABF)),
+                    style: TextStyle(fontSize: 12, color: Color(0xFFBBCABF)),
                   ),
                 ),
               ],
@@ -907,35 +873,16 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         children: [
           Row(
             children: [
-              const Icon(Icons.mic_none_rounded, size: 14, color: Color(0xFFBBCABF)),
+              Icon(Icons.graphic_eq_rounded, size: 14, color: activeAccent),
               const SizedBox(width: 6),
               const Text(
-                'VOCALS 92%',
+                'Synced with audio',
                 style: TextStyle(
-                  fontSize: 10.5,
-                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  fontFamily: AppTheme.fontUi,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFFBBCABF),
                   letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 80,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF292A2D),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: 0.92,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4EDEA3).withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -943,18 +890,18 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           Row(
             children: [
               Container(
-                width: 5,
-                height: 5,
-                decoration: const BoxDecoration(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF4EDEA3),
+                  color: activeAccent,
                 ),
               ),
               const SizedBox(width: 6),
               const Text(
                 'Continuous Track Sync',
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF86948A),
                 ),
@@ -1006,11 +953,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                               Text(
                                 'LYRICS',
                                 style: TextStyle(
-                                  fontSize: 9.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   color: activeAccent,
                                   letterSpacing: 0.8,
-                                  fontFamily: 'monospace',
+                                  fontFamily: AppTheme.fontUi,
                                 ),
                               ),
                             ],
@@ -1042,16 +989,16 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.timer_outlined,
-                                    color: activeAccent, size: 11),
+                                    color: activeAccent, size: 12),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${_syncOffsetMs > 0 ? '+' : ''}${_syncOffsetMs}ms',
                                   style: TextStyle(
-                                    fontSize: 9.5,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     color: activeAccent,
                                     letterSpacing: 0.2,
-                                    fontFamily: 'monospace',
+                                    fontFamily: AppTheme.fontUi,
                                   ),
                                 ),
                               ],
@@ -1080,15 +1027,15 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.format_size_rounded,
-                                    color: activeAccent, size: 11),
+                                    color: activeAccent, size: 12),
                                 const SizedBox(width: 3),
                                 Text(
                                   _lyricFontSize.label,
                                   style: TextStyle(
-                                    fontSize: 9.5,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     color: activeAccent,
-                                    fontFamily: 'monospace',
+                                    fontFamily: AppTheme.fontUi,
                                   ),
                                 ),
                               ],
@@ -1120,12 +1067,12 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             child: Text(
                               _romanizeLyrics ? 'ROM' : 'ORIG',
                               style: TextStyle(
-                                fontSize: 9.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 color: _romanizeLyrics
                                     ? activeAccent
                                     : tokens.textSecondary,
-                                fontFamily: 'monospace',
+                                fontFamily: AppTheme.fontUi,
                               ),
                             ),
                           ),
@@ -1169,62 +1116,17 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           // Pitch & Audio Engine Bar
           LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth < 420) {
-                return Row(
-                  children: [
-                    Icon(Icons.graphic_eq_rounded, size: 13, color: activeAccent),
-                    const SizedBox(width: 5),
-                    const Text(
-                      'Vocal Pitch Tracking',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFFA3A3A3),
-                      ),
-                    ),
-                  ],
-                );
-              }
               return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.graphic_eq_rounded, size: 13, color: activeAccent),
-                      const SizedBox(width: 5),
-                      const Text(
-                        'Vocal Pitch Tracking',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFFA3A3A3),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: activeAccent,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      const Text(
-                        'Direct-ALSA • 440Hz Reference',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF525252),
-                        ),
-                      ),
-                    ],
+                  Icon(Icons.graphic_eq_rounded, size: 14, color: activeAccent),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Lyrics provided by LRCLIB',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFA3A3A3),
+                    ),
                   ),
                 ],
               );
@@ -1253,22 +1155,23 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         children: [
           Row(
             children: [
-              Icon(Icons.tune_rounded, color: activeAccent, size: 13),
+              Icon(Icons.tune_rounded, color: activeAccent, size: 14),
               const SizedBox(width: 6),
               Text(
                 'SYNC CALIBRATION',
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: activeAccent,
                   letterSpacing: 0.8,
+                  fontFamily: AppTheme.fontUi,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 '(${_syncOffsetMs > 0 ? '+' : ''}${_syncOffsetMs}ms)',
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -1277,7 +1180,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               Text(
                 'Auto-saved for track',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   color: tokens.textMuted,
                 ),
               ),
@@ -1299,7 +1202,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           // Fine Millisecond Slider
           Row(
             children: [
-              Text('-3s', style: TextStyle(fontSize: 10, color: tokens.textMuted)),
+              Text('-3s', style: TextStyle(fontSize: 12, color: tokens.textMuted)),
               Expanded(
                 child: SliderTheme(
                   data: SliderThemeData(
@@ -1321,7 +1224,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                   ),
                 ),
               ),
-              Text('+3s', style: TextStyle(fontSize: 10, color: tokens.textMuted)),
+              Text('+3s', style: TextStyle(fontSize: 12, color: tokens.textMuted)),
             ],
           ),
         ],
@@ -1356,7 +1259,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 10.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
             color: isReset ? activeAccent : Colors.white70,
           ),
@@ -1535,9 +1438,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       child: Text(
         displayText,
         style: TextStyle(
+          fontFamily: AppTheme.fontEditorial,
+          fontStyle: FontStyle.italic,
           fontSize: _lyricFontSize.inactiveSize,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF86948A),
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFFB3B3B3),
           height: 1.45,
           letterSpacing: -0.2,
         ),
@@ -1681,21 +1586,13 @@ class _KaraokeWordItem extends StatelessWidget {
       return Text(
         text,
         style: TextStyle(
+          fontFamily: AppTheme.fontEditorial,
+          fontStyle: FontStyle.italic,
           fontSize: fontSize,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           color: Colors.white,
           height: 1.45,
           letterSpacing: -0.3,
-          shadows: [
-            Shadow(
-              color: accentColor.withValues(alpha: 0.85),
-              blurRadius: 16,
-            ),
-            const Shadow(
-              color: Colors.white70,
-              blurRadius: 6,
-            ),
-          ],
         ),
       );
     }
@@ -1703,22 +1600,18 @@ class _KaraokeWordItem extends StatelessWidget {
     final isPast = currentPos >= wordTiming.endTime;
     final isFuture = currentPos < wordTiming.startTime;
 
-    // 1. Past word: Sung and settled in solid crisp white with subtle glow
+    // 1. Past word: Sung and settled in solid crisp white
     if (isPast) {
       return Text(
         text,
         style: TextStyle(
+          fontFamily: AppTheme.fontEditorial,
+          fontStyle: FontStyle.italic,
           fontSize: fontSize,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           color: Colors.white,
           height: 1.45,
           letterSpacing: -0.3,
-          shadows: const [
-            Shadow(
-              color: Colors.white24,
-              blurRadius: 4,
-            ),
-          ],
         ),
       );
     }
@@ -1728,9 +1621,11 @@ class _KaraokeWordItem extends StatelessWidget {
       return Text(
         text,
         style: TextStyle(
+          fontFamily: AppTheme.fontEditorial,
+          fontStyle: FontStyle.italic,
           fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF86948A).withValues(alpha: 0.45),
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFFB3B3B3).withValues(alpha: 0.5),
           height: 1.45,
           letterSpacing: -0.3,
         ),
@@ -1757,25 +1652,13 @@ class _KaraokeWordItem extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
+            fontFamily: AppTheme.fontEditorial,
+            fontStyle: FontStyle.italic,
             fontSize: fontSize,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: Colors.white,
             height: 1.45,
             letterSpacing: -0.3,
-            shadows: [
-              Shadow(
-                color: accentColor.withValues(alpha: 0.95),
-                blurRadius: 18,
-              ),
-              const Shadow(
-                color: Colors.white,
-                blurRadius: 10,
-              ),
-              Shadow(
-                color: accentColor.withValues(alpha: 0.60),
-                blurRadius: 28,
-              ),
-            ],
           ),
         ),
       ),
