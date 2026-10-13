@@ -23,14 +23,14 @@ void main() {
     );
 
     test('Falls back to NetEase provider when primary (LRCLIB) has no lyrics', () async {
-      final neteaseLyrics = SyncedLyrics(
+      const neteaseLyrics = SyncedLyrics(
         trackId: 'test_1',
         lines: [
-          const LyricLine(
+          LyricLine(
             timestamp: Duration(seconds: 12),
             text: 'When you try your best, but you don\'t succeed',
           ),
-          const LyricLine(
+          LyricLine(
             timestamp: Duration(seconds: 18),
             text: 'When you get what you want, but not what you need',
           ),
