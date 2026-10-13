@@ -9,6 +9,7 @@ import 'package:rxdart/rxdart.dart';
 
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
+import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_automix_tail_reorderer.dart';
 import '../../domain/ports/i_catalog_repository.dart';
@@ -57,6 +58,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
       BehaviorSubject<bool>.seeded(false);
   final BehaviorSubject<bool> _autoPlaySubject =
       BehaviorSubject<bool>.seeded(true);
+  final BehaviorSubject<StreamInfo?> _currentStreamInfoSubject =
+      BehaviorSubject<StreamInfo?>.seeded(null);
+
+  Stream<StreamInfo?> get currentStreamInfoStream => _currentStreamInfoSubject.stream;
+  StreamInfo? get currentStreamInfo => _currentStreamInfoSubject.value;
 
   Timer? _saveQueueDebounceTimer;
   Timer? _sleepTimer;
@@ -755,6 +761,18 @@ class SoftifyAudioHandler extends BaseAudioHandler
             downloadedFilePath,
             initialPosition: initialPosition,
           );
+          _currentStreamInfoSubject.add(
+            StreamInfo(
+              url: Uri.file(downloadedFilePath),
+              container: downloadedFilePath.endsWith('.flac')
+                  ? 'flac'
+                  : (downloadedFilePath.endsWith('.mp3') ? 'mp3' : 'm4a'),
+              bitrate: downloadedFilePath.endsWith('.flac') ? 1411000 : 320000,
+              codec: downloadedFilePath.endsWith('.flac') ? 'flac' : 'aac',
+              expiresAt: DateTime.now().add(const Duration(days: 365)),
+              providerName: isLocalTrack ? 'local_audio' : 'offline_cached',
+            ),
+          );
           await _player.play();
           _consecutiveFailures = 0;
           _debouncedSaveQueue();
@@ -782,6 +800,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         quality: _qualityPreset,
         forceFresh: forceFresh,
       );
+      _currentStreamInfoSubject.add(streamInfo);
       // ignore: avoid_print
       print('[SoftifyAudioHandler] Resolved stream: ${streamInfo.providerName}, container=${streamInfo.container}');
 

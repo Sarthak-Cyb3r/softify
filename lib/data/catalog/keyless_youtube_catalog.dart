@@ -640,6 +640,13 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       if (filteredItunes.isNotEmpty) return filteredItunes.take(limit).toList();
     } catch (_) {}
 
+    // 4. Quaternary: Deezer 90M+ catalog fallback with strict artist match filtering
+    try {
+      final deezer = await _searchDeezer(artist, limit: limit * 2);
+      final filteredDeezer = deezer.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
+      if (filteredDeezer.isNotEmpty) return filteredDeezer.take(limit).toList();
+    } catch (_) {}
+
     return [];
   }
 
@@ -670,6 +677,11 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         attribute: 'albumTerm',
       );
       if (itunes.isNotEmpty) return itunes;
+    } catch (_) {}
+
+    try {
+      final deezer = await _searchDeezer('$album $artist', limit: limit);
+      if (deezer.isNotEmpty) return deezer;
     } catch (_) {}
 
     return [];

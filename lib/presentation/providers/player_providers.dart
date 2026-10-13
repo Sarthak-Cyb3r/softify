@@ -12,6 +12,7 @@ import '../../domain/entities/download_item.dart';
 import '../../domain/entities/history_item.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/playlist_entry.dart';
+import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/track.dart';
 import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/lyrics/composite_lyrics_provider.dart';
@@ -146,6 +147,11 @@ final volumeStreamProvider = StreamProvider<double>((ref) {
 final playbackSpeedStreamProvider = StreamProvider<double>((ref) {
   final handler = ref.watch(audioHandlerProvider);
   return handler.speedStream;
+});
+
+final currentStreamInfoProvider = StreamProvider<StreamInfo?>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.currentStreamInfoStream;
 });
 
 final sleepTimerRemainingProvider = StreamProvider<Duration?>((ref) {

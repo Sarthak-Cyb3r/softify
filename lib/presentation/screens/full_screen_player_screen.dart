@@ -6,6 +6,7 @@ import 'package:palette_generator/palette_generator.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
+import '../widgets/audiophile_quality_badge.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/play_pause_morph_button.dart';
@@ -398,15 +399,26 @@ class _FullScreenPlayerScreenState
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            currentTrack.artist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              color: tokens.textSecondary,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  currentTrack.artist,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w400,
+                                    color: tokens.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              AudiophileQualityBadge(
+                                track: currentTrack,
+                                compact: true,
+                              ),
+                            ],
                           ),
                         ],
                       ),
