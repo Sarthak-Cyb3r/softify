@@ -1215,19 +1215,19 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         margin: const EdgeInsets.symmetric(vertical: 3),
         decoration: BoxDecoration(
           color: isActive
-              ? accentColor.withValues(alpha: 0.07)
+              ? Colors.white.withValues(alpha: 0.05)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(tokens.radiusLg),
           border: Border.all(
             color: isActive
-                ? accentColor.withValues(alpha: 0.18)
+                ? Colors.white.withValues(alpha: 0.12)
                 : Colors.transparent,
             width: 0.8,
           ),
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: accentColor.withValues(alpha: 0.06),
+                    color: Colors.white.withValues(alpha: 0.04),
                     blurRadius: 20,
                     spreadRadius: 1,
                   ),
@@ -1281,7 +1281,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               );
             },
             borderRadius: BorderRadius.circular(tokens.radiusLg),
-            splashColor: accentColor.withValues(alpha: 0.08),
+            splashColor: Colors.white.withValues(alpha: 0.08),
             highlightColor: Colors.transparent,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1299,8 +1299,24 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                         fontWeight:
                             isActive ? FontWeight.w700 : FontWeight.w400,
                         color: isActive
-                            ? accentColor
+                            ? Colors.white
                             : tokens.textPrimary.withValues(alpha: lineOpacity),
+                        shadows: isActive
+                            ? [
+                                Shadow(
+                                  color: Colors.white.withValues(alpha: 0.90),
+                                  blurRadius: 14,
+                                ),
+                                Shadow(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  blurRadius: 28,
+                                ),
+                                Shadow(
+                                  color: accentColor.withValues(alpha: 0.35),
+                                  blurRadius: 38,
+                                ),
+                              ]
+                            : null,
                         height: 1.45,
                         letterSpacing: isActive ? -0.3 : 0.0,
                       ),
@@ -1321,7 +1337,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         children: [
           Icon(
             Icons.music_note_rounded,
-            color: isActive ? accentColor : Colors.white.withValues(alpha: 0.25),
+            color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.25),
             size: isActive ? 22 : 18,
           ),
           const SizedBox(width: 8),
@@ -1332,8 +1348,20 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               fontStyle: FontStyle.italic,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
               color: isActive
-                  ? accentColor
+                  ? Colors.white
                   : Colors.white.withValues(alpha: 0.25),
+              shadows: isActive
+                  ? [
+                      Shadow(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        blurRadius: 14,
+                      ),
+                      Shadow(
+                        color: accentColor.withValues(alpha: 0.35),
+                        blurRadius: 28,
+                      ),
+                    ]
+                  : null,
             ),
           ),
         ],
