@@ -227,6 +227,63 @@ void main() {
       expect(find.text('VOCALS 92%'), findsOneWidget);
     });
 
+    testWidgets('renders font size scaler and romanize transliteration toggles', (tester) async {
+      final fakeLyrics = Future.value(
+        const SyncedLyrics(
+          trackId: 'track_1',
+          lines: [
+            LyricLine(
+              timestamp: Duration(seconds: 2),
+              text: 'तुम ही हो',
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            trackLyricsProvider(testTrack).overrideWith((ref) => fakeLyrics),
+            playbackStateStreamProvider.overrideWith((ref) => Stream.value(PlaybackState(playing: false))),
+            positionStreamProvider.overrideWith((ref) => Stream.value(const Duration(seconds: 2))),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                height: 700,
+                child: LyricsView(
+                  track: testTrack,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Font size badge exists (defaults to M)
+      expect(find.text('M'), findsOneWidget);
+      // Romanize toggle exists (defaults to ORIG)
+      expect(find.text('ORIG'), findsOneWidget);
+
+      // Tap font size badge -> cycles to L
+      await tester.tap(find.text('M'));
+      await tester.pump();
+      expect(find.text('L'), findsOneWidget);
+
+      // Tap romanize badge -> toggles to ROM
+      await tester.tap(find.text('ORIG'));
+      await tester.pump();
+      expect(find.text('ROM'), findsOneWidget);
+      // Verify transliterated karaoke words are rendered
+      expect(find.text('tum'), findsOneWidget);
+      expect(find.text('hee'), findsOneWidget);
+      expect(find.text('ho'), findsOneWidget);
+    });
+
     test('CompositeLyricsProvider seamlessly falls back when primary is empty', () async {
       final primary = _FakeLyricsProvider(null);
       final secondary = _FakeLyricsProvider(

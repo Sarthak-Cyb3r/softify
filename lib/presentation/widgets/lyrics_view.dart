@@ -9,9 +9,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import '../../data/database/app_database.dart';
+import '../../data/lyrics/script_romanizer.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
 import 'bouncing_scale_button.dart';
+
+enum LyricFontSize {
+  compact(17.0, 19.0, 'S'),
+  normal(21.0, 23.0, 'M'),
+  large(26.0, 28.0, 'L');
+
+  final double inactiveSize;
+  final double activeSize;
+  final String label;
+
+  const LyricFontSize(this.inactiveSize, this.activeSize, this.label);
+}
 
 class LyricsView extends ConsumerStatefulWidget {
   final Track track;
@@ -48,6 +61,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   int _syncOffsetMs = 0;
   bool _showTuner = false;
   bool _isKaraokeMode = false;
+  LyricFontSize _lyricFontSize = LyricFontSize.normal;
+  bool _romanizeLyrics = false;
 
   int _lastActiveIndex = -1;
   bool _userIsScrolling = false;
@@ -126,6 +141,48 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           });
         }
       }
+
+      final fontRow = await (db.select(db.settings)..where((t) => t.key.equals('lyrics_font_size'))).getSingleOrNull();
+      if (fontRow != null && mounted) {
+        final idx = int.tryParse(fontRow.value);
+        if (idx != null && idx >= 0 && idx < LyricFontSize.values.length) {
+          setState(() {
+            _lyricFontSize = LyricFontSize.values[idx];
+          });
+        }
+      }
+
+      final romRow = await (db.select(db.settings)..where((t) => t.key.equals('lyrics_romanize'))).getSingleOrNull();
+      if (romRow != null && mounted) {
+        setState(() {
+          _romanizeLyrics = romRow.value == 'true';
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _cycleFontSize() {
+    HapticFeedback.selectionClick();
+    final nextIdx = (_lyricFontSize.index + 1) % LyricFontSize.values.length;
+    final nextSize = LyricFontSize.values[nextIdx];
+    setState(() => _lyricFontSize = nextSize);
+    try {
+      final db = ref.read(databaseProvider);
+      db.into(db.settings).insertOnConflictUpdate(
+        SettingsCompanion.insert(key: 'lyrics_font_size', value: nextIdx.toString()),
+      );
+    } catch (_) {}
+  }
+
+  void _toggleRomanize() {
+    HapticFeedback.selectionClick();
+    final nextVal = !_romanizeLyrics;
+    setState(() => _romanizeLyrics = nextVal);
+    try {
+      final db = ref.read(databaseProvider);
+      db.into(db.settings).insertOnConflictUpdate(
+        SettingsCompanion.insert(key: 'lyrics_romanize', value: nextVal.toString()),
+      );
     } catch (_) {}
   }
 
@@ -407,6 +464,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
                       // Unsynced plain lyrics sheet
                       if (!lyrics.isSynced) {
+                        final rawLyrics = lyrics.plainLyrics ?? '';
+                        final displayLyrics = _romanizeLyrics ? ScriptRomanizer.romanize(rawLyrics) : rawLyrics;
                         return NotificationListener<UserScrollNotification>(
                           onNotification: (_) {
                             _onUserInteractedWithScroll();
@@ -419,9 +478,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                               vertical: 32,
                             ),
                             child: Text(
-                              lyrics.plainLyrics ?? '',
+                              displayLyrics,
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: _lyricFontSize.inactiveSize,
                                 height: 1.8,
                                 fontWeight: FontWeight.w500,
                                 color: tokens.textPrimary.withValues(alpha: 0.9),
@@ -999,6 +1058,78 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             ),
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        // Interactive Font Size Scaler Badge
+                        BouncingScaleButton(
+                          scaleFactor: 0.92,
+                          onTap: _cycleFontSize,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF222222),
+                              borderRadius: BorderRadius.circular(tokens.radiusSm),
+                              border: Border.all(
+                                color: const Color(0xFF1F1F1F),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.format_size_rounded,
+                                    color: activeAccent, size: 11),
+                                const SizedBox(width: 3),
+                                Text(
+                                  _lyricFontSize.label,
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: activeAccent,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Interactive Romanize Transliteration Badge
+                        BouncingScaleButton(
+                          scaleFactor: 0.92,
+                          onTap: _toggleRomanize,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _romanizeLyrics
+                                  ? activeAccent.withValues(alpha: 0.28)
+                                  : const Color(0xFF222222),
+                              borderRadius: BorderRadius.circular(tokens.radiusSm),
+                              border: Border.all(
+                                color: _romanizeLyrics
+                                    ? activeAccent
+                                    : const Color(0xFF1F1F1F),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Text(
+                              _romanizeLyrics ? 'ROM' : 'ORIG',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: _romanizeLyrics
+                                    ? activeAccent
+                                    : tokens.textSecondary,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
@@ -1359,15 +1490,16 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     required String text,
     required double opacity,
   }) {
+    final displayText = _romanizeLyrics ? ScriptRomanizer.romanize(text) : text;
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 250),
       opacity: opacity,
       child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 21,
+        displayText,
+        style: TextStyle(
+          fontSize: _lyricFontSize.inactiveSize,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF86948A),
+          color: const Color(0xFF86948A),
           height: 1.45,
           letterSpacing: -0.2,
         ),
@@ -1410,7 +1542,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     required Color accentColor,
     required AppTokens tokens,
   }) {
-    final rawWords = line.text
+    final activeText = _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
+    final rawWords = activeText
         .trim()
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
@@ -1431,9 +1564,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             : (nextLine != null && nextLine.timestamp > wStart
                 ? nextLine.timestamp
                 : wStart + const Duration(milliseconds: 500));
+        final wText = _romanizeLyrics ? ScriptRomanizer.romanize(w.text) : w.text;
         wordTimings.add(
           _WordTiming(
-            text: w.text,
+            text: wText,
             startTime: wStart,
             endTime: wEnd > wStart ? wEnd : wStart + const Duration(milliseconds: 300),
           ),
@@ -1465,6 +1599,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             currentPos: currentPos,
             accentColor: accentColor,
             hasTrueWordSync: hasTrueWordSync,
+            fontSize: _lyricFontSize.activeSize,
           ),
       ],
     );
@@ -1488,12 +1623,14 @@ class _KaraokeWordItem extends StatelessWidget {
   final Duration currentPos;
   final Color accentColor;
   final bool hasTrueWordSync;
+  final double fontSize;
 
   const _KaraokeWordItem({
     required this.wordTiming,
     required this.currentPos,
     required this.accentColor,
     this.hasTrueWordSync = false,
+    this.fontSize = 23.0,
   });
 
   @override
@@ -1506,7 +1643,7 @@ class _KaraokeWordItem extends StatelessWidget {
       return Text(
         text,
         style: TextStyle(
-          fontSize: 23,
+          fontSize: fontSize,
           fontWeight: FontWeight.w800,
           color: Colors.white,
           height: 1.45,
@@ -1532,13 +1669,13 @@ class _KaraokeWordItem extends StatelessWidget {
     if (isPast) {
       return Text(
         text,
-        style: const TextStyle(
-          fontSize: 23,
+        style: TextStyle(
+          fontSize: fontSize,
           fontWeight: FontWeight.w800,
           color: Colors.white,
           height: 1.45,
           letterSpacing: -0.3,
-          shadows: [
+          shadows: const [
             Shadow(
               color: Colors.white24,
               blurRadius: 4,
@@ -1553,7 +1690,7 @@ class _KaraokeWordItem extends StatelessWidget {
       return Text(
         text,
         style: TextStyle(
-          fontSize: 23,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
           color: const Color(0xFF86948A).withValues(alpha: 0.45),
           height: 1.45,
@@ -1582,7 +1719,7 @@ class _KaraokeWordItem extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 23,
+            fontSize: fontSize,
             fontWeight: FontWeight.w900,
             color: Colors.white,
             height: 1.45,
