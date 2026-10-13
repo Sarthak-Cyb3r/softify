@@ -189,8 +189,9 @@ class YoutubeStreamResolver implements IStreamResolver {
         // high: ~160 kbps (itag 140 / highest AAC)
         // standard: ~128-140 kbps (itag 140 is ~127 kbps)
         // low: ~48-64 kbps (itag 139 is ~49 kbps)
-        final targetBitrate =
-            quality == AudioQualityPreset.standard ? 130000 : 55000;
+        final targetBitrate = quality == AudioQualityPreset.high
+            ? 160000
+            : (quality == AudioQualityPreset.standard ? 130000 : 55000);
 
         candidates.sort((a, b) {
           final bitA = a.bitrate.bitsPerSecond;

@@ -53,7 +53,9 @@ class AudioQualityNotifier extends StateNotifier<AudioQualityPreset> {
   Future<void> _loadFromDb() async {
     final row = await (_db.select(_db.settings)..where((t) => t.key.equals('audio_quality'))).getSingleOrNull();
     if (row != null) {
-      final preset = row.value == 'low' ? AudioQualityPreset.low : AudioQualityPreset.standard;
+      final preset = row.value == 'high'
+          ? AudioQualityPreset.high
+          : (row.value == 'low' ? AudioQualityPreset.low : AudioQualityPreset.standard);
       state = preset;
     }
   }
@@ -116,11 +118,91 @@ final crossfadeDurationProvider =
   return CrossfadeDurationNotifier(db, ref);
 });
 
+class StorageBreakdown {
+  final int downloadedBytes;
+  final int tempCacheBytes;
+  final int lyricsCacheCount;
+  final int lyricsEstimatedBytes;
+  final int totalBytes;
+
+  const StorageBreakdown({
+    this.downloadedBytes = 0,
+    this.tempCacheBytes = 0,
+    this.lyricsCacheCount = 0,
+    this.lyricsEstimatedBytes = 0,
+    this.totalBytes = 0,
+  });
+
+  static String formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+}
+
 // Cache Cleaning Utilities
 class CacheManager {
   final AppDatabase _db;
 
   CacheManager(this._db);
+
+  Future<StorageBreakdown> getStorageBreakdown() async {
+    int downloadedBytes = 0;
+    int tempCacheBytes = 0;
+    int lyricsCount = 0;
+    int lyricsBytes = 0;
+
+    // 1. Scan offline downloads directory
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final tracksDir = Directory('${docsDir.path}/tracks');
+      if (await tracksDir.exists()) {
+        final files = tracksDir.listSync(recursive: true);
+        for (final f in files) {
+          if (f is File) {
+            downloadedBytes += f.lengthSync();
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Scan temporary cache directory
+    try {
+      final tempDir = await getTemporaryDirectory();
+      if (await tempDir.exists()) {
+        final entries = tempDir.listSync(recursive: true);
+        for (final entry in entries) {
+          if (entry is File) {
+            tempCacheBytes += entry.lengthSync();
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Query lyrics cache database count & size
+    try {
+      final lyricsRows = await _db.select(_db.cachedLyrics).get();
+      lyricsCount = lyricsRows.length;
+      for (final row in lyricsRows) {
+        lyricsBytes += row.plainText?.length ?? 0;
+        lyricsBytes += row.syncedLrc?.length ?? 0;
+      }
+      lyricsBytes += lyricsCount * 512;
+    } catch (_) {}
+
+    final totalBytes = downloadedBytes + tempCacheBytes + lyricsBytes;
+    return StorageBreakdown(
+      downloadedBytes: downloadedBytes,
+      tempCacheBytes: tempCacheBytes,
+      lyricsCacheCount: lyricsCount,
+      lyricsEstimatedBytes: lyricsBytes,
+      totalBytes: totalBytes,
+    );
+  }
 
   Future<int> clearLyricsCache() async {
     return _db.delete(_db.cachedLyrics).go();
@@ -146,6 +228,12 @@ class CacheManager {
 final cacheManagerProvider = Provider<CacheManager>((ref) {
   final db = ref.watch(databaseProvider);
   return CacheManager(db);
+});
+
+final storageBreakdownProvider =
+    FutureProvider.autoDispose<StorageBreakdown>((ref) async {
+  final manager = ref.watch(cacheManagerProvider);
+  return manager.getStorageBreakdown();
 });
 
 // ==========================================

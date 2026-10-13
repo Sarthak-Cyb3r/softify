@@ -102,7 +102,9 @@ class PipedStreamResolver implements IStreamResolver {
     // Pick stream closest to target bitrate
     // standard: ~128-140 kbps (130000 bps)
     // low: ~48-64 kbps (55000 bps)
-    final targetBitrate = quality == AudioQualityPreset.standard ? 130000 : 55000;
+    final targetBitrate = quality == AudioQualityPreset.high
+        ? 160000
+        : (quality == AudioQualityPreset.standard ? 130000 : 55000);
 
     candidateList.sort((a, b) {
       final bitA = (a['bitrate'] as num?)?.toInt() ?? 0;

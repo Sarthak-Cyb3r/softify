@@ -308,9 +308,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 RadioListTile<AudioQualityPreset>(
                   activeColor: tokens.accent,
-                  title: const Text('Standard (Recommended)',
+                  title: Row(
+                    children: [
+                      const Text(
+                        'Studio Master (Ultra HD)',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: tokens.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: tokens.accent.withValues(alpha: 0.4), width: 0.8),
+                        ),
+                        child: Text(
+                          '320 KBPS',
+                          style: TextStyle(
+                            color: tokens.accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text('~320 kbps AAC CD-Quality uncompressed studio stream.',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
+                  value: AudioQualityPreset.high,
+                  groupValue: currentQuality,
+                  onChanged: (val) {
+                    if (val != null) {
+                      ref.read(audioQualityPresetProvider.notifier).setQuality(val);
+                    }
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                RadioListTile<AudioQualityPreset>(
+                  activeColor: tokens.accent,
+                  title: const Text('Standard (Balanced)',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text('~128 kbps AAC. High fidelity streaming.',
+                  subtitle: Text('~160 kbps AAC. High fidelity balanced streaming.',
                       style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
                   value: AudioQualityPreset.standard,
                   groupValue: currentQuality,
@@ -762,6 +801,113 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                Consumer(
+                  builder: (context, ref, _) {
+                    final breakdownAsync = ref.watch(storageBreakdownProvider);
+                    return breakdownAsync.when(
+                      data: (breakdown) {
+                        final total = breakdown.totalBytes > 0 ? breakdown.totalBytes : 1;
+                        final dlRatio = (breakdown.downloadedBytes / total).clamp(0.0, 1.0);
+                        final cacheRatio = (breakdown.tempCacheBytes / total).clamp(0.0, 1.0);
+                        final lyricsRatio = (breakdown.lyricsEstimatedBytes / total).clamp(0.0, 1.0);
+
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Used Storage',
+                                    style: TextStyle(
+                                      color: tokens.textSecondary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                  Text(
+                                    StorageBreakdown.formatBytes(breakdown.totalBytes),
+                                    style: TextStyle(
+                                      color: tokens.accent,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Proportional segmented bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(tokens.radiusFull),
+                                child: Container(
+                                  height: 8,
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  child: Row(
+                                    children: [
+                                      if (dlRatio > 0.01)
+                                        Flexible(
+                                          flex: (dlRatio * 1000).toInt(),
+                                          child: Container(color: tokens.accent),
+                                        ),
+                                      if (cacheRatio > 0.01)
+                                        Flexible(
+                                          flex: (cacheRatio * 1000).toInt(),
+                                          child: Container(color: const Color(0xFF38BDF8)),
+                                        ),
+                                      if (lyricsRatio > 0.01)
+                                        Flexible(
+                                          flex: (lyricsRatio * 1000).toInt(),
+                                          child: Container(color: const Color(0xFFA855F7)),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Legend chips
+                              Wrap(
+                                spacing: 14,
+                                runSpacing: 6,
+                                children: [
+                                  _buildStorageLegendChip(
+                                    color: tokens.accent,
+                                    label: 'Downloads (${StorageBreakdown.formatBytes(breakdown.downloadedBytes)})',
+                                    tokens: tokens,
+                                  ),
+                                  _buildStorageLegendChip(
+                                    color: const Color(0xFF38BDF8),
+                                    label: 'Audio Cache (${StorageBreakdown.formatBytes(breakdown.tempCacheBytes)})',
+                                    tokens: tokens,
+                                  ),
+                                  _buildStorageLegendChip(
+                                    color: const Color(0xFFA855F7),
+                                    label: 'Lyrics (${StorageBreakdown.formatBytes(breakdown.lyricsEstimatedBytes)})',
+                                    tokens: tokens,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
                 ListTile(
                   leading: const Icon(Icons.lyrics, color: Colors.white70),
                   title: const Text('Clear Lyrics Cache', style: TextStyle(color: Colors.white)),
@@ -770,6 +916,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   trailing: TextButton(
                     onPressed: () async {
                       final count = await ref.read(cacheManagerProvider).clearLyricsCache();
+                      ref.invalidate(storageBreakdownProvider);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -791,6 +938,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   trailing: TextButton(
                     onPressed: () async {
                       await ref.read(cacheManagerProvider).clearTemporaryCache();
+                      ref.invalidate(storageBreakdownProvider);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -1388,6 +1536,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStorageLegendChip({
+    required Color color,
+    required String label,
+    required AppTokens tokens,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: tokens.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

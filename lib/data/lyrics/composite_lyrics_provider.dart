@@ -6,14 +6,16 @@ import 'genius_lyrics_provider.dart';
 import 'kugou_lyrics_provider.dart';
 import 'lrclib_lyrics_provider.dart';
 import 'netease_lyrics_provider.dart';
+import 'saavn_lyrics_provider.dart';
 
-/// Multi-source lyrics engine combining Spotify Color-Lyrics, LRCLIB, NetEase, Kugou, and Genius catalogs.
+/// Multi-source lyrics engine combining Spotify Color-Lyrics, LRCLIB, NetEase, Kugou, JioSaavn, and Genius catalogs.
 /// Ensures maximum global coverage and millisecond-accurate LRC synchronization with extensive plain fallback.
 class CompositeLyricsProvider implements ILyricsProvider {
   final ILyricsProvider? _spotify;
   final ILyricsProvider _primary;
   final ILyricsProvider _netease;
   final ILyricsProvider _secondary;
+  final ILyricsProvider _saavn;
   final ILyricsProvider _fallback;
   final Map<String, SyncedLyrics?> _cache = {};
 
@@ -22,12 +24,14 @@ class CompositeLyricsProvider implements ILyricsProvider {
     ILyricsProvider? primary,
     ILyricsProvider? netease,
     ILyricsProvider? secondary,
+    ILyricsProvider? saavn,
     ILyricsProvider? fallback,
     HttpClient? httpClient,
   })  : _spotify = spotify,
         _primary = primary ?? LrclibLyricsProvider(httpClient: httpClient),
         _netease = netease ?? NeteaseLyricsProvider(httpClient: httpClient),
         _secondary = secondary ?? KugouLyricsProvider(httpClient: httpClient),
+        _saavn = saavn ?? SaavnLyricsProvider(httpClient: httpClient),
         _fallback = fallback ?? GeniusLyricsProvider(httpClient: httpClient);
 
   @override
@@ -87,7 +91,19 @@ class CompositeLyricsProvider implements ILyricsProvider {
       return plainFallback;
     }
 
-    // 5. Ultimate fallback: Query Genius for verified song lyrics
+    // 5. Query JioSaavn official verified lyrics database
+    try {
+      final saavnResult = await _saavn.getLyrics(track);
+      if (saavnResult != null &&
+          ((saavnResult.plainLyrics != null &&
+                  saavnResult.plainLyrics!.trim().isNotEmpty) ||
+              saavnResult.lines.isNotEmpty)) {
+        _cache[track.id] = saavnResult;
+        return saavnResult;
+      }
+    } catch (_) {}
+
+    // 6. Ultimate fallback: Query Genius for verified song lyrics
     try {
       final geniusResult = await _fallback.getLyrics(track);
       if (geniusResult != null) {

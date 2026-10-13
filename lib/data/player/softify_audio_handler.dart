@@ -68,6 +68,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   Timer? _sleepTimer;
   Timer? _sleepTicker;
   DateTime? _sleepTargetTime;
+  Duration? _sleepInitialDuration;
   bool _sleepEndOfTrack = false;
   final BehaviorSubject<Duration?> _sleepTimerRemainingSubject =
       BehaviorSubject<Duration?>.seeded(null);
@@ -226,13 +227,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
       unawaited(pause());
       return;
     }
+    _sleepInitialDuration = duration;
     _sleepEndOfTrack = false;
     _sleepEndOfTrackSubject.add(false);
     _sleepTargetTime = DateTime.now().add(duration);
     _sleepTimerRemainingSubject.add(duration);
 
     _sleepTimer = Timer(duration, () {
-      _triggerSleepTimer();
+      final shouldFade = (_sleepInitialDuration?.inSeconds ?? 0) >= 15;
+      _triggerSleepTimer(fadeDuration: shouldFade ? const Duration(seconds: 3) : Duration.zero);
     });
 
     _sleepTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -243,7 +246,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
       final remaining = _sleepTargetTime!.difference(DateTime.now());
       if (remaining <= Duration.zero) {
         timer.cancel();
-        _triggerSleepTimer();
+        final shouldFade = (_sleepInitialDuration?.inSeconds ?? 0) >= 15;
+        _triggerSleepTimer(fadeDuration: shouldFade ? const Duration(seconds: 3) : Duration.zero);
       } else {
         _sleepTimerRemainingSubject.add(remaining);
       }
@@ -262,6 +266,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _sleepTicker?.cancel();
     _sleepTicker = null;
     _sleepTargetTime = null;
+    _sleepInitialDuration = null;
     if (_sleepTimerRemainingSubject.value != null) {
       _sleepTimerRemainingSubject.add(null);
     }
@@ -271,9 +276,22 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  Future<void> _triggerSleepTimer() async {
+  Future<void> _triggerSleepTimer({Duration fadeDuration = Duration.zero}) async {
     cancelSleepTimer();
-    await pause();
+    if (_player.playing && fadeDuration > Duration.zero) {
+      final initialVolume = _player.volume;
+      const steps = 6;
+      final stepDelay = Duration(milliseconds: fadeDuration.inMilliseconds ~/ steps);
+      for (int i = 1; i <= steps; i++) {
+        final currentVol = (initialVolume * (1.0 - (i / steps))).clamp(0.0, 1.0);
+        await _player.setVolume(currentVol);
+        await Future.delayed(stepDelay);
+      }
+      await pause();
+      await _player.setVolume(initialVolume);
+    } else {
+      await pause();
+    }
   }
 
   // ==========================================

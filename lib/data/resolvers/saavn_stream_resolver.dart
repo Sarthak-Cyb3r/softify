@@ -256,6 +256,7 @@ class SaavnStreamResolver implements IStreamResolver {
         bitrate = 96000;
         break;
       case AudioQualityPreset.standard:
+      case AudioQualityPreset.high:
         if (has320) {
           finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_320.mp4');
           bitrate = 320000;

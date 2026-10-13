@@ -273,8 +273,9 @@ class YoutubeInnertubeService {
           .toList();
       final candidates = m4aFormats.isNotEmpty ? m4aFormats : audioFormats;
 
-      final targetBitrate =
-          quality == AudioQualityPreset.standard ? 130000 : 55000;
+      final targetBitrate = quality == AudioQualityPreset.high
+          ? 160000
+          : (quality == AudioQualityPreset.standard ? 130000 : 55000);
 
       candidates.sort((a, b) {
         final bitA = (a['bitrate'] as num?)?.toInt() ?? 0;
