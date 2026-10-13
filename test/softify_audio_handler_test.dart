@@ -282,6 +282,9 @@ class MockDownloadRepository implements IDownloadRepository {
   Future<String?> getDownloadedFilePath(String trackId) async => downloadedFiles[trackId];
 
   @override
+  Future<({int verified, int pruned})> verifyAndRepairDownloads() async => (verified: 0, pruned: 0);
+
+  @override
   Future<void> dispose() async {}
 }
 

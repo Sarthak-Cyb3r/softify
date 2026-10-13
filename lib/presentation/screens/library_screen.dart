@@ -893,6 +893,29 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       ),
                     ),
                     IconButton(
+                      icon: const Icon(Icons.health_and_safety_outlined, size: 20),
+                      color: tokens.accent,
+                      tooltip: 'Verify & Repair Offline Library',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () async {
+                        final res = await ref.read(downloadRepositoryProvider).verifyAndRepairDownloads();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                res.pruned > 0
+                                    ? 'Repaired ${res.pruned} missing tracks. ${res.verified} verified offline.'
+                                    : 'Verified ${res.verified} offline tracks. Library healthy!',
+                              ),
+                              backgroundColor: AppTheme.primary,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton(
                       icon: const Icon(Icons.folder_open_rounded, size: 20),
                       color: tokens.accent,
                       tooltip: 'Open Downloads Folder',

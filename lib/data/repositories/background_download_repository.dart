@@ -532,6 +532,42 @@ class BackgroundDownloadRepository implements IDownloadRepository {
   }
 
   @override
+  Future<({int verified, int pruned})> verifyAndRepairDownloads() async {
+    final rows = await (_db.select(_db.downloads)
+          ..where((t) => t.status.equals(DownloadStatus.completed.toDbString())))
+        .get();
+
+    int verified = 0;
+    int pruned = 0;
+    final docsDir = await _docsDirProvider();
+
+    for (final row in rows) {
+      final rel = row.relativePath;
+      if (rel.isEmpty) {
+        await (_db.delete(_db.downloads)..where((t) => t.trackId.equals(row.trackId))).go();
+        pruned++;
+        continue;
+      }
+
+      final file = File(p.join(docsDir.path, rel));
+      if (!file.existsSync() || file.lengthSync() == 0) {
+        await (_db.delete(_db.downloads)..where((t) => t.trackId.equals(row.trackId))).go();
+        pruned++;
+      } else {
+        final actualSize = file.lengthSync();
+        if (actualSize != row.fileSizeBytes) {
+          await (_db.update(_db.downloads)..where((t) => t.trackId.equals(row.trackId))).write(
+            DownloadsCompanion(fileSizeBytes: Value(actualSize)),
+          );
+        }
+        verified++;
+      }
+    }
+
+    return (verified: verified, pruned: pruned);
+  }
+
+  @override
   Future<void> dispose() async {
     await _updatesSubscription?.cancel();
   }

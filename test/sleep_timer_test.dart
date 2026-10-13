@@ -240,6 +240,8 @@ class MockDownloadRepository implements IDownloadRepository {
   @override
   Future<bool> isDownloaded(String trackId) async => false;
   @override
+  Future<({int verified, int pruned})> verifyAndRepairDownloads() async => (verified: 0, pruned: 0);
+  @override
   Future<void> dispose() async {}
 }
 

@@ -39,6 +39,10 @@ abstract class IDownloadRepository {
   /// If missing or corrupt, returns null and cleans up stale records.
   Future<String?> getDownloadedFilePath(String trackId);
 
+  /// Verifies all completed offline downloads against the physical filesystem.
+  /// Prunes stale or corrupt missing files from the database and returns counts.
+  Future<({int verified, int pruned})> verifyAndRepairDownloads();
+
   /// Disposes background download listeners and resources.
   Future<void> dispose();
 }
