@@ -486,6 +486,7 @@ class _FullScreenPlayerScreenState
               RepaintBoundary(
                 child: _FullScreenPlayerScrubber(
                   fallbackDuration: currentTrack.duration,
+                  trackId: currentTrack.id,
                 ),
               ),
 
@@ -844,8 +845,9 @@ class _FullScreenPlayerScreenState
 /// from frame-by-frame rebuilds.
 class _FullScreenPlayerScrubber extends ConsumerStatefulWidget {
   final Duration? fallbackDuration;
+  final String? trackId;
 
-  const _FullScreenPlayerScrubber({this.fallbackDuration});
+  const _FullScreenPlayerScrubber({this.fallbackDuration, this.trackId});
 
   @override
   ConsumerState<_FullScreenPlayerScrubber> createState() =>
@@ -885,31 +887,33 @@ class _FullScreenPlayerScrubberState
           Stack(
             alignment: Alignment.center,
             children: [
-              // Dual-Track Buffer-Ahead Visualizer (matches YouTube/Spotify)
+              // 1. Acoustic Waveform Visualizer & Buffer Track
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(1.5),
-                  child: SizedBox(
-                    height: 2.5,
-                    child: LinearProgressIndicator(
-                      value: maxSeconds > 0
+                child: SizedBox(
+                  height: 18,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    painter: _ScrubberWaveformPainter(
+                      currentProgress: maxSeconds > 0
+                          ? (currentSeconds / maxSeconds).clamp(0.0, 1.0)
+                          : 0.0,
+                      bufferProgress: maxSeconds > 0
                           ? (bufferedPosition.inSeconds / maxSeconds).clamp(0.0, 1.0)
                           : 0.0,
-                      backgroundColor: Colors.white.withValues(alpha: 0.10),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.white.withValues(alpha: 0.28),
-                      ),
+                      accentColor: tokens.accent,
+                      seed: widget.trackId?.hashCode ?? 42,
                     ),
                   ),
                 ),
               ),
+              // 2. Tactile Interactive Seek Slider
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  trackHeight: 2.5,
+                  trackHeight: 2.0,
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4.5),
                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                  activeTrackColor: tokens.accent,
+                  activeTrackColor: Colors.transparent,
                   inactiveTrackColor: Colors.transparent,
                   thumbColor: tokens.accent,
                 ),
@@ -968,6 +972,72 @@ class _FullScreenPlayerScrubberState
         ],
       ),
     );
+  }
+}
+
+class _ScrubberWaveformPainter extends CustomPainter {
+  final double currentProgress;
+  final double bufferProgress;
+  final Color accentColor;
+  final int seed;
+
+  _ScrubberWaveformPainter({
+    required this.currentProgress,
+    required this.bufferProgress,
+    required this.accentColor,
+    required this.seed,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const int barCount = 44;
+    final double step = size.width / barCount;
+    final double barWidth = step * 0.48;
+    final double maxH = size.height;
+
+    final paintActive = Paint()
+      ..color = accentColor
+      ..style = PaintingStyle.fill;
+
+    final paintBuffered = Paint()
+      ..color = Colors.white.withValues(alpha: 0.38)
+      ..style = PaintingStyle.fill;
+
+    final paintInactive = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < barCount; i++) {
+      final double progress = (i + 0.5) / barCount;
+      // Deterministic acoustic peak amplitude with seed hashing
+      final int hash = (seed ^ (i * 2654435761)).abs();
+      final double normalized = 0.28 + 0.72 * ((hash % 100) / 100.0);
+      final double barH = (normalized * maxH).clamp(3.5, maxH);
+
+      final double x = i * step + (step - barWidth) / 2;
+      final double y = (size.height - barH) / 2;
+
+      final RRect rrect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, barWidth, barH),
+        const Radius.circular(1.2),
+      );
+
+      if (progress <= currentProgress) {
+        canvas.drawRRect(rrect, paintActive);
+      } else if (progress <= bufferProgress) {
+        canvas.drawRRect(rrect, paintBuffered);
+      } else {
+        canvas.drawRRect(rrect, paintInactive);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScrubberWaveformPainter oldDelegate) {
+    return oldDelegate.currentProgress != currentProgress ||
+        oldDelegate.bufferProgress != bufferProgress ||
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.seed != seed;
   }
 }
 
