@@ -93,6 +93,13 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         _cacheResult(_searchCache, cacheKey, itunesResults);
         return itunesResults;
       }
+
+      // Tertiary studio fallback: Deezer (90M+ global & European catalog with 1000x1000 master art)
+      final deezerResults = await _searchDeezer(cleanQuery, limit: limit).catchError((_) => <Track>[]);
+      if (deezerResults.isNotEmpty) {
+        _cacheResult(_searchCache, cacheKey, deezerResults);
+        return deezerResults;
+      }
     } catch (_) {
       // Fall through to YouTube curated fallback
     }
@@ -220,6 +227,53 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
           album: collectionName,
           duration: Duration(milliseconds: trackTimeMillis),
           coverUrl: highResCover,
+          matchConfidence: 1.0,
+        ),
+      );
+    }
+    return _deduplicateTracks(rawTracks, limit: limit, query: query);
+  }
+
+  Future<List<Track>> _searchDeezer(String query, {int limit = 20}) async {
+    final encoded = Uri.encodeComponent(query);
+    final uri = Uri.parse('https://api.deezer.com/search?q=$encoded&limit=$limit');
+
+    final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
+    request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
+
+    final response = await request.close().timeout(const Duration(seconds: 5));
+    if (response.statusCode != 200) {
+      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    }
+
+    final body = await response.transform(utf8.decoder).join();
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final data = (json['data'] as List<dynamic>?) ?? [];
+
+    final List<Track> rawTracks = [];
+    for (final item in data) {
+      final trackId = item['id']?.toString();
+      final title = item['title'] as String?;
+      final artistMap = item['artist'] as Map<String, dynamic>?;
+      final albumMap = item['album'] as Map<String, dynamic>?;
+      final artistName = artistMap?['name'] as String?;
+      final albumName = albumMap?['title'] as String?;
+      final durationSec = (item['duration'] as num?)?.toInt() ?? 0;
+      final coverUrl = (albumMap?['cover_xl'] ??
+              albumMap?['cover_big'] ??
+              item['album']?['cover_medium']) as String?;
+
+      if (trackId == null || title == null || artistName == null) continue;
+
+      rawTracks.add(
+        Track(
+          id: 'deezer_$trackId',
+          sourceId: 'deezer_$trackId',
+          title: _cleanTitle(title),
+          artist: artistName,
+          album: albumName,
+          duration: Duration(seconds: durationSec),
+          coverUrl: coverUrl,
           matchConfidence: 1.0,
         ),
       );

@@ -4,22 +4,26 @@ import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import 'kugou_lyrics_provider.dart';
 import 'lrclib_lyrics_provider.dart';
+import 'netease_lyrics_provider.dart';
 
-/// Multi-source lyrics engine combining Spotify Color-Lyrics, LRCLIB, and Kugou catalogs.
-/// Ensures maximum coverage and millisecond-accurate LRC synchronization.
+/// Multi-source lyrics engine combining Spotify Color-Lyrics, LRCLIB, NetEase, and Kugou catalogs.
+/// Ensures maximum global coverage and millisecond-accurate LRC synchronization.
 class CompositeLyricsProvider implements ILyricsProvider {
   final ILyricsProvider? _spotify;
   final ILyricsProvider _primary;
+  final ILyricsProvider _netease;
   final ILyricsProvider _secondary;
   final Map<String, SyncedLyrics?> _cache = {};
 
   CompositeLyricsProvider({
     ILyricsProvider? spotify,
     ILyricsProvider? primary,
+    ILyricsProvider? netease,
     ILyricsProvider? secondary,
     HttpClient? httpClient,
   })  : _spotify = spotify,
         _primary = primary ?? LrclibLyricsProvider(httpClient: httpClient),
+        _netease = netease ?? NeteaseLyricsProvider(httpClient: httpClient),
         _secondary = secondary ?? KugouLyricsProvider(httpClient: httpClient);
 
   @override
@@ -40,33 +44,38 @@ class CompositeLyricsProvider implements ILyricsProvider {
     }
 
     // 1. Query primary provider (LRCLIB with exact + search fallback)
+    SyncedLyrics? primaryResult;
     try {
-      final primaryResult = await _primary.getLyrics(track);
+      primaryResult = await _primary.getLyrics(track);
       if (primaryResult != null && primaryResult.isSynced && primaryResult.lines.isNotEmpty) {
         _cache[track.id] = primaryResult;
         return primaryResult;
       }
+    } catch (_) {}
 
-      // 2. Query secondary provider (Kugou global synced database)
-      final secondaryResult = await _secondary.getLyrics(track);
+    // 2. Query NetEase Cloud Music global synced database
+    SyncedLyrics? neteaseResult;
+    try {
+      neteaseResult = await _netease.getLyrics(track);
+      if (neteaseResult != null && neteaseResult.isSynced && neteaseResult.lines.isNotEmpty) {
+        _cache[track.id] = neteaseResult;
+        return neteaseResult;
+      }
+    } catch (_) {}
+
+    // 3. Query Kugou global synced database
+    SyncedLyrics? secondaryResult;
+    try {
+      secondaryResult = await _secondary.getLyrics(track);
       if (secondaryResult != null && secondaryResult.isSynced && secondaryResult.lines.isNotEmpty) {
         _cache[track.id] = secondaryResult;
         return secondaryResult;
       }
+    } catch (_) {}
 
-      // 3. Fallback to any plain lyrics if available
-      final plainFallback = primaryResult ?? secondaryResult;
-      _cache[track.id] = plainFallback;
-      return plainFallback;
-    } catch (_) {
-      try {
-        final secondaryResult = await _secondary.getLyrics(track);
-        _cache[track.id] = secondaryResult;
-        return secondaryResult;
-      } catch (_) {
-        _cache[track.id] = null;
-        return null;
-      }
-    }
+    // 4. Fallback to any plain lyrics found across providers
+    final plainFallback = primaryResult ?? neteaseResult ?? secondaryResult;
+    _cache[track.id] = plainFallback;
+    return plainFallback;
   }
 }
