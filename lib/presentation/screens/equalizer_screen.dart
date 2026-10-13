@@ -21,13 +21,17 @@ class EqualizerScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: tokens.background,
         elevation: 0,
-        leading: Navigator.of(context).canPop()
-            ? IconButton(
-                icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
-                tooltip: 'Back',
-                onPressed: () => Navigator.of(context).maybePop(),
-              )
-            : null,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
+          tooltip: 'Back',
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context, rootNavigator: true).maybePop();
+            }
+          },
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

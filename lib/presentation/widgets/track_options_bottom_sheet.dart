@@ -6,6 +6,7 @@ import '../providers/player_providers.dart';
 import '../screens/album_detail_screen.dart';
 import '../screens/artist_detail_screen.dart';
 import '../screens/car_mode_screen.dart';
+import '../screens/equalizer_screen.dart';
 import '../theme/app_theme.dart';
 import 'sleep_timer_bottom_sheet.dart';
 
@@ -378,6 +379,23 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const CarModeScreen()),
+                        );
+                      },
+                    ),
+
+                    // 7c. Audio Equalizer & Sound FX
+                    ListTile(
+                      leading: const Icon(Icons.tune_rounded, color: AppTheme.textPrimary),
+                      title: const Text('Equalizer & Audio FX', style: TextStyle(color: AppTheme.textPrimary)),
+                      subtitle: const Text(
+                        '10-band DSP, acoustic presets & bass boost',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const EqualizerScreen()),
                         );
                       },
                     ),

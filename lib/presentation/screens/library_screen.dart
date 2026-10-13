@@ -18,6 +18,15 @@ import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 
+enum LibrarySortOrder {
+  recentlyAdded('Recent'),
+  titleAZ('Title A-Z'),
+  artistAZ('Artist A-Z');
+
+  final String label;
+  const LibrarySortOrder(this.label);
+}
+
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
@@ -29,6 +38,167 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isScanningLocalAudio = false;
+  LibrarySortOrder _likedSort = LibrarySortOrder.recentlyAdded;
+  LibrarySortOrder _downloadsSort = LibrarySortOrder.recentlyAdded;
+  LibrarySortOrder _deviceMusicSort = LibrarySortOrder.recentlyAdded;
+
+  List<Track> _sortTracks(List<Track> list, LibrarySortOrder sort) {
+    final copy = List<Track>.from(list);
+    switch (sort) {
+      case LibrarySortOrder.recentlyAdded:
+        return copy;
+      case LibrarySortOrder.titleAZ:
+        copy.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        return copy;
+      case LibrarySortOrder.artistAZ:
+        copy.sort((a, b) => a.artist.toLowerCase().compareTo(b.artist.toLowerCase()));
+        return copy;
+    }
+  }
+
+  List<DownloadItem> _sortDownloads(List<DownloadItem> list, LibrarySortOrder sort) {
+    final copy = List<DownloadItem>.from(list);
+    switch (sort) {
+      case LibrarySortOrder.recentlyAdded:
+        return copy;
+      case LibrarySortOrder.titleAZ:
+        copy.sort((a, b) {
+          final aTitle = a.track?.title ?? a.trackId;
+          final bTitle = b.track?.title ?? b.trackId;
+          return aTitle.toLowerCase().compareTo(bTitle.toLowerCase());
+        });
+        return copy;
+      case LibrarySortOrder.artistAZ:
+        copy.sort((a, b) {
+          final aArtist = a.track?.artist ?? '';
+          final bArtist = b.track?.artist ?? '';
+          return aArtist.toLowerCase().compareTo(bArtist.toLowerCase());
+        });
+        return copy;
+    }
+  }
+
+  Widget _buildLibraryActionHeader({
+    required AppTokens tokens,
+    required int trackCount,
+    required LibrarySortOrder currentSort,
+    required ValueChanged<LibrarySortOrder> onSortChanged,
+    required VoidCallback onPlayAll,
+    required VoidCallback onShuffle,
+    Widget? trailingAction,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      child: Row(
+        children: [
+          BouncingScaleButton(
+            scaleFactor: 0.94,
+            onTap: () {
+              final nextIndex = (currentSort.index + 1) % LibrarySortOrder.values.length;
+              onSortChanged(LibrarySortOrder.values[nextIndex]);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: tokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(tokens.radiusFull),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.swap_vert_rounded, size: 15, color: tokens.accent),
+                  const SizedBox(width: 4),
+                  Text(
+                    currentSort.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: tokens.textMuted,
+            ),
+          ),
+          const Spacer(),
+          if (trailingAction != null) ...[
+            trailingAction,
+            const SizedBox(width: 8),
+          ],
+          BouncingScaleButton(
+            scaleFactor: 0.9,
+            onTap: onShuffle,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: tokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(tokens.radiusFull),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shuffle_rounded, size: 14, color: tokens.textPrimary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Shuffle',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          BouncingScaleButton(
+            scaleFactor: 0.9,
+            onTap: onPlayAll,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: tokens.accent,
+                borderRadius: BorderRadius.circular(tokens.radiusFull),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.play_arrow_rounded, size: 16, color: Color(0xFF080F11)),
+                  SizedBox(width: 2),
+                  Text(
+                    'Play',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF080F11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -669,19 +839,37 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
-          itemCount: tracks.length,
-          itemBuilder: (context, index) {
-            final track = tracks[index];
-            return RepaintBoundary(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(tokens.radiusMd),
-                onTap: () {
-                  audioHandler.setQueue(tracks, startIndex: index);
-                },
+        final sortedTracks = _sortTracks(tracks, _likedSort);
+
+        return Column(
+          children: [
+            _buildLibraryActionHeader(
+              tokens: tokens,
+              trackCount: sortedTracks.length,
+              currentSort: _likedSort,
+              onSortChanged: (newSort) => setState(() => _likedSort = newSort),
+              onPlayAll: () {
+                audioHandler.setQueue(sortedTracks, startIndex: 0);
+              },
+              onShuffle: () {
+                final shuffled = List<Track>.from(sortedTracks)..shuffle();
+                audioHandler.setQueue(shuffled, startIndex: 0);
+              },
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
+                itemCount: sortedTracks.length,
+                itemBuilder: (context, index) {
+                  final track = sortedTracks[index];
+                  return RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(tokens.radiusMd),
+                        onTap: () {
+                          audioHandler.setQueue(sortedTracks, startIndex: index);
+                        },
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -770,7 +958,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             ),
           );
         },
-        );
+      ),
+    ),
+  ],
+);
       },
     );
   }
@@ -857,6 +1048,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
         final completed =
             downloads.where((d) => d.isCompleted && d.track != null).toList();
+        final sortedDownloads = _sortDownloads(downloads, _downloadsSort);
+        final completedTracks = sortedDownloads
+            .where((d) => d.isCompleted && d.track != null)
+            .map((d) => d.track!)
+            .toList();
         final totalBytes =
             completed.fold<int>(0, (sum, d) => sum + d.fileSizeBytes);
         final totalMb = (totalBytes / (1024 * 1024)).toStringAsFixed(1);
@@ -929,12 +1125,31 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               ),
             ),
 
+            if (completed.isNotEmpty)
+              _buildLibraryActionHeader(
+                tokens: tokens,
+                trackCount: completed.length,
+                currentSort: _downloadsSort,
+                onSortChanged: (newSort) => setState(() => _downloadsSort = newSort),
+                onPlayAll: () {
+                  if (completedTracks.isNotEmpty) {
+                    audioHandler.setQueue(completedTracks, startIndex: 0);
+                  }
+                },
+                onShuffle: () {
+                  if (completedTracks.isNotEmpty) {
+                    final shuffled = List<Track>.from(completedTracks)..shuffle();
+                    audioHandler.setQueue(shuffled, startIndex: 0);
+                  }
+                },
+              ),
+
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
-                itemCount: downloads.length,
+                itemCount: sortedDownloads.length,
                 itemBuilder: (context, index) {
-                  final dl = downloads[index];
+                  final dl = sortedDownloads[index];
                   final track = dl.track;
                   if (track == null) return const SizedBox.shrink();
 
@@ -1383,41 +1598,65 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           );
         }
 
+        final sortedTracks = _sortTracks(tracks, _deviceMusicSort);
+
         return Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${tracks.length} local files indexed',
-                    style: TextStyle(
-                      color: tokens.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+            _buildLibraryActionHeader(
+              tokens: tokens,
+              trackCount: sortedTracks.length,
+              currentSort: _deviceMusicSort,
+              onSortChanged: (newSort) => setState(() => _deviceMusicSort = newSort),
+              onPlayAll: () {
+                audioHandler.setQueue(sortedTracks, startIndex: 0);
+              },
+              onShuffle: () {
+                final shuffled = List<Track>.from(sortedTracks)..shuffle();
+                audioHandler.setQueue(shuffled, startIndex: 0);
+              },
+              trailingAction: BouncingScaleButton(
+                scaleFactor: 0.9,
+                onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceElevated,
+                    borderRadius: BorderRadius.circular(tokens.radiusFull),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 0.8,
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: _isScanningLocalAudio ? null : _scanDeviceAudio,
-                    icon: _isScanningLocalAudio
-                        ? SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
-                          )
-                        : Icon(Icons.refresh_rounded, size: 16, color: tokens.accent),
-                    label: Text('Rescan', style: TextStyle(color: tokens.accent, fontSize: 13)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _isScanningLocalAudio
+                          ? SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
+                            )
+                          : Icon(Icons.sync_rounded, size: 14, color: tokens.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Scan',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: tokens.accent,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                itemCount: tracks.length,
+                itemCount: sortedTracks.length,
                 itemBuilder: (context, index) {
-                  final track = tracks[index];
+                  final track = sortedTracks[index];
                   final minutes = track.duration.inMinutes;
                   final seconds = (track.duration.inSeconds % 60).toString().padLeft(2, '0');
 
@@ -1426,7 +1665,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     child: InkWell(
                       borderRadius: BorderRadius.circular(tokens.radiusMd),
                       onTap: () {
-                        audioHandler.setQueue(tracks, startIndex: index);
+                        audioHandler.setQueue(sortedTracks, startIndex: index);
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),

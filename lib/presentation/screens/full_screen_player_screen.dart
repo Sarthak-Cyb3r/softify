@@ -13,6 +13,7 @@ import '../widgets/play_pause_morph_button.dart';
 import '../widgets/queue_bottom_sheet.dart';
 import '../widgets/sleep_timer_bottom_sheet.dart';
 import '../widgets/track_options_bottom_sheet.dart';
+import 'equalizer_screen.dart';
 
 class FullScreenPlayerScreen extends ConsumerStatefulWidget {
   const FullScreenPlayerScreen({super.key});
@@ -783,6 +784,33 @@ class _FullScreenPlayerScreenState
                         ),
                         child: Icon(
                           Icons.queue_music_rounded,
+                          color: tokens.textSecondary,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+
+                    BouncingScaleButton(
+                      scaleFactor: 0.9,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const EqualizerScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.tune_rounded,
                           color: tokens.textSecondary,
                           size: 22,
                         ),

@@ -7,6 +7,7 @@ import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
 import '../theme/app_tokens.dart';
 import 'animated_music_wave_indicator.dart';
+import 'audiophile_quality_badge.dart';
 import 'bouncing_scale_button.dart';
 import 'play_pause_morph_button.dart';
 
@@ -277,15 +278,26 @@ class MiniPlayer extends ConsumerWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
-                                  effectiveTrack.artist,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: tokens.textSecondary,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        effectiveTrack.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w400,
+                                          color: tokens.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    AudiophileQualityBadge(
+                                      track: effectiveTrack,
+                                      compact: true,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

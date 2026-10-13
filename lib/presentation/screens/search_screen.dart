@@ -15,6 +15,15 @@ import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
 import 'artist_discography_screen.dart';
 
+enum SearchResultFilter {
+  all('All'),
+  studioMaster('Studio (320k)'),
+  downloaded('Downloaded');
+
+  final String label;
+  const SearchResultFilter(this.label);
+}
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -24,6 +33,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  SearchResultFilter _activeFilter = SearchResultFilter.all;
 
   static const List<String> _quickCategories = [
     'Electronic',
@@ -44,7 +54,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onQueryChanged(String query) {
-    setState(() {});
+    setState(() {
+      _activeFilter = SearchResultFilter.all;
+    });
     ref.read(searchNotifierProvider.notifier).setQuery(query);
   }
 
@@ -66,6 +78,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         results.add(track);
       }
     }
+
+    final downloadedItems = ref.watch(downloadsStreamProvider).value ?? [];
+    final downloadedTrackIds = downloadedItems
+        .where((d) => d.isCompleted)
+        .map((d) => d.trackId)
+        .toSet();
+
+    final filteredResults = results.where((track) {
+      switch (_activeFilter) {
+        case SearchResultFilter.all:
+          return true;
+        case SearchResultFilter.studioMaster:
+          return track.sourceId.startsWith('saavn_') || !track.supportsSpeedPlayback;
+        case SearchResultFilter.downloaded:
+          return downloadedTrackIds.contains(track.id);
+      }
+    }).toList();
 
     final queryText = _searchController.text.trim();
     final artistDiscoAsync = queryText.isNotEmpty
@@ -292,6 +321,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 );
               },
             ),
+          // Quality & Offline Filter Chips
+          if (results.isNotEmpty)
+            _buildFilterChips(tokens),
 
           // Search Results / Loading / Empty States
           Expanded(
@@ -377,31 +409,144 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   ],
                                 ),
                               ))
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
-                            itemCount: (results.isEmpty && hasArtistBanner)
-                                ? 1 + artistDisco.allTracks.length
-                                : results.length + bannerOffset,
-                            itemBuilder: (context, index) {
-                              if (hasArtistBanner && index == 0) {
-                                return _buildArtistDiscographyBanner(
-                                  tokens,
-                                  artistDisco,
-                                  audioHandler,
-                                );
-                              }
-                              final effectiveList =
-                                  (results.isEmpty && hasArtistBanner)
-                                      ? artistDisco.allTracks
-                                      : results;
-                              final trackIndex = index - bannerOffset;
-                              final track = effectiveList[trackIndex];
-                              return _buildSearchResultTile(
-                                  tokens, track, trackIndex, audioHandler);
-                            },
-                          ),
+                        : (filteredResults.isEmpty && results.isNotEmpty)
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.filter_list_off_rounded,
+                                      size: 48,
+                                      color: tokens.textMuted.withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'No tracks match "${_activeFilter.label}"',
+                                      style: TextStyle(
+                                        color: tokens.textSecondary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    BouncingScaleButton(
+                                      scaleFactor: 0.94,
+                                      onTap: () => setState(() => _activeFilter = SearchResultFilter.all),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: tokens.surfaceElevated,
+                                          borderRadius: BorderRadius.circular(tokens.radiusFull),
+                                          border: Border.all(
+                                            color: tokens.accent.withValues(alpha: 0.4),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Reset to All Results',
+                                          style: TextStyle(
+                                            color: tokens.accent,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+                                itemCount: (filteredResults.isEmpty && hasArtistBanner)
+                                    ? 1 + artistDisco.allTracks.length
+                                    : filteredResults.length + bannerOffset,
+                                itemBuilder: (context, index) {
+                                  if (hasArtistBanner && index == 0) {
+                                    return _buildArtistDiscographyBanner(
+                                      tokens,
+                                      artistDisco,
+                                      audioHandler,
+                                    );
+                                  }
+                                  final effectiveList =
+                                      (filteredResults.isEmpty && hasArtistBanner)
+                                          ? artistDisco.allTracks
+                                          : filteredResults;
+                                  final trackIndex = index - bannerOffset;
+                                  final track = effectiveList[trackIndex];
+                                  return _buildSearchResultTile(
+                                      tokens, track, trackIndex, audioHandler);
+                                },
+                              ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips(AppTokens tokens) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: SizedBox(
+        height: 32,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: SearchResultFilter.values.map((filter) {
+            final isSelected = _activeFilter == filter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: BouncingScaleButton(
+                scaleFactor: 0.94,
+                onTap: () {
+                  setState(() => _activeFilter = filter);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? tokens.accent.withValues(alpha: 0.16)
+                        : tokens.surfaceElevated,
+                    borderRadius: BorderRadius.circular(tokens.radiusFull),
+                    border: Border.all(
+                      color: isSelected
+                          ? tokens.accent.withValues(alpha: 0.5)
+                          : Colors.white.withValues(alpha: 0.06),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (filter == SearchResultFilter.studioMaster) ...[
+                        Icon(
+                          Icons.verified_rounded,
+                          size: 13,
+                          color: isSelected ? tokens.accent : tokens.textMuted,
+                        ),
+                        const SizedBox(width: 4),
+                      ] else if (filter == SearchResultFilter.downloaded) ...[
+                        Icon(
+                          Icons.download_done_rounded,
+                          size: 13,
+                          color: isSelected ? tokens.accent : tokens.textMuted,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        filter.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? tokens.accent : tokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

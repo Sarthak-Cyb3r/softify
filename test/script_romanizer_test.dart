@@ -16,14 +16,14 @@ void main() {
     });
 
     test('phonetically transliterates Devanagari lyrics', () {
-      final input = 'तुम ही हो, अब तुम ही हो';
+      const input = 'तुम ही हो, अब तुम ही हो';
       final romanized = ScriptRomanizer.romanize(input);
       expect(romanized, contains('tum hee ho'));
       expect(romanized, contains('ab tum hee ho'));
     });
 
     test('phonetically transliterates Gurmukhi lyrics', () {
-      final input = 'ਦਿਲ ਦਾ ਮਾਮਲਾ';
+      const input = 'ਦਿਲ ਦਾ ਮਾਮਲਾ';
       final romanized = ScriptRomanizer.romanize(input);
       expect(romanized, contains('dil'));
       expect(romanized, contains('da'));
