@@ -12,6 +12,7 @@ class EqualizerCurveVisualizer extends StatelessWidget {
   final bool isBypassed;
   final double minDecibels;
   final double maxDecibels;
+  final Color? accentColor;
 
   const EqualizerCurveVisualizer({
     super.key,
@@ -22,21 +23,25 @@ class EqualizerCurveVisualizer extends StatelessWidget {
     required this.isBypassed,
     this.minDecibels = -12.0,
     this.maxDecibels = 12.0,
+    this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final activeAccent = accentColor ?? tokens.accent;
+
     return Container(
       height: 190,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
+        color: tokens.surfaceElevated,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: (isEnabled && !isBypassed)
-              ? AppTheme.primary.withOpacity(0.25)
-              : AppTheme.surfaceHighlight,
+              ? activeAccent.withOpacity(0.25)
+              : tokens.surfaceHighlight,
           width: 1,
         ),
       ),
@@ -51,6 +56,7 @@ class EqualizerCurveVisualizer extends StatelessWidget {
               isActive: isEnabled && !isBypassed,
               minDb: minDecibels,
               maxDb: maxDecibels,
+              accentColor: activeAccent,
             ),
           ),
           if (isBypassed)
@@ -88,6 +94,7 @@ class _SplineCurvePainter extends CustomPainter {
   final bool isActive;
   final double minDb;
   final double maxDb;
+  final Color accentColor;
 
   _SplineCurvePainter({
     required this.bandGains,
@@ -96,6 +103,7 @@ class _SplineCurvePainter extends CustomPainter {
     required this.isActive,
     required this.minDb,
     required this.maxDb,
+    this.accentColor = AppTheme.primary,
   });
 
   @override
@@ -196,8 +204,8 @@ class _SplineCurvePainter extends CustomPainter {
       end: Alignment.bottomCenter,
       colors: isActive
           ? [
-              AppTheme.primary.withOpacity(0.35),
-              AppTheme.primary.withOpacity(0.08),
+              accentColor.withOpacity(0.35),
+              accentColor.withOpacity(0.08),
               Colors.transparent,
             ]
           : [
@@ -213,14 +221,14 @@ class _SplineCurvePainter extends CustomPainter {
 
     // 5. Stroke glowing curve
     final glowPaint = Paint()
-      ..color = isActive ? AppTheme.primary.withOpacity(0.4) : Colors.transparent
+      ..color = isActive ? accentColor.withOpacity(0.4) : Colors.transparent
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6.0
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, glowPaint);
 
     final strokePaint = Paint()
-      ..color = isActive ? AppTheme.primary : AppTheme.textMuted
+      ..color = isActive ? accentColor : AppTheme.textMuted
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -233,7 +241,7 @@ class _SplineCurvePainter extends CustomPainter {
       // Outer Halo
       if (isActive) {
         final haloPaint = Paint()
-          ..color = AppTheme.primary.withOpacity(0.3)
+          ..color = accentColor.withOpacity(0.3)
           ..style = PaintingStyle.fill;
         canvas.drawCircle(nodePos, 8.0, haloPaint);
       }
@@ -245,7 +253,7 @@ class _SplineCurvePainter extends CustomPainter {
       canvas.drawCircle(nodePos, 4.0, nodeCorePaint);
 
       final nodeBorderPaint = Paint()
-        ..color = isActive ? AppTheme.primary : AppTheme.surfaceHighlight
+        ..color = isActive ? accentColor : AppTheme.surfaceHighlight
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
       canvas.drawCircle(nodePos, 4.0, nodeBorderPaint);

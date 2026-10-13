@@ -653,19 +653,19 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                     Container(
                       width: 6,
                       height: 6,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF4EDEA3),
+                        color: activeAccent,
                       ),
                     ),
                     const SizedBox(width: 5),
-                    const Text(
+                    Text(
                       'Sync Live',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF4EDEA3),
+                        color: activeAccent,
                       ),
                     ),
                   ],
@@ -744,7 +744,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             color: !_isKaraokeMode ? const Color(0xFF292A2D) : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: !_isKaraokeMode ? const Color(0xFF4EDEA3) : Colors.transparent,
+                              color: !_isKaraokeMode ? activeAccent : Colors.transparent,
                               width: 1,
                             ),
                           ),
@@ -754,7 +754,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: !_isKaraokeMode ? const Color(0xFF4EDEA3) : const Color(0xFFBBCABF),
+                              color: !_isKaraokeMode ? activeAccent : const Color(0xFFBBCABF),
                             ),
                           ),
                         ),
@@ -771,7 +771,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             color: _isKaraokeMode ? const Color(0xFF292A2D) : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: _isKaraokeMode ? const Color(0xFF4EDEA3) : Colors.transparent,
+                              color: _isKaraokeMode ? activeAccent : Colors.transparent,
                               width: 1,
                             ),
                           ),
@@ -781,7 +781,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: _isKaraokeMode ? const Color(0xFF4EDEA3) : const Color(0xFFBBCABF),
+                              color: _isKaraokeMode ? activeAccent : const Color(0xFFBBCABF),
                             ),
                           ),
                         ),

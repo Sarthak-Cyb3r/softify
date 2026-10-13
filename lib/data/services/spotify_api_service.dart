@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../domain/entities/track.dart';
+import '../search/text_normalizer.dart';
 import 'spotify_auth_service.dart';
 
 class SpotifySearchResult {
@@ -558,6 +559,7 @@ class SpotifyApiService {
       final Set<String> seenNormalizedTitles = {};
 
       void addTrack(Track t) {
+        if (!TextNormalizer.matchesArtist(t.artist, artistName)) return;
         final norm = t.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
         if (norm.isNotEmpty && !seenNormalizedTitles.contains(norm)) {
           seenNormalizedTitles.add(norm);

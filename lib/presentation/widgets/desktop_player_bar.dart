@@ -8,6 +8,7 @@ import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
 import 'lyrics_view.dart';
 import 'queue_bottom_sheet.dart';
+import 'track_options_bottom_sheet.dart';
 
 /// Cinematic Audio Workstation Bottom Playback Console adhering to Stitch design system:
 /// - Surface: surface-glass (0xCC141414) with Gaussian backdrop blur & #1F1F1F top border
@@ -480,7 +481,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
               // 3. Right Section: Lyrics, Queue, Speed, Volume
               // ==========================================
               SizedBox(
-                width: 240,
+                width: 260,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -513,6 +514,22 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                           color: Color(0xFFBBCABF),
                         ),
                         onPressed: () => _openQueueModal(context),
+                      ),
+                    ),
+
+                    // More Options (3 dots)
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: IconButton(
+                        iconSize: 19,
+                        splashRadius: 16,
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'More options',
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          color: Color(0xFFBBCABF),
+                        ),
+                        onPressed: () => TrackOptionsBottomSheet.show(context, track: currentTrack),
                       ),
                     ),
 

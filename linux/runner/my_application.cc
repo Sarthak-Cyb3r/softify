@@ -52,6 +52,9 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Softify");
   }
 
+  gtk_window_set_default_icon_name("softify");
+  gtk_window_set_icon_name(window, "softify");
+
   gtk_window_set_default_size(window, 1280, 800);
   gtk_widget_set_size_request(GTK_WIDGET(window), 800, 550);
 

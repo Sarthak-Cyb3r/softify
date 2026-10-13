@@ -53,7 +53,7 @@ class SlimBottomNavBar extends StatelessWidget {
               height: 64,
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xE8141518),
+                color: tokens.surfaceElevated.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(tokens.radiusFull),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.08),

@@ -146,78 +146,72 @@ If your device is running a TrollStore-compatible iOS version:
 
 ---
 
-## 🚀 How to Use Softify (Feature Guide)
+## 🚀 Features & Capabilities
 
-### 1. 🏠 Home Screen & Taste-Based Discovery
-- **Personalized Greeting**: Softify greets you dynamically (*Good morning / afternoon / evening, [Name]*). You can tap your name in Settings anytime to customize it.
-- **Taste-Based Featured Section**: Softify analyzes your recent listening history and liked tracks to dynamically generate personalized recommendations with context subtitles (*"Based on your recent listening"*).
-- **Quick Picks & Trending Hits**: Discover trending studio tracks and evergreen chart-toppers curated directly from official label charts.
+### 1. 🏠 Home & Dynamic Taste Discovery
+- **Personalized Greeting**: Dynamic contextual greetings with customizable user profile name.
+- **Taste-Based Shelves**: Auto-generated recommendations (*"Based on your recent listening"*, *Heavy Rotation*, *Forgotten Favorites*).
+- **Quick Picks & Charts**: Curated trending tracks and evergreen chart-toppers straight from official label charts.
 
-### 2. 🔍 Search & Smart Deduplication
-- **Debounced Instant Search**: Type any song, artist, movie, or album. Softify queries both official studio catalogs and audio streams with 400ms debouncing and autocomplete suggestions.
-- **Anti-Mashup & Smart Deduplication**: Unlike standard YouTube searches that return 20+ low-quality remix clones, slowed+reverb edits, or movie dialogue skits, Softify automatically:
-  - Collapses duplicate compilations into the single original studio master.
-  - Strips noisy movie intro dialogues and mid-track skits.
-  - Guarantees high-resolution (500x500) album artwork.
-- **Browse by Genre**: Tap on genre cards (Bollywood, Pop, Hip-Hop, Punjabi, Rock, Indie, Lo-Fi) to explore curated playlists instantly.
+### 2. 🔍 Instant Search & Catalog Deduplication
+- **Debounced Instant Search**: Sub-100ms multi-source search with autocomplete and typo-tolerant fuzzy matching.
+- **Smart Catalog Deduplication**: Collapses duplicate remix/compilation clones into original studio recordings; strips noisy movie intro dialogues.
+- **Genre & Mood Explorer**: Instant browsing across Bollywood, Pop, Hip-Hop, Punjabi, Rock, Indie, Lo-Fi, and more.
 
-### 3. 🎵 Music Playback & Full-Screen Player
-- **Persistent MiniPlayer**: Docked across all screens (Home, Search, Library, Albums, Artists, Playlists) with instant playback recovery, history fallback, and smooth controls.
-- **Uninterrupted Background Playback**: Engineered with robust foreground media session services so audio keeps streaming in the background with zero sleep timeouts when your screen is locked.
-- **Expanding the Player**: Tap or swipe up on the MiniPlayer to open the immersive **Full-Screen Player**.
-- **Playback Controls**:
-  - **Seek Bar / Scrubber**: Drag the scrubber to any position with live timestamp indicators.
-  - **Shuffle**: Toggle random track progression with one tap.
-  - **Repeat Modes**: Tap to cycle between **Repeat Off**, **Repeat Playlist**, and **Repeat Song**.
-  - **Playback Speed**: Adjust speed (0.5x to 2.0x) for podcasts and YouTube audio streams.
-  - **Favorite (Heart)**: Tap the heart icon to instantly save the track to your Liked Songs.
+### 3. 🎵 High-Fidelity Playback & MiniPlayer
+- **Dual-Engine Gapless Playback**: 0ms gapless track transitions via active/standby player pipeline.
+- **Persistent Floating Dock**: Universal MiniPlayer across all tabs with tap-to-expand full-screen player.
+- **Full Player Controls**: Monospace time scrubber, shuffle, repeat (Off/All/One), playback speed (0.5x–2.0x), and favorite toggle.
 
-### 4. 🎤 Synchronized Karaoke Lyrics
-- **Opening Lyrics**: Inside the Full-Screen Player, tap the **Lyrics** icon in the bottom action bar.
-- **Live Karaoke Auto-Scroll**: Synced lyrics powered by LRCLIB follow the vocal performance in real-time, highlighting the current line as it sings.
-- **Seek-on-Tap**: Tap any upcoming or past lyric line to immediately seek playback to that exact timestamp in the song.
-- **Offline Caching**: Lyrics are automatically cached in your local SQLite database for instant offline viewing.
+### 4. 🎛️ 10-Band Equalizer & Bass Boost
+- **Parametric Acoustic EQ**: 10-band frequency adjustment (31Hz–16kHz) with precision gain control (-12dB to +12dB).
+- **Acoustic Presets**: Bass Boost, Vocal Clarity, Electronic, Rock, Acoustic, and Flat.
+- **Native Hardware DSP**: Android `AudioEffect` integration and Linux PipeWire/PulseAudio sink filtering.
+- **Desktop Console**: Full-width side-by-side console layout with zero clipping.
 
-### 5. 📻 Smart Queue, Autoplay & Automix Radio
-- **Queue Management**: View upcoming tracks by opening the queue sheet. You can manually reorder tracks or dismiss songs you don't want to hear.
-- **Continuous Autoplay**: When your active queue ends, Softify's recommendation engine pre-fetches musically coherent tracks based on the current song.
-- **Strict Genre & Mood Isolation**:
-  - Listening to English pop/rock? Softify will **never** inject unrelated regional tracks.
-  - Listening to high-energy party bangers? Softify isolates the mood so romantic slow songs or sad acoustic tracks won't interrupt your vibe.
-  - Zero fan-made mashups, podcasts, or noisy bootlegs in recommendations.
+### 5. 🔊 Loudness Normalization
+- **ReplayGain / EBU R128**: Real-time perceived volume leveling across varying studio sources, eliminating jarring volume jumps between tracks.
 
-### 6. 📚 Library, Playlists & Favorites
-- **Liked Songs**: Access all favorited songs in one clean playlist with batch playback and shuffle options.
-- **Custom Playlists**: Tap **+ Create Playlist** in the Library tab to create your own collections. Add or remove tracks anytime from the three-dot context menu on any song.
-- **Listening History**: View your chronological listening history, automatically deduplicated so recently repeated tracks cleanly surface to the top.
+### 6. ⏱️ Precision Sleep Timer
+- **Quick Presets & End-of-Song**: 5m, 10m, 15m, 30m, 45m, 1h, custom duration (1–1440m), or "End of this song".
+- **Background-Safe Precision**: Governed by foreground audio handler to reliably halt audio when the screen is locked.
 
-### 7. 📥 Direct Offline Downloads
-- **1-Tap Download**: Tap the Download button on any track to save it directly to your device storage.
-- **Native iTunes MP4 Atom Tagging**: Downloaded files are stored in standard `.m4a` format with embedded ID3/iTunes atoms (`©nam`, `©ART`, `©alb`, `covr`), making them fully readable with album artwork by native Android media players and file managers.
-- **Offline Storage Management**: Navigate to **Library → Downloads** to manage offline tracks, view total disk usage, and delete downloads with disk-first verification.
+### 7. 🎤 Synchronized Karaoke Lyrics
+- **Real-Time Vocal Tracking**: Synchronized LRC lyrics powered by LRCLIB with kinetic highlighting and auto-scrolling.
+- **Seek-on-Tap**: Jump directly to any moment in the song by tapping its lyric line.
+- **Local Persistence**: Lyrics are cached offline in SQLite for zero-network replay.
 
-### 8. 🔄 1-Click Spotify Playlist Importer
-- **Zero API Key Requirement**: Easily import public Spotify playlists without registering for developer tokens or logging into Spotify.
-- **How to Import**:
-  1. In Spotify, tap **Share → Copy Link** on any public playlist.
-  2. In Softify, open **Library → Import Playlist** and paste the URL (or playlist ID).
-  3. Softify parses the playlist metadata and matches each track to its 320 kbps studio master recording.
-  4. Tap **Import All** to add all matched tracks directly to your Softify library.
+### 8. 📁 Local Device Music & Storage Scanner
+- **Zero-Network File Player**: Scans device storage for `.mp3`, `.m4a`, `.flac`, `.wav`, `.ogg`, and `.aac` audio.
+- **Smart Noise Exclusion**: Filters out UI clicks, beeps (<300KB), app assets, `.nomedia` folders, and development directories (`node_modules`, `build`, etc.).
+- **Automatic Pruning**: Deleted or moved files are automatically purged from the library on rescan.
 
-### 9. ⚙️ Audio Engine & Quality Settings
-- **Audio Quality Presets**: Choose your preferred stream fidelity in Settings:
-  - **High (320 kbps)**: Authentic studio master CD-quality audio directly from official music label CDNs.
-  - **Medium (160 kbps)**: Balanced fidelity and bandwidth for mobile data.
-  - **Low (96 kbps)**: Data-saver mode for limited connectivity.
-- **Cache Management**: One-tap tools to clear lyrics cache or reset application cache.
-- **Built-in In-App Auto Updater**: Automatically detects new GitHub Releases upon app startup with an update notification banner, or on-demand within Settings. Features live download percentage, background integrity verification, and seamless one-tap installation on Android and Linux.
+### 9. 📥 Direct Offline Downloads & Folder Opener
+- **320kbps CD Masters**: Downloads audio with native iTunes `.m4a` metadata atoms (`©nam`, `©ART`, `©alb`, `covr`).
+- **1-Tap Folder Opener**: Direct button in Downloads tab and Settings to open the saved tracks folder natively via `xdg-open` (Linux), `open` (macOS), `explorer.exe` (Windows), or Android Files.
 
-### 10. 🍎 Native iOS Experience & Audio Session
-- **Lock Screen & Dynamic Island (MPRemoteCommandCenter)**: Full native iOS media integration with live album art, track scrub bar, and interactive playback controls.
-- **AirPods & Bluetooth Integration**: Full hardware support for stem-click / squeeze gestures (single tap to pause/resume, double tap to skip, triple tap to rewind) and volume sync.
-- **Apple CarPlay Audio**: Seamless background streaming when connected to Apple CarPlay or car audio systems via Bluetooth or USB.
-- **Sandboxed Offline Downloads**: Offline audio tracks are stored directly in your device's isolated application sandbox, fully protected and accessible without needing mobile data or Wi-Fi.
-- **Apple Privacy Manifest**: Compliant with Apple's Spring 2024 Privacy Manifest (`PrivacyInfo.xcprivacy`) — 0 third-party trackers and 0 telemetry collection.
+### 10. 📻 Smart Playlists & Personal Radio
+- **Track & Artist Radio**: 1-tap "Start Radio" generating musically coherent 25-song queues anchored by PPMI co-occurrence.
+- **Dynamic Smart Collections**: Self-updating playlists (*On Repeat*, *Most Played This Month*, *Forgotten Favorites*).
+
+### 11. 📊 Softify Wrapped & Listening Insights
+- **Interactive Analytics**: Listening archetypes, total streaming hours, top songs/artists, and track completion rates.
+- **Multi-Period Filters**: Toggle between *All Time*, *Past 30 Days*, and *Past 7 Days*.
+- **24-Hour Rhythm & Share Cards**: Visual hourly listening clock and exportable AMOLED Wrapped summary cards.
+
+### 12. 🔄 1-Click Spotify Importer & Library Backup
+- **Keyless Spotify Importer**: Import public playlists via URL/ID without Spotify accounts or developer keys.
+- **Portable JSON Backup**: 1-click export and restore of playlists, liked songs, history, and settings into a standalone backup file.
+
+### 13. 📱 Ecosystem & OS Integrations
+- **Material You Android Widgets**: 4×1 compact pill and 4×2 expansive card home-screen widgets with dynamic system colors.
+- **Desktop Discord Rich Presence**: Live "Listening to..." presence with track title, artist, and timestamps via local Unix socket.
+- **Android Auto & Car Mode**: Large-target, high-contrast driving mode for automotive head units and mounts.
+- **iOS Media Session**: Lock screen controls, Dynamic Island (`MPRemoteCommandCenter`), and AirPods stem gesture support.
+
+### 14. ⚙️ Audio Settings & Silent Auto-Updater
+- **Fidelity Presets**: High (320 kbps), Medium (160 kbps), and Low (96 kbps Data Saver).
+- **Silent Background Updates**: Detects new GitHub releases, verifies asset integrity, and installs updates on Android and Linux without interrupting listening.
 
 ---
 

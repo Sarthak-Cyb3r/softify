@@ -10,6 +10,7 @@ import '../widgets/bouncing_scale_button.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/play_pause_morph_button.dart';
 import '../widgets/queue_bottom_sheet.dart';
+import '../widgets/sleep_timer_bottom_sheet.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
 class FullScreenPlayerScreen extends ConsumerStatefulWidget {
@@ -102,6 +103,14 @@ class _FullScreenPlayerScreenState
     final isDownloadedAsync =
         ref.watch(isTrackDownloadedProvider(currentTrack.id));
     final isDownloaded = isDownloadedAsync.value ?? false;
+
+    final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
+    final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);
+    final sleepRemaining = sleepRemainingAsync.value;
+    final isSleepEndOfTrack = isSleepEndOfTrackAsync.value ?? false;
+    final isSleepActive =
+        (sleepRemaining != null && sleepRemaining > Duration.zero) ||
+            isSleepEndOfTrack;
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -223,6 +232,41 @@ class _FullScreenPlayerScreenState
                         ],
                       ),
                     ),
+                    if (isSleepActive) ...[
+                      BouncingScaleButton(
+                        scaleFactor: 0.9,
+                        onTap: () => SleepTimerBottomSheet.show(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: tokens.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: tokens.accent.withValues(alpha: 0.4),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bedtime_rounded, color: tokens.accent, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                isSleepEndOfTrack
+                                    ? 'End'
+                                    : '${sleepRemaining?.inMinutes ?? 0}m',
+                                style: TextStyle(
+                                  color: tokens.accent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () => TrackOptionsBottomSheet.show(context, track: currentTrack),
@@ -497,8 +541,8 @@ class _FullScreenPlayerScreenState
                       isPlaying: isPlaying,
                       size: 64,
                       iconSize: 34,
-                      backgroundColor: Colors.white,
-                      iconColor: Colors.black,
+                      backgroundColor: tokens.accent,
+                      iconColor: const Color(0xFF080F11),
                       showGlow: true,
                       onTap: () {
                         if (isPlaying) {
@@ -829,9 +873,9 @@ class _FullScreenPlayerScrubberState
               trackHeight: 2.5,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4.5),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-              activeTrackColor: tokens.textPrimary,
+              activeTrackColor: tokens.accent,
               inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-              thumbColor: tokens.textPrimary,
+              thumbColor: tokens.accent,
             ),
             child: Slider(
               value: currentSeconds.clamp(0.0, maxSeconds),

@@ -59,10 +59,11 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final audioHandler = ref.watch(audioHandlerProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
           ? const SafeArea(top: false, child: MiniPlayer())
           : null,
@@ -72,13 +73,13 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
-            backgroundColor: AppTheme.surface,
+            backgroundColor: tokens.surface,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 widget.artistName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: tokens.textPrimary,
                 ),
               ),
               background: Container(
@@ -87,15 +88,15 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.purple.shade900.withValues(alpha: 0.6),
-                      AppTheme.background,
+                      tokens.accent.withValues(alpha: 0.25),
+                      tokens.background,
                     ],
                   ),
                 ),
                 child: Center(
                   child: CircleAvatar(
                     radius: 60,
-                    backgroundColor: AppTheme.surfaceElevated,
+                    backgroundColor: tokens.surfaceElevated,
                     backgroundImage: widget.coverUrl != null
                         ? NetworkImage(widget.coverUrl!)
                         : null,
@@ -117,9 +118,12 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                   children: [
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.black,
+                        backgroundColor: tokens.accent,
+                        foregroundColor: const Color(0xFF080F11),
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(tokens.radiusFull),
+                        ),
                       ),
                       icon: const Icon(Icons.play_arrow),
                       label: const Text(
@@ -133,9 +137,12 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                     const SizedBox(width: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textPrimary,
-                        side: const BorderSide(color: Colors.white24),
+                        foregroundColor: tokens.textPrimary,
+                        side: BorderSide(color: tokens.surfaceHighlight),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(tokens.radiusFull),
+                        ),
                       ),
                       icon: const Icon(Icons.shuffle),
                       label: const Text('Shuffle'),
@@ -151,9 +158,9 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
 
           // Track List
           if (_isLoading)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: AppTheme.primary),
+                child: CircularProgressIndicator(color: tokens.accent),
               ),
             )
           else if (_error != null)
@@ -180,14 +187,14 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                     },
                     leading: Text(
                       '${index + 1}',
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 14),
                     ),
                     title: Text(
                       track.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: tokens.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -195,7 +202,7 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                       track.album ?? widget.artistName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -203,7 +210,7 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                         IconButton(
                           icon: Icon(
                             isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? AppTheme.primary : AppTheme.textSecondary,
+                            color: isLiked ? tokens.accent : tokens.textSecondary,
                             size: 20,
                           ),
                           onPressed: () {
@@ -213,13 +220,13 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.download_for_offline_outlined, color: AppTheme.textSecondary, size: 20),
+                          icon: Icon(Icons.download_for_offline_outlined, color: tokens.textSecondary, size: 20),
                           onPressed: () {
                             ref.read(downloadRepositoryProvider).queueDownload(track);
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.more_vert, color: AppTheme.textSecondary, size: 20),
+                          icon: Icon(Icons.more_vert, color: tokens.textSecondary, size: 20),
                           onPressed: () {
                             TrackOptionsBottomSheet.show(context, track: track);
                           },

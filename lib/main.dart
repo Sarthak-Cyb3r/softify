@@ -17,6 +17,8 @@ import 'features/podcasts/data/podcast_metadata_service.dart';
 import 'features/podcasts/data/podcast_rss_resolver.dart';
 import 'features/podcasts/presentation/podcast_controller.dart';
 import 'presentation/providers/player_providers.dart';
+import 'dart:io';
+import 'data/player/linux_audio_backend.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
 import 'presentation/theme/app_theme.dart';
@@ -24,14 +26,18 @@ import 'presentation/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize media_kit audio backend for Linux & desktop platforms
-  JustAudioMediaKit.ensureInitialized(
-    linux: true,
-    windows: true,
-    android: false,
-    iOS: false,
-    macOS: false,
-  );
+  // Initialize media_kit audio backend with Linux DSP equalizer support
+  if (Platform.isLinux) {
+    SoftifyLinuxMediaKit.ensureInitialized();
+  } else {
+    JustAudioMediaKit.ensureInitialized(
+      linux: false,
+      windows: true,
+      android: false,
+      iOS: false,
+      macOS: false,
+    );
+  }
 
   // Fine-tune image decoding cache for smooth 60fps on mid-range devices (e.g. Moto G34)
   PaintingBinding.instance.imageCache.maximumSize = 150;

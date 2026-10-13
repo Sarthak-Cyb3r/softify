@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:softify/data/database/app_database.dart';
+import 'package:softify/data/player/linux_audio_backend.dart';
 import 'package:softify/data/player/softify_audio_handler.dart';
 import 'package:softify/data/player/softify_audio_player.dart';
-import 'package:softify/domain/entities/equalizer_preset.dart';
 import 'package:softify/domain/ports/i_download_repository.dart';
 import 'package:softify/domain/ports/i_library_repository.dart';
 import 'package:softify/domain/ports/i_stream_resolver.dart';
@@ -105,10 +105,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Equalizer Domain & State', () {
-    test('Default presets exist and have 5 bands', () {
+    test('Default presets exist and have 10 bands', () {
       expect(EqualizerPreset.defaultPresets.isNotEmpty, isTrue);
       for (final p in EqualizerPreset.defaultPresets) {
-        expect(p.gains.length, equals(5));
+        expect(p.gains.length, equals(10));
       }
       final rock = EqualizerPreset.defaultPresets.firstWhere((p) => p.name == 'Rock');
       expect(rock.gains[0], greaterThan(0)); // Boosted bass
@@ -132,8 +132,8 @@ void main() {
       // Test preset selection
       await notifier.selectPreset('Rock');
       expect(notifier.state.currentPreset, equals('Rock'));
-      expect(notifier.state.bandGains, equals([4.5, 2.5, -1.0, 2.5, 4.5]));
-      expect(mockPlayer.bandGains, equals([4.5, 2.5, -1.0, 2.5, 4.5]));
+      expect(notifier.state.bandGains, equals([4.5, 3.5, 2.5, 0.5, -1.0, 0.0, 2.0, 3.5, 4.5, 5.0]));
+      expect(mockPlayer.bandGains, equals([4.5, 3.5, 2.5, 0.5, -1.0, 0.0, 2.0, 3.5, 4.5, 5.0]));
 
       // Test manual slider change switches to Custom
       await notifier.setBandGain(0, 1.2);
@@ -162,7 +162,7 @@ void main() {
       // Test Reset to Flat
       await notifier.resetToFlat();
       expect(notifier.state.currentPreset, equals('Flat'));
-      expect(notifier.state.bandGains, equals([0.0, 0.0, 0.0, 0.0, 0.0]));
+      expect(notifier.state.bandGains, equals([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]));
       expect(notifier.state.bassBoost, equals(0.0));
       expect(notifier.state.loudnessGain, equals(0.0));
 
@@ -233,4 +233,48 @@ void main() {
       await db.close();
     });
   });
+
+  group('Linux Audio Equalizer Backend', () {
+    test('buildFilterString returns empty string when flat and default', () {
+      final res = SoftifyLinuxAudioBackend.buildFilterString(
+        gains: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        bassBoost: 0.0,
+        loudnessGain: 0.0,
+        enabled: true,
+      );
+      expect(res, isEmpty);
+    });
+
+    test('buildFilterString constructs lavfi equalizer filter chain for non-zero gains', () {
+      final res = SoftifyLinuxAudioBackend.buildFilterString(
+        gains: [5.0, 3.0, 0.0, -2.0, 0.0, 1.0, 2.0, 0.0, 4.0, 5.0],
+        bassBoost: 0.5,
+        loudnessGain: 0.2,
+        enabled: true,
+      );
+      expect(res, startsWith('lavfi=['));
+      expect(res, contains('equalizer=f=31:width_type=o:width=1:g=7.50')); // 5.0 + 0.5*5.0
+      expect(res, contains('equalizer=f=62:width_type=o:width=1:g=4.25')); // 3.0 + 0.5*2.5
+      expect(res, contains('volume=1.20dB'));
+    });
+
+    test('buildFilterString handles disabled state with and without loudness boost', () {
+      final disabledWithoutLoudness = SoftifyLinuxAudioBackend.buildFilterString(
+        gains: [5.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        bassBoost: 1.0,
+        loudnessGain: 0.0,
+        enabled: false,
+      );
+      expect(disabledWithoutLoudness, isEmpty);
+
+      final disabledWithLoudness = SoftifyLinuxAudioBackend.buildFilterString(
+        gains: [5.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        bassBoost: 1.0,
+        loudnessGain: 0.25,
+        enabled: false,
+      );
+      expect(disabledWithLoudness, equals('lavfi=[volume=1.50dB]'));
+    });
+  });
 }
+

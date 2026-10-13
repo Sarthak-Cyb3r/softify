@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database/app_database.dart';
 import '../../data/player/softify_audio_handler.dart';
 import '../../domain/entities/equalizer_preset.dart';
+export '../../domain/entities/equalizer_preset.dart';
 import 'player_providers.dart';
 
 final equalizerProvider =
@@ -39,14 +40,15 @@ class EqualizerNotifier extends StateNotifier<EqualizerState> {
       final preset = map['equalizer_preset'] ?? 'Flat';
       final bassBoost = double.tryParse(map['equalizer_bass_boost'] ?? '') ?? 0.0;
       final loudnessGain = double.tryParse(map['equalizer_loudness'] ?? '') ?? 0.0;
+      final loudnessNorm = map['equalizer_loudness_norm'] == 'true';
 
-      List<double> gains = const [0.0, 0.0, 0.0, 0.0, 0.0];
+      List<double> gains = const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
       if (map.containsKey('equalizer_gains')) {
         try {
           final decoded = jsonDecode(map['equalizer_gains']!) as List;
           gains = decoded.map((e) => (e as num).toDouble()).toList();
-          if (gains.length < 5) {
-            gains = [...gains, ...List.filled(5 - gains.length, 0.0)];
+          if (gains.length < 10) {
+            gains = [...gains, ...List.filled(10 - gains.length, 0.0)];
           }
         } catch (_) {}
       }
@@ -60,14 +62,26 @@ class EqualizerNotifier extends StateNotifier<EqualizerState> {
         bandFrequencies: freqs.isNotEmpty ? freqs : state.bandFrequencies,
         bassBoost: bassBoost,
         loudnessGain: loudnessGain,
+        loudnessNormalization: loudnessNorm,
       );
 
       // Apply initial state to hardware DSP
       await _audioHandler.setEqualizerEnabled(enabled);
       await _audioHandler.setEqualizerBands(gains);
       await _audioHandler.setBassBoost(bassBoost);
-      await _audioHandler.setLoudnessEnhancerGain(loudnessGain);
+      await _audioHandler.setLoudnessEnhancerGain(
+          loudnessNorm ? 0.25 : loudnessGain);
     } catch (_) {}
+  }
+
+  Future<void> toggleLoudnessNormalization(bool enabled) async {
+    state = state.copyWith(loudnessNormalization: enabled);
+    if (enabled) {
+      await _audioHandler.setLoudnessEnhancerGain(0.25);
+    } else {
+      await _audioHandler.setLoudnessEnhancerGain(state.loudnessGain);
+    }
+    await _saveSetting('equalizer_loudness_norm', enabled.toString());
   }
 
   Future<void> setEnabled(bool enabled) async {
@@ -79,7 +93,7 @@ class EqualizerNotifier extends StateNotifier<EqualizerState> {
   Future<void> selectPreset(String presetName) async {
     final preset = EqualizerPreset.defaultPresets.firstWhere(
       (p) => p.name == presetName,
-      orElse: () => const EqualizerPreset(name: 'Flat', gains: [0.0, 0.0, 0.0, 0.0, 0.0]),
+      orElse: () => const EqualizerPreset(name: 'Flat', gains: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
     );
 
     state = state.copyWith(
@@ -165,7 +179,7 @@ class EqualizerNotifier extends StateNotifier<EqualizerState> {
   }
 
   Future<void> resetToFlat() async {
-    const flatGains = [0.0, 0.0, 0.0, 0.0, 0.0];
+    const flatGains = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     state = state.copyWith(
       currentPreset: 'Flat',
       bandGains: flatGains,

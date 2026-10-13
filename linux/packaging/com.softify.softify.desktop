@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Softify
+GenericName=Music Player
+Comment=Ad-free, studio-fidelity music streaming application
+Exec=softify %u
+Icon=softify
+Terminal=false
+StartupWMClass=com.softify.softify
+Categories=AudioVideo;Audio;Player;Music;
+Keywords=music;audio;stream;player;lyrics;spotify;saavn;
+MimeType=x-scheme-handler/softify;
+StartupNotify=true

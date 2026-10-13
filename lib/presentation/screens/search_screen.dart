@@ -418,6 +418,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (context, index) {
             final category = _quickCategories[index];
+            final isSelected =
+                _searchController.text.trim().toLowerCase() == category.toLowerCase();
             return BouncingScaleButton(
               scaleFactor: 0.94,
               minTouchTarget: 0,
@@ -434,10 +436,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(
-                  color: tokens.surfaceElevated,
+                  color: isSelected ? tokens.accent : tokens.surfaceElevated,
                   borderRadius: BorderRadius.circular(tokens.radiusFull),
                   border: Border.all(
-                    color: tokens.surfaceHighlight.withValues(alpha: 0.8),
+                    color: isSelected
+                        ? tokens.accent
+                        : tokens.surfaceHighlight.withValues(alpha: 0.8),
                     width: 0.8,
                   ),
                 ),
@@ -447,7 +451,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     Icon(
                       Icons.tag_rounded,
                       size: 13,
-                      color: tokens.accent,
+                      color: isSelected ? const Color(0xFF080F11) : tokens.accent,
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -456,7 +460,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.1,
-                        color: tokens.textPrimary,
+                        color: isSelected
+                            ? const Color(0xFF080F11)
+                            : tokens.textPrimary,
                       ),
                     ),
                   ],

@@ -5,6 +5,7 @@ import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
 import '../screens/equalizer_screen.dart';
 import 'lyrics_view.dart';
+import 'wrapped_insights_dialog.dart';
 
 /// Desktop Sidebar adhering to clean minimalist dark aesthetic:
 /// - Palette: Surface Container Lowest (#0E0E0E / #131313), hairline border (#1F1F1F)
@@ -267,6 +268,14 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                           builder: (_) => const EqualizerScreen(),
                         ),
                       );
+                    },
+                  ),
+                  const SizedBox(height: 2),
+                  _buildFeatureItem(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Wrapped & Insights',
+                    onTap: () {
+                      WrappedInsightsDialog.show(context);
                     },
                   ),
                   const SizedBox(height: 2),

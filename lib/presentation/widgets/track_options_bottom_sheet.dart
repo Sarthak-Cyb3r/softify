@@ -5,7 +5,9 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../screens/album_detail_screen.dart';
 import '../screens/artist_detail_screen.dart';
+import '../screens/car_mode_screen.dart';
 import '../theme/app_theme.dart';
+import 'sleep_timer_bottom_sheet.dart';
 
 class TrackOptionsBottomSheet extends ConsumerWidget {
   final Track track;
@@ -44,12 +46,18 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
     final isLiked = isLikedAsync.value ?? track.isLiked;
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(track.id));
     final isDownloaded = isDownloadedAsync.value ?? false;
+    final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
+    final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);
+    final sleepRemaining = sleepRemainingAsync.value;
+    final isSleepEndOfTrack = isSleepEndOfTrackAsync.value ?? false;
+    final isSleepActive = (sleepRemaining != null && sleepRemaining > Duration.zero) || isSleepEndOfTrack;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.surfaceElevated,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    final tokens = context.tokens;
+
+    return Material(
+      color: tokens.surfaceElevated,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -141,12 +149,12 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                     ListTile(
                       leading: Icon(
                         isLiked ? Icons.favorite : Icons.favorite_border,
-                        color: isLiked ? AppTheme.primary : AppTheme.textPrimary,
+                        color: isLiked ? tokens.accent : AppTheme.textPrimary,
                       ),
                       title: Text(
                         isLiked ? 'Liked' : 'Like',
                         style: TextStyle(
-                          color: isLiked ? AppTheme.primary : AppTheme.textPrimary,
+                          color: isLiked ? tokens.accent : AppTheme.textPrimary,
                         ),
                       ),
                       onTap: () {
@@ -197,16 +205,41 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       },
                     ),
 
+                    // 4b. Start Song Radio
+                    ListTile(
+                      leading: const Icon(Icons.radio_outlined, color: AppTheme.textPrimary),
+                      title: const Text('Start song radio', style: TextStyle(color: AppTheme.textPrimary)),
+                      subtitle: const Text(
+                        'Continuous queue musically matched to this track',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Starting radio for "${track.title}"...'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        try {
+                          final catalog = ref.read(catalogRepositoryProvider);
+                          final related = await catalog.getRelatedTracks(track, limit: 25);
+                          final queue = [track, ...related.where((t) => t.id != track.id)];
+                          await audioHandler.setQueue(queue, startIndex: 0);
+                        } catch (_) {}
+                      },
+                    ),
+
                     // 5. Download / Offline
                     ListTile(
                       leading: Icon(
                         isDownloaded ? Icons.check_circle : Icons.download_rounded,
-                        color: isDownloaded ? AppTheme.primary : AppTheme.textPrimary,
+                        color: isDownloaded ? tokens.accent : AppTheme.textPrimary,
                       ),
                       title: Text(
                         isDownloaded ? 'Downloaded' : 'Download song',
                         style: TextStyle(
-                          color: isDownloaded ? AppTheme.primary : AppTheme.textPrimary,
+                          color: isDownloaded ? tokens.accent : AppTheme.textPrimary,
                         ),
                       ),
                       onTap: () async {
@@ -232,8 +265,63 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       },
                     ),
 
-                    // 6. View Artist
-                    if (track.artist.isNotEmpty && track.artist != 'Unknown Artist')
+                    // 6. Sleep Timer
+                    ListTile(
+                      leading: Icon(
+                        Icons.bedtime_outlined,
+                        color: isSleepActive ? tokens.accent : AppTheme.textPrimary,
+                      ),
+                      title: const Text('Sleep timer', style: TextStyle(color: AppTheme.textPrimary)),
+                      subtitle: Text(
+                        isSleepEndOfTrack
+                            ? 'Active: Ends after current song'
+                            : (isSleepActive && sleepRemaining != null
+                                ? 'Active: ${sleepRemaining.inMinutes}m ${(sleepRemaining.inSeconds % 60).toString().padLeft(2, '0')}s remaining'
+                                : 'Pause music automatically after a set time'),
+                        style: TextStyle(
+                          color: isSleepActive ? tokens.accent : AppTheme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: isSleepActive ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: isSleepActive
+                          ? Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: tokens.accent,
+                                shape: BoxShape.circle,
+                              ),
+                            )
+                          : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        SleepTimerBottomSheet.show(context);
+                      },
+                    ),
+
+                    // 7. View Artist & Artist Radio
+                    if (track.artist.isNotEmpty && track.artist != 'Unknown Artist') ...[
+                      ListTile(
+                        leading: const Icon(Icons.podcasts_rounded, color: AppTheme.textPrimary),
+                        title: Text('Start artist radio (${track.artist})', style: const TextStyle(color: AppTheme.textPrimary)),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Starting artist radio for "${track.artist}"...'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                          try {
+                            final catalog = ref.read(catalogRepositoryProvider);
+                            final artistTracks = await catalog.getArtistTracks(track.artist, limit: 25);
+                            if (artistTracks.isNotEmpty) {
+                              await audioHandler.setQueue(artistTracks, startIndex: 0);
+                            }
+                          } catch (_) {}
+                        },
+                      ),
                       ListTile(
                         leading: const Icon(Icons.person_outline, color: AppTheme.textPrimary),
                         title: Text('View artist (${track.artist})', style: const TextStyle(color: AppTheme.textPrimary)),
@@ -250,6 +338,7 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                           );
                         },
                       ),
+                    ],
 
                     // 7. View Album
                     if (track.album != null && track.album!.trim().isNotEmpty)
@@ -270,6 +359,23 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                           );
                         },
                       ),
+
+                    // 7b. Car Mode Driving Interface
+                    ListTile(
+                      leading: const Icon(Icons.directions_car_filled_rounded, color: AppTheme.textPrimary),
+                      title: const Text('Car Mode', style: TextStyle(color: AppTheme.textPrimary)),
+                      subtitle: const Text(
+                        'Distraction-free driving interface with large touch targets',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CarModeScreen()),
+                        );
+                      },
+                    ),
 
                     // 8. Remove from this Playlist (if applicable)
                     if (currentPlaylistId != null && currentPlaylistTrackIndex != null)

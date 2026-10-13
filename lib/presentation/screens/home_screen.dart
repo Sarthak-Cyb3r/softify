@@ -212,17 +212,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1F1F23),
+                      color: tokens.surfaceElevated,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: const Color(0xFF4EDEA3).withValues(alpha: 0.35),
+                        color: tokens.accent.withValues(alpha: 0.35),
                         width: 1,
                       ),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.graphic_eq_rounded,
-                        color: Color(0xFF4EDEA3),
+                        color: tokens.accent,
                         size: 18,
                       ),
                     ),
@@ -287,15 +287,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Container(
                     width: 28,
                     height: 28,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF1F1F23),
+                      color: tokens.surfaceElevated,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.person_rounded,
                         size: 16,
-                        color: Color(0xFF4EDEA3),
+                        color: tokens.accent,
                       ),
                     ),
                   ),
@@ -340,7 +340,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 32),
 
                       // 3. Continue Listening Shelf
-                      _buildContinueListeningSection(tokens, historyAsync, audioHandler),
+                      _buildContinueListeningSection(
+                        tokens,
+                        historyAsync,
+                        audioHandler,
+                        isDesktop: true,
+                      ),
                       const SizedBox(height: 32),
 
                       // 4. Made For You Shelf
@@ -406,7 +411,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   isDesktop: false,
                 ),
                 const SizedBox(height: 28),
-                _buildContinueListeningSection(tokens, historyAsync, audioHandler),
+                _buildContinueListeningSection(
+                  tokens,
+                  historyAsync,
+                  audioHandler,
+                  isDesktop: false,
+                ),
                 const SizedBox(height: 32),
                 _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
                 const SizedBox(height: 32),
@@ -554,18 +564,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               borderRadius: BorderRadius.circular(tokens.radiusMd),
               child: AspectRatio(
                 aspectRatio: 1,
-                child: track.coverUrl != null
-                    ? Image.network(
-                        track.coverUrl!,
-                        width: 120,
-                        height: 120,
-                        cacheWidth: 360,
-                        cacheHeight: 360,
-                        gaplessPlayback: true,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackThumb(tokens),
-                      )
-                    : _fallbackThumb(tokens),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    track.coverUrl != null
+                        ? Image.network(
+                            track.coverUrl!,
+                            width: 120,
+                            height: 120,
+                            cacheWidth: 360,
+                            cacheHeight: 360,
+                            gaplessPlayback: true,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _fallbackThumb(tokens),
+                          )
+                        : _fallbackThumb(tokens),
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: tokens.accent,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            size: 18,
+                            color: Color(0xFF080F11),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -730,10 +770,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     isDesktop
                         ? 'Pick up right where you left off, or explore your library.'
-                        : 'Ready to listen to some music today?',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFFBBCABF),
+                        : 'Quiet melodies for an unhurried day.',
+                    style: TextStyle(
+                      fontSize: isDesktop ? 13 : 14,
+                      fontStyle: isDesktop ? FontStyle.normal : FontStyle.italic,
+                      color: tokens.textSecondary,
                     ),
                   ),
                 ],
@@ -752,26 +793,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1F1F23),
+                    color: tokens.surfaceElevated,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: const Color(0xFF4EDEA3).withValues(alpha: 0.4),
+                      color: tokens.accent.withValues(alpha: 0.4),
                       width: 1.2,
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.sync_alt_rounded,
-                        color: Color(0xFF4EDEA3),
+                        color: tokens.accent,
                         size: 16,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         'Import Spotify Playlist',
                         style: TextStyle(
-                          color: Color(0xFF4EDEA3),
+                          color: tokens.accent,
                           fontWeight: FontWeight.w700,
                           fontSize: 12.5,
                         ),
@@ -1059,8 +1100,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildContinueListeningSection(
     AppTokens tokens,
     AsyncValue<List<dynamic>> historyAsync,
-    dynamic audioHandler,
-  ) {
+    dynamic audioHandler, {
+    required bool isDesktop,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1168,6 +1210,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             }
 
+            // On Mobile: Clean 2x2 Continue Listening Grid (Stitch spec)
+            if (!isDesktop && history.length >= 2) {
+              final gridItems = history.take(4).toList();
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 2.5,
+                ),
+                itemCount: gridItems.length,
+                itemBuilder: (context, index) {
+                  final track = gridItems[index].track;
+                  return _buildMobileContinueCard(tokens, track, audioHandler);
+                },
+              );
+            }
+
             return SizedBox(
               height: 204,
               child: ListView.separated(
@@ -1183,6 +1245,92 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildMobileContinueCard(
+    AppTokens tokens,
+    Track track,
+    dynamic audioHandler,
+  ) {
+    return BouncingScaleButton(
+      scaleFactor: 0.96,
+      minTouchTarget: 0,
+      onTap: () => audioHandler.playTrack(track),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: tokens.surfaceElevated,
+          borderRadius: BorderRadius.circular(tokens.radiusMd),
+          border: Border.all(
+            color: tokens.surfaceHighlight.withValues(alpha: 0.6),
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
+              child: SizedBox(
+                width: 42,
+                height: 42,
+                child: track.coverUrl != null
+                    ? Image.network(
+                        track.coverUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallbackThumb(tokens),
+                      )
+                    : _fallbackThumb(tokens),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    track.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tokens.accent,
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 17,
+                  color: Color(0xFF080F11),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

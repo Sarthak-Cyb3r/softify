@@ -67,6 +67,34 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.curveSpring = Curves.easeOutCubic,
   });
 
+  /// Canonical Linux desktop theme tokens (Emerald #4EDEA3 / Charcoal #121316)
+  static const AppTokens linuxTokens = AppTokens(
+    background: Color(0xFF121316),
+    surface: Color(0xFF121316),
+    surfaceElevated: Color(0xFF1F1F23),
+    surfaceHighlight: Color(0xFF292A2D),
+    glass: Color(0xCC141414),
+    accent: Color(0xFF4EDEA3),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFFBBCABF),
+    textMuted: Color(0xFF86948A),
+    divider: Color(0xFF292A2D),
+  );
+
+  /// Google Stitch mobile theme tokens (Warm Amber #F59E0B / Deep Slate #0D1417)
+  static const AppTokens mobileStitchTokens = AppTokens(
+    background: Color(0xFF0D1417),
+    surface: Color(0xFF0D1417),
+    surfaceElevated: Color(0xFF1E2629),
+    surfaceHighlight: Color(0xFF262E31),
+    glass: Color(0xE60D1417),
+    accent: Color(0xFFF59E0B),
+    textPrimary: Color(0xFFF1F5F9),
+    textSecondary: Color(0xFFCBD5E1),
+    textMuted: Color(0xFF94A3B8),
+    divider: Color(0x1FFFFFFF),
+  );
+
   @override
   AppTokens copyWith({
     Color? background,

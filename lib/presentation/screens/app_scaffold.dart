@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/player_providers.dart';
-import '../theme/app_tokens.dart';
+import '../theme/app_theme.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/mini_player.dart';
@@ -112,16 +112,41 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
+    // Synchronize Desktop Discord Rich Presence
+    ref.listen(currentTrackProvider, (_, next) {
+      final track = next.value;
+      final pb = ref.read(playbackStateStreamProvider).value;
+      ref.read(discordRpcServiceProvider).updatePresence(
+        track: track,
+        isPlaying: pb?.playing ?? false,
+        position: pb?.position ?? Duration.zero,
+      );
+    });
+
+    ref.listen(playbackStateStreamProvider, (_, next) {
+      final pb = next.value;
+      final track = ref.read(currentTrackProvider).value;
+      ref.read(discordRpcServiceProvider).updatePresence(
+        track: track,
+        isPlaying: pb?.playing ?? false,
+        position: pb?.position ?? Duration.zero,
+      );
+    });
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 800;
 
         if (isDesktop) {
-          return _buildDesktopLayout(context, tokens);
+          return _buildDesktopLayout(context, AppTokens.linuxTokens);
         } else {
-          return _buildMobileLayout(context, tokens);
+          return Theme(
+            data: AppTheme.mobileDarkTheme,
+            child: Builder(
+              builder: (mobileContext) =>
+                  _buildMobileLayout(mobileContext, AppTokens.mobileStitchTokens),
+            ),
+          );
         }
       },
     );

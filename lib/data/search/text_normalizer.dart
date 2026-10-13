@@ -41,6 +41,32 @@ class TextNormalizer {
     return collapsedPunctuation.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
+  /// Checks whether a track's artist credit accurately includes the target artist,
+  /// preventing songs by different artists on compilation releases or fuzzy matches
+  /// from leaking into the target artist's catalog.
+  static bool matchesArtist(String trackArtist, String targetArtist) {
+    final normTrack = normalize(trackArtist);
+    final normTarget = normalize(targetArtist);
+    if (normTarget.isEmpty || normTrack.isEmpty) return false;
+    if (normTrack == normTarget) return true;
+
+    // Check individual artist tokens separated by delimiters / featured tags
+    final splitParts = trackArtist
+        .split(RegExp(r'[,&/|]|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b', caseSensitive: false))
+        .map((s) => normalize(s))
+        .where((s) => s.isNotEmpty);
+
+    for (final part in splitParts) {
+      if (part == normTarget) return true;
+      if (part.startsWith('$normTarget ') ||
+          part.endsWith(' $normTarget') ||
+          part.contains(' $normTarget ')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Expands query tokens using alias dictionary (e.g. "kk" -> "krishnakumar kunnath")
   static List<String> expandAliases(
     String query,

@@ -1,8 +1,13 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/services/folder_launcher_service.dart';
+import '../../data/services/library_backup_service.dart';
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/diversity_providers.dart';
@@ -244,14 +249,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final learningPausedAsync = ref.watch(learningPausedProvider);
     final snoozedArtistsAsync = ref.watch(snoozedArtistsProvider);
 
+    final tokens = context.tokens;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: tokens.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.surface,
+        backgroundColor: tokens.surface,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Settings',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontWeight: FontWeight.bold, color: tokens.textPrimary),
         ),
       ),
       body: ListView(
@@ -260,13 +267,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 0: Profile
           _buildSectionHeader('Profile'),
           Material(
-            color: AppTheme.surfaceElevated,
+            color: tokens.surfaceElevated,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: AppTheme.primary,
-                child: Icon(Icons.person, color: Colors.black),
+              leading: CircleAvatar(
+                backgroundColor: tokens.accent,
+                child: const Icon(Icons.person, color: Color(0xFF080F11)),
               ),
               title: Text(
                 userName != null && userName.trim().isNotEmpty
@@ -274,11 +281,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     : 'Set your name',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Personalized greeting on Home screen',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                style: TextStyle(color: tokens.textSecondary, fontSize: 12),
               ),
-              trailing: const Icon(Icons.edit_outlined, color: AppTheme.textSecondary, size: 20),
+              trailing: Icon(Icons.edit_outlined, color: tokens.textSecondary, size: 20),
               onTap: () => _showEditNameDialog(context),
             ),
           ),
@@ -287,17 +294,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 1: Audio Quality & Playback
           _buildSectionHeader('Playback & Streaming'),
           Material(
-            color: AppTheme.surfaceElevated,
+            color: tokens.surfaceElevated,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 RadioListTile<AudioQualityPreset>(
-                  activeColor: AppTheme.primary,
+                  activeColor: tokens.accent,
                   title: const Text('Standard (Recommended)',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('~128 kbps AAC. High fidelity streaming.',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  subtitle: Text('~128 kbps AAC. High fidelity streaming.',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
                   value: AudioQualityPreset.standard,
                   groupValue: currentQuality,
                   onChanged: (val) {
@@ -308,11 +315,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const Divider(color: Colors.black26, height: 1),
                 RadioListTile<AudioQualityPreset>(
-                  activeColor: AppTheme.primary,
+                  activeColor: tokens.accent,
                   title: const Text('Data Saver',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('~64 kbps. Lower data consumption on mobile networks.',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  subtitle: Text('~64 kbps. Lower data consumption on mobile networks.',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
                   value: AudioQualityPreset.low,
                   groupValue: currentQuality,
                   onChanged: (val) {
@@ -323,11 +330,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const Divider(color: Colors.black26, height: 1),
                 SwitchListTile(
-                  activeColor: AppTheme.primary,
+                  activeColor: tokens.accent,
                   title: const Text('Autoplay Similar Songs',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Keep listening to similar songs when your music finishes.',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                  subtitle: Text('Keep listening to similar songs when your music finishes.',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
                   value: autoPlayEnabled,
                   onChanged: (val) {
                     final audioHandler = ref.read(audioHandlerProvider);
@@ -339,22 +346,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   builder: (context, ref, _) {
                     final eqState = ref.watch(equalizerProvider);
                     return ListTile(
-                      leading: const Icon(Icons.equalizer, color: AppTheme.primary),
+                      leading: Icon(Icons.equalizer, color: tokens.accent),
                       title: const Text('Equalizer',
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         eqState.enabled
                             ? 'Active • ${eqState.currentPreset}${eqState.bassBoost > 0 ? " • Bass +${(eqState.bassBoost * 5).toStringAsFixed(1)}dB" : ""}'
                             : 'Off',
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
                       ),
-                      trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                      trailing: Icon(Icons.chevron_right, color: tokens.textSecondary),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const EqualizerScreen()),
                         );
                       },
+                    );
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final eqState = ref.watch(equalizerProvider);
+                    final eqNotifier = ref.read(equalizerProvider.notifier);
+                    return SwitchListTile(
+                      secondary: Icon(Icons.graphic_eq_rounded, color: tokens.accent),
+                      title: const Text('Loudness Normalization',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        'EBU R128 standard: uniform perceived volume across all songs',
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                      ),
+                      value: eqState.loudnessNormalization,
+                      onChanged: (val) => eqNotifier.toggleLoudnessNormalization(val),
                     );
                   },
                 ),
@@ -367,7 +392,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 2: Lyrics & Synchronization
           _buildSectionHeader('Lyrics & Synchronization'),
           Material(
-            color: AppTheme.surfaceElevated,
+            color: tokens.surfaceElevated,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Consumer(
@@ -381,7 +406,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ListTile(
                       leading: Icon(
                         Icons.sync,
-                        color: (hasToken || hasEndpoint) ? AppTheme.primary : AppTheme.textSecondary,
+                        color: (hasToken || hasEndpoint) ? tokens.accent : tokens.textSecondary,
                       ),
                       title: const Text('Primary Lyrics Engine',
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
@@ -389,7 +414,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         hasToken || hasEndpoint
                             ? 'Spotify Color-Lyrics API (Active)'
                             : 'LRCLIB & Kugou Synced Catalogs (Active - Millisecond Calibrated)',
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
                       ),
                     ),
                     const Divider(color: Colors.black26, height: 1),
@@ -401,7 +426,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         hasToken
                             ? 'Configured • ${lyricsConfig.token!.substring(0, lyricsConfig.token!.length.clamp(0, 10))}...'
                             : 'Optional: Spotify Web Player Bearer token for native Color-Lyrics',
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
                       ),
                       trailing: hasToken
                           ? IconButton(
@@ -409,7 +434,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               tooltip: 'Remove Token',
                               onPressed: () => ref.read(spotifyLyricsConfigProvider.notifier).setToken(null),
                             )
-                          : const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                          : Icon(Icons.chevron_right, color: tokens.textSecondary),
                       onTap: () => _showTokenInputDialog(context, ref, lyricsConfig.token),
                     ),
                     const Divider(color: Colors.black26, height: 1),
@@ -421,7 +446,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         hasEndpoint
                             ? lyricsConfig.endpoint!
                             : 'Optional: Self-hosted reverse-engineered Spotify lyrics proxy URL',
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
                       ),
                       trailing: hasEndpoint
                           ? IconButton(
@@ -429,7 +454,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               tooltip: 'Remove Endpoint',
                               onPressed: () => ref.read(spotifyLyricsConfigProvider.notifier).setEndpoint(null),
                             )
-                          : const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                          : Icon(Icons.chevron_right, color: tokens.textSecondary),
                       onTap: () => _showEndpointInputDialog(context, ref, lyricsConfig.endpoint),
                     ),
                   ],
@@ -445,7 +470,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
+              color: tokens.surfaceElevated,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -453,7 +478,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.system_update, color: AppTheme.primary, size: 28),
+                    Icon(Icons.system_update, color: tokens.accent, size: 28),
                     const SizedBox(width: 14),
                     Expanded(
                       child: GestureDetector(
@@ -466,16 +491,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 style: const TextStyle(
                                     color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                             const SizedBox(height: 2),
-                            const Text('Direct GitHub Releases Updater',
-                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                            Text('Direct GitHub Releases Updater',
+                                style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
                           ],
                         ),
                       ),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.black,
+                        backgroundColor: tokens.accent,
+                        foregroundColor: const Color(0xFF080F11),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
                       onPressed: (_isCheckingUpdate || _isDownloadingUpdate)
@@ -496,7 +521,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Text(
                     _updateStatusMessage!,
                     style: TextStyle(
-                      color: _availableRelease != null ? AppTheme.primary : AppTheme.textSecondary,
+                      color: _availableRelease != null ? tokens.accent : tokens.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -506,12 +531,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   LinearProgressIndicator(
                     value: _downloadProgress > 0 ? _downloadProgress : null,
                     backgroundColor: Colors.white10,
-                    valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+                    valueColor: AlwaysStoppedAnimation(tokens.accent),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${(_downloadProgress * 100).toStringAsFixed(1)}%',
-                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 12),
                   ),
                 ],
                 if (_availableRelease != null && !_isDownloadingUpdate) ...[
@@ -521,7 +546,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
-                          side: const BorderSide(color: AppTheme.textSecondary),
+                          side: BorderSide(color: tokens.textSecondary),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         ),
                         onPressed: () {
@@ -532,8 +557,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          foregroundColor: Colors.black,
+                          backgroundColor: tokens.accent,
+                          foregroundColor: const Color(0xFF080F11),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         ),
                         onPressed: () => _startDownloadAndInstall(_availableRelease!),
@@ -552,7 +577,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 3: Fallback Instances & Health
           _buildSectionHeader('Fallback Instances (Piped)'),
           Material(
-            color: AppTheme.surfaceElevated,
+            color: tokens.surfaceElevated,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -562,20 +587,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Decentralized Failover',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
                       ),
                       TextButton.icon(
                         onPressed: _isPingingInstances ? null : _pingAllInstances,
                         icon: _isPingingInstances
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
                               )
-                            : const Icon(Icons.refresh, size: 16, color: AppTheme.primary),
-                        label: const Text('Test Health', style: TextStyle(color: AppTheme.primary, fontSize: 13)),
+                            : Icon(Icons.refresh, size: 16, color: tokens.accent),
+                        label: Text('Test Health', style: TextStyle(color: tokens.accent, fontSize: 13)),
                       ),
                     ],
                   ),
@@ -584,10 +609,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 instancesAsync.when(
                   data: (instances) {
                     if (instances.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
                         child: Text('No instances cached yet. Tap Test Health to probe defaults.',
-                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                            style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
                       );
                     }
                     return ListView.separated(
@@ -601,7 +626,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         final color = latency == null
                             ? Colors.redAccent
                             : latency < 500
-                                ? AppTheme.primary
+                                ? tokens.accent
                                 : Colors.orangeAccent;
                         return ListTile(
                           dense: true,
@@ -620,9 +645,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       },
                     );
                   },
-                  loading: () => const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+                  loading: () => Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator(color: tokens.accent)),
                   ),
                   error: (e, _) => Padding(
                     padding: const EdgeInsets.all(16),
@@ -638,7 +663,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 4: Storage & Cache
           _buildSectionHeader('Storage & Cache'),
           Material(
-            color: AppTheme.surfaceElevated,
+            color: tokens.surfaceElevated,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -646,8 +671,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ListTile(
                   leading: const Icon(Icons.lyrics, color: Colors.white70),
                   title: const Text('Clear Lyrics Cache', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Deletes locally cached synchronized LRC lyrics',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  subtitle: Text('Deletes locally cached synchronized LRC lyrics',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
                   trailing: TextButton(
                     onPressed: () async {
                       final count = await ref.read(cacheManagerProvider).clearLyricsCache();
@@ -655,7 +680,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Cleared $count cached lyrics entries'),
-                            backgroundColor: AppTheme.primary,
+                            backgroundColor: tokens.accent,
                           ),
                         );
                       }
@@ -667,8 +692,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ListTile(
                   leading: const Icon(Icons.cleaning_services, color: Colors.white70),
                   title: const Text('Clear Temporary Cache', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Deletes streaming buffers and temporary downloads',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  subtitle: Text('Deletes streaming buffers and temporary downloads',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
                   trailing: TextButton(
                     onPressed: () async {
                       await ref.read(cacheManagerProvider).clearTemporaryCache();
@@ -676,13 +701,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Temporary cache cleared'),
-                            backgroundColor: AppTheme.primary,
+                            backgroundColor: Color(0xFF1E2629),
                           ),
                         );
                       }
                     },
                     child: const Text('Clear', style: TextStyle(color: Colors.redAccent)),
                   ),
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.backup_outlined, color: Colors.white70),
+                  title: const Text('Export Library Backup', style: TextStyle(color: Colors.white)),
+                  subtitle: Text('Save liked songs, playlists, and settings to a JSON backup file',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: tokens.textSecondary),
+                  onTap: _exportLibraryBackup,
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.settings_backup_restore_rounded, color: Colors.white70),
+                  title: const Text('Restore Library Backup', style: TextStyle(color: Colors.white)),
+                  subtitle: Text('Import playlists and liked songs from a backup file or JSON',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: tokens.textSecondary),
+                  onTap: _showRestoreBackupDialog,
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.folder_open_rounded, color: Colors.white70),
+                  title: const Text('Saved Songs Folder', style: TextStyle(color: Colors.white)),
+                  subtitle: Text('Open the directory where offline tracks and audio are stored',
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: tokens.textSecondary),
+                  onTap: () => FolderLauncherService.openDownloadsFolder(context),
                 ),
               ],
             ),
@@ -693,17 +745,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 5: Discovery & Learning Controls
           _buildSectionHeader('Discovery & Taste Controls'),
           Material(
-            color: AppTheme.surfaceElevated,
+            color: tokens.surfaceElevated,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 SwitchListTile(
-                  activeColor: AppTheme.primary,
+                  activeColor: tokens.accent,
                   title: const Text('Incognito Taste (Pause Learning)', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Pause training on-device recommendation models from current listening',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 12),
                   ),
                   value: learningPausedAsync.value ?? false,
                   onChanged: (val) async {
@@ -713,10 +765,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const Divider(color: Colors.black26, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.person_add_alt_1, color: AppTheme.primary, size: 20),
+                  leading: Icon(Icons.person_add_alt_1, color: tokens.accent, size: 20),
                   title: const Text('Pick Favorite Artists', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  subtitle: const Text('Seed recommendation engines with artists you love', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                  trailing: const Icon(Icons.arrow_forward_ios, color: AppTheme.textSecondary, size: 14),
+                  subtitle: Text('Seed recommendation engines with artists you love', style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
+                  trailing: Icon(Icons.arrow_forward_ios, color: tokens.textSecondary, size: 14),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -725,24 +777,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const Divider(color: Colors.black26, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.snooze, color: AppTheme.primary, size: 20),
+                  leading: Icon(Icons.snooze, color: tokens.accent, size: 20),
                   title: const Text('Snooze an Artist (30 Days)', style: TextStyle(color: Colors.white, fontSize: 14)),
                   subtitle: snoozedArtistsAsync.when(
                     data: (artists) => Text(
                       artists.isEmpty ? 'No artists snoozed' : '${artists.length} snoozed: ${artists.join(", ")}',
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                      style: TextStyle(color: tokens.textSecondary, fontSize: 12),
                     ),
-                    loading: () => const Text('Loading snoozed...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                    error: (_, __) => const Text('Error loading snoozes', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                    loading: () => Text('Loading snoozed...', style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
+                    error: (_, __) => Text('Error loading snoozes', style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
                   ),
-                  trailing: const Icon(Icons.add, color: AppTheme.primary, size: 20),
+                  trailing: Icon(Icons.add, color: tokens.accent, size: 20),
                   onTap: () => _showSnoozeArtistDialog(context),
                 ),
                 const Divider(color: Colors.black26, height: 1),
                 ListTile(
                   leading: const Icon(Icons.restart_alt, color: Colors.redAccent, size: 20),
                   title: const Text('Reset Recommendation Learning', style: TextStyle(color: Colors.redAccent, fontSize: 14)),
-                  subtitle: const Text('Wipes taste profile and starts recommendation models fresh', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                  subtitle: Text('Wipes taste profile and starts recommendation models fresh', style: TextStyle(color: tokens.textSecondary, fontSize: 12)),
                   onTap: () => _showResetLearningDialog(context),
                 ),
               ],
@@ -756,7 +808,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
+              color: tokens.surfaceElevated,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -767,9 +819,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Ad-Free, Paywall-Free Mobile Music Streaming Application',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(color: tokens.textSecondary, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
                 const Text(
@@ -780,20 +832,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceHighlight,
+                    color: tokens.surfaceHighlight,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white12),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.gavel_rounded, size: 18, color: AppTheme.primary),
-                      SizedBox(width: 10),
+                      Icon(Icons.gavel_rounded, size: 18, color: tokens.accent),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'This project is built for educational purposes and personal use. It is not affiliated with, endorsed by, or connected to Spotify, YouTube, or JioSaavn. No copyrighted content is hosted on this app.',
                           style: TextStyle(
-                            color: AppTheme.textSecondary,
+                            color: tokens.textSecondary,
                             fontSize: 12,
                             height: 1.4,
                           ),
@@ -813,14 +865,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final tokens = context.tokens;
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
-          color: AppTheme.textSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+        style: TextStyle(
+          color: tokens.accent,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),
       ),
@@ -1096,6 +1149,148 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             },
             child: const Text('Reset Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportLibraryBackup() async {
+    try {
+      final db = ref.read(databaseProvider);
+      final filePath = await LibraryBackupService.exportBackupToFile(db);
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.surfaceElevated,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: AppTheme.primary),
+              SizedBox(width: 8),
+              Text('Backup Exported', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Your library has been successfully exported to:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.black38,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(filePath, style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: filePath));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('File path copied to clipboard'), backgroundColor: AppTheme.primary),
+                );
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Copy Path', style: TextStyle(color: AppTheme.primary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.black),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export backup: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  void _showRestoreBackupDialog() {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Restore Library Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Paste the file path to your backup JSON file or paste the raw JSON text directly:',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              maxLines: 4,
+              minLines: 2,
+              decoration: InputDecoration(
+                hintText: '/path/to/backup.json or {"format": "softify_backup"...}',
+                hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
+                filled: true,
+                fillColor: Colors.black38,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.black),
+            onPressed: () async {
+              final raw = controller.text.trim();
+              if (raw.isEmpty) return;
+
+              final messenger = ScaffoldMessenger.of(context);
+
+              String jsonPayload = raw;
+              if (raw.startsWith('/') || raw.startsWith('C:') || (!raw.startsWith('{') && raw.endsWith('.json'))) {
+                final file = File(raw);
+                if (file.existsSync()) {
+                  jsonPayload = await file.readAsString();
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('File not found at specified path'), backgroundColor: Colors.redAccent),
+                  );
+                  return;
+                }
+              }
+
+              try {
+                final db = ref.read(databaseProvider);
+                final res = await LibraryBackupService.restoreFromJson(db, jsonPayload);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Restored ${res.playlistsRestored} playlists & ${res.likedRestored} liked songs'),
+                    backgroundColor: AppTheme.primary,
+                  ),
+                );
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Restore failed: $e'), backgroundColor: Colors.redAccent),
+                );
+              }
+            },
+            child: const Text('Restore'),
           ),
         ],
       ),

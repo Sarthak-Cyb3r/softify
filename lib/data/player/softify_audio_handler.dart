@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
@@ -58,6 +59,14 @@ class SoftifyAudioHandler extends BaseAudioHandler
       BehaviorSubject<bool>.seeded(true);
 
   Timer? _saveQueueDebounceTimer;
+  Timer? _sleepTimer;
+  Timer? _sleepTicker;
+  DateTime? _sleepTargetTime;
+  bool _sleepEndOfTrack = false;
+  final BehaviorSubject<Duration?> _sleepTimerRemainingSubject =
+      BehaviorSubject<Duration?>.seeded(null);
+  final BehaviorSubject<bool> _sleepEndOfTrackSubject =
+      BehaviorSubject<bool>.seeded(false);
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _playbackEventSubscription;
   StreamSubscription? _audioSessionSubscription;
@@ -147,6 +156,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
         isSave: track.isLiked,
       ).catchError((_) {}));
     }
+
+    final double ratio = isCompleted
+        ? 1.0
+        : (track.duration.inMilliseconds > 0
+            ? (listenedMs / track.duration.inMilliseconds).clamp(0.0, 1.0)
+            : 0.0);
+    unawaited(_libraryRepo.recordPlayHistory(track, ratio).catchError((_) {}));
   }
 
   // ==========================================
@@ -164,6 +180,14 @@ class SoftifyAudioHandler extends BaseAudioHandler
   Stream<Duration?> get durationStream => _player.durationStream;
   Duration get position => _player.position;
 
+  Stream<Duration?> get sleepTimerRemainingStream =>
+      _sleepTimerRemainingSubject.stream;
+  Stream<bool> get sleepEndOfTrackStream => _sleepEndOfTrackSubject.stream;
+  Duration? get sleepTimerRemaining => _sleepTimerRemainingSubject.value;
+  bool get isSleepTimerEndOfTrack => _sleepEndOfTrack;
+  bool get isSleepTimerActive =>
+      _sleepTimerRemainingSubject.value != null || _sleepEndOfTrack;
+
   Track? get currentTrack =>
       (_currentIndex >= 0 && _currentIndex < _queue.length)
           ? _queue[_currentIndex]
@@ -173,6 +197,66 @@ class SoftifyAudioHandler extends BaseAudioHandler
   AudioRepeatMode get repeatMode => _repeatMode;
   bool get isShuffleEnabled => _shuffleEnabled;
   bool get isAutoPlayEnabled => _autoPlay;
+
+  // ==========================================
+  // Sleep Timer Controls
+  // ==========================================
+
+  void setSleepTimer(Duration duration) {
+    cancelSleepTimer();
+    if (duration <= Duration.zero) {
+      unawaited(pause());
+      return;
+    }
+    _sleepEndOfTrack = false;
+    _sleepEndOfTrackSubject.add(false);
+    _sleepTargetTime = DateTime.now().add(duration);
+    _sleepTimerRemainingSubject.add(duration);
+
+    _sleepTimer = Timer(duration, () {
+      _triggerSleepTimer();
+    });
+
+    _sleepTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_sleepTargetTime == null) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _sleepTargetTime!.difference(DateTime.now());
+      if (remaining <= Duration.zero) {
+        timer.cancel();
+        _triggerSleepTimer();
+      } else {
+        _sleepTimerRemainingSubject.add(remaining);
+      }
+    });
+  }
+
+  void setSleepTimerEndOfTrack() {
+    cancelSleepTimer();
+    _sleepEndOfTrack = true;
+    _sleepEndOfTrackSubject.add(true);
+  }
+
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepTicker?.cancel();
+    _sleepTicker = null;
+    _sleepTargetTime = null;
+    if (_sleepTimerRemainingSubject.value != null) {
+      _sleepTimerRemainingSubject.add(null);
+    }
+    if (_sleepEndOfTrack) {
+      _sleepEndOfTrack = false;
+      _sleepEndOfTrackSubject.add(false);
+    }
+  }
+
+  Future<void> _triggerSleepTimer() async {
+    cancelSleepTimer();
+    await pause();
+  }
 
   // ==========================================
   // Initialization
@@ -316,6 +400,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> stop() async {
+    cancelSleepTimer();
     await _player.pause();
     await _player.stop();
     await _saveQueueStateImmediately();
@@ -650,9 +735,19 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
 
     try {
-      // 1. Check offline download first (D7: zero network data usage)
-      final downloadedFilePath =
+      // 1. Check offline download or local device file first (D7: zero network data usage)
+      String? downloadedFilePath =
           await _downloadRepo.getDownloadedFilePath(track.id);
+
+      final isLocalTrack = track.id.startsWith('local_') ||
+          track.sourceId.startsWith('/') ||
+          File(track.sourceId).existsSync();
+
+      if (downloadedFilePath == null && isLocalTrack) {
+        if (File(track.sourceId).existsSync()) {
+          downloadedFilePath = track.sourceId;
+        }
+      }
 
       if (downloadedFilePath != null) {
         try {
@@ -668,8 +763,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
           return;
         } catch (downloadErr) {
           // ignore: avoid_print
-          print('[SoftifyAudioHandler] Local file playback failed ($downloadErr), falling back to online stream...');
+          print('[SoftifyAudioHandler] Local file playback failed ($downloadErr)');
+          if (track.id.startsWith('local_')) {
+            rethrow;
+          }
         }
+      } else if (track.id.startsWith('local_')) {
+        // ignore: avoid_print
+        print('[SoftifyAudioHandler] Local track file not found on disk: ${track.sourceId}');
+        throw FileSystemException('Local file not found on device', track.sourceId);
       }
 
       // 2. JIT Stream URL Resolution (D5)
@@ -738,6 +840,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
         unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
       }
 
+      if (_sleepEndOfTrack) {
+        cancelSleepTimer();
+        await pause();
+        return;
+      }
+
       if (_repeatMode == AudioRepeatMode.one) {
         await seek(Duration.zero);
         await play();
@@ -769,9 +877,17 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _currentlyPreloadingTrackId = nextTrack.id;
 
     try {
-      // 1. Check if next track is downloaded offline
-      final downloadedPath =
+      // 1. Check if next track is downloaded offline or local file
+      String? downloadedPath =
           await _downloadRepo.getDownloadedFilePath(nextTrack.id);
+      if (downloadedPath == null &&
+          (nextTrack.id.startsWith('local_') ||
+           nextTrack.sourceId.startsWith('/') ||
+           File(nextTrack.sourceId).existsSync())) {
+        if (File(nextTrack.sourceId).existsSync()) {
+          downloadedPath = nextTrack.sourceId;
+        }
+      }
       if (downloadedPath != null) {
         if (_currentlyPreloadingTrackId == nextTrack.id) {
           await _player.preloadNextFilePath(downloadedPath);
@@ -935,6 +1051,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> dispose() async {
+    cancelSleepTimer();
     _saveQueueDebounceTimer?.cancel();
     await _playerStateSubscription?.cancel();
     await _playbackEventSubscription?.cancel();
@@ -944,6 +1061,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
     await _repeatModeSubject.close();
     await _shuffleModeSubject.close();
     await _autoPlaySubject.close();
+    await _sleepTimerRemainingSubject.close();
+    await _sleepEndOfTrackSubject.close();
     await _player.dispose();
   }
 }

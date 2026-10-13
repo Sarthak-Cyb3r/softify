@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/recommendations/logistic_regression_ranker.dart';
 import '../../data/recommendations/shelf_engine.dart';
+import '../../data/services/smart_playlists_service.dart';
 import '../../domain/entities/shelf.dart';
+import '../../domain/entities/track.dart';
 import '../../domain/ports/i_shelf_repository.dart';
 import 'diversity_providers.dart';
 import 'player_providers.dart';
@@ -43,4 +45,29 @@ final shelfRepositoryProvider = Provider<IShelfRepository>((ref) {
 final homeShelvesProvider = FutureProvider<List<Shelf>>((ref) async {
   final shelfRepo = ref.watch(shelfRepositoryProvider);
   return shelfRepo.loadShelves();
+});
+
+final onRepeatTracksProvider = FutureProvider<List<Track>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return SmartPlaylistsService.getOnRepeatTracks(db);
+});
+
+final mostPlayedTracksProvider = FutureProvider<List<Track>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return SmartPlaylistsService.getMostPlayedThisMonth(db);
+});
+
+final forgottenFavoritesProvider = FutureProvider<List<Track>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return SmartPlaylistsService.getForgottenFavorites(db);
+});
+
+final listeningInsightsTimeframeProvider = StateProvider<InsightsTimeframe>((ref) {
+  return InsightsTimeframe.allTime;
+});
+
+final listeningInsightsProvider = FutureProvider<ListeningInsights>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final timeframe = ref.watch(listeningInsightsTimeframeProvider);
+  return SmartPlaylistsService.getListeningInsights(db, timeframe: timeframe);
 });

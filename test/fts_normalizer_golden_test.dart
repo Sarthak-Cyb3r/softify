@@ -55,5 +55,27 @@ void main() {
       expect(expandedCompound, contains('songs of kk'));
       expect(expandedCompound, contains('songs of krishnakumar kunnath'));
     });
+
+    test('matchesArtist accurately filters cross-artist leakage', () {
+      // 1. Direct match
+      expect(TextNormalizer.matchesArtist('Arijit Singh', 'Arijit Singh'), isTrue);
+      expect(TextNormalizer.matchesArtist('arijit singh', 'Arijit Singh'), isTrue);
+
+      // 2. Featured / Collaborations
+      expect(TextNormalizer.matchesArtist('Arijit Singh, Shreya Ghoshal', 'Arijit Singh'), isTrue);
+      expect(TextNormalizer.matchesArtist('Arijit Singh, Shreya Ghoshal', 'Shreya Ghoshal'), isTrue);
+      expect(TextNormalizer.matchesArtist('The Weeknd feat. Daft Punk', 'The Weeknd'), isTrue);
+      expect(TextNormalizer.matchesArtist('The Weeknd feat. Daft Punk', 'Daft Punk'), isTrue);
+      expect(TextNormalizer.matchesArtist('Ed Sheeran & Justin Bieber', 'Justin Bieber'), isTrue);
+
+      // 3. Unrelated artists (must NOT match)
+      expect(TextNormalizer.matchesArtist('Neha Kakkar', 'Arijit Singh'), isFalse);
+      expect(TextNormalizer.matchesArtist('Kanye West', 'Taylor Swift'), isFalse);
+      expect(TextNormalizer.matchesArtist('Famous - Kanye West', 'Taylor Swift'), isFalse);
+
+      // 4. Substring boundaries (must NOT false-positive match)
+      expect(TextNormalizer.matchesArtist('Anushree', 'Anu'), isFalse);
+      expect(TextNormalizer.matchesArtist('Coldplay', 'Play'), isFalse);
+    });
   });
 }

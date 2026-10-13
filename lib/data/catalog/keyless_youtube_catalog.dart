@@ -545,22 +545,45 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
   Future<List<Track>> getArtistTracks(String artist, {int limit = 25}) async {
     // 1. Primary: Reverse engineered Spotify Artist Top Tracks
     try {
-      final spotifyTracks = await _spotifyApi.getArtistTopTracks(artist);
-      if (spotifyTracks.isNotEmpty) return spotifyTracks.take(limit).toList();
+      String? artistUri;
+      final clean = artist.trim();
+      if (clean.startsWith('spotify:artist:') || RegExp(r'^[a-zA-Z0-9]{22}$').hasMatch(clean)) {
+        artistUri = clean;
+      } else {
+        // Query Spotify search to resolve genuine artist URI
+        final searchRes = await _spotifyApi.search(clean, limit: 5);
+        final match = searchRes.artists.firstWhere(
+          (a) => TextNormalizer.matchesArtist(a.name, clean),
+          orElse: () => searchRes.artists.isNotEmpty ? searchRes.artists.first : const SpotifyArtistRef(id: '', uri: '', name: ''),
+        );
+        if (match.uri.isNotEmpty) {
+          artistUri = match.uri;
+        }
+      }
+
+      if (artistUri != null && artistUri.isNotEmpty) {
+        final spotifyTracks = await _spotifyApi.getArtistTopTracks(artistUri);
+        final filtered = spotifyTracks.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
+        if (filtered.isNotEmpty) return filtered.take(limit).toList();
+      }
     } catch (_) {}
 
+    // 2. Secondary: JioSaavn fallback with strict artist match filtering
     try {
-      final saavn = await search('$artist songs', limit: limit);
-      if (saavn.isNotEmpty) return saavn;
+      final saavn = await search('$artist songs', limit: limit * 2);
+      final filteredSaavn = saavn.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
+      if (filteredSaavn.isNotEmpty) return filteredSaavn.take(limit).toList();
     } catch (_) {}
 
+    // 3. Tertiary: iTunes fallback with strict artist match filtering
     try {
       final itunes = await _searchItunes(
         artist,
-        limit: limit,
+        limit: limit * 2,
         attribute: 'artistTerm',
       );
-      if (itunes.isNotEmpty) return itunes;
+      final filteredItunes = itunes.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
+      if (filteredItunes.isNotEmpty) return filteredItunes.take(limit).toList();
     } catch (_) {}
 
     return [];

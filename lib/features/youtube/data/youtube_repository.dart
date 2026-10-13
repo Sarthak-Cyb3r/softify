@@ -42,7 +42,7 @@ class YoutubeRepository {
           sourceId: 'yt_${meta.videoId}',
           title: meta.title,
           artist: meta.author,
-          album: 'YouTube',
+          album: null,
           duration: meta.duration,
           coverUrl: meta.coverUrl,
           matchConfidence: 1.0,
@@ -74,7 +74,7 @@ class YoutubeRepository {
         title: video.title.trim(),
         artist:
             video.author.trim().isNotEmpty ? video.author.trim() : 'YouTube',
-        album: 'YouTube',
+        album: null,
         duration: video.duration ?? Duration.zero,
         coverUrl: coverUrl,
         matchConfidence: 1.0,
@@ -99,7 +99,7 @@ class YoutubeRepository {
             sourceId: 'yt_${oembed.videoId}',
             title: oembed.title,
             artist: oembed.author,
-            album: 'YouTube',
+            album: null,
             duration: oembed.duration,
             coverUrl: oembed.coverUrl,
             matchConfidence: 1.0,
@@ -138,7 +138,7 @@ class YoutubeRepository {
             artist: video.author.trim().isNotEmpty
                 ? video.author.trim()
                 : 'YouTube',
-            album: 'YouTube',
+            album: null,
             duration: video.duration ?? Duration.zero,
             coverUrl: coverUrl,
             matchConfidence: 1.0,

@@ -4,6 +4,8 @@ import 'dart:io' show Platform;
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'linux_audio_backend.dart';
+
 /// Clean interface abstracting the low-level audio decoder/player engine.
 /// Decouples SoftifyAudioHandler from direct platform channel calls.
 abstract class ISoftifyAudioPlayer {
@@ -90,7 +92,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   final AndroidLoudnessEnhancer? _loudnessB;
 
   bool _equalizerEnabled = true;
-  List<double> _bandGains = [0.0, 0.0, 0.0, 0.0, 0.0];
+  List<double> _bandGains = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
   double _loudnessGain = 0.0;
   double _bassBoost = 0.0;
 
@@ -345,6 +347,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       await _equalizerA?.setEnabled(enabled);
       await _equalizerB?.setEnabled(enabled);
     } catch (_) {}
+    if (Platform.isLinux) {
+      await _applyEqualizerSettings();
+    }
   }
 
   @override
@@ -366,6 +371,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         await _loudnessB?.setTargetGain(targetBels);
       }
     } catch (_) {}
+    if (Platform.isLinux) {
+      await _applyEqualizerSettings();
+    }
   }
 
   @override
@@ -377,18 +385,39 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   Future<void> _applyEqualizerSettings() async {
     await _applyToEqualizer(_equalizerA);
     await _applyToEqualizer(_equalizerB);
+    if (Platform.isLinux) {
+      await SoftifyLinuxAudioBackend.applyEqualizer(
+        gains: _bandGains,
+        bassBoost: _bassBoost,
+        loudnessGain: _loudnessGain,
+        enabled: _equalizerEnabled,
+      );
+    }
   }
 
   Future<void> _applyToEqualizer(AndroidEqualizer? eq) async {
     if (eq == null) return;
     try {
       final params = await eq.parameters.timeout(const Duration(milliseconds: 100));
-      for (int i = 0; i < params.bands.length && i < _bandGains.length; i++) {
-        double extraBass = 0.0;
-        if (i == 0) extraBass = _bassBoost * 5.0;
-        if (i == 1) extraBass = _bassBoost * 2.5;
-        final effectiveGain = (_bandGains[i] + extraBass).clamp(params.minDecibels, params.maxDecibels);
-        await params.bands[i].setGain(effectiveGain);
+      if (params.bands.length == 5 && _bandGains.length >= 10) {
+        // Map 10 parametric bands into 5 hardware OpenSL bands
+        final h0 = ((_bandGains[0] + _bandGains[1]) / 2.0 + _bassBoost * 5.0).clamp(params.minDecibels, params.maxDecibels);
+        final h1 = ((_bandGains[2] + _bandGains[3]) / 2.0 + _bassBoost * 2.5).clamp(params.minDecibels, params.maxDecibels);
+        final h2 = ((_bandGains[4] + _bandGains[5]) / 2.0).clamp(params.minDecibels, params.maxDecibels);
+        final h3 = ((_bandGains[6] + _bandGains[7]) / 2.0).clamp(params.minDecibels, params.maxDecibels);
+        final h4 = ((_bandGains[8] + _bandGains[9]) / 2.0).clamp(params.minDecibels, params.maxDecibels);
+        final hardwareGains = [h0, h1, h2, h3, h4];
+        for (int i = 0; i < 5; i++) {
+          await params.bands[i].setGain(hardwareGains[i]);
+        }
+      } else {
+        for (int i = 0; i < params.bands.length && i < _bandGains.length; i++) {
+          double extraBass = 0.0;
+          if (i == 0) extraBass = _bassBoost * 5.0;
+          if (i == 1) extraBass = _bassBoost * 2.5;
+          final effectiveGain = (_bandGains[i] + extraBass).clamp(params.minDecibels, params.maxDecibels);
+          await params.bands[i].setGain(effectiveGain);
+        }
       }
     } catch (_) {}
   }
@@ -404,13 +433,18 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Future<List<double>> getBandFrequencies() async {
-    if (_equalizerA != null) {
-      try {
-        final params = await _equalizerA.parameters.timeout(const Duration(milliseconds: 100));
-        return params.bands.map((b) => b.centerFrequency).toList();
-      } catch (_) {}
-    }
-    return const [60.0, 230.0, 910.0, 3600.0, 14000.0];
+    return const [
+      31.0,
+      62.0,
+      125.0,
+      250.0,
+      500.0,
+      1000.0,
+      2000.0,
+      4000.0,
+      8000.0,
+      16000.0,
+    ];
   }
 
   @override

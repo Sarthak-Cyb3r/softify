@@ -188,11 +188,11 @@ class MiniPlayer extends ConsumerWidget {
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xF0121714),
+                  color: tokens.surfaceElevated.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(tokens.radiusLg),
                   border: Border.all(
                     color: isPlaying
-                        ? tokens.accent.withValues(alpha: 0.2)
+                        ? tokens.accent.withValues(alpha: 0.3)
                         : Colors.white.withValues(alpha: 0.08),
                     width: 1.0,
                   ),
@@ -324,8 +324,8 @@ class MiniPlayer extends ConsumerWidget {
                             isPlaying: isPlaying,
                             size: 38,
                             iconSize: 20,
-                            backgroundColor: Colors.white,
-                            iconColor: Colors.black,
+                            backgroundColor: tokens.accent,
+                            iconColor: const Color(0xFF080F11),
                             showGlow: true,
                             onTap: () {
                               if (currentTrack == null) {

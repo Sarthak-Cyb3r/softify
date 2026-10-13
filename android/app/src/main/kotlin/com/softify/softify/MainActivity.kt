@@ -101,6 +101,7 @@ class MainActivity : AudioServiceActivity() {
                 "uninstallApk" -> uninstallApk(result)
                 "getInstalledInfo" -> getInstalledInfo(result)
                 "stageApk" -> stageApk(call, result)
+                "openFolder" -> openFolder(call, result)
                 else -> result.notImplemented()
             }
         }
@@ -284,6 +285,57 @@ class MainActivity : AudioServiceActivity() {
             result.success(mapOf("path" to savedPath))
         } catch (e: Exception) {
             result.error("STAGE_ERROR", e.message, null)
+        }
+    }
+
+    private fun openFolder(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path") ?: run {
+            result.error("INVALID_ARG", "Path required", null)
+            return
+        }
+        val folder = File(path)
+        if (!folder.exists()) {
+            folder.mkdirs()
+        }
+
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                folder
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "resource/folder")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (_: Exception) {
+            try {
+                val fallbackUri = androidx.core.content.FileProvider.getUriForFile(
+                    this,
+                    "$packageName.fileprovider",
+                    folder
+                )
+                val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(fallbackUri, "*/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(fallbackIntent)
+                result.success(true)
+            } catch (_: Exception) {
+                try {
+                    val dmIntent = Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(dmIntent)
+                    result.success(true)
+                } catch (_: Exception) {
+                    result.success(false)
+                }
+            }
         }
     }
 

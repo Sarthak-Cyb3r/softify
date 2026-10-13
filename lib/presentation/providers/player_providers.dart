@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/player/softify_audio_handler.dart';
+import '../../data/services/local_audio_scanner.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/download_item.dart';
 import '../../domain/entities/history_item.dart';
@@ -27,6 +31,7 @@ import '../../data/repositories/drift_event_logger.dart';
 import '../../data/repositories/remote_config_repository.dart';
 import '../../data/search/drift_fts_repository.dart';
 import '../../data/search/linear_search_reranker.dart';
+import '../../data/services/discord_rpc_service.dart';
 import '../../data/services/spotify_api_service.dart';
 import 'spotify_import_providers.dart';
 
@@ -83,6 +88,12 @@ final remoteConfigProvider = Provider<IRemoteConfig>((ref) {
   return RemoteConfigRepository(db: db);
 });
 
+final discordRpcServiceProvider = Provider<DiscordRpcService>((ref) {
+  final service = DiscordRpcService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
 // ==========================================
 // Reactive Playback & Queue State Streams
 // ==========================================
@@ -137,6 +148,16 @@ final playbackSpeedStreamProvider = StreamProvider<double>((ref) {
   return handler.speedStream;
 });
 
+final sleepTimerRemainingProvider = StreamProvider<Duration?>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.sleepTimerRemainingStream;
+});
+
+final sleepTimerEndOfTrackProvider = StreamProvider<bool>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.sleepEndOfTrackStream;
+});
+
 // ==========================================
 // Library & Downloads Streams
 // ==========================================
@@ -170,6 +191,31 @@ final downloadsStreamProvider = StreamProvider<List<DownloadItem>>((ref) {
 final isTrackDownloadedProvider = StreamProvider.family<bool, String>((ref, trackId) {
   final repo = ref.watch(downloadRepositoryProvider);
   return repo.watchDownload(trackId).map((d) => d?.isCompleted ?? false).distinct();
+});
+
+final localTracksStreamProvider = StreamProvider<List<Track>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return (db.select(db.tracks)
+        ..where((t) => t.id.like('local_%') | t.sourceId.like('local_%'))
+        ..orderBy([(t) => OrderingTerm.asc(t.title)]))
+      .watch()
+      .map((rows) => rows
+          .where((r) =>
+              File(r.sourceId).existsSync() &&
+              !LocalAudioScanner.isExcludedPath(r.sourceId))
+          .map((r) => Track(
+                id: r.id,
+                sourceId: r.sourceId,
+                title: r.title,
+                artist: r.artist,
+                album: r.album,
+                duration: Duration(milliseconds: r.durationMs),
+                coverUrl: r.coverUrl,
+                matchConfidence: r.matchConfidence,
+                isLiked: r.isLiked,
+                isUnavailable: r.isUnavailable,
+              ))
+          .toList());
 });
 
 // ==========================================

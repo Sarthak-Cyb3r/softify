@@ -63,16 +63,16 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceElevated,
+        backgroundColor: context.tokens.surfaceElevated,
         title: const Text('Delete Playlist?'),
         content: Text(
           'Are you sure you want to delete "${playlist.name}"? This action cannot be undone.',
-          style: const TextStyle(color: AppTheme.textSecondary),
+          style: TextStyle(color: context.tokens.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Cancel', style: TextStyle(color: context.tokens.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -95,17 +95,18 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final playlistAsync = ref.watch(playlistWithTracksStreamProvider(widget.playlistId));
     final audioHandler = ref.watch(audioHandlerProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
           ? const SafeArea(top: false, child: MiniPlayer())
           : null,
       body: playlistAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primary),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: tokens.accent),
         ),
         error: (e, _) => Scaffold(
           appBar: AppBar(title: const Text('Playlist')),
@@ -140,7 +141,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
-                backgroundColor: AppTheme.surface,
+                backgroundColor: tokens.surface,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => Navigator.pop(context),
@@ -157,10 +158,10 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                     playlist.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: AppTheme.textPrimary,
+                      color: tokens.textPrimary,
                     ),
                   ),
                   background: Container(
@@ -172,7 +173,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                           playlist.isImported
                               ? const Color(0xFF1DB954).withValues(alpha: 0.35)
                               : Colors.deepPurple.shade900.withValues(alpha: 0.5),
-                          AppTheme.background,
+                          tokens.background,
                         ],
                       ),
                     ),
@@ -291,8 +292,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                       // Big Play Button
                       FloatingActionButton(
                         mini: true,
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.black,
+                        backgroundColor: tokens.accent,
+                        foregroundColor: const Color(0xFF080F11),
                         onPressed: tracks.isNotEmpty ? () => _playAll(tracks, startIndex: 0) : null,
                         child: const Icon(Icons.play_arrow, size: 28),
                       ),
@@ -303,17 +304,17 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
               // 3. Track List
               if (tracks.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.music_off, size: 48, color: Colors.white24),
-                        SizedBox(height: 12),
+                        const Icon(Icons.music_off, size: 48, color: Colors.white24),
+                        const SizedBox(height: 12),
                         Text(
                           'No tracks in this playlist yet',
-                          style: TextStyle(color: AppTheme.textSecondary),
+                          style: TextStyle(color: tokens.textSecondary),
                         ),
                       ],
                     ),
@@ -330,6 +331,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
                         return _buildTrackTile(
                           context: context,
+                          tokens: tokens,
                           track: track,
                           index: index,
                           allTracks: tracks,
@@ -350,6 +352,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
   Widget _buildTrackTile({
     required BuildContext context,
+    required AppTokens tokens,
     required Track track,
     required int index,
     required List<Track> allTracks,
@@ -373,7 +376,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               '${index + 1}',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: isPlayingThis ? AppTheme.primary : AppTheme.textSecondary,
+                color: isPlayingThis ? tokens.accent : tokens.textSecondary,
                 fontWeight: isPlayingThis ? FontWeight.bold : FontWeight.normal,
                 fontSize: 13,
               ),
@@ -391,9 +394,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                     cacheHeight: 132,
                     gaplessPlayback: true,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _trackCoverFallback(),
+                    errorBuilder: (_, __, ___) => _trackCoverFallback(tokens),
                   )
-                : _trackCoverFallback(),
+                : _trackCoverFallback(tokens),
           ),
         ],
       ),
@@ -402,7 +405,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: isPlayingThis ? AppTheme.primary : AppTheme.textPrimary,
+          color: isPlayingThis ? tokens.accent : tokens.textPrimary,
           fontWeight: isPlayingThis ? FontWeight.bold : FontWeight.w600,
           fontSize: 14,
         ),
@@ -411,8 +414,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
         '${track.artist} • ${_formatDuration(track.duration)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: AppTheme.textSecondary,
+        style: TextStyle(
+          color: tokens.textSecondary,
           fontSize: 12,
         ),
       ),
@@ -423,7 +426,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           IconButton(
             icon: Icon(
               isDownloaded ? Icons.download_done : Icons.download_for_offline_outlined,
-              color: isDownloaded ? AppTheme.primary : Colors.white38,
+              color: isDownloaded ? tokens.accent : Colors.white38,
               size: 20,
             ),
             tooltip: isDownloaded ? 'Downloaded' : 'Download Offline',
@@ -446,7 +449,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           IconButton(
             icon: Icon(
               isLiked ? Icons.favorite : Icons.favorite_border,
-              color: isLiked ? AppTheme.primary : Colors.white38,
+              color: isLiked ? tokens.accent : Colors.white38,
               size: 20,
             ),
             tooltip: isLiked ? 'Unlike' : 'Like',
@@ -484,11 +487,11 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     );
   }
 
-  Widget _trackCoverFallback() {
+  Widget _trackCoverFallback(AppTokens tokens) {
     return Container(
       width: 44,
       height: 44,
-      color: AppTheme.surfaceElevated,
+      color: tokens.surfaceElevated,
       child: const Icon(Icons.music_note, color: Colors.white24, size: 20),
     );
   }
