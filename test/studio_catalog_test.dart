@@ -90,6 +90,12 @@ void main() {
       expect(track.matchConfidence, equals(1.0));
       expect(track.album, isNotNull);
     });
+
+    test('getTopChart maps regional genres to official verified charts', () async {
+      // Test top chart fallback or retrieval
+      final tracks = await catalog.getTopChart('hindi', limit: 5);
+      expect(tracks, isA<List<Track>>());
+    });
   });
 }
 

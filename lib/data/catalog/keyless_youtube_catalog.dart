@@ -545,6 +545,32 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     return [];
   }
 
+  static const Map<String, String> _chartListIds = {
+    'hindi': '1134543272', // Hindi: India Superhits Top 50
+    'punjabi': '1134543511', // Punjabi: India Superhits Top 50
+    'international': '1134595537', // International : India Superhits Top 50
+    'love': '1139074020', // Most Streamed Love Songs: Hindi
+    'trending': '110858205', // Trending Today
+  };
+
+  Future<List<Track>> getTopChart(String chartType, {int limit = 30}) async {
+    final typeKey = chartType.trim().toLowerCase();
+    final listId = _chartListIds[typeKey];
+    if (listId != null) {
+      try {
+        final tracks = await _fetchSaavnPlaylistById(listId, limit: limit);
+        if (tracks.isNotEmpty) return tracks;
+      } catch (_) {}
+    }
+
+    try {
+      final tracks = await _fetchSaavnPlaylistTracks('$chartType Top Hits', limit: limit);
+      if (tracks.isNotEmpty) return tracks;
+    } catch (_) {}
+
+    return getTrendingTracks(limit: limit);
+  }
+
   @override
   Future<List<String>> getSearchSuggestions(String query) async {
     final clean = query.trim();
@@ -1312,85 +1338,102 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         final plId = pl['id']?.toString() ?? pl['listid']?.toString();
         if (plId == null || plId.isEmpty) continue;
 
-        final plUri = Uri.parse(
-          'https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=$plId',
-        );
-        final plReq =
-            await _httpClient.getUrl(plUri).timeout(const Duration(seconds: 5));
-        plReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-        final plResp =
-            await plReq.close().timeout(const Duration(seconds: 5));
-        if (plResp.statusCode != 200) continue;
-
-        final plBody = await plResp.transform(utf8.decoder).join();
-        final plJson = jsonDecode(plBody) as Map<String, dynamic>;
-        final songItems =
-            ((plJson['songs'] ?? plJson['list']) as List<dynamic>?) ?? [];
-
-        for (final item in songItems) {
-          if (item is! Map<String, dynamic>) continue;
-          final trackId = item['id']?.toString();
-          final trackName = (item['title'] ?? item['song']) as String?;
-          final subtitle = (item['subtitle'] as String?) ?? '';
-          final rawImage = item['image'] as String?;
-          final highResCover = rawImage?.replaceAll('150x150', '500x500');
-
-          if (trackId == null || trackName == null) continue;
-
-          final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
-          String artistName = '';
-          if (moreInfo['artistMap'] is Map &&
-              moreInfo['artistMap']['primary_artists'] is List) {
-            final artistsList = (moreInfo['artistMap']['primary_artists'] as List)
-                .map((a) => (a is Map ? a['name'] : null)?.toString())
-                .whereType<String>()
-                .toList();
-            if (artistsList.isNotEmpty) {
-              artistName = artistsList.join(', ');
-            }
-          }
-
-          if (artistName.isEmpty) {
-            final parts = subtitle.split(' - ');
-            artistName = parts.isNotEmpty && parts[0].trim().isNotEmpty
-                ? parts[0].trim()
-                : ((item['singers'] ?? item['primary_artists']) as String? ??
-                    'Unknown Artist');
-          }
-
-          final albumRaw = (moreInfo['album'] ??
-              (subtitle.contains(' - ')
-                  ? subtitle.split(' - ').last.trim()
-                  : item['album'])) as String?;
-          final albumName = albumRaw != null && albumRaw.isNotEmpty
-              ? _decodeHtml(albumRaw)
-              : null;
-
-          final rawDuration = moreInfo['duration'] ?? item['duration'];
-          final durationSec = int.tryParse(rawDuration?.toString() ?? '') ?? 0;
-
-          final parsedTrack = Track(
-            id: 'saavn_$trackId',
-            sourceId: 'saavn_$trackId',
-            title: _cleanTitle(trackName),
-            artist: _decodeHtml(artistName),
-            album: albumName,
-            duration: Duration(seconds: durationSec),
-            coverUrl: highResCover,
-            matchConfidence: 1.0,
-          );
-
-          if (!_isJunkOrMashup(parsedTrack)) {
-            tracks.add(parsedTrack);
-          }
-          if (tracks.length >= limit) break;
-        }
+        final plTracks = await _fetchSaavnPlaylistById(plId, limit: limit - tracks.length);
+        tracks.addAll(plTracks);
         if (tracks.length >= limit) break;
       }
       return tracks;
     } catch (_) {
       return [];
     }
+  }
+
+  Future<List<Track>> _fetchSaavnPlaylistById(
+    String listId, {
+    int limit = 30,
+  }) async {
+    try {
+      final plUri = Uri.parse(
+        'https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=$listId',
+      );
+      final plReq =
+          await _httpClient.getUrl(plUri).timeout(const Duration(seconds: 5));
+      plReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
+      final plResp =
+          await plReq.close().timeout(const Duration(seconds: 5));
+      if (plResp.statusCode != 200) return [];
+
+      final plBody = await plResp.transform(utf8.decoder).join();
+      final plJson = jsonDecode(plBody) as Map<String, dynamic>;
+      final songItems =
+          ((plJson['songs'] ?? plJson['list']) as List<dynamic>?) ?? [];
+      return _parseSaavnSongItems(songItems, limit: limit);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  List<Track> _parseSaavnSongItems(List<dynamic> songItems, {int limit = 30}) {
+    final List<Track> tracks = [];
+    for (final item in songItems) {
+      if (item is! Map<String, dynamic>) continue;
+      final trackId = item['id']?.toString();
+      final trackName = (item['title'] ?? item['song']) as String?;
+      final subtitle = (item['subtitle'] as String?) ?? '';
+      final rawImage = item['image'] as String?;
+      final highResCover = rawImage?.replaceAll('150x150', '500x500');
+
+      if (trackId == null || trackName == null) continue;
+
+      final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
+      String artistName = '';
+      if (moreInfo['artistMap'] is Map &&
+          moreInfo['artistMap']['primary_artists'] is List) {
+        final artistsList = (moreInfo['artistMap']['primary_artists'] as List)
+            .map((a) => (a is Map ? a['name'] : null)?.toString())
+            .whereType<String>()
+            .toList();
+        if (artistsList.isNotEmpty) {
+          artistName = artistsList.join(', ');
+        }
+      }
+
+      if (artistName.isEmpty) {
+        final parts = subtitle.split(' - ');
+        artistName = parts.isNotEmpty && parts[0].trim().isNotEmpty
+            ? parts[0].trim()
+            : ((item['singers'] ?? item['primary_artists']) as String? ??
+                'Unknown Artist');
+      }
+
+      final albumRaw = (moreInfo['album'] ??
+          (subtitle.contains(' - ')
+              ? subtitle.split(' - ').last.trim()
+              : item['album'])) as String?;
+      final albumName = albumRaw != null && albumRaw.isNotEmpty
+          ? _decodeHtml(albumRaw)
+          : null;
+
+      final rawDuration = moreInfo['duration'] ?? item['duration'];
+      final durationSec = int.tryParse(rawDuration?.toString() ?? '') ?? 0;
+
+      final parsedTrack = Track(
+        id: 'saavn_$trackId',
+        sourceId: 'saavn_$trackId',
+        title: _cleanTitle(trackName),
+        artist: _decodeHtml(artistName),
+        album: albumName,
+        duration: Duration(seconds: durationSec),
+        coverUrl: highResCover,
+        matchConfidence: 1.0,
+      );
+
+      if (!_isJunkOrMashup(parsedTrack)) {
+        tracks.add(parsedTrack);
+      }
+      if (tracks.length >= limit) break;
+    }
+    return tracks;
   }
 
   static final _junkTitleRegex = RegExp(

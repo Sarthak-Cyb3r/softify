@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/recommendations/logistic_regression_ranker.dart';
 import '../../data/recommendations/shelf_engine.dart';
 import '../../data/services/smart_playlists_service.dart';
@@ -70,4 +71,12 @@ final listeningInsightsProvider = FutureProvider<ListeningInsights>((ref) async 
   final db = ref.watch(databaseProvider);
   final timeframe = ref.watch(listeningInsightsTimeframeProvider);
   return SmartPlaylistsService.getListeningInsights(db, timeframe: timeframe);
+});
+
+final topChartTracksProvider = FutureProvider.family<List<Track>, String>((ref, chartType) async {
+  final catalogRepo = ref.watch(catalogRepositoryProvider);
+  if (catalogRepo is KeylessYouTubeCatalog) {
+    return catalogRepo.getTopChart(chartType, limit: 30);
+  }
+  return catalogRepo.getTrendingTracks(limit: 30);
 });
