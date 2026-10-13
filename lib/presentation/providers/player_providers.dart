@@ -124,6 +124,11 @@ final positionStreamProvider = StreamProvider<Duration>((ref) {
   return handler.positionStream;
 });
 
+final bufferedPositionStreamProvider = StreamProvider<Duration>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.bufferedPositionStream;
+});
+
 final durationStreamProvider = StreamProvider<Duration?>((ref) {
   final handler = ref.watch(audioHandlerProvider);
   return handler.durationStream;

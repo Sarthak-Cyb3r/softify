@@ -875,35 +875,69 @@ class _FullScreenPlayerScrubberState
         duration.inSeconds > 0 ? duration.inSeconds.toDouble() : 1.0;
     final currentSeconds = _dragPositionSeconds ??
         position.inSeconds.toDouble().clamp(0.0, maxSeconds);
+    final bufferedPosition =
+        ref.watch(bufferedPositionStreamProvider).value ?? Duration.zero;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(
         children: [
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 2.5,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4.5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-              activeTrackColor: tokens.accent,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-              thumbColor: tokens.accent,
-            ),
-            child: Slider(
-              value: currentSeconds.clamp(0.0, maxSeconds),
-              max: maxSeconds,
-              onChanged: (val) {
-                setState(() {
-                  _dragPositionSeconds = val;
-                });
-              },
-              onChangeEnd: (val) {
-                audioHandler.seek(Duration(seconds: val.round()));
-                setState(() {
-                  _dragPositionSeconds = null;
-                });
-              },
-            ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Dual-Track Buffer-Ahead Visualizer (matches YouTube/Spotify)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(1.5),
+                  child: SizedBox(
+                    height: 2.5,
+                    child: LinearProgressIndicator(
+                      value: maxSeconds > 0
+                          ? (bufferedPosition.inSeconds / maxSeconds).clamp(0.0, 1.0)
+                          : 0.0,
+                      backgroundColor: Colors.white.withValues(alpha: 0.10),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Colors.white.withValues(alpha: 0.28),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 2.5,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4.5),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                  activeTrackColor: tokens.accent,
+                  inactiveTrackColor: Colors.transparent,
+                  thumbColor: tokens.accent,
+                ),
+                child: Slider(
+                  value: currentSeconds.clamp(0.0, maxSeconds),
+                  max: maxSeconds,
+                  onChangeStart: (_) {
+                    HapticFeedback.lightImpact();
+                  },
+                  onChanged: (val) {
+                    if (_dragPositionSeconds != null &&
+                        (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
+                      HapticFeedback.selectionClick();
+                    }
+                    setState(() {
+                      _dragPositionSeconds = val;
+                    });
+                  },
+                  onChangeEnd: (val) {
+                    HapticFeedback.mediumImpact();
+                    audioHandler.seek(Duration(seconds: val.round()));
+                    setState(() {
+                      _dragPositionSeconds = null;
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
