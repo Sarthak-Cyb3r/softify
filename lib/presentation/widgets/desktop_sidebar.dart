@@ -156,8 +156,8 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                   const SizedBox(height: 2),
                   _buildNavItem(
                     index: 2,
-                    icon: Icons.link_rounded,
-                    activeIcon: Icons.link_rounded,
+                    icon: Icons.smart_display_outlined,
+                    activeIcon: Icons.smart_display,
                     label: 'YouTube',
                   ),
                   const SizedBox(height: 2),

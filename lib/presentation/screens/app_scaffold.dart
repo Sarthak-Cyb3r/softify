@@ -500,9 +500,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         label: 'Search',
                       ),
                       SlimNavItem(
-                        icon: Icons.link_rounded,
-                        activeIcon: Icons.link_rounded,
-                        label: 'Paste Link',
+                        icon: AppTabIcons.youtube,
+                        activeIcon: AppTabIcons.youtubeActive,
+                        label: 'YouTube',
                       ),
                       SlimNavItem(
                         icon: Icons.podcasts_outlined,
@@ -513,11 +513,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         icon: Icons.local_library_outlined,
                         activeIcon: Icons.local_library_rounded,
                         label: 'Library',
-                      ),
-                      SlimNavItem(
-                        icon: Icons.settings_outlined,
-                        activeIcon: Icons.settings_rounded,
-                        label: 'Settings',
                       ),
                     ],
                   ),

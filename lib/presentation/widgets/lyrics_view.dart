@@ -60,7 +60,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   // Track-calibrated sync offset (persisted in Drift SQLite)
   int _syncOffsetMs = 0;
   bool _showTuner = false;
-  bool _isKaraokeMode = false;
   LyricFontSize _lyricFontSize = LyricFontSize.normal;
   bool _romanizeLyrics = false;
 
@@ -733,91 +732,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             ],
           ),
 
-          const SizedBox(height: 18),
-
-          // Vocal Volume Mode Toggle
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1B1B1F),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF292A2D), width: 0.8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'VOCAL VOLUME MODE',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontFamily: AppTheme.fontUi,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF86948A),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => setState(() => _isKaraokeMode = false),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          decoration: BoxDecoration(
-                            color: !_isKaraokeMode ? const Color(0xFF292A2D) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: !_isKaraokeMode ? activeAccent : Colors.transparent,
-                              width: 1,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Original',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: !_isKaraokeMode ? activeAccent : const Color(0xFFBBCABF),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => setState(() => _isKaraokeMode = true),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          decoration: BoxDecoration(
-                            color: _isKaraokeMode ? const Color(0xFF292A2D) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _isKaraokeMode ? activeAccent : Colors.transparent,
-                              width: 1,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Karaoke',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _isKaraokeMode ? activeAccent : const Color(0xFFBBCABF),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
           const Spacer(),
 
           // Keyboard Shortcut Tip Card
@@ -1283,168 +1197,117 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final isMusicSymbol = line.text.trim() == '♪' ||
         line.text.trim().toLowerCase() == '[instrumental]';
 
+    final displayText =
+        _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
+
     // Depth-of-field opacity gradient
     final double lineOpacity = isActive
         ? 1.0
         : (0.40 - (distanceFromActive * 0.04)).clamp(0.20, 0.40);
 
     return AnimatedScale(
-      scale: isActive ? 1.04 : 1.0,
-      duration: const Duration(milliseconds: 300),
+      scale: isActive ? 1.03 : 1.0,
+      duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
       alignment: Alignment.centerLeft,
       child: Container(
-      key: _getKeyForIndex(index),
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      decoration: BoxDecoration(
-        color: isActive
-            ? accentColor.withValues(alpha: 0.07)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(tokens.radiusLg),
-        border: Border.all(
+        key: _getKeyForIndex(index),
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        decoration: BoxDecoration(
           color: isActive
-              ? accentColor.withValues(alpha: 0.18)
+              ? accentColor.withValues(alpha: 0.07)
               : Colors.transparent,
-          width: 0.8,
-        ),
-        boxShadow: isActive
-            ? [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.06),
-                  blurRadius: 20,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            try {
-              ref.read(audioHandlerProvider).seek(line.timestamp);
-            } catch (_) {}
-          },
-          onLongPress: () {
-            HapticFeedback.mediumImpact();
-            final quoteText =
-                _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
-            final shareString =
-                '"$quoteText"\n— ${widget.track.artist} (${widget.track.title})\nShared via Softify 🎧';
-            Clipboard.setData(ClipboardData(text: shareString));
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.copy_rounded, color: accentColor, size: 16),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Lyric quote copied to clipboard',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: const Color(0xFF1B1B1F),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusLg),
-                  side: BorderSide(
-                    color: accentColor.withValues(alpha: 0.35),
-                    width: 0.8,
-                  ),
-                ),
-              ),
-            );
-          },
           borderRadius: BorderRadius.circular(tokens.radiusLg),
-          splashColor: accentColor.withValues(alpha: 0.08),
-          highlightColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Left Active Indicator Glowing Bar
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: 3.5,
-                  height: isActive ? 32 : 0,
-                  margin: const EdgeInsets.only(right: 12, top: 2),
-                  decoration: BoxDecoration(
-                    color: isActive ? accentColor : Colors.transparent,
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: isActive
-                        ? [
-                            BoxShadow(
-                              color: accentColor.withValues(alpha: 0.65),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
+          border: Border.all(
+            color: isActive
+                ? accentColor.withValues(alpha: 0.18)
+                : Colors.transparent,
+            width: 0.8,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              try {
+                ref.read(audioHandlerProvider).seek(line.timestamp);
+              } catch (_) {}
+            },
+            onLongPress: () {
+              HapticFeedback.mediumImpact();
+              final quoteText = displayText;
+              final shareString =
+                  '"$quoteText"\n— ${widget.track.artist} (${widget.track.title})\nShared via Softify 🎧';
+              Clipboard.setData(ClipboardData(text: shareString));
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.copy_rounded, color: accentColor, size: 16),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Lyric quote copied to clipboard',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: const Color(0xFF1B1B1F),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(tokens.radiusLg),
+                    side: BorderSide(
+                      color: accentColor.withValues(alpha: 0.35),
+                      width: 0.8,
+                    ),
                   ),
                 ),
-
-                // Main Line Content
-                Expanded(
-                  child: isMusicSymbol
-                      ? _buildInstrumentalIndicator(isActive, accentColor)
-                      : (isActive
-                          ? ValueListenableBuilder<Duration>(
-                              valueListenable: _positionNotifier,
-                              builder: (context, pos, _) {
-                                return _buildActiveKaraokeWords(
-                                  line: line,
-                                  nextLine: index + 1 < lines.length
-                                      ? lines[index + 1]
-                                      : null,
-                                  currentPos: pos,
-                                  accentColor: accentColor,
-                                  tokens: tokens,
-                                );
-                              },
-                            )
-                          : _buildInactiveLineText(
-                              text: line.text,
-                              opacity: lineOpacity,
-                            )),
-                ),
-              ],
+              );
+            },
+            borderRadius: BorderRadius.circular(tokens.radiusLg),
+            splashColor: accentColor.withValues(alpha: 0.08),
+            highlightColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: isMusicSymbol
+                  ? _buildInstrumentalIndicator(isActive, accentColor)
+                  : AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontEditorial,
+                        fontStyle: FontStyle.italic,
+                        fontSize: isActive
+                            ? _lyricFontSize.activeSize
+                            : _lyricFontSize.inactiveSize,
+                        fontWeight:
+                            isActive ? FontWeight.w700 : FontWeight.w400,
+                        color: isActive
+                            ? accentColor
+                            : tokens.textPrimary.withValues(alpha: lineOpacity),
+                        height: 1.45,
+                        letterSpacing: isActive ? -0.3 : 0.0,
+                      ),
+                      child: Text(displayText),
+                    ),
             ),
           ),
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _buildInactiveLineText({
-    required String text,
-    required double opacity,
-  }) {
-    final displayText = _romanizeLyrics ? ScriptRomanizer.romanize(text) : text;
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 250),
-      opacity: opacity,
-      child: Text(
-        displayText,
-        style: TextStyle(
-          fontFamily: AppTheme.fontEditorial,
-          fontStyle: FontStyle.italic,
-          fontSize: _lyricFontSize.inactiveSize,
-          fontWeight: FontWeight.w400,
-          color: const Color(0xFFB3B3B3),
-          height: 1.45,
-          letterSpacing: -0.2,
         ),
       ),
     );
@@ -1474,193 +1337,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActiveKaraokeWords({
-    required LyricLine line,
-    required LyricLine? nextLine,
-    required Duration currentPos,
-    required Color accentColor,
-    required AppTokens tokens,
-  }) {
-    final activeText = _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
-    final rawWords = activeText
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toList();
-    if (rawWords.isEmpty) return const SizedBox.shrink();
-
-    final lineStart = line.timestamp;
-    final hasTrueWordSync = line.words != null && line.words!.isNotEmpty;
-
-    final List<_WordTiming> wordTimings = [];
-    if (hasTrueWordSync) {
-      final wordsList = line.words!;
-      for (int i = 0; i < wordsList.length; i++) {
-        final w = wordsList[i];
-        final wStart = w.timestamp;
-        final wEnd = i + 1 < wordsList.length
-            ? wordsList[i + 1].timestamp
-            : (nextLine != null && nextLine.timestamp > wStart
-                ? nextLine.timestamp
-                : wStart + const Duration(milliseconds: 500));
-        final wText = _romanizeLyrics ? ScriptRomanizer.romanize(w.text) : w.text;
-        wordTimings.add(
-          _WordTiming(
-            text: wText,
-            startTime: wStart,
-            endTime: wEnd > wStart ? wEnd : wStart + const Duration(milliseconds: 300),
-          ),
-        );
-      }
-    } else {
-      // Standard line-synced lyrics (LRCLIB / Spotify Line-Synced):
-      // The entire active line is active together in full crisp white with accent glow.
-      // All words are immediately active so there is zero artificial word lag.
-      for (final w in rawWords) {
-        wordTimings.add(
-          _WordTiming(
-            text: w,
-            startTime: lineStart,
-            endTime: nextLine?.timestamp ?? lineStart + const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
-
-    return Wrap(
-      spacing: 7.0,
-      runSpacing: 5.0,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final wt in wordTimings)
-          _KaraokeWordItem(
-            wordTiming: wt,
-            currentPos: currentPos,
-            accentColor: accentColor,
-            hasTrueWordSync: hasTrueWordSync,
-            fontSize: _lyricFontSize.activeSize,
-          ),
-      ],
-    );
-  }
-}
-
-class _WordTiming {
-  final String text;
-  final Duration startTime;
-  final Duration endTime;
-
-  _WordTiming({
-    required this.text,
-    required this.startTime,
-    required this.endTime,
-  });
-}
-
-class _KaraokeWordItem extends StatelessWidget {
-  final _WordTiming wordTiming;
-  final Duration currentPos;
-  final Color accentColor;
-  final bool hasTrueWordSync;
-  final double fontSize;
-
-  const _KaraokeWordItem({
-    required this.wordTiming,
-    required this.currentPos,
-    required this.accentColor,
-    this.hasTrueWordSync = false,
-    this.fontSize = 23.0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = wordTiming.text;
-    if (text.isEmpty) return const SizedBox.shrink();
-
-    // Standard line-synced lyrics: All words are immediately fully active and illuminated
-    if (!hasTrueWordSync) {
-      return Text(
-        text,
-        style: TextStyle(
-          fontFamily: AppTheme.fontEditorial,
-          fontStyle: FontStyle.italic,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-          height: 1.45,
-          letterSpacing: -0.3,
-        ),
-      );
-    }
-
-    final isPast = currentPos >= wordTiming.endTime;
-    final isFuture = currentPos < wordTiming.startTime;
-
-    // 1. Past word: Sung and settled in solid crisp white
-    if (isPast) {
-      return Text(
-        text,
-        style: TextStyle(
-          fontFamily: AppTheme.fontEditorial,
-          fontStyle: FontStyle.italic,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-          height: 1.45,
-          letterSpacing: -0.3,
-        ),
-      );
-    }
-
-    // 2. Future word: Unsung, dimmed translucent
-    if (isFuture) {
-      return Text(
-        text,
-        style: TextStyle(
-          fontFamily: AppTheme.fontEditorial,
-          fontStyle: FontStyle.italic,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w400,
-          color: const Color(0xFFB3B3B3).withValues(alpha: 0.5),
-          height: 1.45,
-          letterSpacing: -0.3,
-        ),
-      );
-    }
-
-    // 3. Active word: Being vocalized RIGHT NOW! High-precision word-to-word kinetic bloom
-    final durationMs =
-        (wordTiming.endTime - wordTiming.startTime).inMilliseconds;
-    final elapsedMs =
-        (currentPos - wordTiming.startTime).inMilliseconds;
-    final double wordProgress =
-        durationMs > 0 ? (elapsedMs / durationMs).clamp(0.0, 1.0) : 1.0;
-
-    final bounce = math.sin(wordProgress * math.pi);
-    final scale = 1.0 + (0.07 * bounce);
-    final translateY = -2.5 * bounce;
-
-    return Transform.translate(
-      offset: Offset(0, translateY),
-      child: Transform.scale(
-        scale: scale,
-        alignment: Alignment.bottomCenter,
-        child: Text(
-          text,
-          style: TextStyle(
-            fontFamily: AppTheme.fontEditorial,
-            fontStyle: FontStyle.italic,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            height: 1.45,
-            letterSpacing: -0.3,
-          ),
-        ),
       ),
     );
   }

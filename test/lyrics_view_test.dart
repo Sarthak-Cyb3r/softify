@@ -111,9 +111,8 @@ void main() {
       expect(find.text('LYRICS'), findsOneWidget);
       expect(find.text('0ms'), findsOneWidget);
       expect(find.text('Self Aware • Qveen Herby'), findsOneWidget);
-      expect(find.text('First line of the song'), findsNothing); // Active line is split into words
-      expect(find.text('First'), findsOneWidget); // Active word
-      expect(find.text('Second line of the song'), findsOneWidget); // Inactive line
+      expect(find.text('First line of the song'), findsOneWidget);
+      expect(find.text('Second line of the song'), findsOneWidget);
     });
 
     testWidgets('renders plain unsynced lyrics sheet when synced lyrics are missing', (tester) async {
@@ -219,9 +218,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Sync Live'), findsOneWidget);
-      expect(find.text('VOCAL VOLUME MODE'), findsOneWidget);
-      expect(find.text('Original'), findsOneWidget);
-      expect(find.text('Karaoke'), findsOneWidget);
       expect(find.text('Synced with audio'), findsOneWidget);
       expect(find.text('Continuous Track Sync'), findsOneWidget);
     });
@@ -277,10 +273,8 @@ void main() {
       await tester.tap(find.text('ORIG'));
       await tester.pump();
       expect(find.text('ROM'), findsOneWidget);
-      // Verify transliterated karaoke words are rendered
-      expect(find.text('tum'), findsOneWidget);
-      expect(find.text('hee'), findsOneWidget);
-      expect(find.text('ho'), findsOneWidget);
+      // Verify transliterated line is rendered
+      expect(find.text('tum hee ho'), findsOneWidget);
     });
 
     test('CompositeLyricsProvider seamlessly falls back when primary is empty', () async {
