@@ -145,13 +145,12 @@ class _WrappedInsightsDialogState extends ConsumerState<WrappedInsightsDialog>
                     ],
                   ),
                 ),
-                if (isDesktop)
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    color: const Color(0xFF86948A),
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  color: const Color(0xFF86948A),
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ],
             ),
           ),

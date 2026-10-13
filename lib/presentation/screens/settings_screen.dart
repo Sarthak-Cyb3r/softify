@@ -256,6 +256,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         backgroundColor: tokens.surface,
         elevation: 0,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+              )
+            : null,
         title: Text(
           'Settings',
           style: TextStyle(fontWeight: FontWeight.bold, color: tokens.textPrimary),

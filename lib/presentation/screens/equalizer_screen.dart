@@ -21,6 +21,13 @@ class EqualizerScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: tokens.background,
         elevation: 0,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+              )
+            : null,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -34,6 +41,8 @@ class EqualizerScreen extends ConsumerWidget {
             ),
             Text(
               'Acoustic Profile • Softify Smart EQ 2.0',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -43,39 +52,41 @@ class EqualizerScreen extends ConsumerWidget {
           ],
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: tokens.surfaceElevated,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: tokens.surfaceHighlight, width: 1),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: tokens.accent,
+          if (MediaQuery.sizeOf(context).width >= 700) ...[
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: tokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: tokens.surfaceHighlight, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: tokens.accent,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Active Output: Softify Smart EQ 2.0',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    color: tokens.accent,
+                  const SizedBox(width: 6),
+                  Text(
+                    'Active Output: Softify Smart EQ 2.0',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                      color: tokens.accent,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
+            const SizedBox(width: 6),
+          ],
           IconButton(
             icon: Icon(Icons.refresh, color: tokens.textSecondary),
             tooltip: 'Reset to Flat',

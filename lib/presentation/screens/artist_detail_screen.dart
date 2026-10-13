@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/bouncing_scale_button.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
@@ -74,6 +75,35 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
             expandedHeight: 240,
             pinned: true,
             backgroundColor: tokens.surface,
+            leading: Navigator.of(context).canPop()
+                ? Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: BouncingScaleButton(
+                      scaleFactor: 0.90,
+                      minTouchTarget: 0,
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: tokens.surfaceElevated.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: tokens.surfaceHighlight.withValues(alpha: 0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: tokens.textPrimary,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 widget.artistName,

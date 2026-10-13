@@ -94,6 +94,11 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 20, color: tokens.textSecondary),
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
               ),
             ),
