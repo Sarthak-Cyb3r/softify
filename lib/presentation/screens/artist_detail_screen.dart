@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
+import '../providers/search_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_music_wave_indicator.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/track_options_bottom_sheet.dart';
+import 'artist_discography_screen.dart';
 
 class ArtistDetailScreen extends ConsumerStatefulWidget {
   final String artistName;
@@ -181,6 +184,30 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                         audioHandler.setQueue(shuffled);
                       },
                     ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: tokens.textPrimary,
+                        side: BorderSide(color: tokens.surfaceHighlight),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(tokens.radiusFull),
+                        ),
+                      ),
+                      icon: const Icon(Icons.album_rounded, size: 18),
+                      label: const Text('Discography'),
+                      onPressed: () async {
+                        final disco = await ref.read(
+                            artistDiscographySearchProvider(widget.artistName).future);
+                        if (disco != null && context.mounted) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ArtistDiscographyScreen(disco: disco),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -209,22 +236,37 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                   final track = _tracks[index];
                   final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
                   final isLiked = isLikedAsync.value ?? track.isLiked;
+                  final currentTrack = ref.watch(currentTrackProvider).value;
+                  final isCurrent = currentTrack?.id == track.id;
+                  final isPlaying = ref.watch(isPlayingProvider);
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     onTap: () {
                       audioHandler.setQueue(_tracks, startIndex: index);
                     },
-                    leading: Text(
-                      '${index + 1}',
-                      style: TextStyle(color: tokens.textSecondary, fontSize: 14),
+                    leading: SizedBox(
+                      width: 24,
+                      child: Center(
+                        child: isCurrent
+                            ? AnimatedMusicWaveIndicator(
+                                isPlaying: isPlaying,
+                                color: tokens.accent,
+                                size: 16,
+                                barCount: 3,
+                              )
+                            : Text(
+                                '${index + 1}',
+                                style: TextStyle(color: tokens.textSecondary, fontSize: 14),
+                              ),
+                      ),
                     ),
                     title: Text(
                       track.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: tokens.textPrimary,
+                        color: isCurrent ? tokens.accent : tokens.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

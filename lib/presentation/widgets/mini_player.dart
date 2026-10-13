@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
 import '../theme/app_tokens.dart';
+import 'animated_music_wave_indicator.dart';
 import 'bouncing_scale_button.dart';
 import 'play_pause_morph_button.dart';
 
@@ -250,19 +251,13 @@ class MiniPlayer extends ConsumerWidget {
                                 Row(
                                   children: [
                                     if (isPlaying) ...[
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        margin: const EdgeInsets.only(right: 6),
-                                        decoration: BoxDecoration(
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 8),
+                                        child: AnimatedMusicWaveIndicator(
+                                          isPlaying: true,
+                                          size: 13,
+                                          barCount: 3,
                                           color: tokens.accent,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: tokens.accent.withValues(alpha: 0.6),
-                                              blurRadius: 4,
-                                            ),
-                                          ],
                                         ),
                                       ),
                                     ],

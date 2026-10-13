@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
+import 'animated_music_wave_indicator.dart';
 
 class QueueBottomSheet extends ConsumerWidget {
   const QueueBottomSheet({super.key});
@@ -150,10 +151,11 @@ class QueueBottomSheet extends ConsumerWidget {
                                   fontSize: 12,
                                 ),
                               ),
-                              trailing: Icon(
-                                Icons.graphic_eq_rounded,
+                              trailing: AnimatedMusicWaveIndicator(
+                                isPlaying: ref.watch(isPlayingProvider),
                                 color: tokens.accent,
-                                size: 22,
+                                size: 20,
+                                barCount: 4,
                               ),
                             ),
                           ),

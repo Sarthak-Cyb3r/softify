@@ -390,6 +390,93 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
                   },
                 ),
+                const Divider(color: Colors.black26, height: 1),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final crossfadeSec = ref.watch(crossfadeDurationProvider);
+                    final notifier = ref.read(crossfadeDurationProvider.notifier);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.tune_rounded, color: tokens.accent, size: 24),
+                                  const SizedBox(width: 16),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Crossfade',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'DJ blend transition between consecutive tracks',
+                                        style: TextStyle(
+                                          color: tokens.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: crossfadeSec > 0
+                                      ? tokens.accent.withValues(alpha: 0.15)
+                                      : tokens.surfaceHighlight,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: crossfadeSec > 0
+                                        ? tokens.accent.withValues(alpha: 0.4)
+                                        : Colors.transparent,
+                                  ),
+                                ),
+                                child: Text(
+                                  crossfadeSec == 0 ? 'Off' : '${crossfadeSec}s',
+                                  style: TextStyle(
+                                    color: crossfadeSec > 0 ? tokens.accent : tokens.textSecondary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: tokens.accent,
+                              inactiveTrackColor: tokens.surfaceHighlight,
+                              thumbColor: tokens.accent,
+                              overlayColor: tokens.accent.withValues(alpha: 0.2),
+                              trackHeight: 3,
+                            ),
+                            child: Slider(
+                              value: crossfadeSec.toDouble(),
+                              min: 0,
+                              max: 12,
+                              divisions: 12,
+                              onChanged: (val) {
+                                notifier.setCrossfadeDuration(val.round());
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),

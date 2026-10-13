@@ -157,7 +157,7 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
   Future<void> preloadNextFilePath(String path) async {}
 
   @override
-  Future<void> playPreloadedNext() async {}
+  Future<void> playPreloadedNext({Duration crossfade = Duration.zero}) async {}
 
   @override
   void clearPreloadedNext() {}

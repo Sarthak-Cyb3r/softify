@@ -75,6 +75,47 @@ final audioQualityPresetProvider =
   return AudioQualityNotifier(db);
 });
 
+// Crossfade Duration Setting Notifier (0s to 12s)
+class CrossfadeDurationNotifier extends StateNotifier<int> {
+  final AppDatabase _db;
+  final Ref _ref;
+
+  CrossfadeDurationNotifier(this._db, this._ref) : super(0) {
+    _loadFromDb();
+  }
+
+  Future<void> _loadFromDb() async {
+    try {
+      final row = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals('crossfade_duration')))
+          .getSingleOrNull();
+      if (row != null) {
+        final sec = int.tryParse(row.value) ?? 0;
+        state = sec;
+        _ref.read(audioHandlerProvider).setCrossfadeSeconds(sec);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setCrossfadeDuration(int seconds) async {
+    final clamped = seconds.clamp(0, 12);
+    state = clamped;
+    _ref.read(audioHandlerProvider).setCrossfadeSeconds(clamped);
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingRow(
+            key: 'crossfade_duration',
+            value: clamped.toString(),
+          ),
+        );
+  }
+}
+
+final crossfadeDurationProvider =
+    StateNotifierProvider<CrossfadeDurationNotifier, int>((ref) {
+  final db = ref.watch(databaseProvider);
+  return CrossfadeDurationNotifier(db, ref);
+});
+
 // Cache Cleaning Utilities
 class CacheManager {
   final AppDatabase _db;

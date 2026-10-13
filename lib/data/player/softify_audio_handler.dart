@@ -73,9 +73,21 @@ class SoftifyAudioHandler extends BaseAudioHandler
       BehaviorSubject<Duration?>.seeded(null);
   final BehaviorSubject<bool> _sleepEndOfTrackSubject =
       BehaviorSubject<bool>.seeded(false);
+  int _crossfadeSeconds = 0;
+  int get crossfadeSeconds => _crossfadeSeconds;
+  final BehaviorSubject<int> _crossfadeSecondsSubject =
+      BehaviorSubject<int>.seeded(0);
+  Stream<int> get crossfadeSecondsStream => _crossfadeSecondsSubject.stream;
+
+  void setCrossfadeSeconds(int seconds) {
+    _crossfadeSeconds = seconds.clamp(0, 12);
+    _crossfadeSecondsSubject.add(_crossfadeSeconds);
+  }
+
   StreamSubscription? _playerStateSubscription;
   StreamSubscription? _playbackEventSubscription;
   StreamSubscription? _audioSessionSubscription;
+  StreamSubscription? _crossfadePositionSubscription;
 
   SoftifyAudioHandler({
     ISoftifyAudioPlayer? player,
@@ -287,6 +299,19 @@ class SoftifyAudioHandler extends BaseAudioHandler
       }
     });
 
+    // Listen to position for automatic DJ crossfade
+    _crossfadePositionSubscription = _player.positionStream.listen((pos) {
+      if (_crossfadeSeconds > 0 && !_isTransitioningTrack) {
+        final dur = currentTrack?.duration;
+        if (dur != null && dur > const Duration(seconds: 25)) {
+          final crossfadeDur = Duration(seconds: _crossfadeSeconds);
+          if (pos >= dur - crossfadeDur && _player.hasPreloadedNext) {
+            _onTrackCompleted();
+          }
+        }
+      }
+    });
+
     if (autoRestoreState) {
       await restorePersistedState();
     }
@@ -436,7 +461,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
-        await _player.playPreloadedNext();
+        await _player.playPreloadedNext(
+          crossfade: Duration(seconds: _crossfadeSeconds),
+        );
         if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
           await _player.setSpeed(1.0);
         }
@@ -461,7 +488,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
-        await _player.playPreloadedNext();
+        await _player.playPreloadedNext(
+          crossfade: Duration(seconds: _crossfadeSeconds),
+        );
         if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
           await _player.setSpeed(1.0);
         }
@@ -1075,6 +1104,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     await _playerStateSubscription?.cancel();
     await _playbackEventSubscription?.cancel();
     await _audioSessionSubscription?.cancel();
+    await _crossfadePositionSubscription?.cancel();
     await _currentTrackSubject.close();
     await _tracksQueueSubject.close();
     await _repeatModeSubject.close();
@@ -1082,6 +1112,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     await _autoPlaySubject.close();
     await _sleepTimerRemainingSubject.close();
     await _sleepEndOfTrackSubject.close();
+    await _crossfadeSecondsSubject.close();
     await _player.dispose();
   }
 }

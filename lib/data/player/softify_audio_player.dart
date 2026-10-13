@@ -21,7 +21,7 @@ abstract class ISoftifyAudioPlayer {
   Future<void> preloadNextFilePath(String path);
   bool get hasPreloadedNext;
   String? get preloadedSource;
-  Future<void> playPreloadedNext();
+  Future<void> playPreloadedNext({Duration crossfade = Duration.zero});
   void clearPreloadedNext();
 
   Stream<PlayerState> get playerStateStream;
@@ -253,23 +253,59 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   String? get preloadedSource => _preloadedSource;
 
   @override
-  Future<void> playPreloadedNext() async {
+  Future<void> playPreloadedNext({Duration crossfade = Duration.zero}) async {
     final standby = _standbyPlayer;
     if (!_isStandbyReady || standby == null) return;
 
-    await _activePlayer.stop();
+    if (crossfade <= Duration.zero || Platform.isLinux) {
+      await _activePlayer.stop();
 
-    final temp = _activePlayer;
-    _activePlayer = standby;
-    _standbyPlayer = temp;
+      final temp = _activePlayer;
+      _activePlayer = standby;
+      _standbyPlayer = temp;
 
+      _preloadedSource = null;
+      _isStandbyReady = false;
+
+      _bindActivePlayerStreams();
+      _syncEqualizerEffects();
+      await _activePlayer.setSpeed(_speedSubject.value);
+      await _activePlayer.play();
+      return;
+    }
+
+    // Smooth DJ crossfade between active and standby players
+    final outgoing = _activePlayer;
+    final incoming = standby;
+
+    _activePlayer = incoming;
+    _standbyPlayer = outgoing;
     _preloadedSource = null;
     _isStandbyReady = false;
 
     _bindActivePlayerStreams();
     _syncEqualizerEffects();
-    await _activePlayer.setSpeed(_speedSubject.value);
-    await _activePlayer.play();
+
+    final targetVol = _volumeSubject.value;
+    await incoming.setVolume(0.0);
+    await incoming.setSpeed(_speedSubject.value);
+    await incoming.play();
+
+    const steps = 10;
+    final stepDuration = Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
+
+    for (int i = 1; i <= steps; i++) {
+      await Future.delayed(stepDuration);
+      final factor = i / steps;
+      final outVol = (targetVol * (1.0 - factor)).clamp(0.0, 1.0);
+      final inVol = (targetVol * factor).clamp(0.0, 1.0);
+      unawaited(outgoing.setVolume(outVol));
+      unawaited(incoming.setVolume(inVol));
+    }
+
+    await outgoing.stop();
+    await outgoing.setVolume(targetVol);
+    await incoming.setVolume(targetVol);
   }
 
   @override
