@@ -7,7 +7,9 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/desktop_player_bar.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/shared/app_network_image.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
@@ -89,8 +91,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
-          ? const SafeArea(top: false, child: MiniPlayer())
-          : null,
+          ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
+          : const DesktopPlayerBar(),
       floatingActionButton: _tracks.isNotEmpty
           ? BouncingScaleButton(
               scaleFactor: 0.94,
@@ -235,19 +237,12 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                             ),
                           ],
                         ),
-                        child: ClipRRect(
+                        child: AppNetworkImage(
+                          imageUrl: widget.coverUrl,
                           borderRadius: BorderRadius.circular(tokens.radiusMd),
-                          child: widget.coverUrl != null
-                              ? Image.network(
-                                  widget.coverUrl!,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 480,
-                                  cacheHeight: 480,
-                                  gaplessPlayback: true,
-                                  errorBuilder: (_, __, ___) =>
-                                      _fallbackCover(tokens),
-                                )
-                              : _fallbackCover(tokens),
+                          fit: BoxFit.cover,
+                          fallbackIcon: Icons.album_rounded,
+                          backgroundColor: tokens.surfaceElevated,
                         ),
                       ),
                     ),
@@ -531,16 +526,5 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     );
   }
 
-  Widget _fallbackCover(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceHighlight,
-      child: Center(
-        child: Icon(
-          Icons.album_rounded,
-          size: 60,
-          color: tokens.textMuted,
-        ),
-      ),
-    );
-  }
+
 }

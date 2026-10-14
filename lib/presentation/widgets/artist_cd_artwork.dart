@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'shared/app_network_image.dart';
+
 /// Photorealistic Dark Vinyl/CD Disc artwork with centered artist portrait,
 /// specular concentric grooves, radial light slices, and spindle hole.
 /// Adheres to Stitch "Softify Mobile - Search & Discography" emblem specification.
@@ -99,13 +101,12 @@ class ArtistCdArtwork extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  artistImageUrl != null && artistImageUrl!.isNotEmpty
-                      ? Image.network(
-                          artistImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildFallback(),
-                        )
-                      : _buildFallback(),
+                  AppNetworkImage(
+                    imageUrl: artistImageUrl,
+                    fit: BoxFit.cover,
+                    isCircular: true,
+                    fallbackIcon: Icons.person_rounded,
+                  ),
                   // Subtle emerald hologram tint
                   Container(
                     decoration: BoxDecoration(
@@ -150,16 +151,5 @@ class ArtistCdArtwork extends StatelessWidget {
     );
   }
 
-  Widget _buildFallback() {
-    return Container(
-      color: const Color(0xFF1E222D),
-      child: const Center(
-        child: Icon(
-          Icons.person_rounded,
-          color: Color(0xFF86948A),
-          size: 18,
-        ),
-      ),
-    );
-  }
+
 }

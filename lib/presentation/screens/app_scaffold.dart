@@ -28,7 +28,7 @@ import '../widgets/terms_and_conditions_dialog.dart';
 /// Centralized application tab icon registry for consistent styling and quick theme swaps
 class AppTabIcons {
   static const IconData youtube = Icons.smart_display_outlined;
-  static const IconData youtubeActive = Icons.smart_display;
+  static const IconData youtubeActive = Icons.smart_display_rounded;
   static const IconData podcasts = Icons.podcasts_outlined;
   static const IconData podcastsActive = Icons.podcasts_rounded;
 }
@@ -482,7 +482,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 children: [
                   const MiniPlayer(),
                   SlimBottomNavBar(
-                    currentIndex: _currentIndex,
+                    currentIndex: _currentIndex > 4 ? 0 : _currentIndex,
                     onTap: (index) {
                       setState(() {
                         _currentIndex = index;
@@ -502,7 +502,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                       SlimNavItem(
                         icon: AppTabIcons.youtube,
                         activeIcon: AppTabIcons.youtubeActive,
-                        label: 'YouTube',
+                        label: 'Paste Link',
                       ),
                       SlimNavItem(
                         icon: AppTabIcons.podcasts,

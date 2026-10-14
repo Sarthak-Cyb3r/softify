@@ -8,6 +8,10 @@ import 'package:softify/domain/entities/track.dart';
 import 'package:softify/presentation/providers/player_providers.dart';
 import 'package:softify/presentation/screens/artist_discography_screen.dart';
 
+import 'package:audio_service/audio_service.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:softify/domain/entities/audio_repeat_mode.dart';
+
 class _FakeAudioHandler extends Fake implements SoftifyAudioHandler {
   @override
   void setTrackSource(String source) {}
@@ -17,6 +21,41 @@ class _FakeAudioHandler extends Fake implements SoftifyAudioHandler {
 
   @override
   Duration get position => Duration.zero;
+
+  @override
+  Stream<Track?> get currentTrackStream => Stream.value(null);
+
+  @override
+  Stream<List<Track>> get tracksQueueStream => Stream.value([]);
+
+  @override
+  final BehaviorSubject<PlaybackState> playbackState =
+      BehaviorSubject<PlaybackState>.seeded(PlaybackState(playing: false));
+
+  @override
+  Stream<Duration> get positionStream => Stream.value(Duration.zero);
+
+  @override
+  Stream<Duration?> get durationStream => Stream.value(null);
+
+  @override
+  Stream<double> get volumeStream => Stream.value(1.0);
+
+  @override
+  double get volume => 1.0;
+
+  @override
+  Stream<AudioRepeatMode> get repeatModeStream =>
+      Stream.value(AudioRepeatMode.off);
+
+  @override
+  Stream<bool> get shuffleModeStream => Stream.value(false);
+
+  @override
+  double get speed => 1.0;
+
+  @override
+  Stream<double> get speedStream => Stream.value(1.0);
 }
 
 void main() {

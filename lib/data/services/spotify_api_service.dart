@@ -626,6 +626,36 @@ class SpotifyApiService {
         } catch (_) {}
       }
 
+      if (avatarUrl == null || avatarUrl.isEmpty) {
+        // Fallback 1: Header image from Spotify visuals
+        final headerSources = artistUnion['visuals']?['headerImage']?['sources'] as List<dynamic>?;
+        if (headerSources != null && headerSources.isNotEmpty) {
+          avatarUrl = headerSources.first['url'] as String?;
+        }
+      }
+
+      if (avatarUrl == null || avatarUrl.isEmpty) {
+        // Fallback 2: Deezer instant keyless artist avatar lookup
+        try {
+          final encoded = Uri.encodeComponent(artistName);
+          final res = await _client.get(
+            Uri.parse('https://api.deezer.com/search/artist?q=$encoded&limit=1'),
+            headers: {'User-Agent': _defaultUserAgent},
+          ).timeout(const Duration(seconds: 3));
+          if (res.statusCode == 200) {
+            final parsed = jsonDecode(res.body) as Map<String, dynamic>;
+            final dataList = parsed['data'] as List<dynamic>?;
+            if (dataList != null && dataList.isNotEmpty) {
+              final first = dataList.first as Map<String, dynamic>;
+              avatarUrl = (first['picture_big'] ?? first['picture_medium']) as String?;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Fallback 3: First available track cover
+      avatarUrl ??= collectedTracks.firstOrNull?.coverUrl;
+
       return ArtistDiscography(
         artistName: artistName,
         artistUri: uri,

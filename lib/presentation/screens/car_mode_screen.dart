@@ -8,6 +8,7 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/shared/app_network_image.dart';
 
 /// High-contrast, large-touch-target Driving Interface for automotive head units & car mounts.
 class CarModeScreen extends ConsumerStatefulWidget {
@@ -279,25 +280,16 @@ class _CarModeScreenState extends ConsumerState<CarModeScreen> {
         borderRadius: BorderRadius.circular(tokens.radiusCard),
       ),
       clipBehavior: Clip.antiAlias,
-      child: track?.coverUrl != null && track!.coverUrl!.isNotEmpty
-          ? Image.network(
-              track.coverUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _buildArtPlaceholder(tokens, size),
-            )
-          : _buildArtPlaceholder(tokens, size),
-    );
-  }
-
-  Widget _buildArtPlaceholder(AppTokens tokens, double size) {
-    return Center(
-      child: Icon(
-        Icons.music_note_rounded,
-        size: size * 0.4,
-        color: tokens.textSecondary,
+      child: AppNetworkImage(
+        imageUrl: track?.coverUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        placeholderIcon: Icons.music_note_rounded,
       ),
     );
   }
+
 
   Widget _buildControlsRow(AppTokens tokens, bool isPlaying, AudioHandler audioHandler) {
     return Row(

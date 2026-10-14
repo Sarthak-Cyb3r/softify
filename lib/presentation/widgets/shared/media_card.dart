@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../bouncing_scale_button.dart';
+import 'app_network_image.dart';
 
 /// Content-first square media card for albums, playlists, and shelves.
 class MediaCard extends StatefulWidget {
@@ -67,17 +68,11 @@ class _MediaCardState extends State<MediaCard> {
                     children: [
                       // Image with 6px inner radius
                       Positioned.fill(
-                        child: ClipRRect(
+                        child: AppNetworkImage(
+                          imageUrl: widget.imageUrl,
                           borderRadius: BorderRadius.circular(6.0),
-                          child: widget.imageUrl != null &&
-                                  widget.imageUrl!.isNotEmpty
-                              ? Image.network(
-                                  widget.imageUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _buildPlaceholder(tokens),
-                                )
-                              : _buildPlaceholder(tokens),
+                          fit: BoxFit.cover,
+                          fallbackIcon: widget.placeholderIcon,
                         ),
                       ),
 
@@ -157,16 +152,5 @@ class _MediaCardState extends State<MediaCard> {
     );
   }
 
-  Widget _buildPlaceholder(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceElevated,
-      child: Center(
-        child: Icon(
-          widget.placeholderIcon,
-          size: 44.0,
-          color: tokens.textMuted,
-        ),
-      ),
-    );
-  }
+
 }

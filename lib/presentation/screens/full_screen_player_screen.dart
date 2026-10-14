@@ -6,10 +6,12 @@ import 'package:palette_generator/palette_generator.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/artist_chooser_bottom_sheet.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/play_pause_morph_button.dart';
 import '../widgets/queue_bottom_sheet.dart';
+import '../widgets/shared/app_network_image.dart';
 import '../widgets/sleep_timer_bottom_sheet.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import 'equalizer_screen.dart';
@@ -332,17 +334,13 @@ class _FullScreenPlayerScreenState
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: currentTrack.coverUrl != null
-                                          ? Image.network(
-                                              currentTrack.coverUrl!,
-                                              fit: BoxFit.cover,
-                                              cacheWidth: 800,
-                                              cacheHeight: 800,
-                                              gaplessPlayback: true,
-                                              errorBuilder: (_, __, ___) =>
-                                                  _artworkFallback(tokens),
-                                            )
-                                          : _artworkFallback(tokens),
+                                      child: AppNetworkImage(
+                                        imageUrl: currentTrack.coverUrl,
+                                        fit: BoxFit.cover,
+                                        cacheWidth: 800,
+                                        cacheHeight: 800,
+                                        placeholderIcon: Icons.music_note_rounded,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -374,14 +372,24 @@ class _FullScreenPlayerScreenState
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            currentTrack.artist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              color: tokens.textSecondary,
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              showArtistChooserOrDetail(
+                                context,
+                                rawArtist: currentTrack.artist,
+                                coverUrl: currentTrack.coverUrl,
+                              );
+                            },
+                            child: Text(
+                              currentTrack.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                color: tokens.textSecondary,
+                              ),
                             ),
                           ),
                         ],
@@ -752,18 +760,7 @@ class _FullScreenPlayerScreenState
     );
   }
 
-  Widget _artworkFallback(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceHighlight,
-      child: Center(
-        child: Icon(
-          Icons.music_note_rounded,
-          color: tokens.textMuted,
-          size: 72,
-        ),
-      ),
-    );
-  }
+
 }
 
 /// Isolated scrubber widget that handles high-frequency position ticks

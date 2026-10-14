@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/entities/track.dart';
 import '../../theme/app_theme.dart';
 import '../animated_music_wave_indicator.dart';
+import 'app_network_image.dart';
 
 /// Content-first 56px track data row for lists, queues, and search results.
 class TrackRow extends StatefulWidget {
@@ -228,31 +229,14 @@ class _TrackRowState extends State<TrackRow> {
   }
 
   Widget _buildArtwork(AppTokens tokens) {
-    return ClipRRect(
+    return AppNetworkImage(
+      imageUrl: widget.track.coverUrl,
+      width: 40.0,
+      height: 40.0,
       borderRadius: BorderRadius.circular(4.0),
-      child: Container(
-        width: 40.0,
-        height: 40.0,
-        color: tokens.card,
-        child: widget.track.coverUrl != null && widget.track.coverUrl!.isNotEmpty
-            ? Image.network(
-                widget.track.coverUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallbackCover(tokens),
-              )
-            : _fallbackCover(tokens),
-      ),
-    );
-  }
-
-  Widget _fallbackCover(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceElevated,
-      child: Icon(
-        Icons.music_note_rounded,
-        size: 20.0,
-        color: tokens.textMuted,
-      ),
+      fit: BoxFit.cover,
+      fallbackIcon: Icons.music_note_rounded,
+      backgroundColor: tokens.card,
     );
   }
 }

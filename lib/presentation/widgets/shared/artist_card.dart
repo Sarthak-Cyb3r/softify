@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../bouncing_scale_button.dart';
+import 'app_network_image.dart';
 
 /// Content-first circular portrait artist card for search, home shelves, and library.
 class ArtistCard extends StatefulWidget {
@@ -65,16 +66,11 @@ class _ArtistCardState extends State<ArtistCard> {
                     children: [
                       // Strictly Circular Avatar
                       Positioned.fill(
-                        child: ClipOval(
-                          child: widget.imageUrl != null &&
-                                  widget.imageUrl!.isNotEmpty
-                              ? Image.network(
-                                  widget.imageUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _buildPlaceholder(tokens),
-                                )
-                              : _buildPlaceholder(tokens),
+                        child: AppNetworkImage(
+                          imageUrl: widget.imageUrl,
+                          isCircular: true,
+                          fit: BoxFit.cover,
+                          fallbackIcon: Icons.person_rounded,
                         ),
                       ),
 
@@ -154,16 +150,5 @@ class _ArtistCardState extends State<ArtistCard> {
     );
   }
 
-  Widget _buildPlaceholder(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceElevated,
-      child: Center(
-        child: Icon(
-          Icons.person_rounded,
-          size: 44.0,
-          color: tokens.textMuted,
-        ),
-      ),
-    );
-  }
+
 }

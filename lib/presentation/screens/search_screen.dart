@@ -726,17 +726,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(tokens.radiusSm),
-                child: track.coverUrl != null
-                    ? Image.network(
-                        track.coverUrl!,
-                        width: 76,
-                        height: 76,
-                        cacheWidth: 228,
-                        cacheHeight: 228,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackCover(tokens),
-                      )
-                    : _fallbackCover(tokens),
+                child: AppNetworkImage(
+                  imageUrl: track.coverUrl,
+                  width: 76,
+                  height: 76,
+                  cacheWidth: 228,
+                  cacheHeight: 228,
+                  fit: BoxFit.cover,
+                  placeholderIcon: Icons.music_note_rounded,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -900,18 +898,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _fallbackCover(AppTokens tokens) {
-    return Container(
-      width: 76,
-      height: 76,
-      color: tokens.surfaceElevated,
-      child: const Icon(
-        Icons.music_note_rounded,
-        color: AppTheme.textSecondary,
-        size: 24,
-      ),
-    );
-  }
 
   Widget _buildArtistDiscographyBanner(
     AppTokens tokens,

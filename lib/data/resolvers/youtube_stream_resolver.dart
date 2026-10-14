@@ -178,12 +178,23 @@ class YoutubeStreamResolver implements IStreamResolver {
       final dynamic selected;
 
       if (audioStreams.isNotEmpty) {
+        // Exclude auto-dubbed language tracks to preserve original video audio
+        final nonDubbedStreams = audioStreams.where((s) {
+          final urlStr = s.url.toString();
+          return !urlStr.contains('dubbed-auto') &&
+              !urlStr.contains('acont%3Ddubbed') &&
+              !urlStr.contains('acont=dubbed');
+        }).toList();
+
+        final effectiveStreams =
+            nonDubbedStreams.isNotEmpty ? nonDubbedStreams : audioStreams.toList();
+
         // Filter M4A/AAC streams (container-native itag 140 / 139)
-        final m4aStreams = audioStreams
+        final m4aStreams = effectiveStreams
             .where((s) => s.container.name.toLowerCase() == 'mp4')
             .toList();
         final candidates =
-            m4aStreams.isNotEmpty ? m4aStreams : audioStreams.toList();
+            m4aStreams.isNotEmpty ? m4aStreams : effectiveStreams;
 
         // Target bitrate:
         // high: ~160 kbps (itag 140 / highest AAC)

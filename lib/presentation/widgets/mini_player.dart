@@ -6,6 +6,7 @@ import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
 import '../theme/app_theme.dart';
 import 'animated_music_wave_indicator.dart';
+import 'shared/app_network_image.dart';
 
 /// Floating mini player adhering to Content-First Stitch mobile design:
 /// - Surface: #181818 card surface with 8px radius
@@ -129,24 +130,14 @@ class MiniPlayer extends ConsumerWidget {
                   child: Row(
                     children: [
                       // Artwork 40x40 with 4px radius
-                      ClipRRect(
+                      AppNetworkImage(
+                        imageUrl: effectiveTrack.coverUrl,
+                        width: 40,
+                        height: 40,
                         borderRadius: BorderRadius.circular(4),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          color: tokens.surfaceElevated,
-                          child: effectiveTrack.coverUrl != null &&
-                                  effectiveTrack.coverUrl!.isNotEmpty
-                              ? Image.network(
-                                  effectiveTrack.coverUrl!,
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _fallbackCover(tokens),
-                                )
-                              : _fallbackCover(tokens),
-                        ),
+                        fit: BoxFit.cover,
+                        fallbackIcon: Icons.music_note_rounded,
+                        backgroundColor: tokens.surfaceElevated,
                       ),
                       const SizedBox(width: 10),
 
@@ -273,7 +264,7 @@ class MiniPlayer extends ConsumerWidget {
                     child: FractionallySizedBox(
                       widthFactor: progress,
                       child: Container(
-                        color: Colors.white,
+                        color: tokens.accent,
                       ),
                     ),
                   ),
@@ -286,16 +277,5 @@ class MiniPlayer extends ConsumerWidget {
     );
   }
 
-  Widget _fallbackCover(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceElevated,
-      child: Center(
-        child: Icon(
-          Icons.music_note_rounded,
-          size: 20,
-          color: tokens.textMuted,
-        ),
-      ),
-    );
-  }
+
 }

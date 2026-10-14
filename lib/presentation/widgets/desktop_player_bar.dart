@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'queue_bottom_sheet.dart';
 import 'shared/app_slider.dart';
+import 'shared/app_network_image.dart';
 
 /// Desktop Bottom Player Bar adhering to Content-First Spotify-inspired design:
 /// - Background: Chrome #000000
@@ -127,23 +128,14 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   },
                   child: MouseRegion(
                     cursor: SystemMouseCursors.click,
-                    child: ClipRRect(
+                    child: AppNetworkImage(
+                      imageUrl: currentTrack.coverUrl,
+                      width: 52,
+                      height: 52,
                       borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        color: tokens.card,
-                        child: currentTrack.coverUrl != null &&
-                                currentTrack.coverUrl!.isNotEmpty
-                            ? Image.network(
-                                currentTrack.coverUrl!,
-                                width: 52,
-                                height: 52,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _buildFallbackArt(tokens),
-                              )
-                            : _buildFallbackArt(tokens),
-                      ),
+                      fit: BoxFit.cover,
+                      fallbackIcon: Icons.music_note_rounded,
+                      backgroundColor: tokens.card,
                     ),
                   ),
                 ),
@@ -447,16 +439,5 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
     );
   }
 
-  Widget _buildFallbackArt(AppTokens tokens) {
-    return Container(
-      color: tokens.surfaceElevated,
-      child: Center(
-        child: Icon(
-          Icons.music_note_rounded,
-          size: 24,
-          color: tokens.textMuted,
-        ),
-      ),
-    );
-  }
+
 }

@@ -10,6 +10,7 @@ import '../../../presentation/theme/app_theme.dart';
 import '../../../presentation/widgets/bouncing_scale_button.dart';
 import '../../../presentation/widgets/shimmer_skeleton.dart';
 import '../../../presentation/widgets/shared/app_dialog.dart';
+import '../../../presentation/widgets/shared/app_network_image.dart';
 import '../../../presentation/widgets/track_options_bottom_sheet.dart';
 import '../domain/parse_youtube_link.dart';
 import 'youtube_controller.dart';
@@ -659,22 +660,13 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                     width: 72,
                     height: 72,
                     color: tokens.surfaceHighlight,
-                    child: (track.coverUrl != null &&
-                            track.coverUrl!.isNotEmpty)
-                        ? Image.network(
-                            track.coverUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Icon(
-                              Icons.music_note_rounded,
-                              color: tokens.textMuted,
-                              size: 28,
-                            ),
-                          )
-                        : Icon(
-                            Icons.music_note_rounded,
-                            color: tokens.textMuted,
-                            size: 28,
-                          ),
+                    child: AppNetworkImage(
+                      imageUrl: track.coverUrl,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      placeholderIcon: Icons.music_note_rounded,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -982,21 +974,13 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
             width: 48,
             height: 48,
             color: tokens.surfaceElevated,
-            child: (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
-                ? Image.network(
-                    item.thumbnailUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.smart_display_rounded,
-                      color: tokens.textMuted,
-                      size: 22,
-                    ),
-                  )
-                : Icon(
-                    Icons.smart_display_rounded,
-                    color: tokens.textMuted,
-                    size: 22,
-                  ),
+            child: AppNetworkImage(
+              imageUrl: item.thumbnailUrl,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+              placeholderIcon: Icons.smart_display_rounded,
+            ),
           ),
         ),
         title: Text(

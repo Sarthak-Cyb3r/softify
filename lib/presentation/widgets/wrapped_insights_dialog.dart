@@ -8,6 +8,7 @@ import '../../data/services/smart_playlists_service.dart';
 import '../providers/player_providers.dart';
 import '../providers/shelf_providers.dart';
 import '../theme/app_theme.dart';
+import 'shared/app_network_image.dart';
 
 /// Full-featured, interactive Softify Wrapped & On-Device Insights modal.
 class WrappedInsightsDialog extends ConsumerStatefulWidget {
@@ -668,17 +669,13 @@ class _WrappedInsightsDialogState extends ConsumerState<WrappedInsightsDialog>
                 width: 40,
                 height: 40,
                 color: tokens.surfaceElevated,
-                child: track.coverUrl != null && track.coverUrl!.isNotEmpty
-                    ? Image.network(
-                        track.coverUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.music_note,
-                          color: tokens.textSecondary,
-                          size: 18,
-                        ),
-                      )
-                    : Icon(Icons.music_note, color: tokens.textSecondary, size: 18),
+                child: AppNetworkImage(
+                  imageUrl: track.coverUrl,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  placeholderIcon: Icons.music_note,
+                ),
               ),
             ),
             const SizedBox(width: 12),

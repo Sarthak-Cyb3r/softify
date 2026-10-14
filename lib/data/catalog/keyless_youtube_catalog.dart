@@ -214,7 +214,10 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final trackTimeMillis = (item['trackTimeMillis'] as num?)?.toInt() ?? 0;
       final rawArtwork = item['artworkUrl100'] as String?;
       // Convert to 600x600 high-res album artwork
-      final highResCover = rawArtwork?.replaceAll('100x100bb', '600x600bb');
+      var highResCover = rawArtwork?.replaceAll('100x100bb', '600x600bb');
+      if (highResCover != null && highResCover.startsWith('http://')) {
+        highResCover = 'https://${highResCover.substring(7)}';
+      }
 
       if (trackId == null || trackName == null || artistName == null) continue;
 
@@ -308,7 +311,10 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final trackName = (item['title'] ?? item['song']) as String?;
       final subtitle = (item['subtitle'] as String?) ?? '';
       final rawImage = item['image'] as String?;
-      final highResCover = rawImage?.replaceAll('150x150', '500x500');
+      var highResCover = rawImage?.replaceAll('150x150', '500x500');
+      if (highResCover != null && highResCover.startsWith('http://')) {
+        highResCover = 'https://${highResCover.substring(7)}';
+      }
 
       if (trackId == null || trackName == null) continue;
 
@@ -388,11 +394,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         continue;
       }
 
-      final coverUrl = video.thumbnails.highResUrl.isNotEmpty
-          ? video.thumbnails.highResUrl
-          : (video.thumbnails.standardResUrl.isNotEmpty
-              ? video.thumbnails.standardResUrl
-              : video.thumbnails.mediumResUrl);
+      final coverUrl = 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
 
       rawTracks.add(
         Track(
@@ -931,6 +933,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       'main rang sharbaton', 'hasi', 'muskurane', 'sona', 'zaalima',
       'jaan ban gaye', 'pal', 'kaun tujhe', 'darasal', 'subhanallah',
       'khairiyat', 'tujh me rab', 'surili akhiyon', 'raabta', 'filhall',
+      'sakhiyaan', 'sakhiyan',
       'sweet', 'in love', 'forever', 'wedding', 'crush', 'fall in love',
       'ed sheeran', 'bruno mars'
     ];
@@ -1018,7 +1021,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         'tanhai', 'alvida', 'sad song', 'breakup', 'heartbreak', 'tum hi ho',
         'kesariya', 'apna bana le', 'channa mereya', 'bekhayali', 'someone you loved',
         'drivers license', 'ballad', 'acoustic love', 'piano love', 'lullaby',
-        'slowed', 'acoustic'
+        'slowed', 'acoustic', 'sakhiyaan', 'sakhiyan'
       ];
       for (final dis in romanticOrSadDisqualifiers) {
         if (text.contains(dis)) return false;
@@ -1384,7 +1387,10 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final trackName = (item['title'] ?? item['song']) as String?;
       final subtitle = (item['subtitle'] as String?) ?? '';
       final rawImage = item['image'] as String?;
-      final highResCover = rawImage?.replaceAll('150x150', '500x500');
+      var highResCover = rawImage?.replaceAll('150x150', '500x500');
+      if (highResCover != null && highResCover.startsWith('http://')) {
+        highResCover = 'https://${highResCover.substring(7)}';
+      }
 
       if (trackId == null || trackName == null) continue;
 

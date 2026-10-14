@@ -8,6 +8,9 @@ import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/artist_cd_artwork.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/desktop_player_bar.dart';
+import '../widgets/mini_player.dart';
+import '../widgets/shared/app_network_image.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import 'album_detail_screen.dart';
 
@@ -49,6 +52,9 @@ class _ArtistDiscographyScreenState
 
     return Scaffold(
       backgroundColor: tokens.background,
+      bottomNavigationBar: MediaQuery.of(context).size.width < 800
+          ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
+          : const DesktopPlayerBar(),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
@@ -306,18 +312,15 @@ class _ArtistDiscographyScreenState
                             ClipRRect(
                               borderRadius:
                                   BorderRadius.circular(tokens.radiusMd),
-                              child: album.coverUrl != null
-                                  ? Image.network(
-                                      album.coverUrl!,
-                                      width: 114,
-                                      height: 114,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 228,
-                                      cacheHeight: 228,
-                                      errorBuilder: (_, __, ___) =>
-                                          _fallbackAlbumCover(tokens),
-                                    )
-                                  : _fallbackAlbumCover(tokens),
+                              child: AppNetworkImage(
+                                imageUrl: album.coverUrl,
+                                width: 114,
+                                height: 114,
+                                cacheWidth: 228,
+                                cacheHeight: 228,
+                                fit: BoxFit.cover,
+                                placeholderIcon: Icons.album_rounded,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Text(
@@ -432,18 +435,15 @@ class _ArtistDiscographyScreenState
                             ClipRRect(
                               borderRadius:
                                   BorderRadius.circular(tokens.radiusSm),
-                              child: track.coverUrl != null
-                                  ? Image.network(
-                                      track.coverUrl!,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 132,
-                                      cacheHeight: 132,
-                                      errorBuilder: (_, __, ___) =>
-                                          _fallbackAlbumCover(tokens),
-                                    )
-                                  : _fallbackAlbumCover(tokens),
+                              child: AppNetworkImage(
+                                imageUrl: track.coverUrl,
+                                width: 44,
+                                height: 44,
+                                cacheWidth: 132,
+                                cacheHeight: 132,
+                                fit: BoxFit.cover,
+                                placeholderIcon: Icons.music_note_rounded,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             // Title & Artists
@@ -532,16 +532,5 @@ class _ArtistDiscographyScreenState
     );
   }
 
-  Widget _fallbackAlbumCover(AppTokens tokens) {
-    return Container(
-      width: 44,
-      height: 44,
-      color: tokens.surfaceElevated,
-      child: Icon(
-        Icons.music_note_rounded,
-        color: tokens.textMuted,
-        size: 20,
-      ),
-    );
-  }
+
 }

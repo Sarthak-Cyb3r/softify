@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/shelf.dart';
@@ -11,7 +10,6 @@ import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
-import '../widgets/track_options_bottom_sheet.dart';
 import 'equalizer_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
@@ -178,13 +176,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  String _getGreeting(String? userName) {
+  String _getGreeting(String? userName, {bool isDesktop = false}) {
     final hour = DateTime.now().hour;
     final timeGreeting = hour < 12
         ? 'Good morning'
         : (hour < 18 ? 'Good afternoon' : 'Good evening');
 
-    if (userName != null && userName.trim().isNotEmpty) {
+    if (isDesktop && userName != null && userName.trim().isNotEmpty) {
       return '$timeGreeting, ${userName.trim()}';
     }
     return timeGreeting;
@@ -281,11 +279,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
                     children: [
-                      // Filter Chips Bar
-                      _buildFilterChips(tokens),
                       // 1. Listening Room Header & Status Indicator
                       _buildGreetingHeader(tokens, userName, true),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
+                      // Filter Chips Bar
+                      _buildFilterChips(tokens),
+                      const SizedBox(height: 16),
 
                       // 2. 6-Card Quick-Access Bento Grid
                       _buildBentoGrid(
@@ -357,10 +356,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                _buildFilterChips(tokens),
-                const SizedBox(height: 8),
                 _buildGreetingHeader(tokens, userName, false),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+                _buildFilterChips(tokens),
+                const SizedBox(height: 12),
                 _buildBentoGrid(
                   tokens: tokens,
                   likedCount: likedCountAsync.value?.length ?? 0,
@@ -382,17 +381,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   },
                   isDesktop: false,
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 18),
+                _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
+                const SizedBox(height: 32),
                 _buildContinueListeningSection(
                   tokens,
                   historyAsync,
                   audioHandler,
                   isDesktop: false,
                 ),
-                const SizedBox(height: 32),
-                _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
-                const SizedBox(height: 32),
-                _buildPopularArtistsShelf(tokens),
                 const SizedBox(height: 32),
                 shelvesAsync.when(
                   loading: () => const SizedBox.shrink(),
@@ -410,6 +407,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: 32),
+                _buildPopularArtistsShelf(tokens),
                 const SizedBox(height: 140),
               ],
             ),
@@ -519,107 +518,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildTrackTile(AppTokens tokens, Track track, List<Track> playlist,
-      dynamic audioHandler, WidgetRef ref) {
-    final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
-    final isLiked = isLikedAsync.value ?? track.isLiked;
-
-    return RepaintBoundary(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(tokens.radiusMd),
-        onTap: () {
-          final idx = playlist.indexOf(track);
-          audioHandler.setQueue(playlist, startIndex: idx >= 0 ? idx : 0);
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(tokens.radiusSm),
-                child: track.coverUrl != null
-                    ? Image.network(
-                        track.coverUrl!,
-                        width: 48,
-                        height: 48,
-                        cacheWidth: 144,
-                        cacheHeight: 144,
-                        gaplessPlayback: true,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackThumb(tokens),
-                      )
-                    : _fallbackThumb(tokens),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        letterSpacing: -0.2,
-                        color: tokens.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      track.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: tokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              BouncingScaleButton(
-                scaleFactor: 0.88,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  ref
-                      .read(libraryRepositoryProvider)
-                      .setLiked(track.id, !isLiked, track: track);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isLiked ? tokens.accent : tokens.textSecondary.withValues(alpha: 0.7),
-                    size: 20,
-                  ),
-                ),
-              ),
-              BouncingScaleButton(
-                scaleFactor: 0.88,
-                onTap: () {
-                  TrackOptionsBottomSheet.show(context, track: track);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    Icons.more_vert_rounded,
-                    color: tokens.textSecondary.withValues(alpha: 0.7),
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
   Widget _buildFilterChips(AppTokens tokens) {
     const filters = ['All', 'Music', 'Podcasts'];
     return Padding(
@@ -662,7 +560,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _getGreeting(userName),
+                    _getGreeting(userName, isDesktop: isDesktop),
                     style: TextStyle(
                       fontFamily: AppTheme.fontPageTitle,
                       fontSize: isDesktop ? 30 : 24,
@@ -735,65 +633,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required VoidCallback onDownloadsTap,
     required bool isDesktop,
   }) {
-    final crossAxisCount = isDesktop ? 3 : 2;
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: crossAxisCount,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: isDesktop ? 3.4 : 2.5,
-      children: [
-        _buildBentoItem(
-          tokens: tokens,
-          title: 'Liked Songs',
-          subtitle: '$likedCount songs',
-          isGradient: true,
-          icon: Icons.favorite_rounded,
-          iconColor: Colors.white,
-          onTap: onLikedTap,
-        ),
-        _buildBentoItem(
-          tokens: tokens,
-          title: 'Downloads',
-          subtitle: '$downloadsCount tracks',
-          icon: Icons.download_done_rounded,
-          iconColor: tokens.accent,
-          onTap: onDownloadsTap,
-        ),
-        _buildBentoItem(
-          tokens: tokens,
-          title: 'Rainy Twilight',
-          subtitle: 'Curated mix',
-          icon: Icons.music_note_rounded,
-          iconColor: tokens.accent,
-          onTap: onLikedTap,
-        ),
-        _buildBentoItem(
-          tokens: tokens,
-          title: 'Deep Focus',
-          subtitle: 'Ambient beats',
-          icon: Icons.headphones_rounded,
-          iconColor: tokens.accent,
-          onTap: onDownloadsTap,
-        ),
-        _buildBentoItem(
-          tokens: tokens,
-          title: 'Daily Mix 1',
-          subtitle: 'Made for you',
-          icon: Icons.album_rounded,
-          iconColor: tokens.accent,
-          onTap: onLikedTap,
-        ),
-        _buildBentoItem(
-          tokens: tokens,
-          title: 'Discover Weekly',
-          subtitle: 'Fresh arrivals',
-          icon: Icons.auto_awesome_rounded,
-          iconColor: tokens.accent,
-          onTap: onDownloadsTap,
-        ),
-      ],
+    return SizedBox(
+      height: 52,
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildBentoItem(
+              tokens: tokens,
+              title: 'Liked Songs',
+              subtitle: isDesktop ? '$likedCount songs' : '',
+              isGradient: true,
+              icon: Icons.favorite_rounded,
+              iconColor: Colors.white,
+              onTap: onLikedTap,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildBentoItem(
+              tokens: tokens,
+              title: 'Downloads',
+              subtitle: isDesktop ? '$downloadsCount tracks' : '',
+              icon: Icons.download_done_rounded,
+              iconColor: tokens.accent,
+              onTap: onDownloadsTap,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -817,18 +684,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _fallbackThumb(AppTokens tokens) {
-    return Container(
-      width: 48,
-      height: 48,
-      color: tokens.surfaceHighlight,
-      child: Icon(
-        Icons.music_note_rounded,
-        color: tokens.textMuted,
-        size: 22,
-      ),
-    );
-  }
 
   String _formatDuration(Duration d) {
     final m = d.inMinutes;
@@ -847,37 +702,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: tokens.accent,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Continue Listening',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                    color: tokens.textPrimary,
-                  ),
-                ),
-              ],
+            Text(
+              'Recently Played',
+              style: TextStyle(
+                fontFamily: AppTheme.fontPageTitle,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+                color: tokens.textPrimary,
+              ),
             ),
             Text(
-              'RESUME BUFFER',
+              'Show all',
               style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: tokens.textMuted,
+                fontFamily: AppTheme.fontUi,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: tokens.textSecondary,
               ),
             ),
           ],
@@ -891,7 +735,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               itemCount: 4,
               separatorBuilder: (_, __) => const SizedBox(width: 14),
               itemBuilder: (_, __) => Container(
-                width: 136,
+                width: 140,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: tokens.surfaceElevated,
@@ -905,8 +749,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ShimmerSkeleton(
-                      width: 120,
-                      height: 120,
+                      width: 124,
+                      height: 124,
                       borderRadius: BorderRadius.circular(tokens.radiusMd),
                     ),
                     const SizedBox(height: 8),
@@ -949,32 +793,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
             }
 
-            // On Mobile: Clean 2x2 Continue Listening Grid (Stitch spec)
-            if (!isDesktop && history.length >= 2) {
-              final gridItems = history.take(4).toList();
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 2.5,
-                ),
-                itemCount: gridItems.length,
-                itemBuilder: (context, index) {
-                  final track = gridItems[index].track;
-                  return _buildMobileContinueCard(tokens, track, audioHandler);
-                },
-              );
-            }
-
             return SizedBox(
               height: 204,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: history.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final item = history[index];
                   return _buildRecentTrackCard(tokens, item.track, audioHandler);
@@ -984,92 +808,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildMobileContinueCard(
-    AppTokens tokens,
-    Track track,
-    dynamic audioHandler,
-  ) {
-    return BouncingScaleButton(
-      scaleFactor: 0.96,
-      minTouchTarget: 0,
-      onTap: () => audioHandler.playTrack(track),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: tokens.surfaceElevated,
-          borderRadius: BorderRadius.circular(tokens.radiusMd),
-          border: Border.all(
-            color: tokens.surfaceHighlight.withValues(alpha: 0.6),
-            width: 0.8,
-          ),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(tokens.radiusSm),
-              child: SizedBox(
-                width: 42,
-                height: 42,
-                child: track.coverUrl != null
-                    ? Image.network(
-                        track.coverUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallbackThumb(tokens),
-                      )
-                    : _fallbackThumb(tokens),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    track.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: tokens.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 4),
-            Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: tokens.accent,
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  size: 17,
-                  color: Color(0xFF080F11),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1083,43 +821,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       loading: () => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ShimmerSkeleton(
-            width: 160,
-            height: 20,
-            borderRadius: BorderRadius.circular(tokens.radiusSm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ShimmerSkeleton(
+                width: 140,
+                height: 22,
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
+              ),
+              ShimmerSkeleton(
+                width: 50,
+                height: 14,
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          ...List.generate(
-            4,
-            (index) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  ShimmerSkeleton(
-                    width: 48,
-                    height: 48,
-                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 204,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: 4,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (_, __) => Container(
+                width: 140,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceElevated,
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  border: Border.all(
+                    color: tokens.surfaceHighlight.withValues(alpha: 0.8),
+                    width: 1,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShimmerSkeleton(
-                          width: double.infinity,
-                          height: 14,
-                          borderRadius: BorderRadius.circular(tokens.radiusSm),
-                        ),
-                        const SizedBox(height: 6),
-                        ShimmerSkeleton(
-                          width: 120,
-                          height: 10,
-                          borderRadius: BorderRadius.circular(tokens.radiusSm),
-                        ),
-                      ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerSkeleton(
+                      width: 124,
+                      height: 124,
+                      borderRadius: BorderRadius.circular(tokens.radiusMd),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    ShimmerSkeleton(
+                      width: 100,
+                      height: 12,
+                      borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    ),
+                    const SizedBox(height: 4),
+                    ShimmerSkeleton(
+                      width: 70,
+                      height: 10,
+                      borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1127,6 +883,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       error: (_, __) => const SizedBox.shrink(),
       data: (featured) {
+        if (featured.tracks.isEmpty) return const SizedBox.shrink();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1141,23 +898,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Text(
                         'Made For You',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontFamily: AppTheme.fontPageTitle,
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.4,
                           color: tokens.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        featured.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: tokens.textSecondary,
-                          letterSpacing: -0.1,
+                      if (featured.subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          featured.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontUi,
+                            fontSize: 12,
+                            color: tokens.textSecondary,
+                            letterSpacing: -0.1,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -1170,34 +931,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       audioHandler.setQueue(featured.tracks);
                     }
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: tokens.accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(tokens.radiusFull),
-                      border: Border.all(
-                        color: tokens.accent.withValues(alpha: 0.25),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Text(
-                      'Play All',
-                      style: TextStyle(
-                        color: tokens.accent,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
+                  child: Text(
+                    'Show all',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      color: tokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            ...featured.tracks.map((t) =>
-                _buildTrackTile(tokens, t, featured.tracks, audioHandler, ref)),
+            SizedBox(
+              height: 204,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: featured.tracks.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final track = featured.tracks[index];
+                  return MediaCard(
+                    title: track.title,
+                    subtitle: track.artist,
+                    imageUrl: track.coverUrl,
+                    width: 140,
+                    onTap: () {
+                      final idx = featured.tracks.indexOf(track);
+                      audioHandler.setQueue(featured.tracks, startIndex: idx >= 0 ? idx : 0);
+                    },
+                    onPlayTap: () {
+                      final idx = featured.tracks.indexOf(track);
+                      audioHandler.setQueue(featured.tracks, startIndex: idx >= 0 ? idx : 0);
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         );
       },
@@ -1206,10 +977,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildPopularArtistsShelf(AppTokens tokens) {
     const popularArtists = [
-      {'name': 'Daft Punk', 'tag': 'Electronic Duo'},
-      {'name': 'The Weeknd', 'tag': 'R&B / Synthpop'},
-      {'name': 'Billie Eilish', 'tag': 'Alt Pop'},
-      {'name': 'Taylor Swift', 'tag': 'Pop / Indie Folk'},
+      {
+        'name': 'Daft Punk',
+        'tag': 'Electronic Duo',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/638e69b9caaf9f9f3f8826febea7b543/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'The Weeknd',
+        'tag': 'R&B / Synthpop',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'Billie Eilish',
+        'tag': 'Alt Pop',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/8eab1a9a644889aabaca1e193e05f984/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'Taylor Swift',
+        'tag': 'Pop / Indie Folk',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/cc2495870fe1a792ad0cdb05501ad5ec/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'Arijit Singh',
+        'tag': 'Bollywood / Playback',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/ac5350cff290edd5b69fa584b8b1bd4f/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'Coldplay',
+        'tag': 'Alt Rock / Pop',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/3087954bca22f306324912e5ac8375c3/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'Drake',
+        'tag': 'Hip-Hop / Rap',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/70223888f501f4b843142e071abda364/500x500-000000-80-0-0.jpg',
+      },
+      {
+        'name': 'Diljit Dosanjh',
+        'tag': 'Punjabi Pop',
+        'image': 'https://cdn-images.dzcdn.net/images/artist/79b85e695e0ca6529e56bf3b628e92bd/500x500-000000-80-0-0.jpg',
+      },
     ];
 
     return Column(
@@ -1242,7 +1049,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               return ArtistCard(
                 name: a['name']!,
                 subtitle: a['tag'],
-                imageUrl: null,
+                imageUrl: a['image'],
                 width: 130,
                 onTap: () async {
                   final disco = await ref.read(artistDiscographySearchProvider(a['name']!).future);
@@ -1564,14 +1371,15 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: _isHovered ? tokens.cardHover : tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
+            color: _isHovered ? const Color(0xFF383838) : const Color(0xFF282828),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
               Container(
-                width: 54,
+                width: 52,
                 height: double.infinity,
                 decoration: BoxDecoration(
                   gradient: widget.isGradient
@@ -1581,9 +1389,9 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
                           end: Alignment.bottomRight,
                         )
                       : null,
-                  color: widget.isGradient ? null : tokens.surfaceElevated,
-                  borderRadius: BorderRadius.horizontal(
-                    left: Radius.circular(tokens.radiusCard),
+                  color: widget.isGradient ? null : const Color(0xFF333333),
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(8),
                   ),
                 ),
                 child: Center(
@@ -1602,38 +1410,40 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
                   children: [
                     Text(
                       widget.title,
-                      maxLines: 1,
+                      maxLines: widget.subtitle.isNotEmpty ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: AppTheme.fontUi,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: tokens.textPrimary,
+                        color: Colors.white,
                         letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontSize: 12, // Strict 12px floor
-                        color: tokens.textSecondary,
+                    if (widget.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        widget.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          fontSize: 11,
+                          color: tokens.textSecondary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 140),
                 opacity: _isHovered ? 1.0 : 0.0,
                 child: Container(
-                  width: 32,
-                  height: 32,
-                  margin: const EdgeInsets.only(right: 8),
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(right: 6),
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppTheme.accent,
@@ -1641,7 +1451,7 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
                   child: const Center(
                     child: Icon(
                       Icons.play_arrow_rounded,
-                      size: 20,
+                      size: 18,
                       color: Colors.black,
                     ),
                   ),

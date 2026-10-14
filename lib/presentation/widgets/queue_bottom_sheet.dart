@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
 import 'animated_music_wave_indicator.dart';
+import 'shared/app_network_image.dart';
 
 class QueueBottomSheet extends ConsumerWidget {
   const QueueBottomSheet({super.key});
@@ -118,19 +119,15 @@ class QueueBottomSheet extends ConsumerWidget {
                             child: ListTile(
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(tokens.radiusSm),
-                                child: currentTrack.coverUrl != null
-                                    ? Image.network(
-                                        currentTrack.coverUrl!,
-                                        width: 44,
-                                        height: 44,
-                                        cacheWidth: 132,
-                                        cacheHeight: 132,
-                                        gaplessPlayback: true,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            _fallbackCover(tokens),
-                                      )
-                                    : _fallbackCover(tokens),
+                                child: AppNetworkImage(
+                                  imageUrl: currentTrack.coverUrl,
+                                  width: 44,
+                                  height: 44,
+                                  cacheWidth: 132,
+                                  cacheHeight: 132,
+                                  fit: BoxFit.cover,
+                                  placeholderIcon: Icons.music_note_rounded,
+                                ),
                               ),
                               title: Text(
                                 currentTrack.title,
@@ -199,19 +196,15 @@ class QueueBottomSheet extends ConsumerWidget {
                               },
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(tokens.radiusSm),
-                                child: track.coverUrl != null
-                                    ? Image.network(
-                                        track.coverUrl!,
-                                        width: 40,
-                                        height: 40,
-                                        cacheWidth: 120,
-                                        cacheHeight: 120,
-                                        gaplessPlayback: true,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            _fallbackCover(tokens),
-                                      )
-                                    : _fallbackCover(tokens),
+                                child: AppNetworkImage(
+                                  imageUrl: track.coverUrl,
+                                  width: 40,
+                                  height: 40,
+                                  cacheWidth: 120,
+                                  cacheHeight: 120,
+                                  fit: BoxFit.cover,
+                                  placeholderIcon: Icons.music_note_rounded,
+                                ),
                               ),
                               title: Text(
                                 track.title,
@@ -275,16 +268,5 @@ class QueueBottomSheet extends ConsumerWidget {
     );
   }
 
-  Widget _fallbackCover(AppTokens tokens) {
-    return Container(
-      width: 40,
-      height: 40,
-      color: tokens.surfaceHighlight,
-      child: Icon(
-        Icons.music_note_rounded,
-        color: tokens.textMuted,
-        size: 20,
-      ),
-    );
-  }
+
 }

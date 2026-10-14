@@ -7,6 +7,7 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../providers/spotify_import_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/shared/app_network_image.dart';
 import 'playlist_detail_screen.dart';
 
 class SpotifyImportScreen extends ConsumerStatefulWidget {
@@ -705,26 +706,13 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
               width: 64,
               height: 64,
               color: tokens.surfaceElevated,
-              child: playlist.coverUrl != null
-                  ? Image.network(
-                      playlist.coverUrl!,
-                      width: 64,
-                      height: 64,
-                      cacheWidth: 150,
-                      cacheHeight: 150,
-                      gaplessPlayback: true,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.music_note,
-                        color: tokens.accent,
-                        size: 32,
-                      ),
-                    )
-                  : Icon(
-                      Icons.music_note,
-                      color: tokens.accent,
-                      size: 32,
-                    ),
+              child: AppNetworkImage(
+                imageUrl: playlist.coverUrl,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+                placeholderIcon: Icons.music_note,
+              ),
             ),
           ),
           const SizedBox(width: 14),

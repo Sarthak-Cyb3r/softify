@@ -266,12 +266,32 @@ class YoutubeInnertubeService {
     String streamContainer = 'm4a';
     String streamCodec = 'aac';
 
-    if (audioFormats.isNotEmpty) {
+    // Filter out auto-dubbed audio formats to preserve the original video audio track
+    final nonDubbedAudio = audioFormats.where((f) {
+      final audioTrack = f['audioTrack'] as Map<String, dynamic>?;
+      if (audioTrack != null) {
+        if (audioTrack['isAutoDubbed'] == true) return false;
+        if (audioTrack['audioIsDefault'] == true) return true;
+        final name = (audioTrack['displayName'] as String? ?? '').toLowerCase();
+        if (name.contains('original')) return true;
+      }
+      final url = (f['url'] as String? ?? '');
+      if (url.contains('dubbed-auto') ||
+          url.contains('acont%3Ddubbed') ||
+          url.contains('acont=dubbed')) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    final effectiveAudio = nonDubbedAudio.isNotEmpty ? nonDubbedAudio : audioFormats;
+
+    if (effectiveAudio.isNotEmpty) {
       // Prioritize M4A (AAC itag 140 / 139) for container consistency
-      final m4aFormats = audioFormats
+      final m4aFormats = effectiveAudio
           .where((f) => (f['mimeType'] as String? ?? '').contains('mp4'))
           .toList();
-      final candidates = m4aFormats.isNotEmpty ? m4aFormats : audioFormats;
+      final candidates = m4aFormats.isNotEmpty ? m4aFormats : effectiveAudio;
 
       final targetBitrate = quality == AudioQualityPreset.high
           ? 160000

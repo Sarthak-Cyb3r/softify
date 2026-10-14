@@ -51,6 +51,9 @@ set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
 # System-level dependencies.
+if(EXISTS "$ENV{HOME}/.local/lib/x86_64-linux-gnu/pkgconfig")
+  set(ENV{PKG_CONFIG_PATH} "$ENV{HOME}/.local/lib/x86_64-linux-gnu/pkgconfig:$ENV{HOME}/.local/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+endif()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 

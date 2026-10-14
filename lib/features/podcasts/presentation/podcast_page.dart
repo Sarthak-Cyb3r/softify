@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../presentation/providers/player_providers.dart';
 import '../../../presentation/theme/app_theme.dart';
 import '../../../presentation/widgets/bouncing_scale_button.dart';
+import '../../../presentation/widgets/shared/app_network_image.dart';
 import '../../../presentation/widgets/shimmer_skeleton.dart';
 import '../domain/parse_podcast_link.dart';
 import 'podcast_controller.dart';
@@ -480,33 +481,13 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                           ClipRRect(
                             borderRadius:
                                 BorderRadius.circular(tokens.radiusMd),
-                            child: podcastState.episode.coverUrl != null
-                                ? Image.network(
-                                    podcastState.episode.coverUrl!,
-                                    width: 72,
-                                    height: 72,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      width: 72,
-                                      height: 72,
-                                      color: tokens.surfaceHighlight,
-                                      child: Icon(
-                                        Icons.podcasts_rounded,
-                                        color: tokens.accent,
-                                        size: 32,
-                                      ),
-                                    ),
-                                  )
-                                : Container(
-                                    width: 72,
-                                    height: 72,
-                                    color: tokens.surfaceHighlight,
-                                    child: Icon(
-                                      Icons.podcasts_rounded,
-                                      color: tokens.accent,
-                                      size: 32,
-                                    ),
-                                  ),
+                            child: AppNetworkImage(
+                              imageUrl: podcastState.episode.coverUrl,
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.cover,
+                              placeholderIcon: Icons.podcasts_rounded,
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -823,25 +804,13 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(tokens.radiusMd),
-                        child: podcastState.show!.coverUrl != null
-                            ? Image.network(
-                                podcastState.show!.coverUrl!,
-                                width: 72,
-                                height: 72,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 72,
-                                  height: 72,
-                                  color: tokens.surfaceHighlight,
-                                  child: Icon(Icons.podcasts_rounded, color: tokens.accent, size: 32),
-                                ),
-                              )
-                            : Container(
-                                width: 72,
-                                height: 72,
-                                color: tokens.surfaceHighlight,
-                                child: Icon(Icons.podcasts_rounded, color: tokens.accent, size: 32),
-                              ),
+                        child: AppNetworkImage(
+                          imageUrl: podcastState.show!.coverUrl,
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                          placeholderIcon: Icons.podcasts_rounded,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -943,25 +912,13 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(tokens.radiusSm),
-                              child: ep.coverUrl != null
-                                  ? Image.network(
-                                      ep.coverUrl!,
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 48,
-                                        height: 48,
-                                        color: tokens.surfaceHighlight,
-                                        child: Icon(Icons.podcasts_rounded, color: tokens.accent, size: 20),
-                                      ),
-                                    )
-                                  : Container(
-                                      width: 48,
-                                      height: 48,
-                                      color: tokens.surfaceHighlight,
-                                      child: Icon(Icons.podcasts_rounded, color: tokens.accent, size: 20),
-                                    ),
+                              child: AppNetworkImage(
+                                imageUrl: ep.coverUrl,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                placeholderIcon: Icons.podcasts_rounded,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1144,34 +1101,13 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                               ClipRRect(
                                 borderRadius:
                                     BorderRadius.circular(tokens.radiusSm),
-                                child: item.thumbnailUrl != null
-                                    ? Image.network(
-                                        item.thumbnailUrl!,
-                                        width: 50,
-                                        height: 50,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            Container(
-                                          width: 50,
-                                          height: 50,
-                                          color: tokens.surfaceElevated,
-                                          child: Icon(
-                                            Icons.podcasts_rounded,
-                                            color: tokens.accent,
-                                            size: 24,
-                                          ),
-                                        ),
-                                      )
-                                    : Container(
-                                        width: 50,
-                                        height: 50,
-                                        color: tokens.surfaceElevated,
-                                        child: Icon(
-                                          Icons.podcasts_rounded,
-                                          color: tokens.accent,
-                                          size: 24,
-                                        ),
-                                      ),
+                                child: AppNetworkImage(
+                                  imageUrl: item.thumbnailUrl,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                  placeholderIcon: Icons.podcasts_rounded,
+                                ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(

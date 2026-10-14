@@ -350,7 +350,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         controller: _tabController,
         children: [
           // 1. Playlists Tab
-          _buildPlaylistsTab(tokens, playlistsAsync, isDesktop),
+          _buildPlaylistsTab(
+            tokens,
+            playlistsAsync,
+            isDesktop,
+            likedAsync,
+            downloadsAsync,
+            audioHandler,
+          ),
 
           // 2. Liked Songs Tab
           _buildLikedSongsTab(tokens, likedAsync, audioHandler, currentTrack, isPlaying),
@@ -366,7 +373,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   }
 
   Widget _buildPlaylistsTab(
-      AppTokens tokens, AsyncValue<List<Playlist>> playlistsAsync, bool isDesktop) {
+    AppTokens tokens,
+    AsyncValue<List<Playlist>> playlistsAsync,
+    bool isDesktop,
+    AsyncValue<List<Track>> likedAsync,
+    AsyncValue<List<DownloadItem>> downloadsAsync,
+    dynamic audioHandler,
+  ) {
     return playlistsAsync.when(
       loading: () => ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
@@ -407,40 +420,84 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         child: Text('Error: $e', style: TextStyle(color: tokens.textSecondary, fontFamily: AppTheme.fontUi, fontSize: 13)),
       ),
       data: (playlists) {
+        final likedTracks = likedAsync.value ?? const <Track>[];
+        final completedDownloads = (downloadsAsync.value ?? const <DownloadItem>[])
+            .where((d) => d.isCompleted)
+            .toList();
+        final downloadedTracks =
+            completedDownloads.map((d) => d.track).whereType<Track>().toList();
+
         if (playlists.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.queue_music_rounded,
-                  size: 56,
-                  color: tokens.textMuted.withValues(alpha: 0.4),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No playlists yet',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontUi,
-                    color: tokens.textSecondary,
-                    fontSize: 14,
+          if (isDesktop) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.queue_music_rounded,
+                    size: 56,
+                    color: tokens.textMuted.withValues(alpha: 0.4),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                  const SizedBox(height: 12),
+                  Text(
+                    'No playlists yet',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      color: tokens.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppPillButton(
+                        label: 'New Playlist',
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        variant: AppPillButtonVariant.primary,
+                        onPressed: () => _showCreatePlaylistDialog(context),
+                      ),
+                      const SizedBox(width: 12),
+                      AppPillButton(
+                        label: 'Import Spotify',
+                        icon: const Icon(Icons.cloud_download_rounded, size: 18),
+                        variant: AppPillButtonVariant.secondary,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SpotifyImportScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              _buildSmartPlaylistsSection(tokens),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                child: Row(
                   children: [
                     AppPillButton(
                       label: 'New Playlist',
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      variant: AppPillButtonVariant.primary,
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
                       onPressed: () => _showCreatePlaylistDialog(context),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     AppPillButton(
                       label: 'Import Spotify',
-                      icon: const Icon(Icons.cloud_download_rounded, size: 18),
+                      icon: const Icon(Icons.cloud_download_rounded, size: 16),
                       variant: AppPillButtonVariant.secondary,
+                      height: 32,
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -452,8 +509,28 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 140),
+                  children: [
+                    _buildPinnedLikedRow(tokens, likedTracks, audioHandler),
+                    _buildPinnedDownloadedRow(tokens, downloadedTracks, completedDownloads.length, audioHandler),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: Text(
+                        'No custom playlists yet. Tap "+ New Playlist" to create one.',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          color: tokens.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
         }
 
@@ -546,9 +623,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 140),
-                      itemCount: playlists.length,
+                      itemCount: 2 + playlists.length,
                       itemBuilder: (context, index) {
-                        final pl = playlists[index];
+                        if (index == 0) {
+                          return _buildPinnedLikedRow(tokens, likedTracks, audioHandler);
+                        }
+                        if (index == 1) {
+                          return _buildPinnedDownloadedRow(
+                            tokens,
+                            downloadedTracks,
+                            completedDownloads.length,
+                            audioHandler,
+                          );
+                        }
+                        final pl = playlists[index - 2];
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: InkWell(
@@ -682,6 +770,175 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           ],
         );
       },
+    );
+  }
+
+  Widget _buildPinnedLikedRow(
+    AppTokens tokens,
+    List<Track> likedTracks,
+    dynamic audioHandler,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+        onTap: () => setState(() => _tabController.animateTo(1)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF4527A0), Color(0xFF7B1FA2), Color(0xFF311B92)],
+                  ),
+                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                ),
+                child: const Icon(
+                  Icons.favorite_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Liked Songs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '📌 Playlist • ${likedTracks.length} ${likedTracks.length == 1 ? "song" : "songs"}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: tokens.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (likedTracks.isNotEmpty)
+                BouncingScaleButton(
+                  scaleFactor: 0.88,
+                  onTap: () {
+                    audioHandler.setQueue(likedTracks);
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: AppTheme.accent,
+                      size: 28,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinnedDownloadedRow(
+    AppTokens tokens,
+    List<Track> downloadedTracks,
+    int completedCount,
+    dynamic audioHandler,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+        onTap: () => setState(() => _tabController.animateTo(2)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: tokens.surfaceElevated,
+                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                ),
+                child: Icon(
+                  Icons.download_done_rounded,
+                  color: tokens.accent,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Downloaded Tracks',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '📌 Auto-playlist • $completedCount ${completedCount == 1 ? "song" : "songs"}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: tokens.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (downloadedTracks.isNotEmpty)
+                BouncingScaleButton(
+                  scaleFactor: 0.88,
+                  onTap: () {
+                    audioHandler.setQueue(downloadedTracks);
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: AppTheme.accent,
+                      size: 28,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1059,19 +1316,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                           ClipRRect(
                             borderRadius:
                                 BorderRadius.circular(tokens.radiusSm),
-                            child: track.coverUrl != null
-                                ? Image.network(
-                                    track.coverUrl!,
-                                    width: 40,
-                                    height: 40,
-                                    cacheWidth: 120,
-                                    cacheHeight: 120,
-                                    gaplessPlayback: true,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        _fallbackCover(tokens),
-                                  )
-                                : _fallbackCover(tokens),
+                            child: AppNetworkImage(
+                              imageUrl: track.coverUrl,
+                              width: 40,
+                              height: 40,
+                              cacheWidth: 120,
+                              cacheHeight: 120,
+                              fit: BoxFit.cover,
+                              placeholderIcon: Icons.music_note_rounded,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1492,16 +1745,5 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     );
   }
 
-  Widget _fallbackCover(AppTokens tokens) {
-    return Container(
-      width: 48,
-      height: 48,
-      color: tokens.surfaceHighlight,
-      child: Icon(
-        Icons.music_note_rounded,
-        color: tokens.textMuted,
-        size: 22,
-      ),
-    );
-  }
+
 }

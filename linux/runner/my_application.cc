@@ -55,8 +55,23 @@ static void my_application_activate(GApplication* application) {
   gtk_window_set_default_icon_name("softify");
   gtk_window_set_icon_name(window, "softify");
 
-  gtk_window_set_default_size(window, 1280, 800);
-  gtk_widget_set_size_request(GTK_WIDGET(window), 800, 550);
+  const char* mobile_env = getenv("SOFTIFY_MOBILE");
+  gboolean is_mobile = (mobile_env != NULL && g_strcmp0(mobile_env, "1") == 0);
+  if (!is_mobile && self->dart_entrypoint_arguments != NULL) {
+    for (gchar** arg = self->dart_entrypoint_arguments; *arg != NULL; ++arg) {
+      if (g_strcmp0(*arg, "--mobile") == 0) {
+        is_mobile = TRUE;
+        break;
+      }
+    }
+  }
+
+  if (is_mobile) {
+    gtk_window_set_default_size(window, 412, 860);
+  } else {
+    gtk_window_set_default_size(window, 1280, 800);
+  }
+  gtk_widget_set_size_request(GTK_WIDGET(window), 360, 500);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

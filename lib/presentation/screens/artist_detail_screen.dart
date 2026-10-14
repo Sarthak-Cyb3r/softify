@@ -6,7 +6,9 @@ import '../providers/player_providers.dart';
 import '../providers/search_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/desktop_player_bar.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/shared/app_network_image.dart';
 import '../widgets/shared/app_pill_button.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
@@ -70,8 +72,8 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
-          ? const SafeArea(top: false, child: MiniPlayer())
-          : null,
+          ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
+          : const DesktopPlayerBar(),
       body: CustomScrollView(
         slivers: [
           // Collapsible App Bar with Artist Visual
@@ -130,15 +132,12 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                   ),
                 ),
                 child: Center(
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundColor: tokens.surfaceElevated,
-                    backgroundImage: widget.coverUrl != null
-                        ? NetworkImage(widget.coverUrl!)
-                        : null,
-                    child: widget.coverUrl == null
-                        ? const Icon(Icons.person, size: 60, color: Colors.white24)
-                        : null,
+                  child: AppNetworkImage(
+                    imageUrl: widget.coverUrl,
+                    width: 120,
+                    height: 120,
+                    isCircle: true,
+                    placeholderIcon: Icons.person,
                   ),
                 ),
               ),

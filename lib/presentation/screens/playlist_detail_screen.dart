@@ -5,8 +5,10 @@ import '../../domain/entities/playlist.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/desktop_player_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/shared/app_dialog.dart';
+import '../widgets/shared/app_network_image.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
@@ -87,8 +89,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
-          ? const SafeArea(top: false, child: MiniPlayer())
-          : null,
+          ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
+          : const DesktopPlayerBar(),
       body: playlistAsync.when(
         loading: () => Center(
           child: CircularProgressIndicator(color: tokens.accent),
@@ -182,18 +184,14 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                                 ),
                               ],
                             ),
-                            child: ClipRRect(
+                            child: AppNetworkImage(
+                              imageUrl: coverUrl,
+                              width: 140,
+                              height: 140,
                               borderRadius: BorderRadius.circular(tokens.radiusCard),
-                              child: coverUrl != null
-                                  ? Image.network(
-                                      coverUrl,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 420,
-                                      cacheHeight: 420,
-                                      gaplessPlayback: true,
-                                      errorBuilder: (_, __, ___) => _defaultPlaylistCover(playlist, tokens),
-                                    )
-                                  : _defaultPlaylistCover(playlist, tokens),
+                              fit: BoxFit.cover,
+                              fallbackIcon: playlist.isImported ? Icons.cloud_download : Icons.queue_music,
+                              backgroundColor: tokens.card,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -404,15 +402,5 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     );
   }
 
-  Widget _defaultPlaylistCover(Playlist playlist, [AppTokens? tokens]) {
-    final accent = tokens?.accent ?? AppTheme.accent;
-    return Container(
-      color: tokens?.surfaceElevated ?? AppTheme.surfaceElevated,
-      child: Icon(
-        playlist.isImported ? Icons.cloud_download : Icons.queue_music,
-        color: accent,
-        size: 54,
-      ),
-    );
-  }
+
 }

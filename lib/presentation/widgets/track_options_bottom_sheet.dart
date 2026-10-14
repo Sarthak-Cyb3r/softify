@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../screens/album_detail_screen.dart';
-import '../screens/artist_detail_screen.dart';
 import '../screens/car_mode_screen.dart';
 import '../screens/equalizer_screen.dart';
 import '../theme/app_theme.dart';
+import 'artist_chooser_bottom_sheet.dart';
 import 'shared/app_dialog.dart';
+import 'shared/app_network_image.dart';
 import 'shared/app_pill_button.dart';
 import 'sleep_timer_bottom_sheet.dart';
 
@@ -85,18 +86,15 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: track.coverUrl != null
-                        ? Image.network(
-                            track.coverUrl!,
-                            width: 52,
-                            height: 52,
-                            cacheWidth: 156,
-                            cacheHeight: 156,
-                            gaplessPlayback: true,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _fallbackCover(),
-                          )
-                        : _fallbackCover(),
+                    child: AppNetworkImage(
+                      imageUrl: track.coverUrl,
+                      width: 52,
+                      height: 52,
+                      cacheWidth: 156,
+                      cacheHeight: 156,
+                      fit: BoxFit.cover,
+                      placeholderIcon: Icons.music_note_rounded,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -323,7 +321,10 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                           );
                           try {
                             final catalog = ref.read(catalogRepositoryProvider);
-                            final artistTracks = await catalog.getArtistTracks(track.artist, limit: 25);
+                            final primaryArtist =
+                                parseArtistNames(track.artist).firstOrNull ?? track.artist;
+                            final artistTracks =
+                                await catalog.getArtistTracks(primaryArtist, limit: 25);
                             if (artistTracks.isNotEmpty) {
                               await audioHandler.setQueue(artistTracks, startIndex: 0);
                             }
@@ -332,17 +333,20 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       ),
                       ListTile(
                         leading: const Icon(Icons.person_outline, color: AppTheme.textPrimary),
-                        title: Text('View artist (${track.artist})', style: const TextStyle(color: AppTheme.textPrimary)),
+                        title: Text(
+                          parseArtistNames(track.artist).length > 1
+                              ? 'View artists (${track.artist})'
+                              : 'View artist (${track.artist})',
+                          style: const TextStyle(color: AppTheme.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         onTap: () {
                           Navigator.pop(context);
-                          Navigator.push(
+                          showArtistChooserOrDetail(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => ArtistDetailScreen(
-                                artistName: track.artist,
-                                coverUrl: track.coverUrl,
-                              ),
-                            ),
+                            rawArtist: track.artist,
+                            coverUrl: track.coverUrl,
                           );
                         },
                       ),
@@ -434,14 +438,6 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
     );
   }
 
-  Widget _fallbackCover() {
-    return Container(
-      width: 52,
-      height: 52,
-      color: AppTheme.surfaceHighlight,
-      child: const Icon(Icons.music_note, color: Colors.white24, size: 28),
-    );
-  }
 
   void _showAddToPlaylistSheet(BuildContext context, WidgetRef ref, Track track) {
     showModalBottomSheet(
