@@ -458,12 +458,31 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     );
   }
 
+  int _mobileNavIndexFor(int screenIndex) {
+    if (screenIndex == 0) return 0;
+    if (screenIndex == 1) return 1;
+    if (screenIndex == 4) return 2;
+    return -1;
+  }
+
+  void _onMobileNavTap(int navIndex) {
+    setState(() {
+      if (navIndex == 0) {
+        _currentIndex = 0;
+      } else if (navIndex == 1) {
+        _currentIndex = 1;
+      } else if (navIndex == 2) {
+        _currentIndex = 4;
+      }
+    });
+  }
+
   Widget _buildMobileLayout(BuildContext context, AppTokens tokens) {
     return Scaffold(
       backgroundColor: tokens.background,
       body: Stack(
         children: [
-          // Current Tab Page (IndexedStack preserves state for all 6 tabs)
+          // Current Tab Page (IndexedStack preserves state for all tabs)
           IndexedStack(
             index: _currentIndex,
             children: _screens,
@@ -482,12 +501,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 children: [
                   const MiniPlayer(),
                   SlimBottomNavBar(
-                    currentIndex: _currentIndex,
-                    onTap: (index) {
-                      setState(() {
-                        _currentIndex = index;
-                      });
-                    },
+                    currentIndex: _mobileNavIndexFor(_currentIndex),
+                    onTap: _onMobileNavTap,
                     items: const [
                       SlimNavItem(
                         icon: Icons.home_outlined,
@@ -500,19 +515,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         label: 'Search',
                       ),
                       SlimNavItem(
-                        icon: AppTabIcons.youtube,
-                        activeIcon: AppTabIcons.youtubeActive,
-                        label: 'YouTube',
-                      ),
-                      SlimNavItem(
-                        icon: Icons.podcasts_outlined,
-                        activeIcon: Icons.podcasts_rounded,
-                        label: 'Podcasts',
-                      ),
-                      SlimNavItem(
-                        icon: Icons.local_library_outlined,
-                        activeIcon: Icons.local_library_rounded,
-                        label: 'Library',
+                        icon: Icons.collections_bookmark_outlined,
+                        activeIcon: Icons.collections_bookmark_rounded,
+                        label: 'Your Library',
                       ),
                     ],
                   ),

@@ -107,40 +107,40 @@ class MiniPlayer extends ConsumerWidget {
           }
         },
         child: Container(
-          margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+          margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
           decoration: BoxDecoration(
-            color: tokens.card, // #181818
-            borderRadius: BorderRadius.circular(tokens.radiusCard), // 8px
+            color: const Color(0xFF242424), // Spotify MiniPlayer surface
+            borderRadius: BorderRadius.circular(8),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 16,
+                color: Color(0x88000000),
+                blurRadius: 12,
                 offset: Offset(0, 4),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
+            borderRadius: BorderRadius.circular(8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   child: Row(
                     children: [
-                      // Artwork 42x42 with 4px radius
+                      // Artwork 40x40 with 4px radius
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: Container(
-                          width: 42,
-                          height: 42,
+                          width: 40,
+                          height: 40,
                           color: tokens.surfaceElevated,
                           child: effectiveTrack.coverUrl != null &&
                                   effectiveTrack.coverUrl!.isNotEmpty
                               ? Image.network(
                                   effectiveTrack.coverUrl!,
-                                  width: 42,
-                                  height: 42,
+                                  width: 40,
+                                  height: 40,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) =>
                                       _fallbackCover(tokens),
@@ -148,7 +148,7 @@ class MiniPlayer extends ConsumerWidget {
                               : _fallbackCover(tokens),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
 
                       // Title & Artist
                       Expanded(
@@ -160,10 +160,10 @@ class MiniPlayer extends ConsumerWidget {
                               children: [
                                 if (isPlaying) ...[
                                   Padding(
-                                    padding: const EdgeInsets.only(right: 6),
+                                    padding: const EdgeInsets.only(right: 5),
                                     child: AnimatedMusicWaveIndicator(
                                       isPlaying: true,
-                                      size: 13,
+                                      size: 11,
                                       barCount: 3,
                                       color: tokens.accent,
                                     ),
@@ -174,42 +174,60 @@ class MiniPlayer extends ConsumerWidget {
                                     effectiveTrack.title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontFamily: AppTheme.fontUi,
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: tokens.textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: -0.2,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 1),
                             Text(
                               effectiveTrack.artist,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontFamily: AppTheme.fontUi,
-                                fontSize: 12, // Strict 12px min floor
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w400,
-                                color: tokens.textSecondary,
+                                color: Color(0xFFB3B3B3),
                               ),
                             ),
                           ],
                         ),
                       ),
 
-                      // Like Action
+                      // Devices Action (Spotify signature)
                       IconButton(
                         iconSize: 20,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                        icon: const Icon(
+                          Icons.devices_rounded,
+                          color: Color(0xFFB3B3B3),
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          _openFullPlayer(context);
+                        },
+                      ),
+
+                      // Like Action
+                      IconButton(
+                        iconSize: 21,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
                         icon: Icon(
                           isLiked
                               ? Icons.favorite_rounded
                               : Icons.favorite_border_rounded,
-                          color: isLiked ? tokens.accent : tokens.textSecondary,
+                          color: isLiked ? tokens.accent : const Color(0xFFB3B3B3),
+                          size: 21,
                         ),
                         onPressed: () {
                           HapticFeedback.selectionClick();
@@ -219,49 +237,43 @@ class MiniPlayer extends ConsumerWidget {
                         },
                       ),
 
-                      // Circular Play / Pause Button (#2EE66B)
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppTheme.accent,
+                      // Borderless Play / Pause Icon Button (Spotify authentic)
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 28,
+                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                        icon: Icon(
+                          isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 28,
                         ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          iconSize: 22,
-                          icon: Icon(
-                            isPlaying
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                            color: Colors.black,
-                          ),
-                          onPressed: () {
-                            HapticFeedback.selectionClick();
-                            if (currentTrack == null) {
-                              audioHandler.playTrack(effectiveTrack);
-                            } else if (isPlaying) {
-                              audioHandler.pause();
-                            } else {
-                              audioHandler.play();
-                            }
-                          },
-                        ),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          if (currentTrack == null) {
+                            audioHandler.playTrack(effectiveTrack);
+                          } else if (isPlaying) {
+                            audioHandler.pause();
+                          } else {
+                            audioHandler.play();
+                          }
+                        },
                       ),
                     ],
                   ),
                 ),
 
-                // 2px Progress Bar
+                // 2px Hairline Progress Bar
                 Container(
                   height: 2.0,
-                  color: tokens.cardHover,
+                  color: const Color(0x26FFFFFF),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: FractionallySizedBox(
                       widthFactor: progress,
                       child: Container(
-                        color: tokens.accent,
+                        color: Colors.white,
                       ),
                     ),
                   ),

@@ -1008,14 +1008,17 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
     if (seedVibe == SoftifyTrackVibe.party || seedVibe == SoftifyTrackVibe.punjabiParty) {
       // ZERO romantic or sad songs allowed in party queue!
-      if (candVibe == SoftifyTrackVibe.romantic || candVibe == SoftifyTrackVibe.sad) {
+      if (candVibe == SoftifyTrackVibe.romantic ||
+          candVibe == SoftifyTrackVibe.sad ||
+          candVibe == SoftifyTrackVibe.punjabiRomantic) {
         return false;
       }
       const romanticOrSadDisqualifiers = [
         'romantic', 'love songs', 'love ballad', 'dard', 'judaai', 'judai',
         'tanhai', 'alvida', 'sad song', 'breakup', 'heartbreak', 'tum hi ho',
         'kesariya', 'apna bana le', 'channa mereya', 'bekhayali', 'someone you loved',
-        'drivers license', 'ballad', 'acoustic love', 'piano love', 'lullaby'
+        'drivers license', 'ballad', 'acoustic love', 'piano love', 'lullaby',
+        'slowed', 'acoustic'
       ];
       for (final dis in romanticOrSadDisqualifiers) {
         if (text.contains(dis)) return false;

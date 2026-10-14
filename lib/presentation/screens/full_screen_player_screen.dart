@@ -316,58 +316,33 @@ class _FullScreenPlayerScreenState
                             child: Center(
                               child: AspectRatio(
                                 aspectRatio: 1,
-                                child: Container(
-                                  // Outer Bezel (Surface Level 1 / Elevated with hairline highlight)
-                                  decoration: BoxDecoration(
-                                    color: tokens.surfaceElevated,
-                                    borderRadius: BorderRadius.circular(28),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.08),
-                                      width: 1.0,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: _ambientColor.withValues(alpha: 0.38),
-                                        blurRadius: 48,
-                                        spreadRadius: 4,
-                                        offset: const Offset(0, 18),
-                                      ),
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.55),
-                                        blurRadius: 22,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.all(7),
+                                child: Hero(
+                                  tag: 'now_playing_artwork_${currentTrack.id}',
                                   child: Container(
-                                    // Inner Bezel (concentric radius: 28 - 7 = 21)
                                     decoration: BoxDecoration(
-                                      color: tokens.surfaceHighlight,
-                                      borderRadius: BorderRadius.circular(21),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.06),
-                                        width: 1.0,
-                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.5),
+                                          blurRadius: 32,
+                                          spreadRadius: 2,
+                                          offset: const Offset(0, 16),
+                                        ),
+                                      ],
                                     ),
-                                    padding: const EdgeInsets.all(3),
-                                    child: Hero(
-                                      tag: 'now_playing_artwork_${currentTrack.id}',
-                                      child: ClipRRect(
-                                        // Concentric inner radius: 21 - 3 = 18
-                                        borderRadius: BorderRadius.circular(18),
-                                        child: currentTrack.coverUrl != null
-                                            ? Image.network(
-                                                currentTrack.coverUrl!,
-                                                fit: BoxFit.cover,
-                                                cacheWidth: 800,
-                                                cacheHeight: 800,
-                                                gaplessPlayback: true,
-                                                errorBuilder: (_, __, ___) =>
-                                                    _artworkFallback(tokens),
-                                              )
-                                            : _artworkFallback(tokens),
-                                      ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: currentTrack.coverUrl != null
+                                          ? Image.network(
+                                              currentTrack.coverUrl!,
+                                              fit: BoxFit.cover,
+                                              cacheWidth: 800,
+                                              cacheHeight: 800,
+                                              gaplessPlayback: true,
+                                              errorBuilder: (_, __, ___) =>
+                                                  _artworkFallback(tokens),
+                                            )
+                                          : _artworkFallback(tokens),
                                     ),
                                   ),
                                 ),
@@ -491,26 +466,14 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.setShuffleEnabled(!isShuffle);
                       },
-                      child: Container(
+                      child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          color: isShuffle
-                              ? tokens.accent.withValues(alpha: 0.15)
-                              : Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isShuffle
-                                ? tokens.accent.withValues(alpha: 0.3)
-                                : Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
-                        ),
                         child: Icon(
                           Icons.shuffle_rounded,
                           color: isShuffle
                               ? tokens.accent
-                              : tokens.textSecondary.withValues(alpha: 0.7),
-                          size: 22,
+                              : const Color(0xFFB3B3B3),
+                          size: 24,
                         ),
                       ),
                     ),
@@ -520,31 +483,23 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.skipToPrevious();
                       },
-                      child: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: const Icon(
+                      child: const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Icon(
                           Icons.skip_previous_rounded,
                           color: Colors.white,
-                          size: 34,
+                          size: 38,
                         ),
                       ),
                     ),
 
-                    // Center Play/Pause Morphing Button
+                    // Center Play/Pause Morphing Button (Spotify authentic: pure white circle with black icon)
                     PlayPauseMorphButton(
                       isPlaying: isPlaying,
                       size: 64,
                       iconSize: 34,
-                      backgroundColor: tokens.accent,
-                      iconColor: const Color(0xFF080F11),
+                      backgroundColor: Colors.white,
+                      iconColor: Colors.black,
                       showGlow: false,
                       onTap: () {
                         if (isPlaying) {
@@ -561,20 +516,12 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.skipToNext();
                       },
-                      child: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: const Icon(
+                      child: const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Icon(
                           Icons.skip_next_rounded,
                           color: Colors.white,
-                          size: 34,
+                          size: 38,
                         ),
                       ),
                     ),
@@ -621,28 +568,16 @@ class _FullScreenPlayerScreenState
                           );
                         }
                       },
-                      child: Container(
+                      child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          color: repeatMode != AudioRepeatMode.off
-                              ? tokens.accent.withValues(alpha: 0.15)
-                              : Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: repeatMode != AudioRepeatMode.off
-                                ? tokens.accent.withValues(alpha: 0.3)
-                                : Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
-                        ),
                         child: Icon(
                           repeatMode == AudioRepeatMode.one
                               ? Icons.repeat_one_rounded
                               : Icons.repeat_rounded,
                           color: repeatMode != AudioRepeatMode.off
                               ? tokens.accent
-                              : tokens.textSecondary.withValues(alpha: 0.7),
-                          size: 22,
+                              : const Color(0xFFB3B3B3),
+                          size: 24,
                         ),
                       ),
                     ),
@@ -650,12 +585,33 @@ class _FullScreenPlayerScreenState
                 ),
               ),
 
-              // 6. Bottom Bar: Synced Lyrics Toggle & Queue Sheet
+              // 6. Bottom Bar: Devices, Synced Lyrics Toggle, Playback Speed, & Queue
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Devices / Sound DSP (Spotify Signature bottom-left)
+                    BouncingScaleButton(
+                      scaleFactor: 0.9,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const EqualizerScreen(),
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.devices_rounded,
+                          color: Color(0xFFB3B3B3),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+
+                    // Lyrics Toggle Pill
                     BouncingScaleButton(
                       scaleFactor: 0.95,
                       onTap: () {
@@ -670,15 +626,9 @@ class _FullScreenPlayerScreenState
                         ),
                         decoration: BoxDecoration(
                           color: _showLyrics
-                              ? tokens.accent.withValues(alpha: 0.15)
-                              : Colors.white.withValues(alpha: 0.06),
+                              ? tokens.accent.withValues(alpha: 0.2)
+                              : Colors.white.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(tokens.radiusFull),
-                          border: Border.all(
-                            color: _showLyrics
-                                ? tokens.accent.withValues(alpha: 0.3)
-                                : Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -686,7 +636,7 @@ class _FullScreenPlayerScreenState
                             Icon(
                               Icons.lyrics_rounded,
                               size: 18,
-                              color: _showLyrics ? tokens.accent : tokens.textSecondary,
+                              color: _showLyrics ? tokens.accent : Colors.white,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -694,7 +644,7 @@ class _FullScreenPlayerScreenState
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: _showLyrics ? tokens.accent : tokens.textSecondary,
+                                color: _showLyrics ? tokens.accent : Colors.white,
                               ),
                             ),
                           ],
@@ -714,16 +664,10 @@ class _FullScreenPlayerScreenState
                           ),
                           decoration: BoxDecoration(
                             color: (currentSpeed > 1.05)
-                                ? tokens.accent.withValues(alpha: 0.15)
-                                : Colors.white.withValues(alpha: 0.06),
+                                ? tokens.accent.withValues(alpha: 0.2)
+                                : Colors.white.withValues(alpha: 0.08),
                             borderRadius:
                                 BorderRadius.circular(tokens.radiusFull),
-                            border: Border.all(
-                              color: (currentSpeed > 1.05)
-                                  ? tokens.accent.withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.04),
-                              width: 0.8,
-                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -733,7 +677,7 @@ class _FullScreenPlayerScreenState
                                 size: 16,
                                 color: (currentSpeed > 1.05)
                                     ? tokens.accent
-                                    : tokens.textSecondary,
+                                    : Colors.white,
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -749,7 +693,7 @@ class _FullScreenPlayerScreenState
                                   fontWeight: FontWeight.w600,
                                   color: (currentSpeed > 1.05)
                                       ? tokens.accent
-                                      : tokens.textSecondary,
+                                      : Colors.white,
                                 ),
                               ),
                             ],
@@ -757,50 +701,16 @@ class _FullScreenPlayerScreenState
                         ),
                       ),
 
+                    // Queue Action (Spotify Signature bottom-right)
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () => _openQueueSheet(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
-                        ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
                         child: Icon(
                           Icons.queue_music_rounded,
-                          color: tokens.textSecondary,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const EqualizerScreen(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.04),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.tune_rounded,
-                          color: tokens.textSecondary,
-                          size: 22,
+                          color: Color(0xFFB3B3B3),
+                          size: 24,
                         ),
                       ),
                     ),
@@ -882,7 +792,6 @@ class _FullScreenPlayerScrubberState
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
     final audioHandler = ref.watch(audioHandlerProvider);
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
     final duration = ref.watch(durationStreamProvider).value ??
@@ -893,74 +802,52 @@ class _FullScreenPlayerScrubberState
         duration.inSeconds > 0 ? duration.inSeconds.toDouble() : 1.0;
     final currentSeconds = _dragPositionSeconds ??
         position.inSeconds.toDouble().clamp(0.0, maxSeconds);
-    final bufferedPosition =
-        ref.watch(bufferedPositionStreamProvider).value ?? Duration.zero;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              // 1. Acoustic Waveform Visualizer & Buffer Track
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SizedBox(
-                  height: 18,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: _ScrubberWaveformPainter(
-                      currentProgress: maxSeconds > 0
-                          ? (currentSeconds / maxSeconds).clamp(0.0, 1.0)
-                          : 0.0,
-                      bufferProgress: maxSeconds > 0
-                          ? (bufferedPosition.inSeconds / maxSeconds).clamp(0.0, 1.0)
-                          : 0.0,
-                      accentColor: tokens.accent,
-                      seed: widget.trackId?.hashCode ?? 42,
-                    ),
-                  ),
-                ),
+          // Authentic Spotify Seek Slider
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3.5,
+              trackShape: const RectangularSliderTrackShape(),
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 4.5,
+                elevation: 0,
+                pressedElevation: 0,
               ),
-              // 2. Tactile Interactive Seek Slider
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 2.0,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4.5),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                  activeTrackColor: Colors.transparent,
-                  inactiveTrackColor: Colors.transparent,
-                  thumbColor: tokens.accent,
-                ),
-                child: Slider(
-                  value: currentSeconds.clamp(0.0, maxSeconds),
-                  max: maxSeconds,
-                  onChangeStart: (_) {
-                    HapticFeedback.lightImpact();
-                  },
-                  onChanged: (val) {
-                    if (_dragPositionSeconds != null &&
-                        (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
-                      HapticFeedback.selectionClick();
-                    }
-                    setState(() {
-                      _dragPositionSeconds = val;
-                    });
-                  },
-                  onChangeEnd: (val) {
-                    HapticFeedback.mediumImpact();
-                    audioHandler.seek(Duration(seconds: val.round()));
-                    setState(() {
-                      _dragPositionSeconds = null;
-                    });
-                  },
-                ),
-              ),
-            ],
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              activeTrackColor: Colors.white,
+              inactiveTrackColor: const Color(0x33FFFFFF),
+              thumbColor: Colors.white,
+            ),
+            child: Slider(
+              value: currentSeconds.clamp(0.0, maxSeconds),
+              max: maxSeconds,
+              onChangeStart: (_) {
+                HapticFeedback.lightImpact();
+              },
+              onChanged: (val) {
+                if (_dragPositionSeconds != null &&
+                    (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
+                  HapticFeedback.selectionClick();
+                }
+                setState(() {
+                  _dragPositionSeconds = val;
+                });
+              },
+              onChangeEnd: (val) {
+                HapticFeedback.mediumImpact();
+                audioHandler.seek(Duration(seconds: val.round()));
+                setState(() {
+                  _dragPositionSeconds = null;
+                });
+              },
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -968,16 +855,20 @@ class _FullScreenPlayerScrubberState
                   _formatDuration(
                     Duration(seconds: currentSeconds.round()),
                   ),
-                  style: AppTheme.tabularTimestamp(
-                    fontSize: 12.0,
-                    color: tokens.textSecondary,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontUi,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFB3B3B3),
                   ),
                 ),
                 Text(
                   _formatDuration(duration),
-                  style: AppTheme.tabularTimestamp(
-                    fontSize: 12.0,
-                    color: tokens.textSecondary,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontUi,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFB3B3B3),
                   ),
                 ),
               ],
@@ -986,72 +877,6 @@ class _FullScreenPlayerScrubberState
         ],
       ),
     );
-  }
-}
-
-class _ScrubberWaveformPainter extends CustomPainter {
-  final double currentProgress;
-  final double bufferProgress;
-  final Color accentColor;
-  final int seed;
-
-  _ScrubberWaveformPainter({
-    required this.currentProgress,
-    required this.bufferProgress,
-    required this.accentColor,
-    required this.seed,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const int barCount = 44;
-    final double step = size.width / barCount;
-    final double barWidth = step * 0.48;
-    final double maxH = size.height;
-
-    final paintActive = Paint()
-      ..color = accentColor
-      ..style = PaintingStyle.fill;
-
-    final paintBuffered = Paint()
-      ..color = Colors.white.withValues(alpha: 0.38)
-      ..style = PaintingStyle.fill;
-
-    final paintInactive = Paint()
-      ..color = Colors.white.withValues(alpha: 0.12)
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < barCount; i++) {
-      final double progress = (i + 0.5) / barCount;
-      // Deterministic acoustic peak amplitude with seed hashing
-      final int hash = (seed ^ (i * 2654435761)).abs();
-      final double normalized = 0.28 + 0.72 * ((hash % 100) / 100.0);
-      final double barH = (normalized * maxH).clamp(3.5, maxH);
-
-      final double x = i * step + (step - barWidth) / 2;
-      final double y = (size.height - barH) / 2;
-
-      final RRect rrect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, barWidth, barH),
-        const Radius.circular(1.2),
-      );
-
-      if (progress <= currentProgress) {
-        canvas.drawRRect(rrect, paintActive);
-      } else if (progress <= bufferProgress) {
-        canvas.drawRRect(rrect, paintBuffered);
-      } else {
-        canvas.drawRRect(rrect, paintInactive);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ScrubberWaveformPainter oldDelegate) {
-    return oldDelegate.currentProgress != currentProgress ||
-        oldDelegate.bufferProgress != bufferProgress ||
-        oldDelegate.accentColor != accentColor ||
-        oldDelegate.seed != seed;
   }
 }
 

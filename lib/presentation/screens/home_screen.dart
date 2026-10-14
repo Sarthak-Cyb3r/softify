@@ -211,48 +211,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               titleSpacing: 16,
               title: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: tokens.surfaceElevated,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: tokens.accent.withValues(alpha: 0.35),
-                        width: 1,
+                  BouncingScaleButton(
+                    scaleFactor: 0.9,
+                    onTap: () {
+                      _showNamePromptModal(context);
+                    },
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF1DB954),
                       ),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.graphic_eq_rounded,
-                        color: tokens.accent,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Softify',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: tokens.textPrimary,
+                      child: Center(
+                        child: Text(
+                          (userName != null && userName.trim().isNotEmpty)
+                              ? userName.trim()[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontUi,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                      const Text(
-                        'Home',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF86948A),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -268,7 +252,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   },
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.tune_rounded, size: 21, color: Color(0xFFBBCABF)),
+                    child: Icon(Icons.tune_rounded, size: 22, color: Color(0xFFB3B3B3)),
                   ),
                 ),
                 BouncingScaleButton(
@@ -281,26 +265,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                   },
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.settings_outlined, size: 21, color: Color(0xFFBBCABF)),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, right: 16),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: tokens.surfaceElevated,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: 16,
-                        color: tokens.accent,
-                      ),
-                    ),
+                    padding: EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+                    child: Icon(Icons.settings_outlined, size: 22, color: Color(0xFFB3B3B3)),
                   ),
                 ),
               ],
@@ -390,12 +356,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                _buildGreetingHeader(tokens, userName, false),
-                const SizedBox(height: 12),
                 _buildFilterChips(tokens),
+                const SizedBox(height: 8),
+                _buildGreetingHeader(tokens, userName, false),
                 const SizedBox(height: 14),
-                _buildSpotifyImportCard(tokens),
-                const SizedBox(height: 16),
                 _buildBentoGrid(
                   tokens: tokens,
                   likedCount: likedCountAsync.value?.length ?? 0,
@@ -696,17 +660,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: tokens.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isDesktop
-                        ? 'Pick up right where you left off, or explore your library.'
-                        : 'Quiet melodies for an unhurried day.',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontUi,
-                      fontSize: 13,
-                      color: tokens.textSecondary,
+                  if (isDesktop) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pick up right where you left off, or explore your library.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 13,
+                        color: tokens.textSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -749,71 +713,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildSpotifyImportCard(AppTokens tokens) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: tokens.card,
-        borderRadius: BorderRadius.circular(tokens.radiusCard),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: tokens.surfaceElevated,
-              borderRadius: BorderRadius.circular(tokens.radiusSm),
-            ),
-            child: const Icon(
-              Icons.sync_alt_rounded,
-              color: AppTheme.accent,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Import Spotify Playlists',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontUi,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: tokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Instant synchronization to Softify vault',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontUi,
-                    fontSize: 12,
-                    color: tokens.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          AppPillButton(
-            label: 'Connect',
-            variant: AppPillButtonVariant.primary,
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const SpotifyImportScreen(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
     );
   }
 

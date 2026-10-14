@@ -16,10 +16,10 @@ class AppTheme {
   static const Color surfaceContainerHighest = Color(0xFF2A2A2A);
   
   // Single Accent & Destructive
-  static const Color accent = Color(0xFF2EE66B); // ONE accent green
-  static const Color primary = Color(0xFF2EE66B);
-  static const Color primaryLight = Color(0xFF5CF08F);
-  static const Color primaryContainer = Color(0xFF2EE66B);
+  static const Color accent = Color(0xFF1DB954); // Spotify Green
+  static const Color primary = Color(0xFF1DB954);
+  static const Color primaryLight = Color(0xFF1ED760);
+  static const Color primaryContainer = Color(0xFF1DB954);
   static const Color error = Color(0xFFF15E6C);
 
   // Typography Contrast

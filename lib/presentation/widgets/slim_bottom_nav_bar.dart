@@ -33,11 +33,17 @@ class SlimBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-
     return Container(
-      height: 64,
-      color: tokens.sidebar, // Pure #000000
+      height: 60,
+      decoration: const BoxDecoration(
+        color: Color(0xFF121212),
+        border: Border(
+          top: BorderSide(
+            color: Color(0x1AFFFFFF),
+            width: 0.5,
+          ),
+        ),
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
@@ -45,8 +51,8 @@ class SlimBottomNavBar extends StatelessWidget {
             children: List.generate(items.length, (index) {
               final item = items[index];
               final isSelected = index == currentIndex;
-              final activeColor = tokens.accent;
-              final inactiveColor = tokens.textSecondary;
+              const activeColor = Colors.white; // Authentic Spotify pure white
+              const inactiveColor = Color(0xFFB3B3B3);
 
               return Expanded(
                 child: Semantics(
@@ -55,7 +61,7 @@ class SlimBottomNavBar extends StatelessWidget {
                   label: item.label,
                   child: BouncingScaleButton(
                     onTap: () => onTap(index),
-                    scaleDown: 0.92,
+                    scaleDown: 0.95,
                     child: Container(
                       color: Colors.transparent,
                       alignment: Alignment.center,
@@ -65,19 +71,20 @@ class SlimBottomNavBar extends StatelessWidget {
                         children: [
                           Icon(
                             isSelected ? item.activeIcon : item.icon,
-                            size: 22,
+                            size: 24,
                             color: isSelected ? activeColor : inactiveColor,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             item.label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontFamily: AppTheme.fontUi,
-                              fontSize: 12, // Strict 12px floor
+                              fontSize: 11,
                               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? tokens.textPrimary : inactiveColor,
+                              color: isSelected ? activeColor : inactiveColor,
+                              letterSpacing: -0.1,
                             ),
                           ),
                         ],

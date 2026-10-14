@@ -52,7 +52,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.card = const Color(0xFF181818),
     this.cardHover = const Color(0xFF282828),
     this.glass = const Color(0xCC181818),
-    this.accent = const Color(0xFF2EE66B),
+    this.accent = const Color(0xFF1DB954),
     this.textPrimary = const Color(0xFFFFFFFF),
     this.textSecondary = const Color(0xFFB3B3B3),
     this.textMuted = const Color(0xFF6A6A6A),

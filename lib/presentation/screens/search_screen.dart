@@ -25,6 +25,14 @@ enum SearchResultFilter {
   const SearchResultFilter(this.label);
 }
 
+class _SpotifyCategory {
+  final String title;
+  final Color color;
+  final IconData icon;
+
+  const _SpotifyCategory(this.title, this.color, this.icon);
+}
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -35,6 +43,21 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   SearchResultFilter _activeFilter = SearchResultFilter.all;
+
+  static const List<_SpotifyCategory> _spotifyBrowseCategories = [
+    _SpotifyCategory('Hip-Hop', Color(0xFFBA5D07), Icons.graphic_eq_rounded),
+    _SpotifyCategory('Pop', Color(0xFF8D67AB), Icons.star_rounded),
+    _SpotifyCategory('Rock', Color(0xFFE91429), Icons.electric_bolt_rounded),
+    _SpotifyCategory('Indie', Color(0xFF608108), Icons.park_rounded),
+    _SpotifyCategory('R&B', Color(0xFFD84000), Icons.favorite_rounded),
+    _SpotifyCategory('Electronic', Color(0xFF1E3264), Icons.headphones_rounded),
+    _SpotifyCategory('Chill & Lo-Fi', Color(0xFF477D95), Icons.coffee_rounded),
+    _SpotifyCategory('Podcasts', Color(0xFF27856A), Icons.podcasts_rounded),
+    _SpotifyCategory('YouTube Audio', Color(0xFFE61B23), Icons.play_circle_fill_rounded),
+    _SpotifyCategory('Jazz', Color(0xFF7D4B32), Icons.piano_rounded),
+    _SpotifyCategory('Mood', Color(0xFFE1118C), Icons.wb_sunny_rounded),
+    _SpotifyCategory('Discover', Color(0xFF503750), Icons.explore_rounded),
+  ];
 
   static const List<String> _quickCategories = [
     'Electronic',
@@ -570,7 +593,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
       children: [
         Text(
-          'Browse Categories',
+          'Browse all',
           style: TextStyle(
             fontFamily: AppTheme.fontPageTitle,
             fontSize: 20,
@@ -585,60 +608,78 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.6,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.6,
           ),
-          itemCount: _quickCategories.length,
+          itemCount: _spotifyBrowseCategories.length,
           itemBuilder: (context, index) {
-            final category = _quickCategories[index];
+            final category = _spotifyBrowseCategories[index];
             return BouncingScaleButton(
-              scaleFactor: 0.95,
+              scaleFactor: 0.96,
               minTouchTarget: 0,
               onTap: () {
-                _searchController.text = category;
+                _searchController.text = category.title;
                 _searchController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: category.length),
+                  TextPosition(offset: category.title.length),
                 );
                 ref
                     .read(searchNotifierProvider.notifier)
-                    .executeSearch(category);
+                    .executeSearch(category.title);
                 setState(() {});
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: tokens.card,
-                  borderRadius: BorderRadius.circular(tokens.radiusCard),
+                  color: category.color,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
                   children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: tokens.surfaceElevated,
-                        borderRadius: BorderRadius.circular(tokens.radiusSm),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.music_note_rounded,
-                          size: 16,
-                          color: AppTheme.accent,
+                    // Top-Left Category Title
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        category.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: Colors.white,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontUi,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: tokens.textPrimary,
+
+                    // Bottom-Right Slanted Graphic Card (Spotify Signature)
+                    Positioned(
+                      right: -10,
+                      bottom: -6,
+                      child: Transform.rotate(
+                        angle: 0.42,
+                        child: Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 10,
+                                offset: const Offset(-2, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Icon(
+                              category.icon,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              size: 28,
+                            ),
+                          ),
                         ),
                       ),
                     ),
