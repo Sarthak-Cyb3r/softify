@@ -14,6 +14,8 @@ import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
+import '../../features/podcasts/presentation/podcast_page.dart';
+import '../../features/youtube/presentation/youtube_page.dart';
 import 'artist_discography_screen.dart';
 
 enum SearchResultFilter {
@@ -619,6 +621,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               scaleFactor: 0.96,
               minTouchTarget: 0,
               onTap: () {
+                if (category.title == 'Podcasts') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PodcastPage(),
+                    ),
+                  );
+                  return;
+                }
+                if (category.title == 'YouTube Audio') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const YoutubePage(),
+                    ),
+                  );
+                  return;
+                }
                 _searchController.text = category.title;
                 _searchController.selection = TextSelection.fromPosition(
                   TextPosition(offset: category.title.length),

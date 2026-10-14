@@ -16,6 +16,7 @@ import 'equalizer_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 import 'artist_discography_screen.dart';
+import '../../features/podcasts/presentation/podcast_page.dart';
 import '../providers/search_providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -630,7 +631,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: AppFilterChip(
               label: f,
               isSelected: _selectedFilter == f,
-              onTap: () => setState(() => _selectedFilter = f),
+              onTap: () {
+                if (f == 'Podcasts') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PodcastPage(),
+                    ),
+                  );
+                  return;
+                }
+                setState(() => _selectedFilter = f);
+              },
             ),
           );
         }).toList(),
