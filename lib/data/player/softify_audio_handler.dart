@@ -394,7 +394,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       artist: track.artist,
       album: track.album,
       duration: track.duration,
-      artUri: track.coverUrl != null ? Uri.tryParse(track.coverUrl!) : null,
+      artUri: (track.coverUrl != null && track.coverUrl!.isNotEmpty)
+          ? Uri.tryParse(track.coverUrl!)
+          : Uri.parse('https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/assets/logo/logo.png'),
       extras: {
         'sourceId': track.sourceId,
         'isLiked': track.isLiked,

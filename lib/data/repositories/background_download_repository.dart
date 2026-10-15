@@ -98,11 +98,12 @@ class BackgroundDownloadRepository implements IDownloadRepository {
 
   Future<void> _handleDownloadCompleted(Task task) async {
     final trackId = task.taskId;
+    final safeId = sanitizeTrackId(trackId);
     final docsDir = await _docsDirProvider();
-    final relativePath = p.join('tracks', '$trackId.m4a');
+    final relativePath = p.join('tracks', '$safeId.m4a');
     final file = File(p.join(docsDir.path, relativePath));
 
-    if (!await file.exists()) {
+    if (!isPathContained(docsDir.path, file.path) || !await file.exists()) {
       await _updateStatus(trackId, DownloadStatus.failed);
       return;
     }
@@ -174,7 +175,8 @@ class BackgroundDownloadRepository implements IDownloadRepository {
     final isDone = await isDownloaded(track.id);
     if (isDone) return;
 
-    final relativePath = p.join('tracks', '${track.id}.m4a');
+    final safeId = sanitizeTrackId(track.id);
+    final relativePath = p.join('tracks', '$safeId.m4a');
     final now = DateTime.now().millisecondsSinceEpoch;
 
     // 3. Insert or update downloads record
@@ -199,7 +201,7 @@ class BackgroundDownloadRepository implements IDownloadRepository {
         taskId: track.id,
         url: streamInfo.url.toString(),
         headers: streamInfo.headers ?? const {},
-        filename: '${track.id}.m4a',
+        filename: '$safeId.m4a',
         directory: 'tracks',
         baseDirectory: BaseDirectory.applicationDocuments,
         updates: Updates.statusAndProgress,
@@ -224,9 +226,15 @@ class BackgroundDownloadRepository implements IDownloadRepository {
       await tracksDir.create(recursive: true);
     }
 
-    final relativePath = p.join('tracks', '${track.id}.m4a');
+    final safeId = sanitizeTrackId(track.id);
+    final relativePath = p.join('tracks', '$safeId.m4a');
     final targetFile = File(p.join(docsDir.path, relativePath));
     final tempFile = File(p.join(docsDir.path, '$relativePath.tmp'));
+
+    if (!isPathContained(docsDir.path, targetFile.path) || !isPathContained(docsDir.path, tempFile.path)) {
+      await _updateStatus(track.id, DownloadStatus.failed);
+      return;
+    }
 
     try {
       await _updateStatus(track.id, DownloadStatus.downloading);
@@ -351,10 +359,11 @@ class BackgroundDownloadRepository implements IDownloadRepository {
       _activeTasks.remove(trackId);
     }
 
+    final safeId = sanitizeTrackId(trackId);
     final docsDir = await _docsDirProvider();
-    final relativePath = p.join('tracks', '$trackId.m4a');
+    final relativePath = p.join('tracks', '$safeId.m4a');
     final file = File(p.join(docsDir.path, relativePath));
-    if (await file.exists()) {
+    if (isPathContained(docsDir.path, file.path) && await file.exists()) {
       await file.delete();
     }
 
@@ -372,7 +381,7 @@ class BackgroundDownloadRepository implements IDownloadRepository {
       // 1. Delete local file from disk FIRST
       final docsDir = await _docsDirProvider();
       final file = File(p.join(docsDir.path, row.relativePath));
-      if (await file.exists()) {
+      if (isPathContained(docsDir.path, file.path) && await file.exists()) {
         try {
           await file.delete();
         } catch (e) {
@@ -509,8 +518,8 @@ class BackgroundDownloadRepository implements IDownloadRepository {
     final docsDir = await _docsDirProvider();
     final file = File(p.join(docsDir.path, row.relativePath));
 
-    if (!await file.exists()) {
-      // Playback matrix: missing download file removed by user/cleaner
+    if (!isPathContained(docsDir.path, file.path) || !await file.exists()) {
+      // Playback matrix: missing download file removed by user/cleaner or path escaped containment
       // Remove corrupt record and return null so caller falls back to JIT network streaming
       await (_db.delete(_db.downloads)..where((d) => d.trackId.equals(trackId)))
           .go();
@@ -550,7 +559,7 @@ class BackgroundDownloadRepository implements IDownloadRepository {
       }
 
       final file = File(p.join(docsDir.path, rel));
-      if (!file.existsSync() || file.lengthSync() == 0) {
+      if (!isPathContained(docsDir.path, file.path) || !file.existsSync() || file.lengthSync() == 0) {
         await (_db.delete(_db.downloads)..where((t) => t.trackId.equals(row.trackId))).go();
         pruned++;
       } else {
@@ -565,6 +574,18 @@ class BackgroundDownloadRepository implements IDownloadRepository {
     }
 
     return (verified: verified, pruned: pruned);
+  }
+
+  /// Sanitizes a track ID to eliminate directory traversal characters (CWE-22).
+  static String sanitizeTrackId(String id) {
+    return id.replaceAll(RegExp(r'[.\\/:*?"<>|\x00-\x1F]'), '_');
+  }
+
+  /// Verifies that childPath resides strictly within parentDir.
+  static bool isPathContained(String parentDir, String childPath) {
+    final canonicalParent = p.canonicalize(parentDir);
+    final canonicalChild = p.canonicalize(childPath);
+    return p.isWithin(canonicalParent, canonicalChild) || canonicalChild == canonicalParent;
   }
 
   @override

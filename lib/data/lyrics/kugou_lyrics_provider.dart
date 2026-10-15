@@ -29,12 +29,14 @@ class KugouLyricsProvider implements ILyricsProvider {
 
       // 1. Search song info & file hash
       final searchUri = Uri.parse(
-        'http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=${Uri.encodeComponent(query)}&page=1&pagesize=5',
+        'https://songsearch.kugou.com/song_search_v2?keyword=${Uri.encodeComponent(query)}&page=1&pagesize=5',
       );
       final searchData = await _getJson(searchUri);
       if (searchData == null) return null;
 
-      final infoList = (searchData['data']?['info'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final infoList = (searchData['data']?['lists'] as List?)?.cast<Map<String, dynamic>>() ??
+          (searchData['data']?['info'] as List?)?.cast<Map<String, dynamic>>() ??
+          [];
       if (infoList.isEmpty) return null;
 
       // Match candidate with closest duration
@@ -42,7 +44,7 @@ class KugouLyricsProvider implements ILyricsProvider {
       if (track.duration.inSeconds > 0) {
         int bestDiff = 999999;
         for (final info in infoList) {
-          final dur = (info['duration'] as num?)?.toInt() ?? 0;
+          final dur = (info['Duration'] ?? info['duration'] as num?)?.toInt() ?? 0;
           final diff = (dur - track.duration.inSeconds).abs();
           if (diff < bestDiff) {
             bestDiff = diff;
@@ -51,12 +53,12 @@ class KugouLyricsProvider implements ILyricsProvider {
         }
       }
 
-      final hash = bestSong['hash'] as String?;
+      final hash = (bestSong['FileHash'] ?? bestSong['HQFileHash'] ?? bestSong['hash']) as String?;
       if (hash == null || hash.isEmpty) return null;
 
       // 2. Search lyric candidates using audio file hash
       final lyricSearchUri = Uri.parse(
-        'http://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=&duration=&hash=$hash',
+        'https://krcs.kugou.com/search?ver=1&man=yes&client=mobi&keyword=&duration=&hash=$hash',
       );
       final lyricSearchData = await _getJson(lyricSearchUri);
       if (lyricSearchData == null) return null;
@@ -71,7 +73,7 @@ class KugouLyricsProvider implements ILyricsProvider {
 
       // 3. Download lyric text in LRC format
       final downloadUri = Uri.parse(
-        'http://krcs.kugou.com/download?ver=1&client=mobi&id=$candId&accesskey=$accessKey&fmt=lrc&charset=utf8',
+        'https://krcs.kugou.com/download?ver=1&client=mobi&id=$candId&accesskey=$accessKey&fmt=lrc&charset=utf8',
       );
       final downloadData = await _getJson(downloadUri);
       if (downloadData == null) return null;

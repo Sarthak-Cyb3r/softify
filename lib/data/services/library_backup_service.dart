@@ -72,10 +72,11 @@ class LibraryBackupService {
       });
     }
 
-    // 3. User Settings
+    // 3. User Settings (Excludes sensitive auth credentials and tokens)
     final settingRows = await db.select(db.settings).get();
     final Map<String, String> settingsMap = {
-      for (final s in settingRows) s.key: s.value
+      for (final s in settingRows)
+        if (!_isSensitiveSettingKey(s.key)) s.key: s.value
     };
 
     final payload = {
@@ -236,10 +237,10 @@ class LibraryBackupService {
         }
       }
 
-      // 3. Restore Settings
+      // 3. Restore Settings (Excludes sensitive auth keys to prevent credential hijacking)
       final settings = data['settings'] as Map<String, dynamic>? ?? {};
       for (final entry in settings.entries) {
-        if (entry.value is String) {
+        if (entry.value is String && !_isSensitiveSettingKey(entry.key)) {
           await db.into(db.settings).insertOnConflictUpdate(
                 SettingRow(key: entry.key, value: entry.value as String),
               );
@@ -255,5 +256,13 @@ class LibraryBackupService {
     });
 
     return (playlistsRestored: playlistCount, likedRestored: likedCount);
+  }
+
+  static bool _isSensitiveSettingKey(String key) {
+    final lower = key.toLowerCase();
+    const sensitivePrefixes = ['spotify_', 'navidrome_'];
+    const sensitiveKeywords = ['token', 'secret', 'password', 'credential', 'auth'];
+    return sensitivePrefixes.any(lower.startsWith) ||
+        sensitiveKeywords.any(lower.contains);
   }
 }

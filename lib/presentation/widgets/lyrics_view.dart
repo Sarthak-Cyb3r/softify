@@ -59,7 +59,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
   // Track-calibrated sync offset (persisted in Drift SQLite)
   int _syncOffsetMs = 0;
-  bool _showTuner = false;
   LyricFontSize _lyricFontSize = LyricFontSize.normal;
   bool _romanizeLyrics = false;
 
@@ -185,24 +184,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     } catch (_) {}
   }
 
-  Future<void> _saveOffset(int offsetMs) async {
-    setState(() {
-      _syncOffsetMs = offsetMs;
-    });
-    try {
-      final db = ref.read(databaseProvider);
-      final key = 'lyrics_offset_${widget.track.id}';
-      await db.into(db.settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(key: key, value: offsetMs.toString()),
-      );
-    } catch (_) {}
-  }
-
-  void _nudgeOffset(int deltaMs) {
-    HapticFeedback.selectionClick();
-    _saveOffset((_syncOffsetMs + deltaMs).clamp(-3000, 3000));
-  }
-
   @override
   void dispose() {
     _ticker.dispose();
@@ -285,13 +266,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     setState(() {});
   }
 
-  void _toggleTuner() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _showTuner = !_showTuner;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
@@ -355,9 +329,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               children: [
                 // Minimal Header Bar
                 _buildHeader(tokens, activeAccent),
-
-                if (_showTuner)
-                  _buildTunerDrawer(tokens, activeAccent),
 
                 Divider(height: 1, color: Colors.white.withValues(alpha: 0.06)),
 
@@ -844,154 +815,116 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: activeAccent.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(4),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: activeAccent.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: activeAccent,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'LYRICS',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: activeAccent,
+                                    letterSpacing: 0.8,
+                                    fontFamily: AppTheme.fontUi,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 5,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: activeAccent,
+                          const SizedBox(width: 8),
+                          // Interactive Font Size Scaler Badge
+                          BouncingScaleButton(
+                            scaleFactor: 0.92,
+                            onTap: _cycleFontSize,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF222222),
+                                borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                border: Border.all(
+                                  color: const Color(0xFF1F1F1F),
+                                  width: 0.9,
                                 ),
                               ),
-                              const SizedBox(width: 5),
-                              Text(
-                                'LYRICS',
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.format_size_rounded,
+                                      color: activeAccent, size: 12),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    _lyricFontSize.label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: activeAccent,
+                                      fontFamily: AppTheme.fontUi,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Interactive Romanize Transliteration Badge
+                          BouncingScaleButton(
+                            scaleFactor: 0.92,
+                            onTap: _toggleRomanize,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _romanizeLyrics
+                                    ? activeAccent.withValues(alpha: 0.28)
+                                    : const Color(0xFF222222),
+                                borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                border: Border.all(
+                                  color: _romanizeLyrics
+                                      ? activeAccent
+                                      : const Color(0xFF1F1F1F),
+                                  width: 0.9,
+                                ),
+                              ),
+                              child: Text(
+                                _romanizeLyrics ? 'ROM' : 'ORIG',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
-                                  color: activeAccent,
-                                  letterSpacing: 0.8,
+                                  color: _romanizeLyrics
+                                      ? activeAccent
+                                      : tokens.textSecondary,
                                   fontFamily: AppTheme.fontUi,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Interactive Latency Offset Tuner Badge
-                        BouncingScaleButton(
-                          scaleFactor: 0.92,
-                          onTap: _toggleTuner,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _showTuner
-                                  ? activeAccent.withValues(alpha: 0.28)
-                                  : const Color(0xFF222222),
-                              borderRadius: BorderRadius.circular(tokens.radiusSm),
-                              border: Border.all(
-                                color: _showTuner
-                                    ? activeAccent
-                                    : const Color(0xFF1F1F1F),
-                                width: 0.9,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.timer_outlined,
-                                    color: activeAccent, size: 12),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${_syncOffsetMs > 0 ? '+' : ''}${_syncOffsetMs}ms',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: activeAccent,
-                                    letterSpacing: 0.2,
-                                    fontFamily: AppTheme.fontUi,
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        // Interactive Font Size Scaler Badge
-                        BouncingScaleButton(
-                          scaleFactor: 0.92,
-                          onTap: _cycleFontSize,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF222222),
-                              borderRadius: BorderRadius.circular(tokens.radiusSm),
-                              border: Border.all(
-                                color: const Color(0xFF1F1F1F),
-                                width: 0.9,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.format_size_rounded,
-                                    color: activeAccent, size: 12),
-                                const SizedBox(width: 3),
-                                Text(
-                                  _lyricFontSize.label,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: activeAccent,
-                                    fontFamily: AppTheme.fontUi,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // Interactive Romanize Transliteration Badge
-                        BouncingScaleButton(
-                          scaleFactor: 0.92,
-                          onTap: _toggleRomanize,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _romanizeLyrics
-                                  ? activeAccent.withValues(alpha: 0.28)
-                                  : const Color(0xFF222222),
-                              borderRadius: BorderRadius.circular(tokens.radiusSm),
-                              border: Border.all(
-                                color: _romanizeLyrics
-                                    ? activeAccent
-                                    : const Color(0xFF1F1F1F),
-                                width: 0.9,
-                              ),
-                            ),
-                            child: Text(
-                              _romanizeLyrics ? 'ROM' : 'ORIG',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: _romanizeLyrics
-                                    ? activeAccent
-                                    : tokens.textSecondary,
-                                fontFamily: AppTheme.fontUi,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -1026,158 +959,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                 ),
             ],
           ),
-          const SizedBox(height: 10),
-          // Pitch & Audio Engine Bar
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                children: [
-                  Icon(Icons.graphic_eq_rounded, size: 14, color: activeAccent),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Lyrics provided by LRCLIB',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFFA3A3A3),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTunerDrawer(AppTokens tokens, Color activeAccent) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131318),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
-            width: 0.8,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.tune_rounded, color: activeAccent, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                'SYNC CALIBRATION',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: activeAccent,
-                  letterSpacing: 0.8,
-                  fontFamily: AppTheme.fontUi,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '(${_syncOffsetMs > 0 ? '+' : ''}${_syncOffsetMs}ms)',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Auto-saved for track',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: tokens.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Quick Step Buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildNudgePill('-500ms', () => _nudgeOffset(-500), tokens, activeAccent),
-              _buildNudgePill('-100ms', () => _nudgeOffset(-100), tokens, activeAccent),
-              _buildNudgePill('Reset 0ms', () => _saveOffset(0), tokens, activeAccent, isReset: true),
-              _buildNudgePill('+100ms', () => _nudgeOffset(100), tokens, activeAccent),
-              _buildNudgePill('+500ms', () => _nudgeOffset(500), tokens, activeAccent),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Fine Millisecond Slider
-          Row(
-            children: [
-              Text('-3s', style: TextStyle(fontSize: 12, color: tokens.textMuted)),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    activeTrackColor: activeAccent,
-                    inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-                    thumbColor: Colors.white,
-                    overlayColor: activeAccent.withValues(alpha: 0.2),
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    trackHeight: 2.5,
-                  ),
-                  child: Slider(
-                    value: _syncOffsetMs.clamp(-3000, 3000).toDouble(),
-                    min: -3000,
-                    max: 3000,
-                    divisions: 120, // 50ms steps
-                    onChanged: (val) {
-                      _saveOffset(val.round());
-                    },
-                  ),
-                ),
-              ),
-              Text('+3s', style: TextStyle(fontSize: 12, color: tokens.textMuted)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNudgePill(
-    String label,
-    VoidCallback onTap,
-    AppTokens tokens,
-    Color activeAccent, {
-    bool isReset = false,
-  }) {
-    return BouncingScaleButton(
-      scaleFactor: 0.94,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isReset
-              ? activeAccent.withValues(alpha: 0.16)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(tokens.radiusSm),
-          border: Border.all(
-            color: isReset
-                ? activeAccent.withValues(alpha: 0.40)
-                : Colors.white.withValues(alpha: 0.10),
-            width: 0.8,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: isReset ? activeAccent : Colors.white70,
-          ),
-        ),
       ),
     );
   }

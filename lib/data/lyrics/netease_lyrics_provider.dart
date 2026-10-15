@@ -33,7 +33,7 @@ class NeteaseLyricsProvider implements ILyricsProvider {
 
       // 1. Search song catalog
       final searchUri = Uri.parse(
-        'http://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${Uri.encodeComponent(query)}&type=1&offset=0&total=true&limit=5',
+        'https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${Uri.encodeComponent(query)}&type=1&offset=0&total=true&limit=5',
       );
 
       final searchData = await _getJson(searchUri);
@@ -65,7 +65,7 @@ class NeteaseLyricsProvider implements ILyricsProvider {
 
       // 2. Fetch lyrics by song ID
       final lyricUri = Uri.parse(
-        'http://music.163.com/api/song/lyric?os=pc&id=$songId&lv=-1&kv=-1&tv=-1',
+        'https://music.163.com/api/song/lyric?os=pc&id=$songId&lv=-1&kv=-1&tv=-1',
       );
 
       final lyricData = await _getJson(lyricUri);

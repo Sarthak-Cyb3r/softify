@@ -179,62 +179,64 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       },
                     ),
 
-                    // 3. Play Next
-                    ListTile(
-                      leading: const Icon(Icons.queue_music, color: AppTheme.textPrimary),
-                      title: const Text('Play next', style: TextStyle(color: AppTheme.textPrimary)),
-                      onTap: () {
-                        audioHandler.playNext(track);
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Playing "${track.title}" next'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // 4. Add to Queue
-                    ListTile(
-                      leading: const Icon(Icons.add_to_photos_outlined, color: AppTheme.textPrimary),
-                      title: const Text('Add to queue', style: TextStyle(color: AppTheme.textPrimary)),
-                      onTap: () {
-                        audioHandler.addToQueue(track);
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Added "${track.title}" to queue'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // 4b. Start Song Radio
-                    ListTile(
-                      leading: const Icon(Icons.radio_outlined, color: AppTheme.textPrimary),
-                      title: const Text('Start song radio', style: TextStyle(color: AppTheme.textPrimary)),
-                      subtitle: const Text(
-                        'Continuous queue musically matched to this track',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    if (!track.isYoutube) ...[
+                      // 3. Play Next
+                      ListTile(
+                        leading: const Icon(Icons.queue_music, color: AppTheme.textPrimary),
+                        title: const Text('Play next', style: TextStyle(color: AppTheme.textPrimary)),
+                        onTap: () {
+                          audioHandler.playNext(track);
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Playing "${track.title}" next'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
                       ),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Starting radio for "${track.title}"...'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                        try {
-                          final catalog = ref.read(catalogRepositoryProvider);
-                          final related = await catalog.getRelatedTracks(track, limit: 25);
-                          final queue = [track, ...related.where((t) => t.id != track.id)];
-                          await audioHandler.setQueue(queue, startIndex: 0);
-                        } catch (_) {}
-                      },
-                    ),
+
+                      // 4. Add to Queue
+                      ListTile(
+                        leading: const Icon(Icons.add_to_photos_outlined, color: AppTheme.textPrimary),
+                        title: const Text('Add to queue', style: TextStyle(color: AppTheme.textPrimary)),
+                        onTap: () {
+                          audioHandler.addToQueue(track);
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Added "${track.title}" to queue'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // 4b. Start Song Radio
+                      ListTile(
+                        leading: const Icon(Icons.radio_outlined, color: AppTheme.textPrimary),
+                        title: const Text('Start song radio', style: TextStyle(color: AppTheme.textPrimary)),
+                        subtitle: const Text(
+                          'Continuous queue musically matched to this track',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        ),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Starting radio for "${track.title}"...'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                          try {
+                            final catalog = ref.read(catalogRepositoryProvider);
+                            final related = await catalog.getRelatedTracks(track, limit: 25);
+                            final queue = [track, ...related.where((t) => t.id != track.id)];
+                            await audioHandler.setQueue(queue, startIndex: 0);
+                          } catch (_) {}
+                        },
+                      ),
+                    ],
 
                     // 5. Download / Offline
                     ListTile(
@@ -308,29 +310,35 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
 
                     // 7. View Artist & Artist Radio
                     if (track.artist.isNotEmpty && track.artist != 'Unknown Artist') ...[
-                      ListTile(
-                        leading: const Icon(Icons.podcasts_rounded, color: AppTheme.textPrimary),
-                        title: Text('Start artist radio (${track.artist})', style: const TextStyle(color: AppTheme.textPrimary)),
-                        onTap: () async {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Starting artist radio for "${track.artist}"...'),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                          try {
-                            final catalog = ref.read(catalogRepositoryProvider);
-                            final primaryArtist =
-                                parseArtistNames(track.artist).firstOrNull ?? track.artist;
-                            final artistTracks =
-                                await catalog.getArtistTracks(primaryArtist, limit: 25);
-                            if (artistTracks.isNotEmpty) {
-                              await audioHandler.setQueue(artistTracks, startIndex: 0);
-                            }
-                          } catch (_) {}
-                        },
-                      ),
+                      if (!track.isYoutube)
+                        ListTile(
+                          leading: const Icon(Icons.podcasts_rounded, color: AppTheme.textPrimary),
+                          title: Text(
+                            'Start artist radio (${track.artist})',
+                            style: const TextStyle(color: AppTheme.textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () async {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Starting artist radio for "${track.artist}"...'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                            try {
+                              final catalog = ref.read(catalogRepositoryProvider);
+                              final primaryArtist =
+                                  parseArtistNames(track.artist).firstOrNull ?? track.artist;
+                              final artistTracks =
+                                  await catalog.getArtistTracks(primaryArtist, limit: 25);
+                              if (artistTracks.isNotEmpty) {
+                                await audioHandler.setQueue(artistTracks, startIndex: 0);
+                              }
+                            } catch (_) {}
+                          },
+                        ),
                       ListTile(
                         leading: const Icon(Icons.person_outline, color: AppTheme.textPrimary),
                         title: Text(

@@ -14,6 +14,7 @@ import 'equalizer_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 import 'artist_discography_screen.dart';
+import 'tracks_list_screen.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
 import '../providers/search_providers.dart';
 
@@ -292,19 +293,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         likedCount: likedCountAsync.value?.length ?? 0,
                         downloadsCount: downloadsCountAsync.value?.where((d) => d.isCompleted).length ?? 0,
                         onLikedTap: () {
-                          final liked = likedCountAsync.value;
-                          if (liked != null && liked.isNotEmpty) {
-                            audioHandler.setQueue(liked);
-                          }
+                          final liked = likedCountAsync.value ?? [];
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TracksListScreen(
+                                title: 'Liked Songs',
+                                subtitle: '${liked.length} saved tracks',
+                                icon: Icons.favorite_rounded,
+                                iconColor: tokens.accent,
+                                initialTracks: liked,
+                              ),
+                            ),
+                          );
                         },
                         onDownloadsTap: () {
                           final dls = downloadsCountAsync.value
                               ?.where((d) => d.isCompleted && d.track != null)
                               .map((d) => d.track!)
-                              .toList();
-                          if (dls != null && dls.isNotEmpty) {
-                            audioHandler.setQueue(dls);
-                          }
+                              .toList() ?? [];
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TracksListScreen(
+                                title: 'Downloaded Songs',
+                                subtitle: '${dls.length} offline tracks',
+                                icon: Icons.download_done_rounded,
+                                iconColor: tokens.accent,
+                                initialTracks: dls,
+                                isDownloads: true,
+                              ),
+                            ),
+                          );
                         },
                         isDesktop: true,
                       ),
@@ -365,19 +383,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   likedCount: likedCountAsync.value?.length ?? 0,
                   downloadsCount: downloadsCountAsync.value?.where((d) => d.isCompleted).length ?? 0,
                   onLikedTap: () {
-                    final liked = likedCountAsync.value;
-                    if (liked != null && liked.isNotEmpty) {
-                      audioHandler.setQueue(liked);
-                    }
+                    final liked = likedCountAsync.value ?? [];
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TracksListScreen(
+                          title: 'Liked Songs',
+                          subtitle: '${liked.length} saved tracks',
+                          icon: Icons.favorite_rounded,
+                          iconColor: tokens.accent,
+                          initialTracks: liked,
+                        ),
+                      ),
+                    );
                   },
                   onDownloadsTap: () {
                     final dls = downloadsCountAsync.value
                         ?.where((d) => d.isCompleted && d.track != null)
                         .map((d) => d.track!)
-                        .toList();
-                    if (dls != null && dls.isNotEmpty) {
-                      audioHandler.setQueue(dls);
-                    }
+                        .toList() ?? [];
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TracksListScreen(
+                          title: 'Downloaded Songs',
+                          subtitle: '${dls.length} offline tracks',
+                          icon: Icons.download_done_rounded,
+                          iconColor: tokens.accent,
+                          initialTracks: dls,
+                          isDownloads: true,
+                        ),
+                      ),
+                    );
                   },
                   isDesktop: false,
                 ),
@@ -435,6 +470,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Text(
                     shelf.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: AppTheme.fontPageTitle,
                       fontSize: 20,
@@ -460,32 +497,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            BouncingScaleButton(
-              scaleFactor: 0.94,
-              onTap: () {
-                if (shelf.tracks.isNotEmpty) {
-                  audioHandler.setQueue(shelf.tracks);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
-                ),
-                child: Text(
-                  'Play All',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontUi,
-                    color: tokens.accent,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                BouncingScaleButton(
+                  scaleFactor: 0.94,
+                  minTouchTarget: 0,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TracksListScreen(
+                          title: shelf.title,
+                          subtitle: shelf.subtitle,
+                          icon: Icons.music_note_rounded,
+                          iconColor: tokens.accent,
+                          initialTracks: shelf.tracks,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Show all',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      color: tokens.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                BouncingScaleButton(
+                  scaleFactor: 0.94,
+                  onTap: () {
+                    if (shelf.tracks.isNotEmpty) {
+                      audioHandler.setQueue(shelf.tracks);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: tokens.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(tokens.radiusFull),
+                    ),
+                    child: Text(
+                      'Play All',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: tokens.accent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -561,6 +630,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Text(
                     _getGreeting(userName, isDesktop: isDesktop),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: AppTheme.fontPageTitle,
                       fontSize: isDesktop ? 30 : 24,
@@ -702,26 +773,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              'Recently Played',
-              style: TextStyle(
-                fontFamily: AppTheme.fontPageTitle,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-                color: tokens.textPrimary,
+            Expanded(
+              child: Text(
+                'Recently Played',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontPageTitle,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                  color: tokens.textPrimary,
+                ),
               ),
             ),
-            Text(
-              'Show all',
-              style: TextStyle(
-                fontFamily: AppTheme.fontUi,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: tokens.textSecondary,
+            const SizedBox(width: 8),
+            BouncingScaleButton(
+              scaleFactor: 0.94,
+              minTouchTarget: 0,
+              onTap: () {
+                final history = historyAsync.value ?? [];
+                final tracks = history
+                    .map((h) => h.track)
+                    .whereType<Track>()
+                    .toList();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TracksListScreen(
+                      title: 'Recently Played',
+                      subtitle: '${tracks.length} tracks',
+                      icon: Icons.history_rounded,
+                      iconColor: tokens.accent,
+                      initialTracks: tracks,
+                    ),
+                  ),
+                );
+              },
+              child: Text(
+                'Show all',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textSecondary,
+                ),
               ),
             ),
           ],
@@ -897,6 +994,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       Text(
                         'Made For You',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: AppTheme.fontPageTitle,
                           fontSize: 20,
@@ -927,9 +1026,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   scaleFactor: 0.94,
                   minTouchTarget: 0,
                   onTap: () {
-                    if (featured.tracks.isNotEmpty) {
-                      audioHandler.setQueue(featured.tracks);
-                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TracksListScreen(
+                          title: 'Made For You',
+                          subtitle: featured.subtitle,
+                          icon: Icons.auto_awesome_rounded,
+                          iconColor: tokens.accent,
+                          initialTracks: featured.tracks,
+                        ),
+                      ),
+                    );
                   },
                   child: Text(
                     'Show all',

@@ -86,6 +86,8 @@ void main() async {
       androidNotificationChannelId: 'com.softify.audio',
       androidNotificationChannelName: 'Softify Playback',
       androidNotificationChannelDescription: 'Softify Background Media Playback',
+      androidNotificationIcon: 'drawable/ic_notification',
+      notificationColor: Color(0xFF1DB954),
       androidNotificationOngoing: false,
       androidStopForegroundOnPause: false,
     ),

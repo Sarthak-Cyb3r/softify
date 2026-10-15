@@ -99,4 +99,9 @@ class Track {
       id.startsWith('podcast_') ||
       sourceId.startsWith('podcast_') ||
       album == 'YouTube';
+
+  bool get isYoutube =>
+      id.startsWith('yt_') ||
+      sourceId.startsWith('yt_') ||
+      album == 'YouTube';
 }

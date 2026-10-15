@@ -12,6 +12,7 @@ import '../widgets/shared/app_network_image.dart';
 import '../widgets/shared/app_pill_button.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
+import '../widgets/artist_chooser_bottom_sheet.dart';
 import 'artist_discography_screen.dart';
 
 class ArtistDetailScreen extends ConsumerStatefulWidget {
@@ -32,10 +33,21 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
   List<Track> _tracks = [];
   bool _isLoading = true;
   String? _error;
+  String? _resolvedAvatarUrl;
 
   @override
   void initState() {
     super.initState();
+    _resolvedAvatarUrl = widget.coverUrl;
+    if (_resolvedAvatarUrl == null || _resolvedAvatarUrl!.isEmpty) {
+      ArtistAvatarResolver.getArtistImageUrl(widget.artistName).then((url) {
+        if (mounted && url != null) {
+          setState(() {
+            _resolvedAvatarUrl = url;
+          });
+        }
+      });
+    }
     _loadTracks();
   }
 
@@ -133,7 +145,7 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                 ),
                 child: Center(
                   child: AppNetworkImage(
-                    imageUrl: widget.coverUrl,
+                    imageUrl: _resolvedAvatarUrl,
                     width: 120,
                     height: 120,
                     isCircle: true,

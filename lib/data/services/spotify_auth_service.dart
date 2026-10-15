@@ -92,13 +92,14 @@ class SpotifyAuthService {
   Future<bool> login({Duration timeout = const Duration(seconds: 120)}) async {
     final verifier = _generateCodeVerifier();
     final challenge = _generateCodeChallenge(verifier);
+    final expectedState = _generateCodeVerifier(32);
 
     HttpServer? server;
     try {
       server = await HttpServer.bind(
         InternetAddress.loopbackIPv4,
         loopbackPort,
-        shared: true,
+        shared: false,
       );
     } catch (_) {
       // If port is busy or cannot be bound, fail gracefully
@@ -111,10 +112,30 @@ class SpotifyAuthService {
     final sub = server.listen((HttpRequest request) async {
       final uri = request.uri;
       if (uri.path == '/login') {
+        final state = uri.queryParameters['state'];
         final code = uri.queryParameters['code'];
         final error = uri.queryParameters['error'];
 
         request.response.headers.contentType = ContentType.html;
+
+        // Verify CSRF state token matches
+        if (state != expectedState) {
+          request.response.statusCode = HttpStatus.badRequest;
+          request.response.write('''
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Softify - Security Error</title></head>
+<body style="background:#121212;color:#fff;font-family:sans-serif;text-align:center;padding:50px;">
+  <h2>Authorization failed: Invalid or mismatched security state.</h2>
+  <p>Potential cross-site request forgery detected. Please retry logging in from Softify.</p>
+</body>
+</html>
+''');
+          await request.response.close();
+          if (!completer.isCompleted) completer.complete(null);
+          return;
+        }
+
         if (code != null) {
           request.response.write('''
 <!DOCTYPE html>
@@ -143,12 +164,13 @@ class SpotifyAuthService {
           await request.response.close();
           if (!completer.isCompleted) completer.complete(code);
         } else {
+          final safeError = const HtmlEscape().convert(error ?? 'Authentication failed');
           request.response.write('''
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>Softify - Connection Canceled</title></head>
 <body style="background:#121212;color:#fff;font-family:sans-serif;text-align:center;padding:50px;">
-  <h2>Connection canceled ($error)</h2>
+  <h2>Connection canceled ($safeError)</h2>
   <p>You can close this tab and return to Softify.</p>
 </body>
 </html>
@@ -168,6 +190,7 @@ class SpotifyAuthService {
       'redirect_uri': redirectUri,
       'code_challenge_method': 'S256',
       'code_challenge': challenge,
+      'state': expectedState,
       'scope': 'playlist-read-private playlist-read-collaborative user-library-read',
     });
 

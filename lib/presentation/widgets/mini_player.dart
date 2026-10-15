@@ -192,15 +192,25 @@ class MiniPlayer extends ConsumerWidget {
                         ),
                       ),
 
-                      // Devices Action (Spotify signature)
+                      // Softify Logo Brand Button (Mobile MiniPlayer)
                       IconButton(
                         iconSize: 20,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                        icon: const Icon(
-                          Icons.devices_rounded,
-                          color: Color(0xFFB3B3B3),
-                          size: 20,
+                        tooltip: 'Softify',
+                        icon: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.asset(
+                            'assets/logo/logo.png',
+                            width: 20,
+                            height: 20,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.graphic_eq_rounded,
+                              color: AppTheme.accent,
+                              size: 18,
+                            ),
+                          ),
                         ),
                         onPressed: () {
                           HapticFeedback.selectionClick();

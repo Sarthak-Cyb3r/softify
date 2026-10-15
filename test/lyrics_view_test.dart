@@ -109,7 +109,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('LYRICS'), findsOneWidget);
-      expect(find.text('0ms'), findsOneWidget);
+      expect(find.text('0ms'), findsNothing);
       expect(find.text('Self Aware • Qveen Herby'), findsOneWidget);
       expect(find.text('First line of the song'), findsOneWidget);
       expect(find.text('Second line of the song'), findsOneWidget);

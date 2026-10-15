@@ -18,6 +18,7 @@ import '../widgets/wrapped_insights_dialog.dart';
 import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
+import 'tracks_list_screen.dart';
 
 enum LibrarySortOrder {
   recentlyAdded('Recent'),
@@ -90,49 +91,53 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          AppFilterChip(
-            label: currentSort.label,
-            isSelected: false,
-            height: 32,
-            icon: const Icon(Icons.swap_vert_rounded, size: 14),
-            onTap: () {
-              final nextIndex = (currentSort.index + 1) % LibrarySortOrder.values.length;
-              onSortChanged(LibrarySortOrder.values[nextIndex]);
-            },
-          ),
-          const SizedBox(width: 10),
-          Text(
-            '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
-            style: TextStyle(
-              fontFamily: AppTheme.fontUi,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: tokens.textSecondary,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            AppFilterChip(
+              label: currentSort.label,
+              isSelected: false,
+              height: 32,
+              icon: const Icon(Icons.swap_vert_rounded, size: 14),
+              onTap: () {
+                final nextIndex = (currentSort.index + 1) % LibrarySortOrder.values.length;
+                onSortChanged(LibrarySortOrder.values[nextIndex]);
+              },
             ),
-          ),
-          const Spacer(),
-          if (trailingAction != null) ...[
-            trailingAction,
+            const SizedBox(width: 10),
+            Text(
+              '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
+              style: TextStyle(
+                fontFamily: AppTheme.fontUi,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: tokens.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 14),
+            if (trailingAction != null) ...[
+              trailingAction,
+              const SizedBox(width: 8),
+            ],
+            AppPillButton(
+              label: 'Shuffle',
+              icon: const Icon(Icons.shuffle_rounded, size: 16),
+              variant: AppPillButtonVariant.secondary,
+              height: 32,
+              onPressed: onShuffle,
+            ),
             const SizedBox(width: 8),
+            AppPillButton(
+              label: 'Play',
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              variant: AppPillButtonVariant.primary,
+              height: 32,
+              onPressed: onPlayAll,
+            ),
           ],
-          AppPillButton(
-            label: 'Shuffle',
-            icon: const Icon(Icons.shuffle_rounded, size: 16),
-            variant: AppPillButtonVariant.secondary,
-            height: 32,
-            onPressed: onShuffle,
-          ),
-          const SizedBox(width: 8),
-          AppPillButton(
-            label: 'Play',
-            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-            variant: AppPillButtonVariant.primary,
-            height: 32,
-            onPressed: onPlayAll,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1454,18 +1459,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 subtitle: 'Past 14 Days',
                 icon: Icons.repeat_rounded,
                 color: const Color(0xFF1DB954),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final tracks = await ref.read(onRepeatTracksProvider.future);
-                  if (tracks.isNotEmpty) {
-                    ref.read(audioHandlerProvider).setQueue(tracks);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Playing "On Repeat" (${tracks.length} tracks)'),
-                        backgroundColor: tokens.surfaceElevated,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TracksListScreen(
+                        title: 'On Repeat',
+                        subtitle: 'Past 14 Days',
+                        icon: Icons.repeat_rounded,
+                        iconColor: const Color(0xFF1DB954),
+                        tracksFuture: () => ref.read(onRepeatTracksProvider.future),
                       ),
-                    );
-                  }
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: 10),
@@ -1474,18 +1479,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 subtitle: 'This Month',
                 icon: Icons.trending_up_rounded,
                 color: const Color(0xFF8B5CF6),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final tracks = await ref.read(mostPlayedTracksProvider.future);
-                  if (tracks.isNotEmpty) {
-                    ref.read(audioHandlerProvider).setQueue(tracks);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Playing "Most Played" (${tracks.length} tracks)'),
-                        backgroundColor: tokens.surfaceElevated,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TracksListScreen(
+                        title: 'Most Played',
+                        subtitle: 'This Month',
+                        icon: Icons.trending_up_rounded,
+                        iconColor: const Color(0xFF8B5CF6),
+                        tracksFuture: () => ref.read(mostPlayedTracksProvider.future),
                       ),
-                    );
-                  }
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: 10),
@@ -1494,18 +1499,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 subtitle: 'Missed Songs',
                 icon: Icons.history_toggle_off_rounded,
                 color: const Color(0xFFF59E0B),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final tracks = await ref.read(forgottenFavoritesProvider.future);
-                  if (tracks.isNotEmpty) {
-                    ref.read(audioHandlerProvider).setQueue(tracks);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Playing "Forgotten Favorites" (${tracks.length} tracks)'),
-                        backgroundColor: tokens.surfaceElevated,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TracksListScreen(
+                        title: 'Forgotten Favorites',
+                        subtitle: 'Missed Songs',
+                        icon: Icons.history_toggle_off_rounded,
+                        iconColor: const Color(0xFFF59E0B),
+                        tracksFuture: () => ref.read(forgottenFavoritesProvider.future),
                       ),
-                    );
-                  }
+                    ),
+                  );
                 },
               ),
             ],

@@ -74,6 +74,11 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
       primary = 'https://${primary.substring(7)}';
     }
 
+    if (!primary.startsWith('https://')) {
+      _candidates = const [];
+      return;
+    }
+
     final list = <String>[primary];
 
     // YouTube: fallback to universally supported 480x360 hqdefault

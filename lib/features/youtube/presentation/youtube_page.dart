@@ -713,9 +713,8 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
 
             const SizedBox(height: 14),
 
-            // Actions row: Play next, Add to queue, More / Save
+            // Actions row: Play/Pause and More Options
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Toggle Play/Pause
                 IconButton.filledTonal(
@@ -734,43 +733,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                     }
                   },
                 ),
-
-                // Play Next
-                TextButton.icon(
-                  icon: const Icon(Icons.playlist_play_rounded, size: 18),
-                  label: const Text('Play next'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: tokens.textPrimary,
-                  ),
-                  onPressed: () {
-                    ref.read(audioHandlerProvider).playNext(track);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Playing next: "${track.title}"'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                ),
-
-                // Add to Queue
-                TextButton.icon(
-                  icon: const Icon(Icons.queue_music_rounded, size: 18),
-                  label: const Text('Queue'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: tokens.textPrimary,
-                  ),
-                  onPressed: () {
-                    ref.read(audioHandlerProvider).addToQueue(track);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Added to queue: "${track.title}"'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                ),
-
+                const Spacer(),
                 // More Options (Save to playlist, download, etc.)
                 IconButton(
                   icon: Icon(

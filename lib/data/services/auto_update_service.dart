@@ -60,7 +60,18 @@ class AutoUpdateService {
     }
   }
 
+  static bool _isValidUpdateUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') return false;
+    final host = uri.host.toLowerCase();
+    return host == 'github.com' ||
+        host.endsWith('.github.com') ||
+        host == 'githubusercontent.com' ||
+        host.endsWith('.githubusercontent.com');
+  }
+
   Future<void> _stageLinuxUpdate(String url) async {
+    if (!_isValidUpdateUrl(url)) return;
     try {
       final dir = await getApplicationSupportDirectory();
       final targetFile = File('${dir.path}/update_staged.bin');
@@ -72,6 +83,7 @@ class AutoUpdateService {
   }
 
   Future<void> _stageAndroidUpdate(String url) async {
+    if (!_isValidUpdateUrl(url)) return;
     try {
       final dir = await getTemporaryDirectory();
       final targetFile = File('${dir.path}/softify_update.apk');
