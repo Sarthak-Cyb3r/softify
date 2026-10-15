@@ -146,8 +146,10 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       leading: const Icon(Icons.playlist_add, color: AppTheme.textPrimary),
                       title: const Text('Add to playlist', style: TextStyle(color: AppTheme.textPrimary)),
                       onTap: () {
-                        Navigator.pop(context);
-                        _showAddToPlaylistSheet(context, ref, track);
+                        final nav = Navigator.of(context);
+                        final parentCtx = nav.context;
+                        nav.pop();
+                        _showAddToPlaylistSheet(parentCtx, ref, track);
                       },
                     ),
 
@@ -164,11 +166,13 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         ),
                       ),
                       onTap: () {
+                        final nav = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.maybeOf(context);
                         ref
                             .read(libraryRepositoryProvider)
                             .setLiked(track.id, !isLiked, track: track);
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        nav.pop();
+                        messenger?.showSnackBar(
                           SnackBar(
                             content: Text(
                               !isLiked ? 'Added to Liked Songs' : 'Removed from Liked Songs',
@@ -185,9 +189,11 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         leading: const Icon(Icons.queue_music, color: AppTheme.textPrimary),
                         title: const Text('Play next', style: TextStyle(color: AppTheme.textPrimary)),
                         onTap: () {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           audioHandler.playNext(track);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          nav.pop();
+                          messenger?.showSnackBar(
                             SnackBar(
                               content: Text('Playing "${track.title}" next'),
                               duration: const Duration(seconds: 2),
@@ -201,9 +207,11 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         leading: const Icon(Icons.add_to_photos_outlined, color: AppTheme.textPrimary),
                         title: const Text('Add to queue', style: TextStyle(color: AppTheme.textPrimary)),
                         onTap: () {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           audioHandler.addToQueue(track);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          nav.pop();
+                          messenger?.showSnackBar(
                             SnackBar(
                               content: Text('Added "${track.title}" to queue'),
                               duration: const Duration(seconds: 2),
@@ -221,8 +229,10 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                           style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                         ),
                         onTap: () async {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
+                          nav.pop();
+                          messenger?.showSnackBar(
                             SnackBar(
                               content: Text('Starting radio for "${track.title}"...'),
                               duration: const Duration(seconds: 2),
@@ -251,19 +261,19 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         ),
                       ),
                       onTap: () async {
-                        Navigator.pop(context);
+                        final nav = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.maybeOf(context);
+                        nav.pop();
                         if (!isDownloaded) {
                           await ref.read(downloadRepositoryProvider).queueDownload(track);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Downloading "${track.title}"...'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text('Downloading "${track.title}"...'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger?.showSnackBar(
                             SnackBar(
                               content: Text('"${track.title}" is already downloaded'),
                               duration: const Duration(seconds: 2),
@@ -303,8 +313,10 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                             )
                           : null,
                       onTap: () {
-                        Navigator.pop(context);
-                        SleepTimerBottomSheet.show(context);
+                        final nav = Navigator.of(context);
+                        final parentCtx = nav.context;
+                        nav.pop();
+                        SleepTimerBottomSheet.show(parentCtx);
                       },
                     ),
 
@@ -320,8 +332,10 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           onTap: () async {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            final nav = Navigator.of(context);
+                            final messenger = ScaffoldMessenger.maybeOf(context);
+                            nav.pop();
+                            messenger?.showSnackBar(
                               SnackBar(
                                 content: Text('Starting artist radio for "${track.artist}"...'),
                                 duration: const Duration(seconds: 2),
@@ -350,9 +364,11 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         onTap: () {
-                          Navigator.pop(context);
+                          final nav = Navigator.of(context);
+                          final parentCtx = nav.context;
+                          nav.pop();
                           showArtistChooserOrDetail(
-                            context,
+                            parentCtx,
                             rawArtist: track.artist,
                             coverUrl: track.coverUrl,
                           );
@@ -366,9 +382,9 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         leading: const Icon(Icons.album_outlined, color: AppTheme.textPrimary),
                         title: Text('View album (${track.album})', style: const TextStyle(color: AppTheme.textPrimary)),
                         onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
+                          final nav = Navigator.of(context);
+                          nav.pop();
+                          nav.push(
                             MaterialPageRoute(
                               builder: (_) => AlbumDetailScreen(
                                 albumName: track.album!,
@@ -389,9 +405,9 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                       onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
+                        final nav = Navigator.of(context);
+                        nav.pop();
+                        nav.push(
                           MaterialPageRoute(builder: (_) => const CarModeScreen()),
                         );
                       },
@@ -406,9 +422,9 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                       onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
+                        final nav = Navigator.of(context);
+                        nav.pop();
+                        nav.push(
                           MaterialPageRoute(builder: (_) => const EqualizerScreen()),
                         );
                       },
@@ -420,18 +436,18 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         leading: Icon(Icons.remove_circle_outline, color: tokens.error),
                         title: Text('Remove from this playlist', style: TextStyle(color: tokens.error)),
                         onTap: () async {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           await ref
                               .read(libraryRepositoryProvider)
                               .removeTrackFromPlaylist(currentPlaylistId!, currentPlaylistTrackIndex!);
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Removed "${track.title}" from playlist'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
+                          nav.pop();
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text('Removed "${track.title}" from playlist'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
                         },
                       ),
 
@@ -584,18 +600,18 @@ class _AddToPlaylistModal extends ConsumerWidget {
                           style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                         ),
                         onTap: () async {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           await ref
                               .read(libraryRepositoryProvider)
                               .addTrackToPlaylist(pl.id, track);
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Added "${track.title}" to "${pl.name}"'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
+                          nav.pop();
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text('Added "${track.title}" to "${pl.name}"'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
                         },
                       );
                     },
@@ -652,18 +668,18 @@ class _AddToPlaylistModal extends ConsumerWidget {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
+                final nav = Navigator.of(context);
+                final messenger = ScaffoldMessenger.maybeOf(context);
                 final newPl = await ref.read(libraryRepositoryProvider).createPlaylist(name);
                 await ref.read(libraryRepositoryProvider).addTrackToPlaylist(newPl.id, track);
                 if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-                if (context.mounted) Navigator.pop(context);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Created "$name" and added "${track.title}"'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
+                nav.pop();
+                messenger?.showSnackBar(
+                  SnackBar(
+                    content: Text('Created "$name" and added "${track.title}"'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
               }
             },
           ),

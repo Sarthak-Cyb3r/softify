@@ -30,3 +30,7 @@
 
 # Google Play Core
 -dontwarn com.google.android.play.core.**
+
+# Softify App & Drift Database
+-keep class com.softify.softify.** { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

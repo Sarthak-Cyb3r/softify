@@ -141,9 +141,10 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                       ),
                       TextButton(
                         onPressed: () {
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           audioHandler.cancelSleepTimer();
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger?.showSnackBar(
                             const SnackBar(
                               content: Text('Sleep timer turned off'),
                               duration: Duration(seconds: 2),
@@ -205,9 +206,10 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                       label: 'End of this song',
                       icon: Icons.music_note_rounded,
                       onTap: () {
+                        final messenger = ScaffoldMessenger.maybeOf(context);
                         audioHandler.setSleepTimerEndOfTrack();
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger?.showSnackBar(
                           const SnackBar(
                             content: Text('Sleep timer set: Audio will pause after this song'),
                             duration: Duration(seconds: 2),
@@ -229,9 +231,10 @@ class SleepTimerBottomSheet extends ConsumerWidget {
                         textColor: tokens.error,
                         iconColor: tokens.error,
                         onTap: () {
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           audioHandler.cancelSleepTimer();
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger?.showSnackBar(
                             const SnackBar(
                               content: Text('Sleep timer turned off'),
                               duration: Duration(seconds: 2),
@@ -276,11 +279,12 @@ class SleepTimerBottomSheet extends ConsumerWidget {
   }
 
   void _applyTimer(BuildContext context, dynamic audioHandler, Duration duration) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
     audioHandler.setSleepTimer(duration);
     Navigator.pop(context);
     final mins = duration.inMinutes;
     final label = mins >= 60 ? '${(mins / 60).toStringAsFixed(0)} hour' : '$mins minutes';
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger?.showSnackBar(
       SnackBar(
         content: Text('Sleep timer set for $label'),
         duration: const Duration(seconds: 2),

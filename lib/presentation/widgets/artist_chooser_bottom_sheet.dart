@@ -229,9 +229,9 @@ class ArtistChooserBottomSheet extends StatelessWidget {
                   return _ArtistChooserTile(
                     artist: artist,
                     onTap: (resolvedImage) {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
+                      final nav = Navigator.of(context);
+                      nav.pop();
+                      nav.push(
                         MaterialPageRoute(
                           builder: (_) => ArtistDetailScreen(
                             artistName: artist,

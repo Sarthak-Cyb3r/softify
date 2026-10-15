@@ -97,8 +97,10 @@ jobs:
           flutter analyze
           flutter test
 
-      - name: Build Android Release APK
-        run: flutter build apk --release
+      - name: Build Android Release APKs
+        run: |
+          flutter build apk --release
+          flutter build apk --release --split-per-abi
 
       - name: Audit APK Signing Certificate
         shell: bash
@@ -112,17 +114,7 @@ jobs:
             echo "apksigner not found under \$ANDROID_HOME/build-tools — skipping certificate printout."
           fi
 
-      - name: Compute APK SHA-256
-        id: checksum
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="build/app/outputs/flutter-apk/app-release.apk"
-          HASH="$(sha256sum "$APK" | awk '{print $1}')"
-          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
-          echo "sha-256: $HASH"
-
-      - name: Stage Release APK
+      - name: Stage Release APKs & Checksums
         id: stage
         shell: bash
         env:
@@ -134,26 +126,41 @@ jobs:
           else
             REF="v${{ steps.version.outputs.release_version }}"
           fi
-          STAGED="Softify-${REF}-Android-Universal.apk"
-          cp "build/app/outputs/flutter-apk/app-release.apk" "$STAGED"
-          echo "filename=$STAGED" >> "$GITHUB_OUTPUT"
-          ls -lh "$STAGED"
+          mkdir -p dist
+          cp "build/app/outputs/flutter-apk/app-release.apk" "dist/Softify-${REF}-Android-Universal.apk"
+          if [ -f "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" "dist/Softify-${REF}-Android-arm64-v8a.apk"
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" "dist/Softify-${REF}-Android-armeabi-v7a.apk"
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-x86_64-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-x86_64-release.apk" "dist/Softify-${REF}-Android-x86_64.apk"
+          fi
 
-      - name: Upload APK Artifact
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          ls -lh dist/
+
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.stage.outputs.filename }}
-          path: ${{ steps.stage.outputs.filename }}
+          name: Softify-Android-APKs
+          path: dist/*
 
-      - name: Attach APK to GitHub Release
+      - name: Attach APKs to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event.inputs.upload_release == 'true')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.stage.outputs.filename }}
+          files: |
+            dist/*
           body: |
-            Android Universal APK (signed via CI, when release keystore secrets are configured).
-
-            sha-256: ${{ steps.checksum.outputs.sha256 }}
+            ### Android Packages
+            - **arm64-v8a APK** (~18–22 MB): Recommended for almost all modern Android phones and tablets.
+            - **armeabi-v7a APK** (~17–20 MB): For older 32-bit Android devices.
+            - **Universal APK**: Single installer containing native libraries for all architectures.
           append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

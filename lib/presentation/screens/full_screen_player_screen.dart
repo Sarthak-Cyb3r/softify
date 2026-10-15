@@ -69,14 +69,21 @@ class _FullScreenPlayerScreenState
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final currentTrack = ref.watch(currentTrackProvider).value;
+    final audioHandler = ref.watch(audioHandlerProvider);
+    final historyTrack =
+        ref.watch(playHistoryStreamProvider).value?.firstOrNull?.track;
+    final queueTrack = ref.watch(queueProvider).value?.firstOrNull;
+
+    final currentTrack = ref.watch(currentTrackProvider).value ??
+        audioHandler.currentTrack ??
+        historyTrack ??
+        queueTrack;
     final playbackState = ref.watch(playbackStateStreamProvider).value;
     final repeatMode =
-        ref.watch(repeatModeStreamProvider).value ?? AudioRepeatMode.off;
-    final isShuffle = ref.watch(shuffleModeStreamProvider).value ?? false;
-    final audioHandler = ref.watch(audioHandlerProvider);
+        ref.watch(repeatModeStreamProvider).value ?? audioHandler.repeatMode;
+    final isShuffle = ref.watch(shuffleModeStreamProvider).value ?? audioHandler.isShuffleEnabled;
 
-    final isPlaying = playbackState?.playing ?? false;
+    final isPlaying = (playbackState?.playing ?? false) || audioHandler.playbackState.value.playing;
     final currentSpeed =
         ref.watch(playbackSpeedStreamProvider).value ?? audioHandler.speed;
 

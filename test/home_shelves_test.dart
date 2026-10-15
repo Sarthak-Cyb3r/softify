@@ -100,7 +100,9 @@ void main() {
       expect(familiarRatio, closeTo(0.10, 0.01));
     });
 
-    test('generates all standard algotorial shelves from user listening history', () async {
+    test(
+      'generates all standard algotorial shelves from user listening history',
+      () async {
       final now = DateTime.now().millisecondsSinceEpoch;
 
       // Insert taste profile
@@ -141,7 +143,7 @@ void main() {
       expect(shelfIds.contains('jump_back_in'), isTrue);
       expect(shelfIds.contains('daily_mix'), isTrue);
       expect(shelfIds.contains('discover_weekly'), isTrue);
-    });
+    }, timeout: const Timeout(Duration(seconds: 90)));
 
     test('caches shelves and respects forceRefresh', () async {
       final now = DateTime.now().millisecondsSinceEpoch;

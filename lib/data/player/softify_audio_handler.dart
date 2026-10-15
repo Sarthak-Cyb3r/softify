@@ -333,6 +333,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
     if (autoRestoreState) {
       await restorePersistedState();
     }
+
+    _broadcastPlaybackState();
   }
 
   Future<void> _initAudioSession() async {
@@ -347,7 +349,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  void _broadcastPlaybackState(PlaybackEvent event) {
+  void _broadcastPlaybackState([PlaybackEvent? _]) {
     final playing = _isTransitioningTrack ? true : _player.playing;
     final processingState = _isTransitioningTrack
         ? AudioProcessingState.buffering
@@ -365,6 +367,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
+          MediaAction.skipToPrevious,
+          MediaAction.skipToNext,
+          MediaAction.play,
+          MediaAction.pause,
+          MediaAction.stop,
+          MediaAction.playPause,
         },
         androidCompactActionIndices: const [0, 1, 2],
         processingState: processingState,
@@ -528,10 +536,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
       _syncQueueState();
       await _playCurrentIndex();
       _checkAndPrefetchRecommendations();
-    } else if (_autoPlay && _catalogRepo != null && currentTrack != null) {
-      await _fetchAndPlayRecommendations(currentTrack!);
     } else {
-      await stop();
+      final seedTrack = currentTrack ?? previousTrack;
+      if (_autoPlay && _catalogRepo != null && seedTrack != null && !seedTrack.isYoutube) {
+        await _fetchAndPlayRecommendations(seedTrack);
+      } else {
+        await stop();
+      }
     }
   }
 
@@ -582,6 +593,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       await setQueue(queue, startIndex: index >= 0 ? index : 0);
       return;
     }
+    if (!track.isYoutube && _currentTrackSource == 'youtube_link') {
+      _currentTrackSource = 'catalog';
+    }
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
     _queue.clear();
@@ -593,6 +607,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> setQueue(List<Track> tracks, {int startIndex = 0}) async {
+    final firstTrack = tracks.isNotEmpty ? tracks[startIndex.clamp(0, tracks.length - 1)] : null;
+    if (firstTrack != null && !firstTrack.isYoutube && _currentTrackSource == 'youtube_link') {
+      _currentTrackSource = 'catalog';
+    }
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
     _queue.clear();
@@ -991,7 +1009,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   void _checkAndPrefetchRecommendations() {
-    if (_currentTrackSource == 'youtube_link') return;
+    final activeTrack = currentTrack;
+    if (activeTrack != null && activeTrack.isYoutube) return;
+    if (_currentTrackSource == 'youtube_link') {
+      if (activeTrack != null && !activeTrack.isYoutube) {
+        _currentTrackSource = 'catalog';
+      } else {
+        return;
+      }
+    }
     if (_repeatMode != AudioRepeatMode.off) return; // Never append autoplay recommendations when repeat is active
     if (!_autoPlay || _catalogRepo == null || _isPrefetchingRecommendations) return;
     if (_queue.isEmpty || _currentIndex < 0) return;
@@ -1009,7 +1035,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     try {
       // ignore: avoid_print
       print('[SoftifyAudioHandler] Autoplay pre-fetching similar tracks for "${seedTrack.title}" in background...');
-      final related = await _catalogRepo!.getRelatedTracks(seedTrack);
+      final related = await _catalogRepo!
+          .getRelatedTracks(seedTrack)
+          .timeout(const Duration(seconds: 10), onTimeout: () => <Track>[]);
       final existingIds = _queue.map((t) => t.sourceId).toSet();
       final fresh = related.where((t) => !existingIds.contains(t.sourceId)).toList();
 
@@ -1042,7 +1070,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     try {
       // ignore: avoid_print
       print('[SoftifyAudioHandler] End of queue reached. Autoplay fetching recommendations for "${seedTrack.title}" (${seedTrack.artist})...');
-      final related = await _catalogRepo!.getRelatedTracks(seedTrack);
+      final related = await _catalogRepo!
+          .getRelatedTracks(seedTrack)
+          .timeout(const Duration(seconds: 10), onTimeout: () => <Track>[]);
 
       // Re-check: did the queue get more tracks while awaiting?
       if (_currentIndex < _queue.length - 1) {

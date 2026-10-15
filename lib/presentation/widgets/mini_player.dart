@@ -192,32 +192,6 @@ class MiniPlayer extends ConsumerWidget {
                         ),
                       ),
 
-                      // Softify Logo Brand Button (Mobile MiniPlayer)
-                      IconButton(
-                        iconSize: 20,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                        tooltip: 'Softify',
-                        icon: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: Image.asset(
-                            'assets/logo/logo.png',
-                            width: 20,
-                            height: 20,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.graphic_eq_rounded,
-                              color: AppTheme.accent,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        onPressed: () {
-                          HapticFeedback.selectionClick();
-                          _openFullPlayer(context);
-                        },
-                      ),
-
                       // Like Action
                       IconButton(
                         iconSize: 21,
@@ -259,6 +233,22 @@ class MiniPlayer extends ConsumerWidget {
                           } else {
                             audioHandler.play();
                           }
+                        },
+                      ),
+
+                      // Skip Next Action (Mobile MiniPlayer)
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 26,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        icon: const Icon(
+                          Icons.skip_next_rounded,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          audioHandler.skipToNext();
                         },
                       ),
                     ],
