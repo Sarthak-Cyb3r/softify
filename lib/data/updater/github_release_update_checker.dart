@@ -50,11 +50,22 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
       final releaseNotes = (json['body'] as String? ?? '').trim();
       final assets = (json['assets'] as List<dynamic>?) ?? [];
 
-      // Find primary APK asset
-      final apkAsset = assets.firstWhere(
-        (a) =>
-            (a['name'] as String? ?? '').toLowerCase().endsWith('.apk') &&
-            !(a['name'] as String? ?? '').toLowerCase().contains('unaligned'),
+      // Find primary APK asset: prioritize compact 64-bit ARM APK (arm64-v8a, ~19MB), fallback to Universal
+      dynamic apkAsset = assets.firstWhere(
+        (a) {
+          final name = (a['name'] as String? ?? '').toLowerCase();
+          return name.endsWith('.apk') &&
+              name.contains('arm64-v8a') &&
+              !name.contains('unaligned');
+        },
+        orElse: () => null,
+      );
+
+      apkAsset ??= assets.firstWhere(
+        (a) {
+          final name = (a['name'] as String? ?? '').toLowerCase();
+          return name.endsWith('.apk') && !name.contains('unaligned');
+        },
         orElse: () => null,
       );
 

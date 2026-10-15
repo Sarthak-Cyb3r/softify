@@ -66,8 +66,7 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (arm64-v8a - Recommended)** | `.apk` | Modern 64-bit Android phones & tablets (Android 8.0+) | **~19 MB** | [`Softify-v2.0.8-Android-arm64-v8a.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
-| **Android (Universal)** | `.apk` | All Android architectures (ARM64, ARMv7, x86_64) | ~65 MB | [`Softify-v2.0.8-Android-Universal.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Android 8.0+)** | `.apk` | 64-bit Android devices • Android 8.0+ | **~19 MB** | [`Softify-v2.0.8-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **Linux (Desktop / CLI Installer)** | Script / Binary | Ubuntu, Debian, Arch, Fedora, openSUSE (x86_64, ARM64) | ~45 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 
@@ -121,7 +120,7 @@ git pull
 | `Ctrl` + `,` | Open Settings Screen |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v2.0.8-Android-arm64-v8a.apk`** (recommended compact ~19 MB) or **`Softify-v2.0.8-Android-Universal.apk`** from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v2.0.8-Android.apk`** (~19 MB) from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
