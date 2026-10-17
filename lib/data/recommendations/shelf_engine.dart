@@ -127,11 +127,13 @@ class ShelfEngine implements IShelfRepository {
       for (final row in historyRows) {
         final h = row.readTable(_db.playHistories);
         final t = row.readTable(_db.tracks);
-        trackCounts[t.id] = (trackCounts[t.id] ?? 0) + 1;
-        if (!latestPlayed.containsKey(t.id) || h.playedAt > latestPlayed[t.id]!) {
-          latestPlayed[t.id] = h.playedAt;
+        final track = _mapRowToTrack(t);
+        if (_isExcludedTrack(track)) continue;
+        trackCounts[track.id] = (trackCounts[track.id] ?? 0) + 1;
+        if (!latestPlayed.containsKey(track.id) || h.playedAt > latestPlayed[track.id]!) {
+          latestPlayed[track.id] = h.playedAt;
         }
-        trackMap[t.id] = _mapRowToTrack(t);
+        trackMap[track.id] = track;
       }
 
       final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -154,7 +156,7 @@ class ShelfEngine implements IShelfRepository {
               ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
               ..limit(def.limit))
             .get();
-        tracks = allTrackRows.map(_mapRowToTrack).toList();
+        tracks = allTrackRows.map(_mapRowToTrack).where((t) => !_isExcludedTrack(t)).toList();
       }
 
       return Shelf(
@@ -200,6 +202,7 @@ class ShelfEngine implements IShelfRepository {
               .get();
           for (final r in rows) {
             final t = _mapRowToTrack(r);
+            if (_isExcludedTrack(t)) continue;
             final key = _normalizeKey(t.title, t.artist);
             if (seenIds.add(t.id) && seenKeys.add(key)) {
               familiarTracks.add(t);
@@ -216,6 +219,7 @@ class ShelfEngine implements IShelfRepository {
             .get();
         for (final r in recentRows) {
           final t = _mapRowToTrack(r);
+          if (_isExcludedTrack(t)) continue;
           final key = _normalizeKey(t.title, t.artist);
           if (seenIds.add(t.id) && seenKeys.add(key)) {
             familiarTracks.add(t);
@@ -237,6 +241,7 @@ class ShelfEngine implements IShelfRepository {
             // A. Extract Spotify Artist Radio
             final radioTracks = await _spotifyApi.getArtistRadio(artistRef.id);
             for (final t in radioTracks) {
+              if (_isExcludedTrack(t)) continue;
               final key = _normalizeKey(t.title, t.artist);
               if (seenIds.add(t.id) && seenKeys.add(key)) {
                 discoveryTracks.add(t);
@@ -245,6 +250,7 @@ class ShelfEngine implements IShelfRepository {
             // B. Extract Spotify Artist Top Tracks
             final topSpotifyTracks = await _spotifyApi.getArtistTopTracks(artistRef.id);
             for (final t in topSpotifyTracks) {
+              if (_isExcludedTrack(t)) continue;
               final key = _normalizeKey(t.title, t.artist);
               if (seenIds.add(t.id) && seenKeys.add(key)) {
                 discoveryTracks.add(t);
@@ -269,6 +275,7 @@ class ShelfEngine implements IShelfRepository {
           if (sId != null && sId.isNotEmpty && RegExp(r'^[a-zA-Z0-9]{22}$').hasMatch(sId)) {
             final trackRadio = await _spotifyApi.getTrackRadio(sId);
             for (final t in trackRadio) {
+              if (_isExcludedTrack(t)) continue;
               final key = _normalizeKey(t.title, t.artist);
               if (seenIds.add(t.id) && seenKeys.add(key)) {
                 discoveryTracks.add(t);
@@ -289,9 +296,11 @@ class ShelfEngine implements IShelfRepository {
                   .getSingleOrNull();
               if (row != null) {
                 final t = _mapRowToTrack(row);
-                final key = _normalizeKey(t.title, t.artist);
-                if (seenIds.add(t.id) && seenKeys.add(key)) {
-                  discoveryTracks.add(t);
+                if (!_isExcludedTrack(t)) {
+                  final key = _normalizeKey(t.title, t.artist);
+                  if (seenIds.add(t.id) && seenKeys.add(key)) {
+                    discoveryTracks.add(t);
+                  }
                 }
               }
             }
@@ -307,6 +316,7 @@ class ShelfEngine implements IShelfRepository {
             .get();
         for (final r in moreRows) {
           final t = _mapRowToTrack(r);
+          if (_isExcludedTrack(t)) continue;
           final key = _normalizeKey(t.title, t.artist);
           if (seenIds.add(t.id) && seenKeys.add(key)) {
             discoveryTracks.add(t);
@@ -410,6 +420,7 @@ class ShelfEngine implements IShelfRepository {
       final seenKeys = <String>{};
 
       for (final t in allTracks) {
+        if (_isExcludedTrack(t)) continue;
         final key = _normalizeKey(t.title, t.artist);
         seenKeys.add(key);
         if (historyTrackIds.contains(t.id)) {
@@ -422,7 +433,7 @@ class ShelfEngine implements IShelfRepository {
       // 2. Extract deep recommendations directly from Spotify
       final seeds = familiarPool.isNotEmpty
           ? familiarPool.take(4).toList()
-          : allTracks.take(4).toList();
+          : allTracks.where((t) => !_isExcludedTrack(t)).take(4).toList();
 
       for (final seed in seeds) {
         try {
@@ -439,6 +450,7 @@ class ShelfEngine implements IShelfRepository {
             // A. Spotify Recommended Tracks
             final recs = await _spotifyApi.getRecommendedTracks(sId);
             for (final r in recs) {
+              if (_isExcludedTrack(r)) continue;
               final key = _normalizeKey(r.title, r.artist);
               if (!historyTrackIds.contains(r.id) &&
                   !novelPool.any((x) => x.id == r.id) &&
@@ -449,6 +461,7 @@ class ShelfEngine implements IShelfRepository {
             // B. Spotify Track Radio
             final radio = await _spotifyApi.getTrackRadio(sId);
             for (final r in radio) {
+              if (_isExcludedTrack(r)) continue;
               final key = _normalizeKey(r.title, r.artist);
               if (!historyTrackIds.contains(r.id) &&
                   !novelPool.any((x) => x.id == r.id) &&
@@ -555,6 +568,13 @@ class ShelfEngine implements IShelfRepository {
 
   String _normalizeKey(String title, String artist) =>
       '${title.toLowerCase().trim()}:::${artist.toLowerCase().trim()}';
+
+  bool _isExcludedTrack(Track t) {
+    return t.isYoutube ||
+        t.id.startsWith('yt_') ||
+        t.id.startsWith('podcast_') ||
+        t.sourceId.startsWith('podcast_');
+  }
 
   Track _mapRowToTrack(TrackRow row) {
     return Track(

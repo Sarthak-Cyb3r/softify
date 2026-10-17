@@ -49,6 +49,15 @@ class DriftEventLogger implements IEventLogger {
     required String rankerVersion,
     Map<String, double>? features,
   }) {
+    // Hard isolation: YouTube links and podcast listening never logged to play_events,
+    // preventing them from contaminating session sentences or collaborative filtering / PPMI.
+    if (source == 'youtube_link' ||
+        source == 'podcast' ||
+        trackId.startsWith('yt_') ||
+        trackId.startsWith('podcast_')) {
+      return;
+    }
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final skippedEarly = listenedMs < 30000;
     final entry = PlayEventsCompanion.insert(

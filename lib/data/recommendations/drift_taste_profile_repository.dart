@@ -25,6 +25,14 @@ class DriftTasteProfileRepository implements ITasteProfileRepository {
     required bool isEarlySkip,
     required bool isSave,
   }) async {
+    // Hard isolation: YouTube links and podcast listening never enter taste profile
+    if (track.isYoutube ||
+        track.id.startsWith('yt_') ||
+        track.id.startsWith('podcast_') ||
+        track.sourceId.startsWith('podcast_')) {
+      return;
+    }
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final artist = track.artist.trim();
     if (artist.isEmpty) return;

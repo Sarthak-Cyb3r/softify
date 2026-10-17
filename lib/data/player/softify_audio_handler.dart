@@ -80,6 +80,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       BehaviorSubject<int>.seeded(0);
   Stream<int> get crossfadeSecondsStream => _crossfadeSecondsSubject.stream;
 
+  int _activePlayRequestId = 0;
+  int _activePrefetchRequestId = 0;
+
   void setCrossfadeSeconds(int seconds) {
     _crossfadeSeconds = seconds.clamp(0, 12);
     _crossfadeSecondsSubject.add(_crossfadeSeconds);
@@ -123,7 +126,14 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _logTrackPlayEvent(Track? track, {required bool isCompleted}) {
     if (track == null) return;
-    if (_currentTrackSource == 'youtube_link') return;
+    if (_currentTrackSource == 'youtube_link' ||
+        _currentTrackSource == 'podcast' ||
+        track.isYoutube ||
+        track.id.startsWith('yt_') ||
+        track.id.startsWith('podcast_') ||
+        track.sourceId.startsWith('podcast_')) {
+      return;
+    }
     final int listenedMs;
     if (isCompleted) {
       listenedMs = track.duration.inMilliseconds;
@@ -794,6 +804,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
     bool forceFresh = false,
     Duration? initialPosition,
   }) async {
+    final requestId = ++_activePlayRequestId;
+
     if (_queue.isEmpty || _currentIndex < 0 || _currentIndex >= _queue.length) {
       return;
     }
@@ -806,11 +818,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
     if (!track.supportsSpeedPlayback && _player.speed != 1.0) {
       await _player.setSpeed(1.0);
     }
+    if (requestId != _activePlayRequestId) return;
 
     try {
       // 1. Check offline download or local device file first (D7: zero network data usage)
       String? downloadedFilePath =
           await _downloadRepo.getDownloadedFilePath(track.id);
+      if (requestId != _activePlayRequestId) return;
 
       final isLocalTrack = track.id.startsWith('local_') ||
           track.sourceId.startsWith('/') ||
@@ -824,10 +838,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
       if (downloadedFilePath != null) {
         try {
+          if (requestId != _activePlayRequestId) return;
           await _player.setFilePath(
             downloadedFilePath,
             initialPosition: initialPosition,
           );
+          if (requestId != _activePlayRequestId) return;
           _currentStreamInfoSubject.add(
             StreamInfo(
               url: Uri.file(downloadedFilePath),
@@ -841,12 +857,14 @@ class SoftifyAudioHandler extends BaseAudioHandler
             ),
           );
           await _player.play();
+          if (requestId != _activePlayRequestId) return;
           _consecutiveFailures = 0;
           _debouncedSaveQueue();
           unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
           unawaited(_prefetchNextTrackStream());
           return;
         } catch (downloadErr) {
+          if (requestId != _activePlayRequestId) return;
           // ignore: avoid_print
           print('[SoftifyAudioHandler] Local file playback failed ($downloadErr)');
           if (track.id.startsWith('local_')) {
@@ -867,6 +885,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
         quality: _qualityPreset,
         forceFresh: forceFresh,
       );
+      if (requestId != _activePlayRequestId) return;
+
       _currentStreamInfoSubject.add(streamInfo);
       // ignore: avoid_print
       print('[SoftifyAudioHandler] Resolved stream: ${streamInfo.providerName}, container=${streamInfo.container}');
@@ -876,9 +896,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
         headers: streamInfo.headers,
         initialPosition: initialPosition,
       );
+      if (requestId != _activePlayRequestId) return;
+
       // ignore: avoid_print
       print('[SoftifyAudioHandler] Player setUrl completed, calling play()...');
       await _player.play();
+      if (requestId != _activePlayRequestId) return;
+
       // ignore: avoid_print
       print('[SoftifyAudioHandler] Player play() called successfully!');
       _consecutiveFailures = 0;
@@ -887,6 +911,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
       unawaited(_prefetchNextTrackStream());
       _checkAndPrefetchRecommendations();
     } catch (e, st) {
+      if (requestId != _activePlayRequestId) {
+        // Superseded by newer track selection; discard cleanly without retry or error.
+        return;
+      }
       // ignore: avoid_print
       print('[SoftifyAudioHandler] ERROR playing "${track.title}": $e\n$st');
       // HTTP 403 Forbidden / Expired URL: Trigger transparent JIT re-resolution
@@ -961,11 +989,14 @@ class SoftifyAudioHandler extends BaseAudioHandler
       return;
     }
     _currentlyPreloadingTrackId = nextTrack.id;
+    final prefetchId = ++_activePrefetchRequestId;
 
     try {
       // 1. Check if next track is downloaded offline or local file
       String? downloadedPath =
           await _downloadRepo.getDownloadedFilePath(nextTrack.id);
+      if (prefetchId != _activePrefetchRequestId) return;
+
       if (downloadedPath == null &&
           (nextTrack.id.startsWith('local_') ||
            nextTrack.sourceId.startsWith('/') ||
@@ -975,7 +1006,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         }
       }
       if (downloadedPath != null) {
-        if (_currentlyPreloadingTrackId == nextTrack.id) {
+        if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
           await _player.preloadNextFilePath(downloadedPath);
         }
         return;
@@ -987,8 +1018,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         quality: _qualityPreset,
         forceFresh: false,
       );
+      if (prefetchId != _activePrefetchRequestId) return;
 
-      if (_currentlyPreloadingTrackId == nextTrack.id) {
+      if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
         await _player.preloadNextUrl(
           streamInfo.url.toString(),
           headers: streamInfo.headers,
@@ -1010,9 +1042,19 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _checkAndPrefetchRecommendations() {
     final activeTrack = currentTrack;
-    if (activeTrack != null && activeTrack.isYoutube) return;
-    if (_currentTrackSource == 'youtube_link') {
-      if (activeTrack != null && !activeTrack.isYoutube) {
+    if (activeTrack != null &&
+        (activeTrack.isYoutube ||
+         activeTrack.id.startsWith('yt_') ||
+         activeTrack.id.startsWith('podcast_') ||
+         activeTrack.sourceId.startsWith('podcast_'))) {
+      return;
+    }
+    if (_currentTrackSource == 'youtube_link' || _currentTrackSource == 'podcast') {
+      if (activeTrack != null &&
+          !activeTrack.isYoutube &&
+          !activeTrack.id.startsWith('yt_') &&
+          !activeTrack.id.startsWith('podcast_') &&
+          !activeTrack.sourceId.startsWith('podcast_')) {
         _currentTrackSource = 'catalog';
       } else {
         return;
@@ -1025,6 +1067,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
     final remaining = _queue.length - 1 - _currentIndex;
     if (remaining <= 1) {
       final seedTrack = _queue.last;
+      if (seedTrack.isYoutube ||
+          seedTrack.id.startsWith('yt_') ||
+          seedTrack.id.startsWith('podcast_') ||
+          seedTrack.sourceId.startsWith('podcast_')) {
+        return;
+      }
       _prefetchQueueRecommendations(seedTrack);
     }
   }
@@ -1058,6 +1106,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _fetchAndPlayRecommendations(Track seedTrack) async {
+    if (seedTrack.isYoutube ||
+        seedTrack.id.startsWith('yt_') ||
+        seedTrack.id.startsWith('podcast_') ||
+        seedTrack.sourceId.startsWith('podcast_')) {
+      await stop();
+      return;
+    }
     // If the queue already got new items (e.g. from background prefetch):
     if (_currentIndex < _queue.length - 1) {
       _currentIndex++;

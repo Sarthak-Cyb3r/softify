@@ -742,6 +742,12 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     final List<Track> diverseCandidates = [];
 
     for (final cand in candidatePool) {
+      if (cand.isYoutube ||
+          cand.id.startsWith('yt_') ||
+          cand.id.startsWith('podcast_') ||
+          cand.sourceId.startsWith('podcast_')) {
+        continue;
+      }
       if (seenIds.contains(cand.id) || seenIds.contains(cand.sourceId)) {
         continue;
       }
@@ -787,6 +793,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     // Spotify's track radio order has highest affinity near the top.
     // We maintain high-affinity anchors while rotating discovery candidates across listens.
     final List<Track> selected = [];
+    final random = Random();
 
     // Tracks not recently served to the user take precedence for novelty
     final freshPool = diverseCandidates
@@ -800,17 +807,20 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
             _recentlyServedTrackIds.contains(c.sourceId))
         .toList();
 
-    // 3a. Top Anchor: Take top-affinity track directly from the front of Spotify's model
-    // to guarantee seamless immediate transition from seed track
+    // 3a. Top Anchor: Take high-affinity track near front of Spotify's model
+    // with dynamic jitter across top-3 to ensure repeated plays rotate anchors
     if (freshPool.isNotEmpty) {
-      selected.add(freshPool.removeAt(0));
+      final anchorWindow = min(3, freshPool.length);
+      final anchorIndex = random.nextInt(anchorWindow);
+      selected.add(freshPool.removeAt(anchorIndex));
     } else if (diverseCandidates.isNotEmpty) {
-      selected.add(diverseCandidates.first);
-      previouslyServedPool.remove(diverseCandidates.first);
+      final anchorWindow = min(3, diverseCandidates.length);
+      final anchorCandidate = diverseCandidates[random.nextInt(anchorWindow)];
+      selected.add(anchorCandidate);
+      previouslyServedPool.remove(anchorCandidate);
     }
 
     // 3b. Sample remaining slots dynamically from fresh candidates first
-    final random = Random();
     freshPool.shuffle(random);
     while (selected.length < limit && freshPool.isNotEmpty) {
       selected.add(freshPool.removeAt(0));
@@ -828,7 +838,11 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     // but STRICTLY using candidates from the same genre pool and strictly compatible vibe!
     if (selected.length < limit) {
       for (final cand in candidatePool) {
-        if (!seenIds.contains(cand.id) &&
+        if (!cand.isYoutube &&
+            !cand.id.startsWith('yt_') &&
+            !cand.id.startsWith('podcast_') &&
+            !cand.sourceId.startsWith('podcast_') &&
+            !seenIds.contains(cand.id) &&
             !seenIds.contains(cand.sourceId) &&
             !_isJunkOrMashup(cand) &&
             _isVibeCompatible(cand, seedVibe) &&
