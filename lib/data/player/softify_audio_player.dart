@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
@@ -96,9 +97,28 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   double _loudnessGain = 0.0;
   double _bassBoost = 0.0;
 
+  /// High-performance Spotify-grade audio load configuration:
+  /// Sub-200ms initial buffer (250ms) for instantaneous playback start,
+  /// with aggressive pre-buffering (15-60s) to guard 320kbps streams against network jitter.
+  static const AudioLoadConfiguration defaultAudioLoadConfiguration =
+      AudioLoadConfiguration(
+    androidLoadControl: AndroidLoadControl(
+      minBufferDuration: Duration(seconds: 15),
+      maxBufferDuration: Duration(seconds: 60),
+      bufferForPlaybackDuration: Duration(milliseconds: 250),
+      bufferForPlaybackAfterRebufferDuration: Duration(milliseconds: 1000),
+      prioritizeTimeOverSizeThresholds: true,
+    ),
+    darwinLoadControl: DarwinLoadControl(
+      automaticallyWaitsToMinimizeStalling: false,
+      preferredForwardBufferDuration: Duration(seconds: 30),
+    ),
+  );
+
   factory JustAudioPlayerAdapter({
     AudioPlayer? playerA,
     AudioPlayer? playerB,
+    AudioLoadConfiguration? audioLoadConfiguration,
   }) {
     final bool enableEffects =
         Platform.isAndroid && Platform.environment['FLUTTER_TEST'] != 'true';
@@ -107,8 +127,11 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final eqB = enableEffects ? AndroidEqualizer() : null;
     final loudB = enableEffects ? AndroidLoudnessEnhancer() : null;
 
+    final config = audioLoadConfiguration ?? defaultAudioLoadConfiguration;
+
     final pA = playerA ??
         AudioPlayer(
+          audioLoadConfiguration: config,
           audioPipeline: (eqA != null && loudA != null)
               ? AudioPipeline(androidAudioEffects: [loudA, eqA])
               : null,
@@ -118,6 +141,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         (Platform.isLinux
             ? null
             : AudioPlayer(
+                audioLoadConfiguration: config,
                 audioPipeline: (eqB != null && loudB != null)
                     ? AudioPipeline(androidAudioEffects: [loudB, eqB])
                     : null,
@@ -274,7 +298,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       return;
     }
 
-    // Smooth DJ crossfade between active and standby players
+    // Equal-power constant-acoustic-energy crossfade between active and standby players
     final outgoing = _activePlayer;
     final incoming = standby;
 
@@ -291,14 +315,15 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     await incoming.setSpeed(_speedSubject.value);
     await incoming.play();
 
-    const steps = 10;
+    const steps = 20;
     final stepDuration = Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
 
     for (int i = 1; i <= steps; i++) {
       await Future.delayed(stepDuration);
       final factor = i / steps;
-      final outVol = (targetVol * (1.0 - factor)).clamp(0.0, 1.0);
-      final inVol = (targetVol * factor).clamp(0.0, 1.0);
+      final theta = factor * (math.pi / 2.0);
+      final outVol = (targetVol * math.cos(theta)).clamp(0.0, 1.0);
+      final inVol = (targetVol * math.sin(theta)).clamp(0.0, 1.0);
       unawaited(outgoing.setVolume(outVol));
       unawaited(incoming.setVolume(inVol));
     }

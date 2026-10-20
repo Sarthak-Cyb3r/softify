@@ -1,11 +1,14 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
 import '../theme/app_theme.dart';
 import 'animated_music_wave_indicator.dart';
+import 'bouncing_scale_button.dart';
 import 'shared/app_network_image.dart';
 
 /// Floating mini player adhering to Content-First Stitch mobile design:
@@ -59,38 +62,52 @@ class MiniPlayer extends ConsumerWidget {
         ref.watch(playHistoryStreamProvider).value?.firstOrNull?.track;
     final queueTrack = ref.watch(queueProvider).value?.firstOrNull;
 
-    final effectiveTrack = currentTrack ?? historyTrack ?? queueTrack;
+    final isBuffering = (playbackState?.processingState == AudioProcessingState.buffering) ||
+        (playbackState?.processingState == AudioProcessingState.loading) ||
+        audioHandler.playbackState.value.processingState == AudioProcessingState.buffering;
 
-    if (effectiveTrack == null) {
+    final effectiveTrack = currentTrack ?? audioHandler.currentTrack ?? historyTrack ?? queueTrack;
+
+    if (effectiveTrack == null && !isBuffering) {
       return const SizedBox.shrink();
     }
 
+    final isPlaceholder = effectiveTrack == null;
+    final displayTrack = effectiveTrack ??
+        const Track(
+          id: 'mini_loading',
+          title: 'Loading audio...',
+          artist: 'Buffering studio master stream...',
+          duration: Duration(minutes: 3),
+          sourceId: '',
+        );
+
     final isPlaying = (currentTrack != null) && (playbackState?.playing ?? false);
-    final isLikedAsync = ref.watch(isTrackLikedProvider(effectiveTrack.id));
-    final isLiked = isLikedAsync.value ?? effectiveTrack.isLiked;
+    final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(displayTrack.id));
+    final isLiked = isLikedAsync?.value ?? displayTrack.isLiked;
 
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
     final duration =
-        ref.watch(durationStreamProvider).value ?? effectiveTrack.duration;
+        ref.watch(durationStreamProvider).value ?? displayTrack.duration;
     final progress = (duration.inMilliseconds > 0)
         ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+        : (isBuffering ? 0.35 : 0.0);
 
     return Semantics(
-      label: 'Now Playing: ${effectiveTrack.title} by ${effectiveTrack.artist}',
+      label: 'Now Playing: ${displayTrack.title} by ${displayTrack.artist}',
       button: true,
       child: GestureDetector(
         onTap: () {
-          if (currentTrack == null) {
-            audioHandler.playTrack(effectiveTrack);
+          if (currentTrack == null && !isPlaceholder) {
+            audioHandler.playTrack(displayTrack);
           }
           _openFullPlayer(context);
         },
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! < -150) {
-            if (currentTrack == null) {
-              audioHandler.playTrack(effectiveTrack);
+            if (currentTrack == null && !isPlaceholder) {
+              audioHandler.playTrack(displayTrack);
             }
             _openFullPlayer(context);
           }
@@ -110,34 +127,64 @@ class MiniPlayer extends ConsumerWidget {
         child: Container(
           margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF242424), // Spotify MiniPlayer surface
-            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xF0252528),
+                Color(0xF018181B),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 0.8,
+            ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x88000000),
-                blurRadius: 12,
-                offset: Offset(0, 4),
+                color: Color(0x99000000),
+                blurRadius: 16,
+                spreadRadius: 0,
+                offset: Offset(0, 5),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   child: Row(
                     children: [
-                      // Artwork 40x40 with 4px radius
-                      AppNetworkImage(
-                        imageUrl: effectiveTrack.coverUrl,
-                        width: 40,
-                        height: 40,
-                        borderRadius: BorderRadius.circular(4),
-                        fit: BoxFit.cover,
-                        fallbackIcon: Icons.music_note_rounded,
-                        backgroundColor: tokens.surfaceElevated,
+                      // Artwork 42x42 with 6px radius
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: isPlaceholder
+                            ? Container(
+                                width: 42,
+                                height: 42,
+                                color: tokens.surfaceElevated,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.0,
+                                      valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : AppNetworkImage(
+                                imageUrl: displayTrack.coverUrl,
+                                width: 42,
+                                height: 42,
+                                fit: BoxFit.cover,
+                                fallbackIcon: Icons.music_note_rounded,
+                                backgroundColor: tokens.surfaceElevated,
+                              ),
                       ),
                       const SizedBox(width: 10),
 
@@ -149,9 +196,21 @@ class MiniPlayer extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                if (isPlaying) ...[
+                                if (isBuffering) ...[
                                   Padding(
-                                    padding: const EdgeInsets.only(right: 5),
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: SizedBox(
+                                      width: 11,
+                                      height: 11,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.8,
+                                        valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
+                                      ),
+                                    ),
+                                  ),
+                                ] else if (isPlaying) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6),
                                     child: AnimatedMusicWaveIndicator(
                                       isPlaying: true,
                                       size: 11,
@@ -162,7 +221,7 @@ class MiniPlayer extends ConsumerWidget {
                                 ],
                                 Expanded(
                                   child: Text(
-                                    effectiveTrack.title,
+                                    displayTrack.title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -176,9 +235,9 @@ class MiniPlayer extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 1),
+                            const SizedBox(height: 2),
                             Text(
-                              effectiveTrack.artist,
+                              displayTrack.artist,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -193,78 +252,109 @@ class MiniPlayer extends ConsumerWidget {
                       ),
 
                       // Like Action
-                      IconButton(
-                        iconSize: 21,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                        icon: Icon(
-                          isLiked
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: isLiked ? tokens.accent : const Color(0xFFB3B3B3),
-                          size: 21,
+                      BouncingScaleButton(
+                        scaleFactor: 0.88,
+                        onTap: isPlaceholder
+                            ? null
+                            : () {
+                                HapticFeedback.selectionClick();
+                                ref
+                                    .read(libraryRepositoryProvider)
+                                    .setLiked(displayTrack.id, !isLiked, track: displayTrack);
+                              },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            isLiked
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isLiked ? tokens.accent : const Color(0xFFB3B3B3),
+                            size: 21,
+                          ),
                         ),
-                        onPressed: () {
-                          HapticFeedback.selectionClick();
-                          ref
-                              .read(libraryRepositoryProvider)
-                              .setLiked(effectiveTrack.id, !isLiked, track: effectiveTrack);
-                        },
                       ),
+                      const SizedBox(width: 2),
 
-                      // Borderless Play / Pause Icon Button (Spotify authentic)
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 28,
-                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-                        icon: Icon(
-                          isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        onPressed: () {
+                      // Borderless Play / Pause Icon Button with spinner when buffering
+                      BouncingScaleButton(
+                        scaleFactor: 0.90,
+                        onTap: () {
                           HapticFeedback.selectionClick();
-                          if (currentTrack == null) {
-                            audioHandler.playTrack(effectiveTrack);
+                          if (currentTrack == null && !isPlaceholder) {
+                            audioHandler.playTrack(displayTrack);
                           } else if (isPlaying) {
                             audioHandler.pause();
                           } else {
                             audioHandler.play();
                           }
                         },
-                      ),
-
-                      // Skip Next Action (Mobile MiniPlayer)
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 26,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                        icon: const Icon(
-                          Icons.skip_next_rounded,
-                          color: Colors.white,
-                          size: 26,
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.10),
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: isBuffering
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : Icon(
+                                  isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                         ),
-                        onPressed: () {
+                      ),
+                      const SizedBox(width: 4),
+
+                      // Skip Next Action
+                      BouncingScaleButton(
+                        scaleFactor: 0.90,
+                        onTap: () {
                           HapticFeedback.selectionClick();
                           audioHandler.skipToNext();
                         },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.skip_next_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                // 2px Hairline Progress Bar
+                // 2.5px Hairline Progress Bar
                 Container(
-                  height: 2.0,
-                  color: const Color(0x26FFFFFF),
+                  height: 2.5,
+                  color: const Color(0x22FFFFFF),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: FractionallySizedBox(
                       widthFactor: progress,
                       child: Container(
-                        color: tokens.accent,
+                        decoration: BoxDecoration(
+                          color: tokens.accent,
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(2),
+                          ),
+                        ),
                       ),
                     ),
                   ),

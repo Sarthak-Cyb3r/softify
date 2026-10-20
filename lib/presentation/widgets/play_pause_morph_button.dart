@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_tokens.dart';
 import 'bouncing_scale_button.dart';
 
-/// Smooth morphing play/pause button with bouncing micro-interaction and 60fps animation.
+/// Smooth morphing play/pause button with bouncing micro-interaction,
+/// optional loading/buffering spinner, and 60fps animation.
 class PlayPauseMorphButton extends StatefulWidget {
   final bool isPlaying;
+  final bool isLoading;
   final VoidCallback onTap;
   final double size;
   final double iconSize;
@@ -17,6 +19,7 @@ class PlayPauseMorphButton extends StatefulWidget {
     super.key,
     required this.isPlaying,
     required this.onTap,
+    this.isLoading = false,
     this.size = 56.0,
     this.iconSize = 30.0,
     this.backgroundColor,
@@ -78,8 +81,8 @@ class _PlayPauseMorphButtonState extends State<PlayPauseMorphButton>
           boxShadow: widget.showGlow
               ? [
                   BoxShadow(
-                    color: bg.withValues(alpha: 0.35),
-                    blurRadius: 16,
+                    color: bg.withValues(alpha: 0.28),
+                    blurRadius: 20,
                     spreadRadius: 2,
                     offset: const Offset(0, 4),
                   ),
@@ -87,12 +90,21 @@ class _PlayPauseMorphButtonState extends State<PlayPauseMorphButton>
               : null,
         ),
         child: Center(
-          child: AnimatedIcon(
-            icon: AnimatedIcons.play_pause,
-            progress: _controller,
-            size: widget.iconSize,
-            color: fg,
-          ),
+          child: widget.isLoading
+              ? SizedBox(
+                  width: widget.iconSize * 0.72,
+                  height: widget.iconSize * 0.72,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.6,
+                    valueColor: AlwaysStoppedAnimation<Color>(fg),
+                  ),
+                )
+              : AnimatedIcon(
+                  icon: AnimatedIcons.play_pause,
+                  progress: _controller,
+                  size: widget.iconSize,
+                  color: fg,
+                ),
         ),
       ),
     );

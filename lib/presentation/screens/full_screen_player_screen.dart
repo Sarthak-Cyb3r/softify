@@ -1,9 +1,11 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../domain/entities/audio_repeat_mode.dart';
+import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/artist_chooser_bottom_sheet.dart';
@@ -87,32 +89,30 @@ class _FullScreenPlayerScreenState
     final currentSpeed =
         ref.watch(playbackSpeedStreamProvider).value ?? audioHandler.speed;
 
-    if (currentTrack == null) {
-      return Scaffold(
-        backgroundColor: tokens.background,
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down, size: 28),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-        body: Center(
-          child: Text(
-            'Nothing playing',
-            style: TextStyle(color: tokens.textSecondary),
-          ),
-        ),
-      );
+    final isBuffering = (playbackState?.processingState == AudioProcessingState.buffering) ||
+        (playbackState?.processingState == AudioProcessingState.loading) ||
+        audioHandler.playbackState.value.processingState == AudioProcessingState.buffering;
+
+    final bool isPlaceholder = currentTrack == null;
+    final Track effectiveTrack = currentTrack ??
+        const Track(
+          id: 'placeholder_loading',
+          title: 'Loading audio...',
+          artist: 'Buffering studio master stream...',
+          duration: Duration(minutes: 3),
+          sourceId: '',
+        );
+
+    if (!isPlaceholder && effectiveTrack.coverUrl != null) {
+      _extractArtworkPalette(effectiveTrack.coverUrl!);
     }
 
-    _extractArtworkPalette(currentTrack.coverUrl);
-
-    final isLikedAsync = ref.watch(isTrackLikedProvider(currentTrack.id));
-    final isLiked = isLikedAsync.value ?? currentTrack.isLiked;
+    final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(effectiveTrack.id));
+    final isLiked = isLikedAsync?.value ?? effectiveTrack.isLiked;
 
     final isDownloadedAsync =
-        ref.watch(isTrackDownloadedProvider(currentTrack.id));
-    final isDownloaded = isDownloadedAsync.value ?? false;
+        isPlaceholder ? null : ref.watch(isTrackDownloadedProvider(effectiveTrack.id));
+    final isDownloaded = isDownloadedAsync?.value ?? false;
 
     final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
     final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);
@@ -219,7 +219,7 @@ class _FullScreenPlayerScreenState
                       child: Column(
                         children: [
                           Text(
-                            'PLAYING FROM',
+                            isPlaceholder ? 'SOFTIFY' : 'PLAYING FROM',
                             style: TextStyle(
                               fontSize: 12,
                               letterSpacing: 1.5,
@@ -229,7 +229,9 @@ class _FullScreenPlayerScreenState
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            currentTrack.album ?? currentTrack.artist,
+                            isPlaceholder
+                                ? 'CONNECTING...'
+                                : (effectiveTrack.album ?? effectiveTrack.artist),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -279,10 +281,16 @@ class _FullScreenPlayerScreenState
                     ],
                     BouncingScaleButton(
                       scaleFactor: 0.9,
-                      onTap: () => TrackOptionsBottomSheet.show(context, track: currentTrack),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(Icons.more_vert_rounded, size: 24),
+                      onTap: isPlaceholder
+                          ? null
+                          : () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Icon(
+                          Icons.more_vert_rounded,
+                          size: 24,
+                          color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : null,
+                        ),
                       ),
                     ),
                   ],
@@ -295,14 +303,14 @@ class _FullScreenPlayerScreenState
                   duration: tokens.motionStandard,
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  child: _showLyrics
+                  child: _showLyrics && !isPlaceholder
                       ? Padding(
                           key: const ValueKey('lyrics_active'),
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(tokens.radiusXl),
                             child: LyricsView(
-                              track: currentTrack,
+                              track: effectiveTrack,
                               ambientColor: _ambientColor,
                               onClose: () => setState(() => _showLyrics = false),
                             ),
@@ -311,7 +319,8 @@ class _FullScreenPlayerScreenState
                       : GestureDetector(
                           key: const ValueKey('artwork_active'),
                           onVerticalDragEnd: (details) {
-                            if (details.primaryVelocity != null &&
+                            if (!isPlaceholder &&
+                                details.primaryVelocity != null &&
                                 details.primaryVelocity! < -180) {
                               // Swipe up reveals synced lyrics
                               setState(() => _showLyrics = true);
@@ -326,7 +335,7 @@ class _FullScreenPlayerScreenState
                               child: AspectRatio(
                                 aspectRatio: 1,
                                 child: Hero(
-                                  tag: 'now_playing_artwork_${currentTrack.id}',
+                                  tag: 'now_playing_artwork_${effectiveTrack.id}',
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
@@ -341,13 +350,43 @@ class _FullScreenPlayerScreenState
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: AppNetworkImage(
-                                        imageUrl: currentTrack.coverUrl,
-                                        fit: BoxFit.cover,
-                                        cacheWidth: 800,
-                                        cacheHeight: 800,
-                                        placeholderIcon: Icons.music_note_rounded,
-                                      ),
+                                      child: isPlaceholder
+                                          ? Container(
+                                              color: tokens.surfaceElevated,
+                                              child: Center(
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 38,
+                                                      height: 38,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2.8,
+                                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                                          tokens.accent,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      'Buffering studio master...',
+                                                      style: TextStyle(
+                                                        color: tokens.textSecondary,
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            )
+                                          : AppNetworkImage(
+                                              imageUrl: effectiveTrack.coverUrl,
+                                              fit: BoxFit.cover,
+                                              cacheWidth: 800,
+                                              cacheHeight: 800,
+                                              placeholderIcon: Icons.music_note_rounded,
+                                            ),
                                     ),
                                   ),
                                 ),
@@ -368,7 +407,7 @@ class _FullScreenPlayerScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            currentTrack.title,
+                            effectiveTrack.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -381,15 +420,17 @@ class _FullScreenPlayerScreenState
                           const SizedBox(height: 4),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              showArtistChooserOrDetail(
-                                context,
-                                rawArtist: currentTrack.artist,
-                                coverUrl: currentTrack.coverUrl,
-                              );
-                            },
+                            onTap: isPlaceholder
+                                ? null
+                                : () {
+                                    showArtistChooserOrDetail(
+                                      context,
+                                      rawArtist: effectiveTrack.artist,
+                                      coverUrl: effectiveTrack.coverUrl,
+                                    );
+                                  },
                             child: Text(
-                              currentTrack.artist,
+                              effectiveTrack.artist,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -406,17 +447,17 @@ class _FullScreenPlayerScreenState
                     // Download Action
                     BouncingScaleButton(
                       scaleFactor: 0.88,
-                      onTap: isDownloaded
+                      onTap: (isDownloaded || isPlaceholder)
                           ? null
                           : () async {
                               HapticFeedback.lightImpact();
                               await ref
                                   .read(downloadRepositoryProvider)
-                                  .queueDownload(currentTrack);
+                                  .queueDownload(effectiveTrack);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Downloading "${currentTrack.title}"...'),
+                                    content: Text('Downloading "${effectiveTrack.title}"...'),
                                     duration: const Duration(seconds: 2),
                                     backgroundColor: tokens.surfaceElevated,
                                   ),
@@ -431,7 +472,7 @@ class _FullScreenPlayerScreenState
                               : Icons.download_for_offline_outlined,
                           color: isDownloaded
                               ? tokens.accent
-                              : tokens.textSecondary.withValues(alpha: 0.8),
+                              : tokens.textSecondary.withValues(alpha: isPlaceholder ? 0.3 : 0.8),
                           size: 26,
                         ),
                       ),
@@ -442,17 +483,21 @@ class _FullScreenPlayerScreenState
                     // Like Action
                     BouncingScaleButton(
                       scaleFactor: 0.88,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        ref
-                            .read(libraryRepositoryProvider)
-                            .setLiked(currentTrack.id, !isLiked, track: currentTrack);
-                      },
+                      onTap: isPlaceholder
+                          ? null
+                          : () {
+                              HapticFeedback.selectionClick();
+                              ref
+                                  .read(libraryRepositoryProvider)
+                                  .setLiked(effectiveTrack.id, !isLiked, track: effectiveTrack);
+                            },
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Icon(
                           isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          color: isLiked ? tokens.accent : tokens.textSecondary.withValues(alpha: 0.8),
+                          color: isLiked
+                              ? tokens.accent
+                              : tokens.textSecondary.withValues(alpha: isPlaceholder ? 0.3 : 0.8),
                           size: 28,
                         ),
                       ),
@@ -464,8 +509,8 @@ class _FullScreenPlayerScreenState
               // 4. Scrubber Slider & Timestamps (Isolated RepaintBoundary)
               RepaintBoundary(
                 child: _FullScreenPlayerScrubber(
-                  fallbackDuration: currentTrack.duration,
-                  trackId: currentTrack.id,
+                  fallbackDuration: effectiveTrack.duration,
+                  trackId: effectiveTrack.id,
                 ),
               ),
 
@@ -475,6 +520,7 @@ class _FullScreenPlayerScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Shuffle Button with signature emerald active dot
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () {
@@ -483,41 +529,66 @@ class _FullScreenPlayerScreenState
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Icon(
-                          Icons.shuffle_rounded,
-                          color: isShuffle
-                              ? tokens.accent
-                              : const Color(0xFFB3B3B3),
-                          size: 24,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.shuffle_rounded,
+                              color: isShuffle
+                                  ? tokens.accent
+                                  : const Color(0xFFB3B3B3),
+                              size: 24,
+                            ),
+                            const SizedBox(height: 3),
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isShuffle ? tokens.accent : Colors.transparent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+
+                    // Skip Previous Button with frosted glass touch target
                     BouncingScaleButton(
                       scaleFactor: 0.92,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         audioHandler.skipToPrevious();
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
                           Icons.skip_previous_rounded,
                           color: Colors.white,
-                          size: 38,
+                          size: 34,
                         ),
                       ),
                     ),
 
-                    // Center Play/Pause Morphing Button (Spotify authentic: pure white circle with black icon)
+                    // Center Play/Pause Morphing Button (Glow + Smooth Loading Spinner when Buffering)
                     PlayPauseMorphButton(
                       isPlaying: isPlaying,
-                      size: 64,
-                      iconSize: 34,
+                      isLoading: isBuffering || isPlaceholder,
+                      size: 68,
+                      iconSize: 36,
                       backgroundColor: Colors.white,
                       iconColor: Colors.black,
-                      showGlow: false,
+                      showGlow: true,
                       onTap: () {
-                        if (isPlaying) {
+                        if (currentTrack == null && !isPlaceholder) {
+                          audioHandler.playTrack(effectiveTrack);
+                        } else if (isPlaying) {
                           audioHandler.pause();
                         } else {
                           audioHandler.play();
@@ -525,21 +596,30 @@ class _FullScreenPlayerScreenState
                       },
                     ),
 
+                    // Skip Next Button with frosted glass touch target
                     BouncingScaleButton(
                       scaleFactor: 0.92,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         audioHandler.skipToNext();
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
                           Icons.skip_next_rounded,
                           color: Colors.white,
-                          size: 38,
+                          size: 34,
                         ),
                       ),
                     ),
+
+                    // Repeat Button with signature emerald active dot
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () {
@@ -585,14 +665,30 @@ class _FullScreenPlayerScreenState
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Icon(
-                          repeatMode == AudioRepeatMode.one
-                              ? Icons.repeat_one_rounded
-                              : Icons.repeat_rounded,
-                          color: repeatMode != AudioRepeatMode.off
-                              ? tokens.accent
-                              : const Color(0xFFB3B3B3),
-                          size: 24,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              repeatMode == AudioRepeatMode.one
+                                  ? Icons.repeat_one_rounded
+                                  : Icons.repeat_rounded,
+                              color: repeatMode != AudioRepeatMode.off
+                                  ? tokens.accent
+                                  : const Color(0xFFB3B3B3),
+                              size: 24,
+                            ),
+                            const SizedBox(height: 3),
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: repeatMode != AudioRepeatMode.off
+                                    ? tokens.accent
+                                    : Colors.transparent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -668,7 +764,7 @@ class _FullScreenPlayerScreenState
                     ),
 
                     // Playback Speed Button (YouTube & Podcasts only)
-                    if (currentTrack.supportsSpeedPlayback)
+                    if (!isPlaceholder && effectiveTrack.supportsSpeedPlayback)
                       BouncingScaleButton(
                         scaleFactor: 0.9,
                         onTap: _cycleSpeed,
@@ -802,6 +898,7 @@ class _FullScreenPlayerScrubberState
         widget.fallbackDuration ??
         Duration.zero;
 
+    final bool isPlaceholder = widget.trackId == 'placeholder_loading';
     final maxSeconds =
         duration.inSeconds > 0 ? duration.inSeconds.toDouble() : 1.0;
     final currentSeconds = _dragPositionSeconds ??
@@ -816,38 +913,44 @@ class _FullScreenPlayerScrubberState
             data: SliderTheme.of(context).copyWith(
               trackHeight: 3.5,
               trackShape: const RectangularSliderTrackShape(),
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 4.5,
+              thumbShape: RoundSliderThumbShape(
+                enabledThumbRadius: isPlaceholder ? 0 : 4.5,
                 elevation: 0,
                 pressedElevation: 0,
               ),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: isPlaceholder ? 0 : 10),
               activeTrackColor: Colors.white,
               inactiveTrackColor: const Color(0x33FFFFFF),
               thumbColor: Colors.white,
             ),
             child: Slider(
-              value: currentSeconds.clamp(0.0, maxSeconds),
+              value: isPlaceholder ? 0.0 : currentSeconds.clamp(0.0, maxSeconds),
               max: maxSeconds,
-              onChangeStart: (_) {
-                HapticFeedback.lightImpact();
-              },
-              onChanged: (val) {
-                if (_dragPositionSeconds != null &&
-                    (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
-                  HapticFeedback.selectionClick();
-                }
-                setState(() {
-                  _dragPositionSeconds = val;
-                });
-              },
-              onChangeEnd: (val) {
-                HapticFeedback.mediumImpact();
-                audioHandler.seek(Duration(seconds: val.round()));
-                setState(() {
-                  _dragPositionSeconds = null;
-                });
-              },
+              onChangeStart: isPlaceholder
+                  ? null
+                  : (_) {
+                      HapticFeedback.lightImpact();
+                    },
+              onChanged: isPlaceholder
+                  ? null
+                  : (val) {
+                      if (_dragPositionSeconds != null &&
+                          (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
+                        HapticFeedback.selectionClick();
+                      }
+                      setState(() {
+                        _dragPositionSeconds = val;
+                      });
+                    },
+              onChangeEnd: isPlaceholder
+                  ? null
+                  : (val) {
+                      HapticFeedback.mediumImpact();
+                      audioHandler.seek(Duration(seconds: val.round()));
+                      setState(() {
+                        _dragPositionSeconds = null;
+                      });
+                    },
             ),
           ),
           Padding(
@@ -857,7 +960,7 @@ class _FullScreenPlayerScrubberState
               children: [
                 Text(
                   _formatDuration(
-                    Duration(seconds: currentSeconds.round()),
+                    Duration(seconds: isPlaceholder ? 0 : currentSeconds.round()),
                   ),
                   style: const TextStyle(
                     fontFamily: AppTheme.fontUi,
@@ -867,7 +970,7 @@ class _FullScreenPlayerScrubberState
                   ),
                 ),
                 Text(
-                  _formatDuration(duration),
+                  isPlaceholder ? '--:--' : _formatDuration(duration),
                   style: const TextStyle(
                     fontFamily: AppTheme.fontUi,
                     fontSize: 11.5,

@@ -40,6 +40,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   bool _shuffleEnabled = false;
   bool _autoPlay = true;
   bool _isTransitioningTrack = false;
+  bool _isPrefetching = false;
   bool _isPrefetchingRecommendations = false;
   List<Track> _unshuffledQueue = [];
   String? _currentlyPreloadingTrackId;
@@ -327,15 +328,25 @@ class SoftifyAudioHandler extends BaseAudioHandler
       }
     });
 
-    // Listen to position for automatic DJ crossfade
+    // Listen to position for automatic DJ crossfade & speculative standby pre-warming
     _crossfadePositionSubscription = _player.positionStream.listen((pos) {
-      if (_crossfadeSeconds > 0 && !_isTransitioningTrack) {
-        final dur = currentTrack?.duration;
-        if (dur != null && dur > const Duration(seconds: 25)) {
-          final crossfadeDur = Duration(seconds: _crossfadeSeconds);
-          if (pos >= dur - crossfadeDur && _player.hasPreloadedNext) {
-            _onTrackCompleted();
-          }
+      if (_isTransitioningTrack) return;
+      final dur = currentTrack?.duration;
+      if (dur != null && dur > const Duration(seconds: 25)) {
+        // 1. Speculative JIT pre-warming (20s before completion)
+        if (pos >= dur - const Duration(seconds: 20) &&
+            !_player.hasPreloadedNext &&
+            !_isPrefetching) {
+          unawaited(_prefetchNextTrackStream());
+        }
+
+        // 2. Context-aware crossfade cutover
+        final nextTrack = _peekNextTrack();
+        final effectiveCrossfade = _computeEffectiveCrossfade(currentTrack, nextTrack);
+        if (effectiveCrossfade > Duration.zero &&
+            pos >= dur - effectiveCrossfade &&
+            _player.hasPreloadedNext) {
+          _onTrackCompleted();
         }
       }
     });
@@ -486,6 +497,41 @@ class SoftifyAudioHandler extends BaseAudioHandler
     await _player.seek(position);
   }
 
+  Track? _peekNextTrack() {
+    if (_queue.isEmpty || _currentIndex < 0) return null;
+    if (_currentIndex < _queue.length - 1) {
+      return _queue[_currentIndex + 1];
+    } else if (_repeatMode == AudioRepeatMode.all && _queue.isNotEmpty) {
+      return _queue[0];
+    }
+    return null;
+  }
+
+  /// Context-aware audio transition matrix:
+  /// - Spoken/Podcast tracks: Always 0ms cutover (preserves dialogue clarity).
+  /// - Consecutive album tracks: 0ms true gapless cutover (preserves conceptual album continuity).
+  /// - Playlists/Mixed seeds: Equal-power DJ crossfade using configured crossfade duration.
+  Duration _computeEffectiveCrossfade(Track? from, Track? to) {
+    if (_crossfadeSeconds <= 0) return Duration.zero;
+    if (from == null || to == null) return Duration(seconds: _crossfadeSeconds);
+
+    if (from.supportsSpeedPlayback || to.supportsSpeedPlayback) {
+      return Duration.zero;
+    }
+
+    final fromAlbum = from.album?.trim().toLowerCase();
+    final toAlbum = to.album?.trim().toLowerCase();
+    if (fromAlbum != null &&
+        fromAlbum.isNotEmpty &&
+        toAlbum != null &&
+        toAlbum.isNotEmpty &&
+        fromAlbum == toAlbum) {
+      return Duration.zero;
+    }
+
+    return Duration(seconds: _crossfadeSeconds);
+  }
+
   @override
   Future<void> skipToNext() async {
     if (_queue.isEmpty) return;
@@ -499,8 +545,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
+        final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
         await _player.playPreloadedNext(
-          crossfade: Duration(seconds: _crossfadeSeconds),
+          crossfade: effectiveCrossfade,
         );
         if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
           await _player.setSpeed(1.0);
@@ -526,8 +573,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
+        final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
         await _player.playPreloadedNext(
-          crossfade: Duration(seconds: _crossfadeSeconds),
+          crossfade: effectiveCrossfade,
         );
         if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
           await _player.setSpeed(1.0);
@@ -973,7 +1021,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _prefetchNextTrackStream() async {
-    if (_queue.isEmpty || _currentIndex < 0) return;
+    if (_queue.isEmpty || _currentIndex < 0 || _isPrefetching) return;
 
     final int nextIdx;
     if (_currentIndex < _queue.length - 1) {
@@ -988,6 +1036,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     if (_currentlyPreloadingTrackId == nextTrack.id && _player.hasPreloadedNext) {
       return;
     }
+    _isPrefetching = true;
     _currentlyPreloadingTrackId = nextTrack.id;
     final prefetchId = ++_activePrefetchRequestId;
 
@@ -1027,7 +1076,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
         );
       }
     } catch (_) {
-      // Best-effort prefetch
+      // Best-effort prefetch; clear lock so speculative retry or manual trigger can retry
+      if (_currentlyPreloadingTrackId == nextTrack.id) {
+        _currentlyPreloadingTrackId = null;
+      }
+    } finally {
+      _isPrefetching = false;
     }
   }
 
