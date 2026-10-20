@@ -604,39 +604,259 @@
       opacity: 1;
       transform: translateY(0);
     }
+
+    /* Admin Login Screen */
+    .login-wrapper {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at 50% 30%, rgba(46, 230, 107, 0.08) 0%, rgba(9, 9, 12, 1) 75%);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 30px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(46, 230, 107, 0.06);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .login-card.shake {
+      animation: shakeCard 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    @keyframes shakeCard {
+      10%, 90% { transform: translate3d(-3px, 0, 0); }
+      20%, 80% { transform: translate3d(5px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+
+    .login-logo {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #2EE66B 0%, #15803d 100%);
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 800;
+      color: #000;
+      box-shadow: 0 0 25px var(--accent-glow);
+      margin-bottom: 18px;
+    }
+
+    .login-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin-bottom: 6px;
+    }
+
+    .login-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      text-align: left;
+    }
+
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .login-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .login-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .login-input {
+      width: 100%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 42px 12px 14px;
+      color: var(--text-main);
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .login-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .login-eye-btn {
+      position: absolute;
+      right: 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .login-eye-btn:hover {
+      color: var(--text-main);
+    }
+
+    .login-error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .login-error.show {
+      display: flex;
+    }
+
+    .login-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .login-btn:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .view-hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Header -->
-  <header>
-    <div class="brand">
-      <div class="brand-logo">S</div>
-      <div class="brand-title">
-        <h1>Softify Fleet Commander</h1>
-        <p>Live Device Access & Killswitch Controller</p>
-      </div>
+  <!-- Dedicated Admin Login View -->
+  <div id="loginView" class="login-wrapper">
+    <div class="login-card" id="loginCard">
+      <div class="login-logo">S</div>
+      <h1 class="login-title">Softify Fleet Commander</h1>
+      <p class="login-subtitle">Administrator Authentication Required<br>Manage remote killswitch & fleet devices</p>
+
+      <form class="login-form" onsubmit="handleLogin(event)">
+        <div class="login-field">
+          <label class="login-label" for="loginPassInput">Admin Passcode</label>
+          <div class="login-input-wrap">
+            <input 
+              type="password" 
+              id="loginPassInput" 
+              class="login-input" 
+              placeholder="Enter passcode (e.g. 2010)" 
+              autocomplete="current-password"
+              autofocus
+            />
+            <button type="button" class="login-eye-btn" onclick="togglePasswordVisibility()" title="Show/Hide">
+              <span id="eyeIcon">👁</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="loginError" class="login-error">
+          <span>⚠️</span>
+          <span id="loginErrorText">Invalid admin passcode</span>
+        </div>
+
+        <button type="submit" class="login-btn" id="loginSubmitBtn">
+          <span>Unlock Dashboard →</span>
+        </button>
+      </form>
     </div>
+  </div>
 
-    <div class="header-actions">
-      <div class="live-indicator">
-        <div class="pulse-dot"></div>
-        <span>Live Pings Active</span>
+  <!-- Dashboard App View (Protected) -->
+  <div id="appView" class="view-hidden">
+
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-logo">S</div>
+        <div class="brand-title">
+          <h1>Softify Fleet Commander</h1>
+          <p>Live Device Access & Killswitch Controller</p>
+        </div>
       </div>
 
-      <button class="btn btn-secondary" id="refreshBtn" onclick="fetchDevices()">
-        <span>↻ Refresh</span>
-      </button>
+      <div class="header-actions">
+        <div class="live-indicator">
+          <div class="pulse-dot"></div>
+          <span>Live Pings Active</span>
+        </div>
 
-      <button class="btn btn-secondary" onclick="openPolicyModal()">
-        <span>⚙ Settings</span>
-      </button>
+        <button class="btn btn-secondary" id="refreshBtn" onclick="fetchDevices()">
+          <span>↻ Refresh</span>
+        </button>
 
-      <button class="btn btn-secondary" id="authBtn" onclick="openAuthModal()">
-        <span id="authBtnText">🔑 Admin Key</span>
-      </button>
-    </div>
-  </header>
+        <button class="btn btn-secondary" onclick="openPolicyModal()">
+          <span>⚙ Settings</span>
+        </button>
+
+        <button class="btn btn-secondary" onclick="signOut()">
+          <span>🚪 Sign Out</span>
+        </button>
+      </div>
+    </header>
 
   <!-- Main Content -->
   <main>
@@ -760,18 +980,7 @@
     </div>
   </div>
 
-  <!-- Auth Modal -->
-  <div class="modal-backdrop" id="authModal">
-    <div class="modal-box">
-      <h2>Admin Key Authentication</h2>
-      <p>Enter your Softify Command Center key to authorize device toggles.</p>
-      <input type="password" id="adminKeyInput" class="modal-input" placeholder="Enter Admin Key (default: admin123)">
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeAuthModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveAdminKey()">Authenticate</button>
-      </div>
-    </div>
-  </div>
+  </div> <!-- Close #appView -->
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
@@ -780,10 +989,10 @@
     let allDevices = [];
     let currentFilter = 'all';
     let pendingBlockId = null;
+    let refreshInterval = null;
 
-    // Read stored admin key or default
     function getAdminKey() {
-      return localStorage.getItem('softify_admin_key') || 'admin123';
+      return localStorage.getItem('softify_admin_key') || '';
     }
 
     function showToast(msg) {
@@ -791,6 +1000,99 @@
       t.innerText = msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    function togglePasswordVisibility() {
+      const inp = document.getElementById('loginPassInput');
+      const icon = document.getElementById('eyeIcon');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        icon.innerText = '🔒';
+      } else {
+        inp.type = 'password';
+        icon.innerText = '👁';
+      }
+    }
+
+    function showApp() {
+      document.getElementById('loginView').classList.add('view-hidden');
+      document.getElementById('appView').classList.remove('view-hidden');
+      if (!refreshInterval) {
+        refreshInterval = setInterval(fetchDevices, 5000);
+      }
+    }
+
+    function showLogin(errorMsg) {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+      document.getElementById('appView').classList.add('view-hidden');
+      document.getElementById('loginView').classList.remove('view-hidden');
+      const errEl = document.getElementById('loginError');
+      if (errorMsg) {
+        document.getElementById('loginErrorText').innerText = errorMsg;
+        errEl.classList.add('show');
+      } else {
+        errEl.classList.remove('show');
+      }
+      setTimeout(() => {
+        const inp = document.getElementById('loginPassInput');
+        if (inp) inp.focus();
+      }, 100);
+    }
+
+    function signOut() {
+      localStorage.removeItem('softify_admin_key');
+      showLogin();
+      showToast('Signed out of Command Center');
+    }
+
+    async function handleLogin(e) {
+      if (e) e.preventDefault();
+      const pass = document.getElementById('loginPassInput').value.trim();
+      const errEl = document.getElementById('loginError');
+      const errText = document.getElementById('loginErrorText');
+      const btn = document.getElementById('loginSubmitBtn');
+      const card = document.getElementById('loginCard');
+
+      errEl.classList.remove('show');
+
+      if (!pass) {
+        errText.innerText = 'Please enter your admin passcode';
+        errEl.classList.add('show');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Verifying passcode...';
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pass })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          localStorage.setItem('softify_admin_key', pass);
+          document.getElementById('loginPassInput').value = '';
+          showApp();
+          fetchDevices();
+          showToast('Dashboard Unlocked ✓');
+        } else {
+          card.classList.add('shake');
+          setTimeout(() => card.classList.remove('shake'), 450);
+          errText.innerText = data.error || 'Incorrect passcode. Access denied.';
+          errEl.classList.add('show');
+        }
+      } catch (err) {
+        errText.innerText = 'Connection error. Check server status.';
+        errEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Unlock Dashboard →';
+      }
     }
 
     function formatTimeAgo(isoString) {
@@ -826,7 +1128,7 @@
         });
 
         if (res.status === 401) {
-          openAuthModal();
+          signOut();
           return;
         }
 
@@ -1056,26 +1358,6 @@
       }
     }
 
-    // Auth modal
-    function openAuthModal() {
-      document.getElementById('adminKeyInput').value = getAdminKey();
-      document.getElementById('authModal').classList.add('show');
-    }
-
-    function closeAuthModal() {
-      document.getElementById('authModal').classList.remove('show');
-    }
-
-    function saveAdminKey() {
-      const val = document.getElementById('adminKeyInput').value.trim();
-      if (val) {
-        localStorage.setItem('softify_admin_key', val);
-        showToast('Admin Key saved');
-        closeAuthModal();
-        fetchDevices();
-      }
-    }
-
     // Policy settings modal
     async function openPolicyModal() {
       const key = getAdminKey();
@@ -1083,6 +1365,10 @@
         const res = await fetch('/api/admin/config', {
           headers: { 'Authorization': `Bearer ${key}` }
         });
+        if (res.status === 401) {
+          signOut();
+          return;
+        }
         const data = await res.json();
         if (data.success && data.config) {
           document.getElementById('policySelect').value = data.config.defaultPolicy || 'auto_allow';
@@ -1110,6 +1396,10 @@
           },
           body: JSON.stringify({ defaultPolicy, broadcastBanner })
         });
+        if (res.status === 401) {
+          signOut();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           showToast('Policy configuration saved ✓');
@@ -1120,11 +1410,32 @@
       }
     }
 
-    // Auto-refresh every 5 seconds
-    setInterval(fetchDevices, 5000);
+    // Initialize application authentication state
+    async function init() {
+      const key = getAdminKey();
+      if (!key) {
+        showLogin();
+        return;
+      }
 
-    // Initial load
-    fetchDevices();
+      try {
+        const res = await fetch('/api/admin/stats', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        if (res.ok) {
+          showApp();
+          fetchDevices();
+        } else {
+          showLogin('Session expired. Please enter passcode.');
+        }
+      } catch (e) {
+        // Fallback to app if network glitch
+        showApp();
+        fetchDevices();
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>

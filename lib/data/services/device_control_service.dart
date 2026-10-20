@@ -32,8 +32,8 @@ class DeviceControlService {
   static const String _keyLastStatus = 'device_control_last_status';
   static const String _keyLastReason = 'device_control_last_reason';
 
-  // Default server URL - can be configured in settings to point to LAN or hosted server
-  static const String defaultServerUrl = 'http://localhost:3000';
+  // Default server URL - deployed live fleet command center
+  static const String defaultServerUrl = 'https://server-eight-gamma-81.vercel.app';
 
   DeviceControlService({
     required AppDatabase db,
@@ -68,7 +68,10 @@ class DeviceControlService {
         .getSingleOrNull();
 
     if (row != null && row.value.trim().isNotEmpty) {
-      return row.value.trim();
+      final val = row.value.trim();
+      if (val != 'http://localhost:3000' && val != 'http://127.0.0.1:3000') {
+        return val;
+      }
     }
     return defaultServerUrl;
   }

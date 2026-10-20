@@ -1,3 +1,6 @@
 node_modules/
-data/*.tmp
+data/
 .env
+.vercel/
+.vercel
+.env*

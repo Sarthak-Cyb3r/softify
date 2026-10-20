@@ -5,9 +5,12 @@ const path = require('path');
 const http = require('http');
 
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'softify-data') : path.join(__dirname, 'data');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+
+const GITHUB_GIST_ID = process.env.GITHUB_GIST_ID || 'a8e25d128307d38d875a138da38a7ddd';
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -16,21 +19,23 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // Default Configuration
 const DEFAULT_CONFIG = {
-  adminKey: process.env.ADMIN_KEY || 'admin123',
+  adminKey: process.env.ADMIN_KEY || '2010',
   defaultPolicy: 'auto_allow', // 'auto_allow' | 'require_approval'
   broadcastBanner: '',
   serverName: 'Softify Device Command Center'
 };
 
-// State Store with atomic file persistence
+// State Store with atomic file & cloud Gist persistence
 class Store {
   constructor() {
     this.devices = new Map();
     this.config = { ...DEFAULT_CONFIG };
+    this._remoteTimer = null;
     this._load();
   }
 
-  _load() {
+  async _load() {
+    // 1. Load from local cache/disk
     try {
       if (fs.existsSync(CONFIG_FILE)) {
         const raw = fs.readFileSync(CONFIG_FILE, 'utf8');
@@ -55,6 +60,82 @@ class Store {
     } catch (e) {
       console.error('Failed to load devices:', e.message);
     }
+
+    // 2. Hydrate from GitHub Gist if credentials available
+    if (GITHUB_TOKEN && GITHUB_GIST_ID) {
+      try {
+        const res = await fetch(`https://api.github.com/gists/${GITHUB_GIST_ID}`, {
+          headers: {
+            'Authorization': `Bearer ${GITHUB_TOKEN}`,
+            'User-Agent': 'Softify-Server'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const file = data.files && data.files['devices.json'];
+          if (file && file.content) {
+            const parsed = JSON.parse(file.content);
+            if (parsed.devices) {
+              const items = Array.isArray(parsed.devices) ? parsed.devices : Object.values(parsed.devices);
+              for (const item of items) {
+                if (item && item.id) {
+                  this.devices.set(item.id, item);
+                }
+              }
+            }
+            if (parsed.config) {
+              this.config = { ...DEFAULT_CONFIG, ...parsed.config };
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Remote Gist sync error on load:', err.message);
+      }
+    }
+  }
+
+  _scheduleRemoteSync() {
+    if (!GITHUB_TOKEN || !GITHUB_GIST_ID) return;
+    if (this._remoteTimer) clearTimeout(this._remoteTimer);
+    this._remoteTimer = setTimeout(() => {
+      this._saveToRemoteGist();
+    }, 800);
+  }
+
+  async _saveToRemoteGist() {
+    if (!GITHUB_TOKEN || !GITHUB_GIST_ID) return;
+    try {
+      const devicesObj = {};
+      for (const [id, d] of this.devices.entries()) {
+        devicesObj[id] = d;
+      }
+      const payload = {
+        files: {
+          'devices.json': {
+            content: JSON.stringify(
+              {
+                config: this.config,
+                devices: devicesObj,
+                updatedAt: new Date().toISOString()
+              },
+              null,
+              2
+            )
+          }
+        }
+      };
+      await fetch(`https://api.github.com/gists/${GITHUB_GIST_ID}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'User-Agent': 'Softify-Server',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.error('Error syncing state to Gist:', e.message);
+    }
   }
 
   _saveDevices() {
@@ -66,6 +147,7 @@ class Store {
     } catch (e) {
       console.error('Error saving devices:', e.message);
     }
+    this._scheduleRemoteSync();
   }
 
   _saveConfig() {
@@ -77,6 +159,7 @@ class Store {
     } catch (e) {
       console.error('Error saving config:', e.message);
     }
+    this._scheduleRemoteSync();
   }
 
   syncDevice(info, clientIp) {
@@ -288,11 +371,12 @@ app.get('/api/device/status/:id', (req, res) => {
 // 2. Admin Authentication & Dashboard API
 // ==========================================
 app.post('/api/admin/login', (req, res) => {
-  const { key } = req.body || {};
-  if (key === store.config.adminKey) {
+  const { key, password } = req.body || {};
+  const pass = (key || password || '').toString().trim();
+  if (pass === store.config.adminKey) {
     return res.json({ success: true, token: store.config.adminKey });
   }
-  return res.status(401).json({ success: false, error: 'Incorrect Admin Key' });
+  return res.status(401).json({ success: false, error: 'Incorrect Admin Password' });
 });
 
 app.get('/api/admin/stats', requireAdmin, (req, res) => {
@@ -359,13 +443,23 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// Start HTTP Server
-const server = http.createServer(app);
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`=======================================================`);
-  console.log(`🎵 Softify Device Command Center`);
-  console.log(`🚀 Server running on: http://localhost:${PORT}`);
-  console.log(`🔑 Default Admin Key: ${store.config.adminKey}`);
-  console.log(`📡 Device Sync Endpoint: POST /api/device/sync`);
-  console.log(`=======================================================`);
+// Wildcard route to serve dashboard SPA
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path === '/health') return next();
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// Start HTTP Server when run directly
+if (!process.env.VERCEL) {
+  const server = http.createServer(app);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`=======================================================`);
+    console.log(`🎵 Softify Device Command Center`);
+    console.log(`🚀 Server running on: http://localhost:${PORT}`);
+    console.log(`🔑 Default Admin Key: ${store.config.adminKey}`);
+    console.log(`📡 Device Sync Endpoint: POST /api/device/sync`);
+    console.log(`=======================================================`);
+  });
+}
+
+module.exports = app;

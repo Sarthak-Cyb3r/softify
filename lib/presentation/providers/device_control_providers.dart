@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/services/device_control_service.dart';
@@ -46,6 +47,7 @@ class DeviceControlState {
 class DeviceControlNotifier extends StateNotifier<DeviceControlState> {
   final DeviceControlService _service;
   final Ref _ref;
+  Timer? _heartbeatTimer;
 
   DeviceControlNotifier(this._service, this._ref) : super(const DeviceControlState()) {
     _initialize();
@@ -56,6 +58,18 @@ class DeviceControlNotifier extends StateNotifier<DeviceControlState> {
     final url = await _service.getServerUrl();
     state = state.copyWith(deviceId: id, serverUrl: url);
     await checkStatus();
+
+    // Automatically sync heartbeat in the background every 90 seconds
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 90), (_) {
+      checkStatus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _heartbeatTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> checkStatus({String? overrideUrl}) async {
