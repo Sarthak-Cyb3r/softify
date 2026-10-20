@@ -94,7 +94,7 @@ class Store {
         platform: info.platform || 'unknown',
         osVersion: info.osVersion || '',
         deviceModel: info.deviceModel || 'Unknown Device',
-        appVersion: info.appVersion || '2.1.0',
+        appVersion: info.appVersion || '2.9.1',
         ipAddress: clientIp,
         status: initialStatus, // 'allowed' | 'blocked' | 'pending'
         blockReason: initialStatus === 'pending' ? 'Device pending administrator approval' : '',
