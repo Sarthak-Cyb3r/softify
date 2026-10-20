@@ -76,10 +76,10 @@ class _FullScreenPlayerScreenState
         ref.watch(playHistoryStreamProvider).value?.firstOrNull?.track;
     final queueTrack = ref.watch(queueProvider).value?.firstOrNull;
 
-    final currentTrack = ref.watch(currentTrackProvider).value ??
-        audioHandler.currentTrack ??
-        historyTrack ??
-        queueTrack;
+    final activePlayingTrack = ref.watch(currentTrackProvider).value ?? audioHandler.currentTrack;
+    final fallbackTrack = historyTrack ?? queueTrack;
+    final resolvedTrack = activePlayingTrack ?? fallbackTrack;
+
     final playbackState = ref.watch(playbackStateStreamProvider).value;
     final repeatMode =
         ref.watch(repeatModeStreamProvider).value ?? audioHandler.repeatMode;
@@ -93,12 +93,12 @@ class _FullScreenPlayerScreenState
         (playbackState?.processingState == AudioProcessingState.loading) ||
         audioHandler.playbackState.value.processingState == AudioProcessingState.buffering;
 
-    final bool isPlaceholder = currentTrack == null;
-    final Track effectiveTrack = currentTrack ??
+    final bool isPlaceholder = resolvedTrack == null;
+    final Track effectiveTrack = resolvedTrack ??
         const Track(
           id: 'placeholder_loading',
-          title: 'Loading audio...',
-          artist: 'Buffering studio master stream...',
+          title: 'Softify',
+          artist: 'Select a song to start listening',
           duration: Duration(minutes: 3),
           sourceId: '',
         );
@@ -579,17 +579,19 @@ class _FullScreenPlayerScreenState
                     // Center Play/Pause Morphing Button (Glow + Smooth Loading Spinner when Buffering)
                     PlayPauseMorphButton(
                       isPlaying: isPlaying,
-                      isLoading: isBuffering || isPlaceholder,
+                      isLoading: isBuffering,
                       size: 68,
                       iconSize: 36,
                       backgroundColor: Colors.white,
                       iconColor: Colors.black,
                       showGlow: true,
                       onTap: () {
-                        if (currentTrack == null && !isPlaceholder) {
-                          audioHandler.playTrack(effectiveTrack);
-                        } else if (isPlaying) {
+                        if (isPlaying) {
                           audioHandler.pause();
+                        } else if (activePlayingTrack != null) {
+                          audioHandler.play();
+                        } else if (resolvedTrack != null && !isPlaceholder) {
+                          audioHandler.playTrack(resolvedTrack);
                         } else {
                           audioHandler.play();
                         }

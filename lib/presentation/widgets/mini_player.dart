@@ -98,17 +98,11 @@ class MiniPlayer extends ConsumerWidget {
       button: true,
       child: GestureDetector(
         onTap: () {
-          if (currentTrack == null && !isPlaceholder) {
-            audioHandler.playTrack(displayTrack);
-          }
           _openFullPlayer(context);
         },
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! < -150) {
-            if (currentTrack == null && !isPlaceholder) {
-              audioHandler.playTrack(displayTrack);
-            }
             _openFullPlayer(context);
           }
         },
@@ -282,10 +276,12 @@ class MiniPlayer extends ConsumerWidget {
                         scaleFactor: 0.90,
                         onTap: () {
                           HapticFeedback.selectionClick();
-                          if (currentTrack == null && !isPlaceholder) {
-                            audioHandler.playTrack(displayTrack);
-                          } else if (isPlaying) {
+                          if (isPlaying) {
                             audioHandler.pause();
+                          } else if (currentTrack != null) {
+                            audioHandler.play();
+                          } else if (effectiveTrack != null && !isPlaceholder) {
+                            audioHandler.playTrack(effectiveTrack);
                           } else {
                             audioHandler.play();
                           }

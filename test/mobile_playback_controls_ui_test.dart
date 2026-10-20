@@ -201,7 +201,7 @@ void main() {
       expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
       expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
       expect(find.byIcon(Icons.shuffle_rounded), findsOneWidget);
-      expect(find.text('Loading audio...'), findsOneWidget);
+      expect(find.text('Softify'), findsOneWidget);
       expect(find.text('Nothing playing'), findsNothing);
     });
   });

@@ -249,6 +249,8 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                         onPressed: () {
                           if (isPlaying) {
                             audioHandler.pause();
+                          } else if (audioHandler.currentTrack == null) {
+                            audioHandler.playTrack(currentTrack);
                           } else {
                             audioHandler.play();
                           }

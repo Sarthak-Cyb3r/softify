@@ -127,11 +127,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final eqB = enableEffects ? AndroidEqualizer() : null;
     final loudB = enableEffects ? AndroidLoudnessEnhancer() : null;
 
-    final config = audioLoadConfiguration ?? defaultAudioLoadConfiguration;
-
     final pA = playerA ??
         AudioPlayer(
-          audioLoadConfiguration: config,
+          audioLoadConfiguration: audioLoadConfiguration,
           audioPipeline: (eqA != null && loudA != null)
               ? AudioPipeline(androidAudioEffects: [loudA, eqA])
               : null,
@@ -141,7 +139,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         (Platform.isLinux
             ? null
             : AudioPlayer(
-                audioLoadConfiguration: config,
+                audioLoadConfiguration: audioLoadConfiguration,
                 audioPipeline: (eqB != null && loudB != null)
                     ? AudioPipeline(androidAudioEffects: [loudB, eqB])
                     : null,
