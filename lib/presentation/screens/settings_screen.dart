@@ -11,6 +11,7 @@ import '../../data/services/library_backup_service.dart';
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/diversity_providers.dart';
+import '../providers/device_control_providers.dart';
 import '../providers/player_providers.dart';
 import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
@@ -1037,6 +1038,91 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 24),
 
+          // Section: Device Control & Fleet Security
+          _buildSectionHeader('Device Control & Security'),
+          Container(
+            decoration: BoxDecoration(
+              color: tokens.card,
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
+            ),
+            child: Column(
+              children: [
+                Consumer(
+                  builder: (context, ref, _) {
+                    final deviceState = ref.watch(deviceControlProvider);
+                    final shortId = deviceState.deviceId.length > 18
+                        ? '${deviceState.deviceId.substring(0, 8)}...${deviceState.deviceId.substring(deviceState.deviceId.length - 4)}'
+                        : deviceState.deviceId;
+
+                    return ListTile(
+                      leading: Icon(Icons.perm_device_information_rounded, color: tokens.accent, size: 22),
+                      title: const Text(
+                        'Device Identifier',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        shortId.isEmpty ? 'Generating device token...' : shortId,
+                        style: const TextStyle(fontFamily: 'monospace', color: Color(0xFF93C5FD), fontSize: 12),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.accent),
+                        tooltip: 'Copy Full Device UUID',
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          Clipboard.setData(ClipboardData(text: deviceState.deviceId));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Device ID copied to clipboard'),
+                              backgroundColor: tokens.surfaceElevated,
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final deviceState = ref.watch(deviceControlProvider);
+                    return ListTile(
+                      leading: Icon(Icons.hub_rounded, color: tokens.accent, size: 22),
+                      title: const Text(
+                        'Command Center Server',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        deviceState.serverUrl,
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (deviceState.isChecking)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent)),
+                            )
+                          else
+                            IconButton(
+                              icon: const Icon(Icons.sync_rounded, size: 20, color: AppTheme.accent),
+                              tooltip: 'Sync Device Status Now',
+                              onPressed: () => ref.read(deviceControlProvider.notifier).checkStatus(),
+                            ),
+                          Icon(Icons.edit_rounded, color: tokens.textSecondary, size: 18),
+                        ],
+                      ),
+                      onTap: () => _showDeviceServerDialog(context, deviceState.serverUrl),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // Section 6: About Softify
           _buildSectionHeader('About Softify'),
           Container(
@@ -1160,6 +1246,76 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Navigator.pop(ctx);
             },
             child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeviceServerDialog(BuildContext context, String currentUrl) {
+    final controller = TextEditingController(text: currentUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        title: const Text(
+          'Device Command Center URL',
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the backend URL that controls device registration, telemetry, and access killswitch.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'e.g. http://192.168.1.100:3000',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                filled: true,
+                fillColor: const Color(0xFF1B1B1F),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF292A2D)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                ref.read(deviceControlProvider.notifier).updateServerUrl(newUrl);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Connecting to $newUrl...'),
+                    backgroundColor: AppTheme.surfaceElevated,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save & Reconnect'),
           ),
         ],
       ),

@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Softify Command Center • Device Access & Fleet Controller</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090c;
+      --surface: #121217;
+      --surface-elevated: #1a1a22;
+      --surface-hover: #22222d;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(46, 230, 107, 0.4);
+      --text-main: #f4f4f7;
+      --text-muted: #8e8e9b;
+      --accent: #2EE66B;
+      --accent-glow: rgba(46, 230, 107, 0.2);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.2);
+      --warning: #f59e0b;
+      --radius: 12px;
+      --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    /* Top Navigation */
+    header {
+      background: rgba(18, 18, 23, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #2EE66B 0%, #15803d 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: #000;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .brand-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-title p {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+      outline: none;
+    }
+
+    .btn-secondary {
+      background: var(--surface-elevated);
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      background: #25d360;
+      transform: translateY(-1px);
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(46, 230, 107, 0.1);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(46, 230, 107, 0.2);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(46, 230, 107, 0.6); }
+      70% { box-shadow: 0 0 0 8px rgba(46, 230, 107, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(46, 230, 107, 0); }
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .metric-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .metric-value {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .metric-card.allowed .metric-value { color: var(--accent); }
+    .metric-card.blocked .metric-value { color: var(--danger); }
+    .metric-card.online .metric-value { color: #60a5fa; }
+
+    /* Controls & Filter Toolbar */
+    .toolbar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 260px;
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px 10px 38px;
+      color: var(--text-main);
+      font-family: var(--font);
+      font-size: 13px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-chip {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-chip.active, .filter-chip:hover {
+      background: var(--surface-hover);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .filter-chip.active {
+      background: rgba(46, 230, 107, 0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Devices Table */
+    .table-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    thead {
+      background: var(--surface-elevated);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      padding: 14px 18px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background-color 0.15s;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    td {
+      padding: 16px 18px;
+      vertical-align: middle;
+    }
+
+    .device-id-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .id-tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--surface-elevated);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      color: #93c5fd;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .copy-btn:hover {
+      color: var(--text-main);
+      background: var(--surface-hover);
+    }
+
+    .platform-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge.allowed {
+      background: rgba(46, 230, 107, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(46, 230, 107, 0.3);
+    }
+
+    .status-badge.blocked {
+      background: rgba(239, 68, 68, 0.12);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-badge.pending {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Switch Component */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--danger);
+      transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    .action-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--surface-hover);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-icon.delete:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 480px;
+      width: 100%;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-box h2 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .modal-box p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .modal-input {
+      width: 100%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text-main);
+      font-family: var(--font);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .modal-input:focus {
+      border-color: var(--accent);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 200;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-title">
+        <h1>Softify Fleet Commander</h1>
+        <p>Live Device Access & Killswitch Controller</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="live-indicator">
+        <div class="pulse-dot"></div>
+        <span>Live Pings Active</span>
+      </div>
+
+      <button class="btn btn-secondary" id="refreshBtn" onclick="fetchDevices()">
+        <span>↻ Refresh</span>
+      </button>
+
+      <button class="btn btn-secondary" onclick="openPolicyModal()">
+        <span>⚙ Settings</span>
+      </button>
+
+      <button class="btn btn-secondary" id="authBtn" onclick="openAuthModal()">
+        <span id="authBtnText">🔑 Admin Key</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">
+          <span>Total Registered</span>
+          <span>📱</span>
+        </div>
+        <div class="metric-value" id="statTotal">0</div>
+        <div class="metric-sub">Unique device installations</div>
+      </div>
+
+      <div class="metric-card online">
+        <div class="metric-label">
+          <span>Active / Online</span>
+          <span>⚡</span>
+        </div>
+        <div class="metric-value" id="statOnline">0</div>
+        <div class="metric-sub">Heartbeat in last 5 minutes</div>
+      </div>
+
+      <div class="metric-card allowed">
+        <div class="metric-label">
+          <span>Allowed Devices</span>
+          <span>✓</span>
+        </div>
+        <div class="metric-value" id="statAllowed">0</div>
+        <div class="metric-sub">Full playback & streaming access</div>
+      </div>
+
+      <div class="metric-card blocked">
+        <div class="metric-label">
+          <span>Blocked Devices</span>
+          <span>✕</span>
+        </div>
+        <div class="metric-value" id="statBlocked">0</div>
+        <div class="metric-sub">Access suspended via killswitch</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Filter by ID, IP, Model, OS, Alias..." oninput="filterDevices()">
+      </div>
+
+      <div class="filter-group">
+        <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="filter-chip" data-filter="allowed" onclick="setFilter('allowed')">Allowed</button>
+        <button class="filter-chip" data-filter="blocked" onclick="setFilter('blocked')">Blocked</button>
+        <button class="filter-chip" data-filter="pending" onclick="setFilter('pending')">Pending</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Device & Model</th>
+            <th>Platform / OS</th>
+            <th>Unique Device ID</th>
+            <th>Client IP</th>
+            <th>App Ver</th>
+            <th>Last Active</th>
+            <th>Access Control</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="deviceTableBody">
+          <tr>
+            <td colspan="8">
+              <div class="empty-state">
+                <div class="empty-icon">⏳</div>
+                <p>Connecting to Softify Command Center...</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Edit Reason Modal -->
+  <div class="modal-backdrop" id="reasonModal">
+    <div class="modal-box">
+      <h2>Suspend Device Access</h2>
+      <p id="modalDeviceTitle">Set a custom message that will appear on this user's screen.</p>
+      <input type="text" id="blockReasonInput" class="modal-input" placeholder="e.g. Access suspended by administrator" value="Access suspended by administrator">
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeReasonModal()">Cancel</button>
+        <button class="btn btn-primary" style="background: var(--danger); color: white;" onclick="confirmBlockDevice()">Block Device</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings / Policy Modal -->
+  <div class="modal-backdrop" id="policyModal">
+    <div class="modal-box">
+      <h2>Server Fleet Policy</h2>
+      <p>Configure how new app installations are handled when they first connect.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+        <label style="font-size: 13px; font-weight: 600;">Default Access Policy for New Devices:</label>
+        <select id="policySelect" class="modal-input">
+          <option value="auto_allow">Auto-Allow (New devices immediately work)</option>
+          <option value="require_approval">Require Approval (New devices are held pending until unlocked)</option>
+        </select>
+
+        <label style="font-size: 13px; font-weight: 600; margin-top: 8px;">Broadcast In-App Banner (Optional):</label>
+        <input type="text" id="bannerInput" class="modal-input" placeholder="e.g. Scheduled maintenance in 1 hour">
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePolicyModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePolicySettings()">Save Policy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal-box">
+      <h2>Admin Key Authentication</h2>
+      <p>Enter your Softify Command Center key to authorize device toggles.</p>
+      <input type="password" id="adminKeyInput" class="modal-input" placeholder="Enter Admin Key (default: admin123)">
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAuthModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAdminKey()">Authenticate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let allDevices = [];
+    let currentFilter = 'all';
+    let pendingBlockId = null;
+
+    // Read stored admin key or default
+    function getAdminKey() {
+      return localStorage.getItem('softify_admin_key') || 'admin123';
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    function formatTimeAgo(isoString) {
+      if (!isoString) return 'Never';
+      const date = new Date(isoString);
+      const seconds = Math.floor((new Date() - date) / 1000);
+
+      if (seconds < 20) return 'Just now';
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    }
+
+    function getPlatformIcon(platform) {
+      const p = (platform || '').toLowerCase();
+      if (p.includes('android')) return '🤖 Android';
+      if (p.includes('ios')) return '🍎 iOS';
+      if (p.includes('linux')) return '🐧 Linux';
+      if (p.includes('windows')) return '🪟 Windows';
+      if (p.includes('macos')) return '🍏 macOS';
+      return '💻 ' + (platform || 'Desktop');
+    }
+
+    async function fetchDevices() {
+      const key = getAdminKey();
+      try {
+        const res = await fetch('/api/admin/devices', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+
+        if (res.status === 401) {
+          openAuthModal();
+          return;
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          allDevices = data.devices || [];
+          renderTable();
+          fetchStats();
+        }
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
+    }
+
+    async function fetchStats() {
+      const key = getAdminKey();
+      try {
+        const res = await fetch('/api/admin/stats', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success && data.stats) {
+          const s = data.stats;
+          document.getElementById('statTotal').innerText = s.total;
+          document.getElementById('statOnline').innerText = s.onlineNow;
+          document.getElementById('statAllowed').innerText = s.allowedCount;
+          document.getElementById('statBlocked').innerText = s.blockedCount;
+        }
+      } catch (e) {}
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('deviceTableBody');
+      const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      const filtered = allDevices.filter(d => {
+        if (currentFilter !== 'all' && d.status !== currentFilter) return false;
+        if (!search) return true;
+
+        const matchId = (d.id || '').toLowerCase().includes(search);
+        const matchModel = (d.deviceModel || '').toLowerCase().includes(search);
+        const matchAlias = (d.customAlias || '').toLowerCase().includes(search);
+        const matchIp = (d.ipAddress || '').toLowerCase().includes(search);
+        const matchOs = (d.osVersion || '').toLowerCase().includes(search);
+        const matchPlatform = (d.platform || '').toLowerCase().includes(search);
+
+        return matchId || matchModel || matchAlias || matchIp || matchOs || matchPlatform;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8">
+              <div class="empty-state">
+                <div class="empty-icon">📱</div>
+                <p>No devices found matching current filters.</p>
+                <p style="font-size: 11px; margin-top: 6px;">Once Softify opens on a device, it will automatically register and show up here.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(d => {
+        const isAllowed = d.status === 'allowed';
+        const isPending = d.status === 'pending';
+        const shortId = d.id.length > 16 ? d.id.substring(0, 8) + '...' + d.id.substring(d.id.length - 4) : d.id;
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: #fff;">${escapeHtml(d.customAlias || d.deviceModel || 'Unknown Device')}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(d.deviceModel || '')}</div>
+            </td>
+            <td>
+              <span class="platform-badge">${getPlatformIcon(d.platform)}</span>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">${escapeHtml(d.osVersion || 'Native')}</div>
+            </td>
+            <td>
+              <div class="device-id-cell">
+                <span class="id-tag" title="${d.id}">${shortId}</span>
+                <button class="copy-btn" title="Copy Device UUID" onclick="copyToClipboard('${d.id}')">📋</button>
+              </div>
+            </td>
+            <td>
+              <span style="font-family: var(--mono); font-size: 12px; color: #cbd5e1;">${escapeHtml(d.ipAddress || '127.0.0.1')}</span>
+            </td>
+            <td>
+              <span style="font-weight: 600;">v${escapeHtml(d.appVersion || '2.1.0')}</span>
+            </td>
+            <td>
+              <div style="font-weight: 600;">${formatTimeAgo(d.lastSeen)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${d.pingCount || 1} pings</div>
+            </td>
+            <td>
+              <label class="switch" title="${isAllowed ? 'Click to Block' : 'Click to Allow'}">
+                <input type="checkbox" ${isAllowed ? 'checked' : ''} onchange="onToggleSwitch('${d.id}', this.checked)">
+                <span class="slider"></span>
+              </label>
+              <span class="status-badge ${d.status}" style="margin-left: 8px;">${d.status}</span>
+              ${d.blockReason ? `<div style="font-size: 10.5px; color: var(--danger); margin-top: 4px;">${escapeHtml(d.blockReason)}</div>` : ''}
+            </td>
+            <td>
+              <div class="action-btns">
+                <button class="btn-icon" title="Edit Alias" onclick="editAlias('${d.id}', '${escapeHtml(d.customAlias || '')}')">✏️</button>
+                <button class="btn-icon delete" title="Delete Device" onclick="deleteDevice('${d.id}')">🗑️</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-chip').forEach(c => {
+        c.classList.toggle('active', c.getAttribute('data-filter') === filter);
+      });
+      renderTable();
+    }
+
+    function filterDevices() {
+      renderTable();
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text);
+      showToast('Device ID copied to clipboard');
+    }
+
+    async function onToggleSwitch(id, wantAllowed) {
+      if (!wantAllowed) {
+        // Prompt for optional custom reason
+        pendingBlockId = id;
+        document.getElementById('reasonModal').classList.add('show');
+        return;
+      }
+
+      // Unblocking directly
+      await setDeviceStatus(id, 'allowed', '');
+    }
+
+    async function confirmBlockDevice() {
+      if (!pendingBlockId) return;
+      const reason = document.getElementById('blockReasonInput').value.trim() || 'Access suspended by administrator';
+      const id = pendingBlockId;
+      closeReasonModal();
+      await setDeviceStatus(id, 'blocked', reason);
+    }
+
+    function closeReasonModal() {
+      document.getElementById('reasonModal').classList.remove('show');
+      pendingBlockId = null;
+      renderTable(); // reset switch state if cancelled
+    }
+
+    async function setDeviceStatus(id, status, reason) {
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/devices/${id}/update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ status, blockReason: reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Device ${status === 'allowed' ? 'Allowed ✓' : 'Blocked ✕'}`);
+          fetchDevices();
+        } else {
+          showToast(data.error || 'Failed to update device');
+        }
+      } catch (e) {
+        showToast('Network error');
+      }
+    }
+
+    async function editAlias(id, currentAlias) {
+      const newAlias = prompt('Enter a recognizable name/alias for this device:', currentAlias || '');
+      if (newAlias === null) return;
+
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/devices/${id}/update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ customAlias: newAlias.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Device alias updated');
+          fetchDevices();
+        }
+      } catch (e) {
+        showToast('Failed to update alias');
+      }
+    }
+
+    async function deleteDevice(id) {
+      if (!confirm('Are you sure you want to remove this device from the registry?')) return;
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/devices/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Device removed');
+          fetchDevices();
+        }
+      } catch (e) {
+        showToast('Failed to delete device');
+      }
+    }
+
+    // Auth modal
+    function openAuthModal() {
+      document.getElementById('adminKeyInput').value = getAdminKey();
+      document.getElementById('authModal').classList.add('show');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('authModal').classList.remove('show');
+    }
+
+    function saveAdminKey() {
+      const val = document.getElementById('adminKeyInput').value.trim();
+      if (val) {
+        localStorage.setItem('softify_admin_key', val);
+        showToast('Admin Key saved');
+        closeAuthModal();
+        fetchDevices();
+      }
+    }
+
+    // Policy settings modal
+    async function openPolicyModal() {
+      const key = getAdminKey();
+      try {
+        const res = await fetch('/api/admin/config', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success && data.config) {
+          document.getElementById('policySelect').value = data.config.defaultPolicy || 'auto_allow';
+          document.getElementById('bannerInput').value = data.config.broadcastBanner || '';
+        }
+      } catch (e) {}
+      document.getElementById('policyModal').classList.add('show');
+    }
+
+    function closePolicyModal() {
+      document.getElementById('policyModal').classList.remove('show');
+    }
+
+    async function savePolicySettings() {
+      const defaultPolicy = document.getElementById('policySelect').value;
+      const broadcastBanner = document.getElementById('bannerInput').value.trim();
+      const key = getAdminKey();
+
+      try {
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ defaultPolicy, broadcastBanner })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Policy configuration saved ✓');
+          closePolicyModal();
+        }
+      } catch (e) {
+        showToast('Failed to save policy');
+      }
+    }
+
+    // Auto-refresh every 5 seconds
+    setInterval(fetchDevices, 5000);
+
+    // Initial load
+    fetchDevices();
+  </script>
+</body>
+</html>

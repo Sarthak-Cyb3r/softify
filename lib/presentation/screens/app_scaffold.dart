@@ -23,7 +23,9 @@ import 'equalizer_screen.dart';
 import '../providers/settings_providers.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/ports/i_update_checker.dart';
+import '../providers/device_control_providers.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
+import 'device_blocked_screen.dart';
 
 /// Centralized application tab icon registry for consistent styling and quick theme swaps
 class AppTabIcons {
@@ -107,6 +109,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
       // 2. Automated background update check & prompt
       _checkAutoUpdate();
+
+      // 3. Device Fleet Authentication & Access Sync
+      ref.read(deviceControlProvider.notifier).checkStatus();
     });
   }
 
@@ -132,6 +137,11 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         position: pb?.position ?? Duration.zero,
       );
     });
+
+    final deviceState = ref.watch(deviceControlProvider);
+    if (deviceState.isBlocked) {
+      return const DeviceBlockedScreen();
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
