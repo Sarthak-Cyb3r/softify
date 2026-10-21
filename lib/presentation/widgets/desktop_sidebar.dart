@@ -35,12 +35,6 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final likedCountAsync = ref.watch(likedTracksStreamProvider);
-    final downloadsCountAsync = ref.watch(downloadsStreamProvider);
-
-    final likedCount = likedCountAsync.value?.length ?? 0;
-    final downloadsCount =
-        downloadsCountAsync.value?.where((d) => d.isCompleted).length ?? 0;
 
     String? watchedName;
     try {
@@ -277,14 +271,14 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                   _buildPlaylistItem(
                     title: 'Liked Songs',
                     dotColor: tokens.accent,
-                    badge: likedCount > 0 ? '$likedCount' : null,
+                    badge: null,
                     onTap: () => widget.onSelectTab(4),
                   ),
                   const SizedBox(height: 2),
                   _buildPlaylistItem(
                     title: 'Downloads',
                     dotColor: tokens.accent,
-                    badge: downloadsCount > 0 ? '$downloadsCount' : null,
+                    badge: null,
                     onTap: () => widget.onSelectTab(4),
                   ),
 

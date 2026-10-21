@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/search_intent.dart';
 import '../../domain/entities/track.dart';
 import '../providers/autocomplete_providers.dart';
 import '../providers/player_providers.dart';
@@ -241,57 +240,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 final query = _searchController.text.trim();
                 final suggestionsAsync =
                     ref.watch(autocompleteSuggestionsProvider(query));
-                final intent = ref.watch(intentRouterProvider).resolve(query);
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Intent Badge
-                    if (intent is MoodOrGenreIntent ||
-                        intent is SimilarToIntent ||
-                        intent is ArtistIntent)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: tokens.accent.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(tokens.radiusFull),
-                            border: Border.all(
-                              color: tokens.accent.withValues(alpha: 0.25),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                intent is MoodOrGenreIntent
-                                    ? Icons.auto_awesome_rounded
-                                    : intent is SimilarToIntent
-                                        ? Icons.grain_rounded
-                                        : Icons.person_rounded,
-                                color: tokens.accent,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                intent is MoodOrGenreIntent
-                                    ? 'Mix: ${intent.tags.join(" • ")}'
-                                    : intent is SimilarToIntent
-                                        ? 'Similar to: ${intent.seedTrackTitle}'
-                                        : 'Artist: ${(intent as ArtistIntent).artistName}',
-                                style: TextStyle(
-                                  color: tokens.accent,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     // Suggestions horizontal row
                     suggestionsAsync.maybeWhen(
                       data: (suggestions) {

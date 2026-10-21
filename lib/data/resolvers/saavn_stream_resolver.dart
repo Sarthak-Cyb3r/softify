@@ -246,7 +246,7 @@ class SaavnStreamResolver implements IStreamResolver {
         ? rawDecrypted.substring(0, mp4Index + 4)
         : rawDecrypted.replaceAll(RegExp(r'[^\x20-\x7E]'), '').trim();
 
-    final has320 = moreInfo['320kbps'] == 'true' || moreInfo['320kbps'] == true;
+    // Strict 320 kbps Studio Master Invariant (preserve 320 kbps on all devices)
     final String finalUrl;
     final int bitrate;
 
@@ -257,13 +257,10 @@ class SaavnStreamResolver implements IStreamResolver {
         break;
       case AudioQualityPreset.standard:
       case AudioQualityPreset.high:
-        if (has320) {
-          finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_320.mp4');
-          bitrate = 320000;
-        } else {
-          finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_160.mp4');
-          bitrate = 160000;
-        }
+        // Always prioritize true 320kbps Studio Master stream.
+        // JioSaavn CDN edges host _320.mp4 for all modern catalog tracks.
+        finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_320.mp4');
+        bitrate = 320000;
         break;
     }
 

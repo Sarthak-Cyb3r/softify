@@ -674,45 +674,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ),
           const SizedBox(height: 14),
 
-          // Badges Row
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B1F),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFF292A2D), width: 0.8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: activeAccent,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Sync Live',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: AppTheme.fontUi,
-                        fontWeight: FontWeight.w700,
-                        color: activeAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
           const Spacer(),
 
           // Keyboard Shortcut Tip Card
