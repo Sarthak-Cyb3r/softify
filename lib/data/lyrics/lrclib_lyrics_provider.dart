@@ -78,6 +78,21 @@ class LrclibLyricsProvider implements ILyricsProvider {
         final syncedLrc = json['syncedLyrics'] as String?;
         final plainLyrics = json['plainLyrics'] as String?;
 
+        if (json['instrumental'] == true) {
+          return SyncedLyrics(
+            trackId: trackId,
+            lines: const [
+              LyricLine(
+                timestamp: Duration.zero,
+                text: '[instrumental]',
+              ),
+            ],
+            plainLyrics: '[instrumental]',
+            syncType: 'LINE_SYNCED',
+            providerName: 'LRCLIB (Instrumental)',
+          );
+        }
+
         if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
           final lines = parseLrc(syncedLrc);
           if (lines.isNotEmpty) {
@@ -86,8 +101,20 @@ class LrclibLyricsProvider implements ILyricsProvider {
               lines: lines,
               plainLyrics: plainLyrics,
               rawLrc: syncedLrc,
+              syncType: 'LINE_SYNCED',
+              providerName: 'LRCLIB',
             );
           }
+        }
+
+        if (plainLyrics != null && plainLyrics.trim().isNotEmpty) {
+          return SyncedLyrics(
+            trackId: trackId,
+            lines: const [],
+            plainLyrics: plainLyrics.trim(),
+            syncType: 'UNSYNCED',
+            providerName: 'LRCLIB (Plain)',
+          );
         }
       }
     } catch (_) {}
@@ -118,39 +145,74 @@ class LrclibLyricsProvider implements ILyricsProvider {
         return synced != null && synced.trim().isNotEmpty;
       }).toList();
 
-      if (candidates.isEmpty) return null;
-
       final target = track.duration.inSeconds.toDouble();
-      // Filter out tracks with massive duration mismatch (> 25s) when duration is known
-      final viableCandidates = target > 30
-          ? candidates.where((c) {
-              final dur = (c['duration'] as num?)?.toDouble() ?? 0.0;
-              return dur > 0 && (dur - target).abs() <= 25;
-            }).toList()
-          : candidates;
 
-      if (viableCandidates.isEmpty) return null;
+      if (candidates.isNotEmpty) {
+        // Filter out tracks with massive duration mismatch (> 25s) when duration is known
+        final viableCandidates = target > 30
+            ? candidates.where((c) {
+                final dur = (c['duration'] as num?)?.toDouble() ?? 0.0;
+                return dur > 0 && (dur - target).abs() <= 25;
+              }).toList()
+            : candidates;
 
-      viableCandidates.sort((a, b) {
-        final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
-        final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
-        return (durA - target).abs().compareTo((durB - target).abs());
-      });
+        final candidateList =
+            viableCandidates.isNotEmpty ? viableCandidates : candidates;
 
-      final best = viableCandidates.first;
-      final syncedLrc = best['syncedLyrics'] as String?;
-      final plainLyrics = best['plainLyrics'] as String?;
-      if (syncedLrc == null || syncedLrc.trim().isEmpty) return null;
+        candidateList.sort((a, b) {
+          final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
+          final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
+          return (durA - target).abs().compareTo((durB - target).abs());
+        });
 
-      final lines = parseLrc(syncedLrc);
-      if (lines.isEmpty) return null;
+        final best = candidateList.first;
+        final syncedLrc = best['syncedLyrics'] as String?;
+        final plainLyrics = best['plainLyrics'] as String?;
+        if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
+          final lines = parseLrc(syncedLrc);
+          if (lines.isNotEmpty) {
+            return SyncedLyrics(
+              trackId: track.id,
+              lines: lines,
+              plainLyrics: plainLyrics,
+              rawLrc: syncedLrc,
+              syncType: 'LINE_SYNCED',
+              providerName: 'LRCLIB (Search)',
+            );
+          }
+        }
+      }
 
-      return SyncedLyrics(
-        trackId: track.id,
-        lines: lines,
-        plainLyrics: plainLyrics,
-        rawLrc: syncedLrc,
-      );
+      // Check for plain lyrics or instrumental flag among search results
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        if (item['instrumental'] == true) {
+          return SyncedLyrics(
+            trackId: track.id,
+            lines: const [
+              LyricLine(
+                timestamp: Duration.zero,
+                text: '[instrumental]',
+              ),
+            ],
+            plainLyrics: '[instrumental]',
+            syncType: 'LINE_SYNCED',
+            providerName: 'LRCLIB (Instrumental)',
+          );
+        }
+        final plain = item['plainLyrics'] as String?;
+        if (plain != null && plain.trim().isNotEmpty) {
+          return SyncedLyrics(
+            trackId: track.id,
+            lines: const [],
+            plainLyrics: plain.trim(),
+            syncType: 'UNSYNCED',
+            providerName: 'LRCLIB (Plain)',
+          );
+        }
+      }
+
+      return null;
     } catch (_) {
       return null;
     }
