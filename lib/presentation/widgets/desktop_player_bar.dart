@@ -116,7 +116,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
           // 1. Left Section: Track Info & Artwork
           // ==========================================
           SizedBox(
-            width: 250,
+            width: 210,
             child: Row(
               children: [
                 GestureDetector(
@@ -203,9 +203,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   children: [
                     // Shuffle Toggle
                     IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: EdgeInsets.zero,
+                      ),
                       iconSize: 18,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
                       tooltip: 'Shuffle',
                       icon: Icon(
                         isShuffle ? Icons.shuffle_on_rounded : Icons.shuffle_rounded,
@@ -219,9 +222,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                     // Previous Button
                     IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: EdgeInsets.zero,
+                      ),
                       iconSize: 22,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
                       tooltip: 'Previous',
                       icon: const Icon(
                         Icons.skip_previous_rounded,
@@ -240,7 +246,11 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                         color: AppTheme.accent,
                       ),
                       child: IconButton(
-                        padding: EdgeInsets.zero,
+                        style: IconButton.styleFrom(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: const Size(36, 36),
+                          padding: EdgeInsets.zero,
+                        ),
                         iconSize: 22,
                         tooltip: isPlaying ? 'Pause' : 'Play',
                         icon: Icon(
@@ -262,9 +272,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                     // Next Button
                     IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: EdgeInsets.zero,
+                      ),
                       iconSize: 22,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
                       tooltip: 'Next',
                       icon: const Icon(
                         Icons.skip_next_rounded,
@@ -276,9 +289,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                     // Repeat Button
                     IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: EdgeInsets.zero,
+                      ),
                       iconSize: 18,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
                       tooltip: 'Repeat',
                       icon: Icon(
                         repeatMode == AudioRepeatMode.one
@@ -352,7 +368,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
           // 3. Right Section: Speed, Lyrics, Queue, Volume
           // ==========================================
           SizedBox(
-            width: 280,
+            width: 230,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -468,7 +484,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                 ),
                 const SizedBox(width: 4),
                 SizedBox(
-                  width: 70,
+                  width: 60,
                   child: AppSlider(
                     value: volume,
                     min: 0.0,
