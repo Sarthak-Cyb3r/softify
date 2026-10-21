@@ -86,13 +86,6 @@ class MiniPlayer extends ConsumerWidget {
     final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(displayTrack.id));
     final isLiked = isLikedAsync?.value ?? displayTrack.isLiked;
 
-    final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
-    final duration =
-        ref.watch(durationStreamProvider).value ?? displayTrack.duration;
-    final progress = (duration.inMilliseconds > 0)
-        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-        : (isBuffering ? 0.35 : 0.0);
-
     return Semantics(
       label: 'Now Playing: ${displayTrack.title} by ${displayTrack.artist}',
       button: true,
@@ -336,24 +329,34 @@ class MiniPlayer extends ConsumerWidget {
                   ),
                 ),
 
-                // 2.5px Hairline Progress Bar
-                Container(
-                  height: 2.5,
-                  color: const Color(0x22FFFFFF),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: progress,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: tokens.accent,
-                          borderRadius: const BorderRadius.horizontal(
-                            right: Radius.circular(2),
+                // 2.5px Isolated Hairline Progress Bar
+                Consumer(
+                  builder: (context, ref, _) {
+                    final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
+                    final duration =
+                        ref.watch(durationStreamProvider).value ?? displayTrack.duration;
+                    final progress = (duration.inMilliseconds > 0)
+                        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+                        : (isBuffering ? 0.35 : 0.0);
+                    return Container(
+                      height: 2.5,
+                      color: const Color(0x22FFFFFF),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: progress,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: tokens.accent,
+                              borderRadius: const BorderRadius.horizontal(
+                                right: Radius.circular(2),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ],
             ),

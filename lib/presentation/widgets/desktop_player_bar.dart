@@ -83,9 +83,6 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
     final tokens = context.tokens;
     final currentTrack = ref.watch(currentTrackProvider).value;
     final playbackState = ref.watch(playbackStateStreamProvider).value;
-    final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
-    final duration =
-        ref.watch(durationStreamProvider).value ?? currentTrack?.duration ?? Duration.zero;
     final repeatMode =
         ref.watch(repeatModeStreamProvider).value ?? AudioRepeatMode.off;
     final isShuffle = ref.watch(shuffleModeStreamProvider).value ?? false;
@@ -101,10 +98,6 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
     final isPlaying = playbackState?.playing ?? false;
     final isLikedAsync = ref.watch(isTrackLikedProvider(currentTrack.id));
     final isLiked = isLikedAsync.value ?? currentTrack.isLiked;
-
-    final durationSec = duration.inSeconds > 0 ? duration.inSeconds.toDouble() : 1.0;
-    final currentSec = (_dragPositionSeconds ?? position.inSeconds.toDouble())
-        .clamp(0.0, durationSec);
 
     return Container(
       height: 90,
@@ -311,54 +304,65 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   ],
                 ),
 
-                // Scrubber Track Row
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 620),
-                  child: Row(
-                    children: [
-                      // Elapsed Time (tabular numerals, 12px min)
-                      Text(
-                        _formatDuration(Duration(seconds: currentSec.toInt())),
-                        style: AppTheme.tabularTimestamp(
-                          fontSize: 12,
-                          color: tokens.textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+                // Isolated Scrubber Track Row
+                Consumer(
+                  builder: (context, ref, _) {
+                    final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
+                    final duration =
+                        ref.watch(durationStreamProvider).value ?? currentTrack.duration;
+                    final durationSec = duration.inSeconds > 0 ? duration.inSeconds.toDouble() : 1.0;
+                    final currentSec = (_dragPositionSeconds ?? position.inSeconds.toDouble())
+                        .clamp(0.0, durationSec);
 
-                      // Scrubber Slider
-                      Expanded(
-                        child: AppSlider(
-                          value: currentSec,
-                          min: 0.0,
-                          max: durationSec,
-                          trackHeight: 3.5,
-                          activeColor: tokens.accent,
-                          inactiveColor: tokens.cardHover,
-                          onChangeStart: (val) {
-                            setState(() => _dragPositionSeconds = val);
-                          },
-                          onChanged: (val) {
-                            setState(() => _dragPositionSeconds = val);
-                          },
-                          onChangeEnd: (val) {
-                            audioHandler.seek(Duration(seconds: val.toInt()));
-                            setState(() => _dragPositionSeconds = null);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+                    return ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: Row(
+                        children: [
+                          // Elapsed Time (tabular numerals, 12px min)
+                          Text(
+                            _formatDuration(Duration(seconds: currentSec.toInt())),
+                            style: AppTheme.tabularTimestamp(
+                              fontSize: 12,
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
 
-                      // Duration Time (tabular numerals, 12px min)
-                      Text(
-                        _formatDuration(duration),
-                        style: AppTheme.tabularTimestamp(
-                          fontSize: 12,
-                          color: tokens.textMuted,
-                        ),
+                          // Scrubber Slider
+                          Expanded(
+                            child: AppSlider(
+                              value: currentSec,
+                              min: 0.0,
+                              max: durationSec,
+                              trackHeight: 3.5,
+                              activeColor: tokens.accent,
+                              inactiveColor: tokens.cardHover,
+                              onChangeStart: (val) {
+                                setState(() => _dragPositionSeconds = val);
+                              },
+                              onChanged: (val) {
+                                setState(() => _dragPositionSeconds = val);
+                              },
+                              onChangeEnd: (val) {
+                                audioHandler.seek(Duration(seconds: val.toInt()));
+                                setState(() => _dragPositionSeconds = null);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Duration Time (tabular numerals, 12px min)
+                          Text(
+                            _formatDuration(duration),
+                            style: AppTheme.tabularTimestamp(
+                              fontSize: 12,
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ],
             ),

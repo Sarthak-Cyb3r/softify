@@ -64,6 +64,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   bool _romanizeLyrics = false;
 
   int _lastActiveIndex = -1;
+  int _lastScrolledIndex = -1;
   bool _userIsScrolling = false;
   Timer? _userScrollTimer;
 
@@ -72,6 +73,17 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     super.initState();
     _positionNotifier = ValueNotifier<Duration>(Duration.zero);
     _loadSavedOffset();
+
+    try {
+      final audioHandler = ref.read(audioHandlerProvider);
+      _isPlaying = audioHandler.playbackState.value.playing;
+      _lastPlayerPosition = audioHandler.position;
+      _lastPlayerReceipt = DateTime.now();
+      _interpolatedPosition = _lastPlayerPosition;
+      if (_isPlaying) {
+        _ticker.start();
+      }
+    } catch (_) {}
 
     _ticker = createTicker((elapsed) {
       if (!_isPlaying) return;
@@ -207,6 +219,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
   void _scrollToActiveLine(int index, {bool force = false}) {
     if ((_userIsScrolling && !force) || !_scrollController.hasClients || index < 0) return;
+    if (!force && index == _lastScrolledIndex) return;
+    _lastScrolledIndex = index;
 
     void performScroll() {
       if (!mounted || (_userIsScrolling && !force) || !_scrollController.hasClients) return;
@@ -230,7 +244,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
         Scrollable.ensureVisible(
           ctx,
-          duration: const Duration(milliseconds: 550),
+          duration: const Duration(milliseconds: 320),
           curve: Curves.easeOutCubic,
           alignment: 0.38, // Golden ratio focal line (Spotify xpui Module 52427 spec)
         );
@@ -282,30 +296,47 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       }
     }
 
-    final positionAsync = ref.watch(positionStreamProvider);
-    final playbackAsync = ref.watch(playbackStateStreamProvider);
-
-    // Sync playback state safely
-    final isPlayingNow = playbackAsync.valueOrNull?.playing ?? false;
-    if (isPlayingNow != _isPlaying) {
-      _isPlaying = isPlayingNow;
-      if (_isPlaying && !_ticker.isActive) {
-        _ticker.start();
-      } else if (!_isPlaying && _ticker.isActive) {
-        _ticker.stop();
+    ref.listen(playbackStateStreamProvider, (prev, next) {
+      final isPlayingNow = next.valueOrNull?.playing ?? false;
+      if (isPlayingNow != _isPlaying) {
+        setState(() {
+          _isPlaying = isPlayingNow;
+        });
+        if (_isPlaying && !_ticker.isActive) {
+          _ticker.start();
+        } else if (!_isPlaying && _ticker.isActive) {
+          _ticker.stop();
+        }
       }
-    }
+    });
 
-    // Sync audio position stream
-    final streamPos = positionAsync.value ?? Duration.zero;
-    if (streamPos != _lastPlayerPosition) {
-      final posDelta = (streamPos - _lastPlayerPosition).abs();
-      _lastPlayerPosition = streamPos;
-      _lastPlayerReceipt = DateTime.now();
-      if (posDelta > const Duration(milliseconds: 1200) || streamPos > _interpolatedPosition) {
-        _interpolatedPosition = streamPos;
+    ref.listen(positionStreamProvider, (prev, next) {
+      final streamPos = next.valueOrNull ?? Duration.zero;
+      if (streamPos != _lastPlayerPosition) {
+        final posDelta = (streamPos - _lastPlayerPosition).abs();
+        _lastPlayerPosition = streamPos;
+        _lastPlayerReceipt = DateTime.now();
+        if (posDelta > const Duration(milliseconds: 1200) || streamPos > _interpolatedPosition) {
+          _interpolatedPosition = streamPos;
+        }
+        final effective = _interpolatedPosition + Duration(milliseconds: _syncOffsetMs + _baseLeadMs);
+        _positionNotifier.value = effective;
+
+        final lyrics = ref.read(trackLyricsProvider(widget.track)).valueOrNull;
+        if (lyrics != null && lyrics.isSynced && lyrics.lines.isNotEmpty) {
+          final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(
+            lyrics.lines,
+            effective,
+          );
+          if (activeIdx != _lastActiveIndex && mounted) {
+            setState(() {
+              _lastActiveIndex = activeIdx;
+            });
+            _scrollToActiveLine(activeIdx);
+          }
+        }
       }
-    }
+    });
 
     // Apply lead compensation offset to eliminate audio pipeline latency
     final effectivePos =
@@ -358,6 +389,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                       effectivePos,
                                       tokens,
                                       activeAccent,
+                                      backgroundColor,
                                     ),
                                   ),
                                 ],
@@ -370,6 +402,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           effectivePos,
                           tokens,
                           activeAccent,
+                          backgroundColor,
                         ),
                 ),
               ],
@@ -385,6 +418,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     Duration effectivePos,
     AppTokens tokens,
     Color activeAccent,
+    Color backgroundColor,
   ) {
     return lyricsAsync.when(
                     loading: () => Center(
@@ -473,10 +507,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
                       // Karaoke Synced Lyrics View
                       final lines = lyrics.lines;
-                      final activeIndex =
-                          _findActiveLineIndex(lines, effectivePos);
+                      final activeIndex = _lastActiveIndex >= 0 && _lastActiveIndex < lines.length
+                          ? _lastActiveIndex
+                          : _findActiveLineIndex(lines, effectivePos);
 
-                      if (activeIndex != _lastActiveIndex) {
+                      if (_lastActiveIndex == -1 && activeIndex >= 0) {
                         _lastActiveIndex = activeIndex;
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           _scrollToActiveLine(activeIndex);
@@ -485,50 +520,76 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
                       return Stack(
                         children: [
-                          // Top & Bottom Optical Gradient Fade Mask
-                          ShaderMask(
-                            blendMode: BlendMode.dstIn,
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white,
-                                  Colors.white,
-                                  Colors.transparent,
-                                ],
-                                stops: [0.0, 0.08, 0.90, 1.0],
-                              ).createShader(bounds);
+                          NotificationListener<UserScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification.direction !=
+                                  ScrollDirection.idle) {
+                                _onUserInteractedWithScroll();
+                              }
+                              return false;
                             },
-                            child: NotificationListener<UserScrollNotification>(
-                              onNotification: (notification) {
-                                if (notification.direction !=
-                                    ScrollDirection.idle) {
-                                  _onUserInteractedWithScroll();
-                                }
-                                return false;
-                              },
-                              child: SingleChildScrollView(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 80,
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 80,
+                              ),
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (int i = 0; i < lines.length; i++)
+                                    _buildLyricLine(
+                                      index: i,
+                                      lines: lines,
+                                      activeIndex: activeIndex,
+                                      tokens: tokens,
+                                      accentColor: activeAccent,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Top Zero-Cost Gradient Fade Overlay (Eliminates GPU saveLayer)
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: 64,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      backgroundColor,
+                                      backgroundColor.withValues(alpha: 0.0),
+                                    ],
+                                  ),
                                 ),
-                                physics: const BouncingScrollPhysics(),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (int i = 0; i < lines.length; i++)
-                                      _buildLyricLine(
-                                        index: i,
-                                        lines: lines,
-                                        activeIndex: activeIndex,
-                                        currentPos: effectivePos,
-                                        tokens: tokens,
-                                        accentColor: activeAccent,
-                                      ),
-                                  ],
+                              ),
+                            ),
+                          ),
+
+                          // Bottom Zero-Cost Gradient Fade Overlay (Eliminates GPU saveLayer)
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 72,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      backgroundColor,
+                                      backgroundColor.withValues(alpha: 0.0),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -962,7 +1023,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     required int index,
     required List<LyricLine> lines,
     required int activeIndex,
-    required Duration currentPos,
     required AppTokens tokens,
     required Color accentColor,
   }) {
@@ -981,132 +1041,95 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         ? 1.0
         : (0.40 - (distanceFromActive * 0.04)).clamp(0.20, 0.40);
 
-    return AnimatedScale(
-      scale: isActive ? 1.03 : 1.0,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.centerLeft,
-      child: Container(
-        key: _getKeyForIndex(index),
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        decoration: BoxDecoration(
-          color: isActive
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(tokens.radiusLg),
-          border: Border.all(
-            color: isActive
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.transparent,
-            width: 0.8,
-          ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    blurRadius: 20,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              try {
-                ref.read(audioHandlerProvider).seek(line.timestamp);
-              } catch (_) {}
-            },
-            onLongPress: () {
-              HapticFeedback.mediumImpact();
-              final quoteText = displayText;
-              final shareString =
-                  '"$quoteText"\n— ${widget.track.artist} (${widget.track.title})\nShared via Softify 🎧';
-              Clipboard.setData(ClipboardData(text: shareString));
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.copy_rounded, color: accentColor, size: 16),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Lyric quote copied to clipboard',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
+    return Container(
+      key: _getKeyForIndex(index),
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.04)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(tokens.radiusLg),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            try {
+              ref.read(audioHandlerProvider).seek(line.timestamp);
+            } catch (_) {}
+          },
+          onLongPress: () {
+            HapticFeedback.mediumImpact();
+            final quoteText = displayText;
+            final shareString =
+                '"$quoteText"\n— ${widget.track.artist} (${widget.track.title})\nShared via Softify 🎧';
+            Clipboard.setData(ClipboardData(text: shareString));
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.copy_rounded, color: accentColor, size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Lyric quote copied to clipboard',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
-                    ],
-                  ),
-                  duration: const Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF1B1B1F),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(tokens.radiusLg),
-                    side: BorderSide(
-                      color: accentColor.withValues(alpha: 0.35),
-                      width: 0.8,
                     ),
+                  ],
+                ),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: const Color(0xFF1B1B1F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  side: BorderSide(
+                    color: accentColor.withValues(alpha: 0.35),
+                    width: 0.8,
                   ),
                 ),
-              );
-            },
-            borderRadius: BorderRadius.circular(tokens.radiusLg),
-            splashColor: Colors.white.withValues(alpha: 0.08),
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: isMusicSymbol
-                  ? _buildInstrumentalIndicator(isActive, accentColor)
-                  : ((line.words != null && line.words!.isNotEmpty)
-                      ? _buildSyllableKaraokeLine(
-                          line: line,
-                          isActive: isActive,
-                          lineOpacity: lineOpacity,
-                          tokens: tokens,
-                          accentColor: accentColor,
-                        )
-                      : AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeOutCubic,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontEditorial,
-                            fontStyle: FontStyle.italic,
-                            fontSize: isActive
-                                ? _lyricFontSize.activeSize
-                                : _lyricFontSize.inactiveSize,
-                            fontWeight:
-                                isActive ? FontWeight.w700 : FontWeight.w400,
-                            color: isActive
-                                ? Colors.white
-                                : tokens.textPrimary.withValues(alpha: lineOpacity),
-                            shadows: isActive
-                                ? [
-                                    Shadow(
-                                      color: Colors.white.withValues(alpha: 0.90),
-                                      blurRadius: 14,
-                                    ),
-                                    Shadow(
-                                      color: Colors.white.withValues(alpha: 0.55),
-                                      blurRadius: 28,
-                                    ),
-                                    Shadow(
-                                      color: accentColor.withValues(alpha: 0.35),
-                                      blurRadius: 38,
-                                    ),
-                                  ]
-                                : null,
-                            height: 1.45,
-                            letterSpacing: isActive ? -0.3 : 0.0,
-                          ),
-                          child: Text(displayText),
-                        )),
-            ),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(tokens.radiusLg),
+          splashColor: Colors.white.withValues(alpha: 0.08),
+          highlightColor: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: isMusicSymbol
+                ? _buildInstrumentalIndicator(isActive, accentColor)
+                : ((line.words != null && line.words!.isNotEmpty)
+                    ? _buildSyllableKaraokeLine(
+                        line: line,
+                        isActive: isActive,
+                        lineOpacity: lineOpacity,
+                        tokens: tokens,
+                        accentColor: accentColor,
+                      )
+                    : AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontEditorial,
+                          fontStyle: FontStyle.italic,
+                          fontSize: isActive
+                              ? _lyricFontSize.activeSize
+                              : _lyricFontSize.inactiveSize,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w400,
+                          color: isActive
+                              ? Colors.white
+                              : tokens.textPrimary.withValues(alpha: lineOpacity),
+                          height: 1.45,
+                          letterSpacing: isActive ? -0.3 : 0.0,
+                        ),
+                        child: Text(displayText),
+                      )),
           ),
         ),
       ),
@@ -1154,7 +1177,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       ? ScriptRomanizer.romanize(word.text)
                       : word.text;
                   final isWordSung = w <= activeWordIdx;
-                  final isCurrentWord = w == activeWordIdx;
 
                   return TextSpan(
                     text: (w < words.length - 1 && !wordText.endsWith(' '))
@@ -1169,25 +1191,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       color: isWordSung
                           ? Colors.white
                           : tokens.textPrimary.withValues(alpha: 0.35),
-                      shadows: isCurrentWord
-                          ? [
-                              Shadow(
-                                color: Colors.white.withValues(alpha: 0.95),
-                                blurRadius: 16,
-                              ),
-                              Shadow(
-                                color: accentColor.withValues(alpha: 0.8),
-                                blurRadius: 28,
-                              ),
-                            ]
-                          : (isWordSung
-                              ? [
-                                  Shadow(
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                    blurRadius: 10,
-                                  ),
-                                ]
-                              : null),
                     ),
                   );
                 }(),
@@ -1220,18 +1223,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               color: isActive
                   ? Colors.white
                   : Colors.white.withValues(alpha: 0.25),
-              shadows: isActive
-                  ? [
-                      Shadow(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        blurRadius: 14,
-                      ),
-                      Shadow(
-                        color: accentColor.withValues(alpha: 0.35),
-                        blurRadius: 28,
-                      ),
-                    ]
-                  : null,
             ),
           ),
         ],
