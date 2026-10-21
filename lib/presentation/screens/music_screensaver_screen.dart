@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../data/lyrics/script_romanizer.dart';
+import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../data/player/softify_audio_handler.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
@@ -701,14 +702,8 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
         }
 
         final lines = lyrics.lines;
-        int activeIndex = -1;
-        for (int i = 0; i < lines.length; i++) {
-          if (lines[i].timestamp <= position) {
-            activeIndex = i;
-          } else {
-            break;
-          }
-        }
+        final activeIndex =
+            SpotifyLyricsSynchronizer.findActiveLineIndex(lines, position);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (activeIndex >= 0) {

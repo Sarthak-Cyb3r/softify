@@ -10,6 +10,7 @@ import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import '../../data/database/app_database.dart';
 import '../../data/lyrics/script_romanizer.dart';
+import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
@@ -85,37 +86,34 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       final now = DateTime.now();
       if (rawPlayerPos != _lastPlayerPosition && rawPlayerPos > Duration.zero) {
         final posDelta = (rawPlayerPos - _lastPlayerPosition).abs();
+        _lastPlayerPosition = rawPlayerPos;
+        _lastPlayerReceipt = now;
         if (posDelta > const Duration(milliseconds: 1200)) {
           // Explicit seek by user
-          _lastPlayerPosition = rawPlayerPos;
-          _lastPlayerReceipt = now;
           _interpolatedPosition = rawPlayerPos;
-        } else {
-          // Monotonic progress without backward micro-stutter
-          _lastPlayerPosition = rawPlayerPos;
-          _lastPlayerReceipt = now;
-          if (rawPlayerPos > _interpolatedPosition) {
-            _interpolatedPosition = rawPlayerPos;
-          }
-        }
-      } else {
-        final diff = now.difference(_lastPlayerReceipt);
-        if (diff <= const Duration(milliseconds: 2500)) {
-          final predicted = _lastPlayerPosition + diff;
-          if (predicted > _interpolatedPosition) {
-            _interpolatedPosition = predicted;
-          }
         }
       }
 
-      final effectivePos =
-          _interpolatedPosition + Duration(milliseconds: _syncOffsetMs + _baseLeadMs);
+      // High-precision dead-reckoning extrapolation (Spotify xpui Module 29735)
+      final effectivePos = SpotifyLyricsSynchronizer.extrapolatePosition(
+        referencePosition: _lastPlayerPosition,
+        referenceTimestamp: _lastPlayerReceipt,
+        now: now,
+        isPaused: !_isPlaying,
+        duration: widget.track.duration,
+        latencyCompensationMs: _baseLeadMs,
+        userOffsetMs: _syncOffsetMs,
+      );
+      _interpolatedPosition = effectivePos;
       _positionNotifier.value = effectivePos;
 
-      // Only trigger widget tree re-layout when active lyric line advances
+      // Only trigger widget tree re-layout when active lyric line advances (Module 52427)
       final lyrics = ref.read(trackLyricsProvider(widget.track)).valueOrNull;
       if (lyrics != null && lyrics.isSynced && lyrics.lines.isNotEmpty) {
-        final activeIdx = _findActiveLineIndex(lyrics.lines, effectivePos);
+        final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(
+          lyrics.lines,
+          effectivePos,
+        );
         if (activeIdx != _lastActiveIndex && mounted) {
           setState(() {
             _lastActiveIndex = activeIdx;
@@ -207,18 +205,34 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     return _lineKeys.putIfAbsent(index, () => GlobalKey());
   }
 
-  void _scrollToActiveLine(int index) {
-    if (_userIsScrolling || !_scrollController.hasClients || index < 0) return;
+  void _scrollToActiveLine(int index, {bool force = false}) {
+    if ((_userIsScrolling && !force) || !_scrollController.hasClients || index < 0) return;
 
     void performScroll() {
-      if (!mounted || _userIsScrolling || !_scrollController.hasClients) return;
+      if (!mounted || (_userIsScrolling && !force) || !_scrollController.hasClients) return;
       final key = _lineKeys[index];
-      if (key?.currentContext != null) {
+      final ctx = key?.currentContext;
+      if (ctx != null) {
+        if (!force && _scrollController.position.haveDimensions) {
+          final lineBox = ctx.findRenderObject() as RenderBox?;
+          final scrollBox = _scrollController.position.context.notificationContext?.findRenderObject() as RenderBox?;
+          if (lineBox != null && scrollBox != null && lineBox.hasSize && scrollBox.hasSize) {
+            final lineOffset = lineBox.localToGlobal(Offset.zero, ancestor: scrollBox);
+            final inZone = SpotifyLyricsSynchronizer.isInAutoScrollZone(
+              lineTop: lineOffset.dy,
+              lineHeight: lineBox.size.height,
+              viewTop: 0.0,
+              viewHeight: scrollBox.size.height,
+            );
+            if (inZone) return; // Already smoothly centered in safe deadzone (Module 52427)
+          }
+        }
+
         Scrollable.ensureVisible(
-          key!.currentContext!,
+          ctx,
           duration: const Duration(milliseconds: 550),
           curve: Curves.easeOutCubic,
-          alignment: 0.38, // Golden ratio focal line
+          alignment: 0.38, // Golden ratio focal line (Spotify xpui Module 52427 spec)
         );
       }
     }
@@ -234,22 +248,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   }
 
   int _findActiveLineIndex(List<LyricLine> lines, Duration currentPosition) {
-    if (lines.isEmpty) return -1;
-    // Before first line begins (instrumental intro)
-    if (currentPosition < lines.first.timestamp) {
-      return -1;
-    }
-    for (int i = lines.length - 1; i >= 0; i--) {
-      if (currentPosition >= lines[i].timestamp) {
-        int primaryIndex = i;
-        while (primaryIndex > 0 &&
-            lines[primaryIndex - 1].timestamp == lines[i].timestamp) {
-          primaryIndex--;
-        }
-        return primaryIndex;
-      }
-    }
-    return -1;
+    return SpotifyLyricsSynchronizer.findActiveLineIndex(lines, currentPosition);
   }
 
   void _onUserInteractedWithScroll() {
@@ -269,9 +268,20 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final activeAccent = widget.ambientColor ?? tokens.accent;
-
     final lyricsAsync = ref.watch(trackLyricsProvider(widget.track));
+    final lyricsData = lyricsAsync.valueOrNull;
+
+    Color activeAccent = widget.ambientColor ?? tokens.accent;
+    Color backgroundColor = const Color(0xFF0D0E11);
+    if (lyricsData?.colors != null) {
+      if (lyricsData!.colors!.highlightText != null) {
+        activeAccent = Color(lyricsData.colors!.highlightText!);
+      }
+      if (lyricsData.colors!.background != null) {
+        backgroundColor = Color(lyricsData.colors!.background!);
+      }
+    }
+
     final positionAsync = ref.watch(positionStreamProvider);
     final playbackAsync = ref.watch(playbackStateStreamProvider);
 
@@ -306,7 +316,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       borderRadius: BorderRadius.circular(tokens.radiusXl),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0D0E11),
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(tokens.radiusXl),
           border: Border.all(
             color: const Color(0xFF1F1F23),
@@ -316,8 +326,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              activeAccent.withValues(alpha: 0.05),
-              const Color(0xFF0D0E11),
+              activeAccent.withValues(alpha: 0.12),
+              backgroundColor,
             ],
             stops: const [0.0, 0.45],
           ),
@@ -535,7 +545,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                 scaleFactor: 0.92,
                                 onTap: () {
                                   setState(() => _userIsScrolling = false);
-                                  _scrollToActiveLine(activeIndex);
+                                  _scrollToActiveLine(activeIndex, force: true);
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -1069,45 +1079,139 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: isMusicSymbol
                   ? _buildInstrumentalIndicator(isActive, accentColor)
-                  : AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontEditorial,
-                        fontStyle: FontStyle.italic,
-                        fontSize: isActive
-                            ? _lyricFontSize.activeSize
-                            : _lyricFontSize.inactiveSize,
-                        fontWeight:
-                            isActive ? FontWeight.w700 : FontWeight.w400,
-                        color: isActive
-                            ? Colors.white
-                            : tokens.textPrimary.withValues(alpha: lineOpacity),
-                        shadows: isActive
-                            ? [
-                                Shadow(
-                                  color: Colors.white.withValues(alpha: 0.90),
-                                  blurRadius: 14,
-                                ),
-                                Shadow(
-                                  color: Colors.white.withValues(alpha: 0.55),
-                                  blurRadius: 28,
-                                ),
-                                Shadow(
-                                  color: accentColor.withValues(alpha: 0.35),
-                                  blurRadius: 38,
-                                ),
-                              ]
-                            : null,
-                        height: 1.45,
-                        letterSpacing: isActive ? -0.3 : 0.0,
-                      ),
-                      child: Text(displayText),
-                    ),
+                  : ((line.words != null && line.words!.isNotEmpty)
+                      ? _buildSyllableKaraokeLine(
+                          line: line,
+                          isActive: isActive,
+                          lineOpacity: lineOpacity,
+                          tokens: tokens,
+                          accentColor: accentColor,
+                        )
+                      : AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontEditorial,
+                            fontStyle: FontStyle.italic,
+                            fontSize: isActive
+                                ? _lyricFontSize.activeSize
+                                : _lyricFontSize.inactiveSize,
+                            fontWeight:
+                                isActive ? FontWeight.w700 : FontWeight.w400,
+                            color: isActive
+                                ? Colors.white
+                                : tokens.textPrimary.withValues(alpha: lineOpacity),
+                            shadows: isActive
+                                ? [
+                                    Shadow(
+                                      color: Colors.white.withValues(alpha: 0.90),
+                                      blurRadius: 14,
+                                    ),
+                                    Shadow(
+                                      color: Colors.white.withValues(alpha: 0.55),
+                                      blurRadius: 28,
+                                    ),
+                                    Shadow(
+                                      color: accentColor.withValues(alpha: 0.35),
+                                      blurRadius: 38,
+                                    ),
+                                  ]
+                                : null,
+                            height: 1.45,
+                            letterSpacing: isActive ? -0.3 : 0.0,
+                          ),
+                          child: Text(displayText),
+                        )),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSyllableKaraokeLine({
+    required LyricLine line,
+    required bool isActive,
+    required double lineOpacity,
+    required AppTokens tokens,
+    required Color accentColor,
+  }) {
+    final displayText =
+        _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
+
+    if (!isActive) {
+      return Text(
+        displayText,
+        style: TextStyle(
+          fontFamily: AppTheme.fontEditorial,
+          fontStyle: FontStyle.italic,
+          fontSize: _lyricFontSize.inactiveSize,
+          fontWeight: FontWeight.w400,
+          color: tokens.textPrimary.withValues(alpha: lineOpacity),
+          height: 1.45,
+        ),
+      );
+    }
+
+    final words = line.words!;
+    return ValueListenableBuilder<Duration>(
+      valueListenable: _positionNotifier,
+      builder: (context, pos, _) {
+        final activeWordIdx =
+            SpotifyLyricsSynchronizer.findActiveWordIndex(words, pos);
+
+        return RichText(
+          text: TextSpan(
+            children: [
+              for (int w = 0; w < words.length; w++) ...[
+                () {
+                  final word = words[w];
+                  final wordText = _romanizeLyrics
+                      ? ScriptRomanizer.romanize(word.text)
+                      : word.text;
+                  final isWordSung = w <= activeWordIdx;
+                  final isCurrentWord = w == activeWordIdx;
+
+                  return TextSpan(
+                    text: (w < words.length - 1 && !wordText.endsWith(' '))
+                        ? '$wordText '
+                        : wordText,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontEditorial,
+                      fontStyle: FontStyle.italic,
+                      fontSize: _lyricFontSize.activeSize,
+                      fontWeight:
+                          isWordSung ? FontWeight.w800 : FontWeight.w400,
+                      color: isWordSung
+                          ? Colors.white
+                          : tokens.textPrimary.withValues(alpha: 0.35),
+                      shadows: isCurrentWord
+                          ? [
+                              Shadow(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                blurRadius: 16,
+                              ),
+                              Shadow(
+                                color: accentColor.withValues(alpha: 0.8),
+                                blurRadius: 28,
+                              ),
+                            ]
+                          : (isWordSung
+                              ? [
+                                  Shadow(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    blurRadius: 10,
+                                  ),
+                                ]
+                              : null),
+                    ),
+                  );
+                }(),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
