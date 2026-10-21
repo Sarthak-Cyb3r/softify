@@ -381,7 +381,9 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                 // Lyrics Modal Launcher
                 IconButton(
-                  iconSize: 20,
+                  iconSize: 19,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Lyrics',
                   icon: const Icon(
                     Icons.lyrics_rounded,
@@ -389,10 +391,13 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   ),
                   onPressed: () => _openLyricsDialog(context, currentTrack),
                 ),
+                const SizedBox(width: 4),
 
                 // Queue Sheet Launcher
                 IconButton(
-                  iconSize: 20,
+                  iconSize: 19,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Queue',
                   icon: const Icon(
                     Icons.queue_music_rounded,
@@ -400,10 +405,13 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   ),
                   onPressed: () => _openQueueModal(context),
                 ),
+                const SizedBox(width: 4),
 
                 // Music Screensaver Launcher
                 IconButton(
-                  iconSize: 20,
+                  iconSize: 19,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  padding: EdgeInsets.zero,
                   tooltip: 'Ambient Screensaver (F11)',
                   icon: const Icon(
                     Icons.fit_screen_rounded,
@@ -421,10 +429,13 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     );
                   },
                 ),
+                const SizedBox(width: 4),
 
                 // Volume Icon & Slider
                 IconButton(
-                  iconSize: 20,
+                  iconSize: 19,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  padding: EdgeInsets.zero,
                   tooltip: volume == 0.0 ? 'Unmute' : 'Mute',
                   icon: Icon(
                     volume == 0.0
@@ -443,8 +454,9 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     }
                   },
                 ),
+                const SizedBox(width: 4),
                 SizedBox(
-                  width: 90,
+                  width: 70,
                   child: AppSlider(
                     value: volume,
                     min: 0.0,
