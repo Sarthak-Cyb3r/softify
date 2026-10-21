@@ -119,6 +119,11 @@ final isPlayingProvider = Provider<bool>((ref) {
   return playbackState?.playing ?? false;
 });
 
+final activeLyricStreamProvider = StreamProvider<String?>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.activeLyricStream;
+});
+
 final positionStreamProvider = StreamProvider<Duration>((ref) {
   final handler = ref.watch(audioHandlerProvider);
   return handler.positionStream;

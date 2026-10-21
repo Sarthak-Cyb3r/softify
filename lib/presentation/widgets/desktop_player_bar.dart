@@ -5,6 +5,7 @@ import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
+import '../screens/music_screensaver_screen.dart';
 import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'queue_bottom_sheet.dart';
@@ -398,6 +399,27 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     color: AppTheme.textSecondary,
                   ),
                   onPressed: () => _openQueueModal(context),
+                ),
+
+                // Music Screensaver Launcher
+                IconButton(
+                  iconSize: 20,
+                  tooltip: 'Ambient Screensaver (F11)',
+                  icon: const Icon(
+                    Icons.fit_screen_rounded,
+                    color: AppTheme.textSecondary,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, anim, secAnim) =>
+                            const MusicScreensaverScreen(),
+                        transitionsBuilder: (context, anim, secAnim, child) =>
+                            FadeTransition(opacity: anim, child: child),
+                        transitionDuration: const Duration(milliseconds: 300),
+                      ),
+                    );
+                  },
                 ),
 
                 // Volume Icon & Slider

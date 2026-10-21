@@ -372,3 +372,98 @@ final spotifyLyricsConfigProvider =
   return SpotifyLyricsConfigNotifier(db);
 });
 
+// ==========================================
+// 8. Linux & Desktop Music Screensaver Config
+// ==========================================
+
+class ScreensaverConfig {
+  final bool enabled;
+  final int timeoutSeconds; // 30, 60, 120, 300, 0 (0 = manual only)
+  final bool showLyrics;
+
+  const ScreensaverConfig({
+    this.enabled = true,
+    this.timeoutSeconds = 60,
+    this.showLyrics = true,
+  });
+
+  ScreensaverConfig copyWith({
+    bool? enabled,
+    int? timeoutSeconds,
+    bool? showLyrics,
+  }) {
+    return ScreensaverConfig(
+      enabled: enabled ?? this.enabled,
+      timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+      showLyrics: showLyrics ?? this.showLyrics,
+    );
+  }
+}
+
+class ScreensaverConfigNotifier extends StateNotifier<ScreensaverConfig> {
+  final AppDatabase _db;
+
+  ScreensaverConfigNotifier(this._db) : super(const ScreensaverConfig()) {
+    _loadFromDb();
+  }
+
+  Future<void> _loadFromDb() async {
+    try {
+      final rows = await (_db.select(_db.settings)
+            ..where((t) => t.key.isIn([
+                  'screensaver_enabled',
+                  'screensaver_timeout_seconds',
+                  'screensaver_show_lyrics',
+                ])))
+          .get();
+
+      bool enabled = true;
+      int timeoutSeconds = 60;
+      bool showLyrics = true;
+
+      for (final r in rows) {
+        if (r.key == 'screensaver_enabled') {
+          enabled = r.value == 'true' || r.value == '1';
+        } else if (r.key == 'screensaver_timeout_seconds') {
+          timeoutSeconds = int.tryParse(r.value) ?? 60;
+        } else if (r.key == 'screensaver_show_lyrics') {
+          showLyrics = r.value != 'false' && r.value != '0';
+        }
+      }
+
+      state = ScreensaverConfig(
+        enabled: enabled,
+        timeoutSeconds: timeoutSeconds,
+        showLyrics: showLyrics,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = state.copyWith(enabled: enabled);
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingRow(key: 'screensaver_enabled', value: enabled ? 'true' : 'false'),
+        );
+  }
+
+  Future<void> setTimeoutSeconds(int seconds) async {
+    state = state.copyWith(timeoutSeconds: seconds);
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingRow(key: 'screensaver_timeout_seconds', value: seconds.toString()),
+        );
+  }
+
+  Future<void> setShowLyrics(bool showLyrics) async {
+    state = state.copyWith(showLyrics: showLyrics);
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingRow(key: 'screensaver_show_lyrics', value: showLyrics ? 'true' : 'false'),
+        );
+  }
+}
+
+final screensaverConfigProvider =
+    StateNotifierProvider<ScreensaverConfigNotifier, ScreensaverConfig>((ref) {
+  final db = ref.watch(databaseProvider);
+  return ScreensaverConfigNotifier(db);
+});
+

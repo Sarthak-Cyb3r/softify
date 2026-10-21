@@ -17,6 +17,8 @@ import 'features/podcasts/data/podcast_metadata_service.dart';
 import 'features/podcasts/data/podcast_rss_resolver.dart';
 import 'features/podcasts/presentation/podcast_controller.dart';
 import 'presentation/providers/player_providers.dart';
+import 'data/lyrics/composite_lyrics_provider.dart';
+import 'data/lyrics/spotify_lyrics_provider.dart';
 import 'dart:io';
 import 'data/player/linux_audio_backend.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
@@ -71,6 +73,13 @@ void main() async {
     libraryRepo: libraryRepo,
   );
 
+  final lyricsProvider = CompositeLyricsProvider(
+    spotify: SpotifyLyricsProvider(
+      tokenGetter: () => null,
+      customEndpointGetter: () => null,
+    ),
+  );
+
   // 2. Audio Service Startup Dependency Injection (D6 / D14)
   final audioHandler = await AudioService.init(
     builder: () => SoftifyAudioHandler(
@@ -81,13 +90,14 @@ void main() async {
       eventLogger: eventLogger,
       tasteRepo: tasteRepo,
       automixTailReorderer: AutomixTailReorderer(),
+      lyricsProvider: lyricsProvider,
     ),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.softify.audio',
       androidNotificationChannelName: 'Softify Playback',
       androidNotificationChannelDescription: 'Softify Background Media Playback',
       androidNotificationIcon: 'drawable/ic_notification',
-      notificationColor: Color(0xFF1DB954),
+      notificationColor: Color(0xFF2EE66B),
       androidNotificationOngoing: false,
       androidStopForegroundOnPause: false,
     ),

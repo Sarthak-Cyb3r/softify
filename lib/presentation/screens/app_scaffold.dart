@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import '../theme/app_theme.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/quick_playback_panel.dart';
+import 'music_screensaver_screen.dart';
 import '../../features/podcasts/domain/parse_podcast_link.dart';
 import '../../features/podcasts/presentation/podcast_controller.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
@@ -48,6 +51,47 @@ class AppScaffold extends ConsumerStatefulWidget {
 
 class _AppScaffoldState extends ConsumerState<AppScaffold> {
   int _currentIndex = 0;
+  bool _isScreensaverOpen = false;
+  Timer? _screensaverIdleTimer;
+  bool _isQuickPanelOpen = false;
+
+  void _resetScreensaverIdleTimer() {
+    _screensaverIdleTimer?.cancel();
+    final config = ref.read(screensaverConfigProvider);
+    if (!config.enabled || config.timeoutSeconds <= 0) return;
+
+    _screensaverIdleTimer = Timer(Duration(seconds: config.timeoutSeconds), () {
+      if (!mounted || _isScreensaverOpen) return;
+      final isPlaying = ref.read(playbackStateStreamProvider).value?.playing ?? false;
+      final currentTrack = ref.read(currentTrackProvider).value;
+      if (isPlaying && currentTrack != null) {
+        _launchScreensaver();
+      }
+    });
+  }
+
+  void _launchScreensaver() {
+    if (_isScreensaverOpen || !mounted) return;
+    _isScreensaverOpen = true;
+    _screensaverIdleTimer?.cancel();
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, anim, secAnim) => const MusicScreensaverScreen(),
+        transitionsBuilder: (context, anim, secAnim, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    ).then((_) {
+      _isScreensaverOpen = false;
+      _resetScreensaverIdleTimer();
+    });
+  }
+
+  @override
+  void dispose() {
+    _screensaverIdleTimer?.cancel();
+    super.dispose();
+  }
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -130,6 +174,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
     ref.listen(playbackStateStreamProvider, (_, next) {
       final pb = next.value;
+      if (pb?.playing == true) {
+        _resetScreensaverIdleTimer();
+      }
       final track = ref.read(currentTrackProvider).value;
       ref.read(discordRpcServiceProvider).updatePresence(
         track: track,
@@ -221,10 +268,18 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
           setState(() => _currentIndex = 5);
         },
+        // F11: Ambient Music Screensaver
+        const SingleActivator(LogicalKeyboardKey.f11): () {
+          _launchScreensaver();
+        },
       },
       child: Focus(
         autofocus: true,
-        child: Scaffold(
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerHover: (_) => _resetScreensaverIdleTimer(),
+          onPointerDown: (_) => _resetScreensaverIdleTimer(),
+          child: Scaffold(
           backgroundColor: tokens.background,
           body: Row(
             children: [
@@ -262,6 +317,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           ),
         ),
       ),
+    ),
     ),
     ),
     );
@@ -530,6 +586,64 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
               ),
             ),
           ),
+
+          // Top Swipe-Down Trigger Handle for Quick Playback Panel
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).padding.top + 28,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onVerticalDragUpdate: (details) {
+                if (details.delta.dy > 4 && !_isQuickPanelOpen) {
+                  HapticFeedback.lightImpact();
+                  setState(() => _isQuickPanelOpen = true);
+                }
+              },
+              onTap: () {
+                HapticFeedback.lightImpact();
+                setState(() => _isQuickPanelOpen = true);
+              },
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Floating Frosted Quick Playback Controlling Panel
+          if (_isQuickPanelOpen) ...[
+            // Dismiss Barrier
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _isQuickPanelOpen = false),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+
+            // Top-anchored Dropdown Panel
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: QuickPlaybackPanel(
+                onDismiss: () => setState(() => _isQuickPanelOpen = false),
+              ),
+            ),
+          ],
         ],
       ),
     );

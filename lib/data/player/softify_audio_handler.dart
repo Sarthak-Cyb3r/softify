@@ -18,6 +18,7 @@ import '../../domain/ports/i_event_logger.dart';
 import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_stream_resolver.dart';
 import '../../domain/ports/i_taste_profile_repository.dart';
+import '../../domain/ports/i_lyrics_provider.dart';
 
 import 'softify_audio_player.dart';
 
@@ -31,7 +32,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
   final IEventLogger? _eventLogger;
   final ITasteProfileRepository? _tasteRepo;
   final IAutomixTailReorderer? _automixTailReorderer;
+  final ILyricsProvider? _lyricsProvider;
   final AudioQualityPreset _qualityPreset;
+
+  SyncedLyrics? _currentSyncedLyrics;
+  String? _lastBroadcastLyric;
+  final BehaviorSubject<String?> _activeLyricSubject =
+      BehaviorSubject<String?>.seeded(null);
+  Stream<String?> get activeLyricStream => _activeLyricSubject.stream;
+  String? get activeLyric => _activeLyricSubject.value;
 
   final List<Track> _queue = [];
   int _currentIndex = -1;
@@ -103,6 +112,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     IEventLogger? eventLogger,
     ITasteProfileRepository? tasteRepo,
     IAutomixTailReorderer? automixTailReorderer,
+    ILyricsProvider? lyricsProvider,
     AudioQualityPreset qualityPreset = AudioQualityPreset.standard,
     bool enableAudioSession = true,
     bool autoRestoreState = true,
@@ -114,6 +124,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _eventLogger = eventLogger,
         _tasteRepo = tasteRepo,
         _automixTailReorderer = automixTailReorderer,
+        _lyricsProvider = lyricsProvider,
         _qualityPreset = qualityPreset {
     _init(
       enableAudioSession: enableAudioSession,
@@ -349,6 +360,35 @@ class SoftifyAudioHandler extends BaseAudioHandler
           _onTrackCompleted();
         }
       }
+
+      // 3. Real-time synchronized lyrics broadcast for lockscreen & notification panel
+      final synced = _currentSyncedLyrics;
+      if (synced != null && synced.lines.isNotEmpty) {
+        final lines = synced.lines;
+        int activeIdx = -1;
+        for (int i = 0; i < lines.length; i++) {
+          if (lines[i].timestamp <= pos) {
+            activeIdx = i;
+          } else {
+            break;
+          }
+        }
+        final lineText = activeIdx >= 0 ? lines[activeIdx].text.trim() : null;
+        if (lineText != _lastBroadcastLyric) {
+          _lastBroadcastLyric = lineText;
+          _activeLyricSubject.add(lineText);
+          final curItem = mediaItem.value;
+          if (curItem != null && curItem.id == currentTrack?.id) {
+            final displaySubtitle = (lineText != null && lineText.isNotEmpty)
+                ? '♪ $lineText'
+                : (currentTrack?.artist ?? '');
+            mediaItem.add(curItem.copyWith(
+              displaySubtitle: displaySubtitle,
+              displayDescription: displaySubtitle,
+            ));
+          }
+        }
+      }
     });
 
     if (autoRestoreState) {
@@ -416,21 +456,42 @@ class SoftifyAudioHandler extends BaseAudioHandler
     };
   }
 
-  MediaItem _trackToMediaItem(Track track) {
+  MediaItem _trackToMediaItem(Track track, [String? activeLyric]) {
+    final subtitle = (activeLyric != null && activeLyric.isNotEmpty)
+        ? '♪ $activeLyric'
+        : track.artist;
     return MediaItem(
       id: track.id,
       title: track.title,
       artist: track.artist,
       album: track.album,
       duration: track.duration,
+      displayTitle: track.title,
+      displaySubtitle: subtitle,
+      displayDescription: subtitle,
       artUri: (track.coverUrl != null && track.coverUrl!.isNotEmpty)
           ? Uri.tryParse(track.coverUrl!)
           : Uri.parse('https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/assets/logo/logo.png'),
       extras: {
         'sourceId': track.sourceId,
         'isLiked': track.isLiked,
+        'currentLyric': activeLyric ?? '',
       },
     );
+  }
+
+  void _loadLyricsForCurrentTrack(Track track) {
+    _currentSyncedLyrics = null;
+    _lastBroadcastLyric = null;
+    _activeLyricSubject.add(null);
+    final provider = _lyricsProvider;
+    if (provider == null) return;
+
+    provider.getLyrics(track).then((synced) {
+      if (currentTrack?.id == track.id) {
+        _currentSyncedLyrics = synced;
+      }
+    }).catchError((_) {});
   }
 
   void _syncQueueState() {
@@ -861,6 +922,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     final track = _queue[_currentIndex];
     _syncQueueState();
     _currentTrackStartedAt = DateTime.now();
+    _loadLyricsForCurrentTrack(track);
 
     // Reset playback speed to 1.0x for standard music tracks
     if (!track.supportsSpeedPlayback && _player.speed != 1.0) {

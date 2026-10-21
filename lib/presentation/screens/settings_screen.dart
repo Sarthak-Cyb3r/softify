@@ -18,6 +18,7 @@ import '../providers/settings_providers.dart';
 import '../theme/app_theme.dart';
 import 'debug_metrics_screen.dart';
 import 'equalizer_screen.dart';
+import 'music_screensaver_screen.dart';
 import 'onboarding_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -582,6 +583,138 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             )
                           : Icon(Icons.chevron_right, color: tokens.textSecondary),
                       onTap: () => _showEndpointInputDialog(context, ref, lyricsConfig.endpoint),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Section: Music Screensaver (Linux & Desktop)
+          _buildSectionHeader('Music Screensaver (Linux & Desktop)'),
+          Material(
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+            clipBehavior: Clip.antiAlias,
+            child: Consumer(
+              builder: (context, ref, _) {
+                final screensaverConfig = ref.watch(screensaverConfigProvider);
+
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      activeColor: tokens.accent,
+                      secondary: Icon(
+                        Icons.fit_screen_rounded,
+                        color: screensaverConfig.enabled ? tokens.accent : tokens.textSecondary,
+                      ),
+                      title: const Text(
+                        'Ambient Music Screensaver',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        'Displays album art, player controls, and giant synced lyrics during playback',
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                      ),
+                      value: screensaverConfig.enabled,
+                      onChanged: (val) {
+                        ref.read(screensaverConfigProvider.notifier).setEnabled(val);
+                      },
+                    ),
+                    const Divider(color: Colors.black26, height: 1),
+                    ListTile(
+                      leading: Icon(
+                        Icons.timer_outlined,
+                        color: screensaverConfig.enabled ? Colors.white70 : Colors.white24,
+                      ),
+                      title: const Text(
+                        'Activation Timeout',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        screensaverConfig.timeoutSeconds == 0
+                            ? 'Manual activation only (F11 key / Player Bar icon)'
+                            : 'Activates after ${screensaverConfig.timeoutSeconds}s of system inactivity',
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                      ),
+                      trailing: DropdownButton<int>(
+                        value: [0, 30, 60, 120, 300].contains(screensaverConfig.timeoutSeconds)
+                            ? screensaverConfig.timeoutSeconds
+                            : 60,
+                        dropdownColor: tokens.surfaceElevated,
+                        underline: const SizedBox.shrink(),
+                        icon: Icon(Icons.arrow_drop_down, color: tokens.textSecondary),
+                        style: TextStyle(
+                          color: tokens.accent,
+                          fontFamily: AppTheme.fontUi,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 30, child: Text('30 seconds')),
+                          DropdownMenuItem(value: 60, child: Text('1 minute')),
+                          DropdownMenuItem(value: 120, child: Text('2 minutes')),
+                          DropdownMenuItem(value: 300, child: Text('5 minutes')),
+                          DropdownMenuItem(value: 0, child: Text('Manual only')),
+                        ],
+                        onChanged: screensaverConfig.enabled
+                            ? (newTimeout) {
+                                if (newTimeout != null) {
+                                  ref
+                                      .read(screensaverConfigProvider.notifier)
+                                      .setTimeoutSeconds(newTimeout);
+                                }
+                              }
+                            : null,
+                      ),
+                    ),
+                    const Divider(color: Colors.black26, height: 1),
+                    SwitchListTile(
+                      activeColor: tokens.accent,
+                      secondary: Icon(
+                        Icons.lyrics_rounded,
+                        color: screensaverConfig.showLyrics ? tokens.accent : tokens.textSecondary,
+                      ),
+                      title: const Text(
+                        'Giant Synced Lyrics Deck',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        'Allocates ~62% of screensaver width to smooth-scrolling synchronized lyrics',
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                      ),
+                      value: screensaverConfig.showLyrics,
+                      onChanged: screensaverConfig.enabled
+                          ? (val) {
+                              ref.read(screensaverConfigProvider.notifier).setShowLyrics(val);
+                            }
+                          : null,
+                    ),
+                    const Divider(color: Colors.black26, height: 1),
+                    ListTile(
+                      leading: Icon(Icons.play_circle_outline_rounded, color: tokens.accent),
+                      title: const Text(
+                        'Launch Screensaver Preview',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        'Preview full-screen ambient mode immediately (Press Esc to return)',
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                      ),
+                      trailing: Icon(Icons.chevron_right_rounded, color: tokens.textSecondary),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            pageBuilder: (context, anim, secAnim) =>
+                                const MusicScreensaverScreen(),
+                            transitionsBuilder: (context, anim, secAnim, child) =>
+                                FadeTransition(opacity: anim, child: child),
+                            transitionDuration: const Duration(milliseconds: 300),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 );
