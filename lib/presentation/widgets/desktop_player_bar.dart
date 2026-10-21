@@ -352,7 +352,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
           // 3. Right Section: Speed, Lyrics, Queue, Volume
           // ==========================================
           SizedBox(
-            width: 250,
+            width: 280,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -381,9 +381,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                 // Lyrics Modal Launcher
                 IconButton(
-                  iconSize: 19,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(4),
+                  ),
+                  iconSize: 18,
                   tooltip: 'Lyrics',
                   icon: const Icon(
                     Icons.lyrics_rounded,
@@ -395,9 +398,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                 // Queue Sheet Launcher
                 IconButton(
-                  iconSize: 19,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(4),
+                  ),
+                  iconSize: 18,
                   tooltip: 'Queue',
                   icon: const Icon(
                     Icons.queue_music_rounded,
@@ -409,9 +415,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                 // Music Screensaver Launcher
                 IconButton(
-                  iconSize: 19,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(4),
+                  ),
+                  iconSize: 18,
                   tooltip: 'Ambient Screensaver (F11)',
                   icon: const Icon(
                     Icons.fit_screen_rounded,
@@ -433,9 +442,12 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
                 // Volume Icon & Slider
                 IconButton(
-                  iconSize: 19,
-                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(4),
+                  ),
+                  iconSize: 18,
                   tooltip: volume == 0.0 ? 'Unmute' : 'Mute',
                   icon: Icon(
                     volume == 0.0
