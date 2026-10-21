@@ -674,6 +674,29 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ),
           const SizedBox(height: 14),
 
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: activeAccent,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Sync Live',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: AppTheme.fontUi,
+                  fontWeight: FontWeight.w600,
+                  color: activeAccent,
+                ),
+              ),
+            ],
+          ),
+
           const Spacer(),
 
           // Keyboard Shortcut Tip Card
