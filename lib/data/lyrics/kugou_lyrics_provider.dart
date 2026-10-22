@@ -39,11 +39,18 @@ class KugouLyricsProvider implements ILyricsProvider {
           [];
       if (infoList.isEmpty) return null;
 
-      // Match candidate with closest duration
-      Map<String, dynamic> bestSong = infoList.first;
+      // Filter candidates to strictly verify song title matches
+      final matchingSongs = infoList.where((info) {
+        final songName = (info['SongName'] ?? info['FileName'] ?? '').toString();
+        return _isTitleMatch(cleanTitle, songName);
+      }).toList();
+      if (matchingSongs.isEmpty) return null;
+
+      // Match candidate with closest duration among verified title matches
+      Map<String, dynamic> bestSong = matchingSongs.first;
       if (track.duration.inSeconds > 0) {
         int bestDiff = 999999;
-        for (final info in infoList) {
+        for (final info in matchingSongs) {
           final dur = (info['Duration'] ?? info['duration'] as num?)?.toInt() ?? 0;
           final diff = (dur - track.duration.inSeconds).abs();
           if (diff < bestDiff) {
@@ -116,6 +123,30 @@ class KugouLyricsProvider implements ILyricsProvider {
         .replaceAll(RegExp(r'\[.*?\]'), '')
         .replaceAll(RegExp(r'\s+feat\..*$', caseSensitive: false), '')
         .replaceAll(RegExp(r'\s+ft\..*$', caseSensitive: false), '')
+        .trim();
+  }
+
+  bool _isTitleMatch(String targetTitle, String candidateName) {
+    final normTarget = _normalizeTitle(targetTitle);
+    final normCand = _normalizeTitle(candidateName);
+    if (normTarget.isEmpty || normCand.isEmpty) return false;
+    if (normTarget == normCand) return true;
+    if (normCand.contains(normTarget) || normTarget.contains(normCand)) return true;
+
+    final targetTokens = normTarget.split(' ').where((w) => w.length > 2).toSet();
+    final candTokens = normCand.split(' ').where((w) => w.length > 2).toSet();
+    if (targetTokens.isEmpty || candTokens.isEmpty) return false;
+    final common = targetTokens.intersection(candTokens);
+    return (common.length / targetTokens.length) >= 0.6;
+  }
+
+  String _normalizeTitle(String text) {
+    return text
+        .toLowerCase()
+        .replaceAll(RegExp(r'\(.*?\)'), '')
+        .replaceAll(RegExp(r'\[.*?\]'), '')
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 }

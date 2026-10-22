@@ -111,7 +111,7 @@ class _TrackRowState extends State<TrackRow> {
                           fontFamily: AppTheme.fontUi,
                           fontSize: 14.0,
                           fontWeight: FontWeight.w600,
-                          color: widget.isPlaying
+                          color: (widget.isPlaying || widget.isSelected)
                               ? tokens.accent
                               : tokens.textPrimary,
                         ),
@@ -191,11 +191,12 @@ class _TrackRowState extends State<TrackRow> {
 
   Widget _buildLeadingIndex(AppTokens tokens) {
     final indexNum = widget.index != null ? '${widget.index}' : '';
+    final isCurrent = widget.isPlaying || widget.isSelected;
 
     return SizedBox(
       width: 32.0,
       child: Center(
-        child: widget.isPlaying
+        child: isCurrent
             ? SizedBox(
                 width: 14.0,
                 height: 14.0,

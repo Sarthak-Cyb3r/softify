@@ -297,6 +297,24 @@ void main() {
       expect(result, isNotNull);
       expect(result!.lines.first.text, 'Fallback line');
     });
+
+    test('CuratedLyricsProvider returns verified lyrics for Maine Khud Ko', () async {
+      const maineTrack = Track(
+        id: 'spotify_05REArTDZQd59A9Y4XC0Aq',
+        sourceId: 'src_maine',
+        title: 'Maine Khud Ko',
+        artist: 'Mustafa Zahid',
+        duration: Duration(seconds: 329),
+      );
+
+      final composite = CompositeLyricsProvider();
+      final lyrics = await composite.getLyrics(maineTrack);
+
+      expect(lyrics, isNotNull);
+      expect(lyrics!.isSynced, isTrue);
+      expect(lyrics.lines.any((l) => l.text.contains('Maine khud ko de diya hai tujhko')), isTrue);
+      expect(lyrics.lines.any((l) => l.text.contains('Gunaah')), isFalse);
+    });
   });
 }
 

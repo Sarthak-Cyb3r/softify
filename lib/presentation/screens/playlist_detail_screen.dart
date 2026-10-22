@@ -85,6 +85,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     final tokens = context.tokens;
     final playlistAsync = ref.watch(playlistWithTracksStreamProvider(widget.playlistId));
     final audioHandler = ref.watch(audioHandlerProvider);
+    final currentTrack =
+        ref.watch(currentTrackProvider).value ?? audioHandler.currentTrack;
+    final isPlaying = ref.watch(isPlayingProvider);
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -321,7 +324,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final track = tracks[index];
-                        final isPlayingThis = audioHandler.currentTrack?.id == track.id;
+                        final isCurrentTrack = currentTrack?.id == track.id;
 
                         return _buildTrackTile(
                           context: context,
@@ -329,7 +332,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                           track: track,
                           index: index,
                           allTracks: tracks,
-                          isPlayingThis: isPlayingThis,
+                          isPlayingThis: isCurrentTrack && isPlaying,
+                          isSelected: isCurrentTrack,
                           playlistId: playlist.id,
                         );
                       },
@@ -351,6 +355,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     required int index,
     required List<Track> allTracks,
     required bool isPlayingThis,
+    bool isSelected = false,
     required String playlistId,
   }) {
     final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
@@ -362,6 +367,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
       track: track.copyWith(isLiked: isLiked),
       index: index + 1,
       isPlaying: isPlayingThis,
+      isSelected: isSelected,
       onTap: () => _playAll(allTracks, startIndex: index),
       onPlayTap: () => _playAll(allTracks, startIndex: index),
       onLikeTap: () {

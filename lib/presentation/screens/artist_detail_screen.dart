@@ -251,13 +251,15 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                   final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
                   final isLiked = isLikedAsync.value ?? track.isLiked;
                   final currentTrack = ref.watch(currentTrackProvider).value;
+                  final isPlaying = ref.watch(isPlayingProvider);
                   final isCurrent = currentTrack?.id == track.id;
 
                   return TrackRow(
                     track: track.copyWith(isLiked: isLiked),
                     index: index + 1,
                     showArtwork: true,
-                    isPlaying: isCurrent,
+                    isPlaying: isCurrent && isPlaying,
+                    isSelected: isCurrent,
                     onTap: () {
                       audioHandler.setQueue(_tracks, startIndex: index);
                     },

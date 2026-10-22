@@ -2,17 +2,19 @@ import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import 'curated_lyrics_provider.dart';
 import 'genius_lyrics_provider.dart';
 import 'kugou_lyrics_provider.dart';
 import 'lrclib_lyrics_provider.dart';
 import 'netease_lyrics_provider.dart';
 import 'saavn_lyrics_provider.dart';
 
-/// Multi-source lyrics engine combining Spotify Color-Lyrics v2 (Primary),
-/// LRCLIB, NetEase, Kugou, JioSaavn, and Genius catalogs.
+/// Multi-source lyrics engine combining Softify Verified Studio Master (Tier 0),
+/// Spotify Color-Lyrics v2 (Primary), LRCLIB, NetEase, Kugou, JioSaavn, and Genius catalogs.
 /// Ensures maximum global coverage, millisecond-accurate LRC synchronization,
 /// syllable karaoke progression, and extensive plain fallback.
 class CompositeLyricsProvider implements ILyricsProvider {
+  final ILyricsProvider _curated;
   final ILyricsProvider? _spotify;
   final ILyricsProvider _lrclib;
   final ILyricsProvider _netease;
@@ -24,6 +26,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   static const int maxCacheEntries = 150;
 
   CompositeLyricsProvider({
+    ILyricsProvider? curated,
     ILyricsProvider? spotify,
     ILyricsProvider? primary,
     ILyricsProvider? netease,
@@ -31,7 +34,8 @@ class CompositeLyricsProvider implements ILyricsProvider {
     ILyricsProvider? saavn,
     ILyricsProvider? fallback,
     HttpClient? httpClient,
-  })  : _spotify = spotify,
+  })  : _curated = curated ?? CuratedLyricsProvider(),
+        _spotify = spotify,
         _lrclib = primary ?? LrclibLyricsProvider(httpClient: httpClient),
         _netease = netease ?? NeteaseLyricsProvider(httpClient: httpClient),
         _kugou = secondary ?? KugouLyricsProvider(httpClient: httpClient),
@@ -43,6 +47,17 @@ class CompositeLyricsProvider implements ILyricsProvider {
     if (_cache.containsKey(track.id)) {
       return _cache[track.id];
     }
+
+    // Tier 0 (Gold Standard): Query Softify verified studio master catalog
+    try {
+      final curatedResult = await _curated.getLyrics(track);
+      if (curatedResult != null &&
+          curatedResult.isSynced &&
+          curatedResult.lines.isNotEmpty) {
+        _addToCache(track.id, curatedResult);
+        return curatedResult;
+      }
+    } catch (_) {}
 
     // Tier 0 (Primary): Query Spotify official color-lyrics v2
     if (_spotify != null) {

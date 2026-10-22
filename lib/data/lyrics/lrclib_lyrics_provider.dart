@@ -142,7 +142,8 @@ class LrclibLyricsProvider implements ILyricsProvider {
       final list = jsonDecode(body) as List<dynamic>;
       final candidates = list.cast<Map<String, dynamic>>().where((item) {
         final synced = item['syncedLyrics'] as String?;
-        return synced != null && synced.trim().isNotEmpty;
+        final candName = (item['trackName'] ?? item['name'] ?? '').toString();
+        return (synced != null && synced.trim().isNotEmpty) && _isTitleMatch(cleanTitle, candName);
       }).toList();
 
       final target = track.duration.inSeconds.toDouble();
@@ -299,5 +300,29 @@ class LrclibLyricsProvider implements ILyricsProvider {
       }
     }
     return lines;
+  }
+
+  static bool _isTitleMatch(String targetTitle, String candidateName) {
+    final normTarget = _normalizeTitle(targetTitle);
+    final normCand = _normalizeTitle(candidateName);
+    if (normTarget.isEmpty || normCand.isEmpty) return false;
+    if (normTarget == normCand) return true;
+    if (normCand.contains(normTarget) || normTarget.contains(normCand)) return true;
+
+    final targetTokens = normTarget.split(' ').where((w) => w.length > 2).toSet();
+    final candTokens = normCand.split(' ').where((w) => w.length > 2).toSet();
+    if (targetTokens.isEmpty || candTokens.isEmpty) return false;
+    final common = targetTokens.intersection(candTokens);
+    return (common.length / targetTokens.length) >= 0.6;
+  }
+
+  static String _normalizeTitle(String text) {
+    return text
+        .toLowerCase()
+        .replaceAll(RegExp(r'\(.*?\)'), '')
+        .replaceAll(RegExp(r'\[.*?\]'), '')
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }

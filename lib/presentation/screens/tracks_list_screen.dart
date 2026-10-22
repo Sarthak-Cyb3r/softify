@@ -120,6 +120,9 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final audioHandler = ref.watch(audioHandlerProvider);
+    final currentTrack =
+        ref.watch(currentTrackProvider).value ?? audioHandler.currentTrack;
+    final isPlaying = ref.watch(isPlayingProvider);
     final isDesktop = MediaQuery.of(context).size.width >= 800;
     final accentColor = widget.iconColor ?? tokens.accent;
 
@@ -361,8 +364,8 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
                               final track = _tracks[index];
-                              final isPlayingThis =
-                                  audioHandler.currentTrack?.id == track.id;
+                              final isCurrentTrack =
+                                  currentTrack?.id == track.id;
 
                               return _buildTrackTile(
                                 context: context,
@@ -370,7 +373,8 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
                                 track: track,
                                 index: index,
                                 allTracks: _tracks,
-                                isPlayingThis: isPlayingThis,
+                                isPlayingThis: isCurrentTrack && isPlaying,
+                                isSelected: isCurrentTrack,
                               );
                             },
                             childCount: _tracks.length,
@@ -389,6 +393,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     required int index,
     required List<Track> allTracks,
     required bool isPlayingThis,
+    bool isSelected = false,
   }) {
     final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(track.id));
@@ -399,6 +404,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       track: track.copyWith(isLiked: isLiked),
       index: index + 1,
       isPlaying: isPlayingThis,
+      isSelected: isSelected,
       onTap: () => _playAll(startIndex: index),
       onPlayTap: () => _playAll(startIndex: index),
       onLikeTap: () {

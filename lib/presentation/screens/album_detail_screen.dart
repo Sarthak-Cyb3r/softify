@@ -84,6 +84,9 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final audioHandler = ref.watch(audioHandlerProvider);
+    final currentTrack =
+        ref.watch(currentTrackProvider).value ?? audioHandler.currentTrack;
+    final isPlaying = ref.watch(isPlayingProvider);
     final totalDurationSeconds =
         _tracks.fold<int>(0, (sum, t) => sum + t.duration.inSeconds);
     final totalMinutes = totalDurationSeconds ~/ 60;
@@ -458,13 +461,14 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                       ref.watch(isTrackDownloadedProvider(track.id));
                   final isDownloaded = isDownloadedAsync.value ?? false;
 
-                  final isCurrent = audioHandler.currentTrack?.id == track.id;
+                  final isCurrent = currentTrack?.id == track.id;
 
                   return TrackRow(
                     track: track.copyWith(isLiked: isLiked),
                     index: index + 1,
                     showArtwork: false,
-                    isPlaying: isCurrent,
+                    isPlaying: isCurrent && isPlaying,
+                    isSelected: isCurrent,
                     onTap: () {
                       audioHandler.setQueue(_tracks, startIndex: index);
                     },
