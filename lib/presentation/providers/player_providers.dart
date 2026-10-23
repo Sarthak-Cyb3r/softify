@@ -251,10 +251,12 @@ final lyricsProvider = Provider<ILyricsProvider>((ref) {
   } catch (_) {}
   final db = ref.watch(databaseProvider);
   final authService = ref.watch(spotifyAuthServiceProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return CompositeLyricsProvider(
     spotify: SpotifyLyricsProvider(
       db: db,
       authService: authService,
+      spotifyApi: spotifyApi,
     ),
   );
 });

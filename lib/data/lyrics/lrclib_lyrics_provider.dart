@@ -245,72 +245,96 @@ class LrclibLyricsProvider implements ILyricsProvider {
   static List<LyricLine> parseLrc(String syncedLrc) {
     final List<LyricLine> lines = [];
     final rawLines = syncedLrc.split('\n');
+
+    // Parse standard LRC header offset tag [offset:+/-ms] if present
+    int globalOffsetMs = 0;
+    for (final line in rawLines) {
+      final trimmed = line.trim();
+      final offsetMatch = RegExp(r'^\[offset:\s*([+-]?\d+)\s*\]', caseSensitive: false).firstMatch(trimmed);
+      if (offsetMatch != null) {
+        globalOffsetMs = int.tryParse(offsetMatch.group(1)!) ?? 0;
+        break;
+      }
+    }
+
+    final tagRegex = RegExp(r'\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]');
+
     for (final line in rawLines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
 
-      // Parse LRC format: [mm:ss.xx] Lyrics
-      final match = RegExp(r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$').firstMatch(trimmed);
-      if (match != null) {
-        final minutes = int.parse(match.group(1)!);
-        final seconds = int.parse(match.group(2)!);
-        final millisRaw = match.group(3)!;
-        final millis = millisRaw.length == 2
-            ? int.parse(millisRaw) * 10
-            : int.parse(millisRaw);
-        final rawText = match.group(4)!.trim();
+      // Extract all timestamp tags on this line (supports repeated chorus tags e.g. [00:10.00][01:20.00]Lyric)
+      final tagMatches = tagRegex.allMatches(trimmed).toList();
+      if (tagMatches.isEmpty) continue;
 
-        // Check for enhanced word-level LRC tags: <mm:ss.xx>word
-        final wordRegex = RegExp(r'<(\d{2}):(\d{2})\.(\d{2,3})>([^<]*)');
-        final wordMatches = wordRegex.allMatches(rawText).toList();
-        List<LyricWord>? words;
-        String cleanText = rawText;
+      final lastTagEnd = tagMatches.last.end;
+      final rawText = trimmed.substring(lastTagEnd).trim();
 
-        if (wordMatches.isNotEmpty) {
+      // Check for enhanced word-level LRC tags: <mm:ss.xx>word
+      final wordRegex = RegExp(r'<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>([^<]*)');
+      final wordMatches = wordRegex.allMatches(rawText).toList();
+      List<LyricWord>? words;
+      String cleanText = rawText;
+
+      if (wordMatches.isNotEmpty) {
+        final tempWords = <LyricWord>[];
+        final buffer = StringBuffer();
+        for (final wm in wordMatches) {
+          final wMin = int.parse(wm.group(1)!);
+          final wSec = int.parse(wm.group(2)!);
+          final wMilliRaw = wm.group(3);
+          int wMillis = 0;
+          if (wMilliRaw != null) {
+            if (wMilliRaw.length == 1) {
+              wMillis = int.parse(wMilliRaw) * 100;
+            } else if (wMilliRaw.length == 2) {
+              wMillis = int.parse(wMilliRaw) * 10;
+            } else {
+              wMillis = int.parse(wMilliRaw.substring(0, 3));
+            }
+          }
+          final wText = wm.group(4) ?? '';
+          final totalMs = wMin * 60000 + wSec * 1000 + wMillis + globalOffsetMs;
+          tempWords.add(
+            LyricWord(
+              timestamp: Duration(milliseconds: totalMs < 0 ? 0 : totalMs),
+              text: wText.trim(),
+            ),
+          );
+          buffer.write(wText);
+        }
+        if (tempWords.isNotEmpty) {
           words = [];
-          final buffer = StringBuffer();
-          for (final wm in wordMatches) {
-            final wMin = int.parse(wm.group(1)!);
-            final wSec = int.parse(wm.group(2)!);
-            final wMilliRaw = wm.group(3)!;
-            final wMillis = wMilliRaw.length == 2
-                ? int.parse(wMilliRaw) * 10
-                : int.parse(wMilliRaw);
-            final wText = wm.group(4) ?? '';
-            words.add(
-              LyricWord(
-                timestamp: Duration(
-                  minutes: wMin,
-                  seconds: wSec,
-                  milliseconds: wMillis,
-                ),
-                text: wText.trim(),
-              ),
-            );
-            buffer.write(wText);
-          }
-          cleanText = buffer.toString().trim();
-        }
-
-        final lineDuration = Duration(
-          minutes: minutes,
-          seconds: seconds,
-          milliseconds: millis,
-        );
-
-        // Filter out duplicate-timestamp translation/sub-caption lines (e.g. "(English translation)")
-        if (lines.isNotEmpty &&
-            (lines.last.timestamp == lineDuration ||
-                (lineDuration - lines.last.timestamp).inMilliseconds.abs() < 50)) {
-          final isEnclosedTranslation =
-              (cleanText.startsWith('(') && cleanText.endsWith(')')) ||
-              (cleanText.startsWith('[') && cleanText.endsWith(']')) ||
-              (cleanText.startsWith('（') && cleanText.endsWith('）'));
-          if (isEnclosedTranslation) {
-            // Drop duplicate translation line to preserve original primary vocals
-            continue;
+          for (int w = 0; w < tempWords.length; w++) {
+            final nextStart = (w + 1 < tempWords.length) ? tempWords[w + 1].timestamp : null;
+            final duration = nextStart != null ? (nextStart - tempWords[w].timestamp) : null;
+            words.add(LyricWord(
+              timestamp: tempWords[w].timestamp,
+              text: tempWords[w].text,
+              duration: duration,
+            ));
           }
         }
+        cleanText = buffer.toString().trim();
+      }
+
+      for (final tm in tagMatches) {
+        final minutes = int.parse(tm.group(1)!);
+        final seconds = int.parse(tm.group(2)!);
+        final millisRaw = tm.group(3);
+        int millis = 0;
+        if (millisRaw != null) {
+          if (millisRaw.length == 1) {
+            millis = int.parse(millisRaw) * 100;
+          } else if (millisRaw.length == 2) {
+            millis = int.parse(millisRaw) * 10;
+          } else {
+            millis = int.parse(millisRaw.substring(0, 3));
+          }
+        }
+
+        final totalMs = minutes * 60000 + seconds * 1000 + millis + globalOffsetMs;
+        final lineDuration = Duration(milliseconds: totalMs < 0 ? 0 : totalMs);
 
         lines.add(
           LyricLine(
@@ -321,7 +345,26 @@ class LrclibLyricsProvider implements ILyricsProvider {
         );
       }
     }
-    return lines;
+
+    // Sort chronologically in case of out-of-order or multi-timestamp lines
+    lines.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    // Filter out duplicate-timestamp translation/sub-caption lines (e.g. "(English translation)")
+    final List<LyricLine> deduped = [];
+    for (final l in lines) {
+      if (deduped.isNotEmpty &&
+          (l.timestamp - deduped.last.timestamp).inMilliseconds.abs() < 50) {
+        final isEnclosedTranslation =
+            (l.text.startsWith('(') && l.text.endsWith(')')) ||
+            (l.text.startsWith('[') && l.text.endsWith(']')) ||
+            (l.text.startsWith('（') && l.text.endsWith('）'));
+        if (isEnclosedTranslation) {
+          continue;
+        }
+      }
+      deduped.add(l);
+    }
+    return deduped;
   }
 
   static bool _isTitleMatch(String targetTitle, String candidateName) {

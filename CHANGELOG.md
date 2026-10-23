@@ -2,6 +2,21 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [2.9.9] - 2026-10-23
+
+### 🛠️ Critical Hotfix: Update Checker & Lyrics Real-Time Sync
+- **Resolved False Update Notification Loop**: Fixed a hardcoded `kAppVersion` constant (`'2.9.7'`) in `settings_providers.dart` that caused updated devices on v2.9.8 to continuously report an update was available. Version is now synchronized with `pubspec.yaml` to `2.9.9+226`.
+- **Eliminated Compounded Lyrics Offset Drift**: Discovered and eliminated a critical bug where latency compensation (`_baseLeadMs`) and user offsets (`_syncOffsetMs`) were compounded up to 3 times across `_ticker`, `positionStreamProvider`, and widget `build()`, jumping lyrics 560ms–840ms ahead of vocal playback. Extrapolation is now calculated strictly once from the audio player reference clock.
+- **Removed Deadzone Scroll Suppression**: Removed an 80% viewport deadzone check (`isInAutoScrollZone`) in `_scrollToActiveLine` that was inadvertently locking the scroll view and preventing active lines from auto-scrolling into view as the song played. Lyrics now smoothly center at the golden focal line (`alignment: 0.35`) with post-frame layout retry.
+- **Resilient Multi-Format LRC Parsing**: Enhanced `LrclibLyricsProvider.parseLrc` to support single-digit minutes (`[1:05.20]`), colon subsecond separators (`[01:05:20]`), variable fraction lengths (`[01:05.2]`, `[01:05.250]`), multiple timestamp tags per line (`[00:10.00][00:25.00]`), and global header tags (`[offset:+/-ms]`).
+
+## [2.9.8] - 2026-10-23
+
+### 🎵 Reverse-Engineered Spotify Color-Lyrics v2 & Global Fallback
+- **Spotify Color-Lyrics v2 Integration**: Reverse-engineered Spotify's internal color-lyrics endpoint with syllable-level word timings and complementary album palette extraction.
+- **8-Tier Resilient Lyrics Architecture**: Curated Studio Master (Tier 0) ➔ Spotify Direct ➔ LRCLIB ➔ NetEase Cloud Music ➔ Kugou ➔ JioSaavn ➔ Genius Plain Text Fallback.
+- **Performance & Reliability Audit Implementations**: Closed resource leaks, optimized drift query bounds, memoized catalog shelf decoders, and reduced memory footprint.
+
 ## [2.9.7] - 2026-10-23
 
 ### 🚀 Performance & Instant Track Skipping

@@ -6,8 +6,8 @@ import '../../domain/ports/i_lyrics_provider.dart';
 /// Reverse-engineered from Spotify Desktop xpui Modules 29735 and 52427.
 class SpotifyLyricsSynchronizer {
   /// Base perceptual lead compensation in milliseconds.
-  /// Compensates for OS audio driver buffer latency (ALSA/PulseAudio/AAudio/CoreAudio).
-  static const int defaultBaseLeadMs = 280;
+  /// Eliminates artificial delay so lyric lines synchronize precisely with vocal audio.
+  static const int defaultBaseLeadMs = 0;
 
   /// High-Precision Dead-Reckoning Extrapolation (Module 29735).
   ///

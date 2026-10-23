@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:softify/data/lyrics/composite_lyrics_provider.dart';
 import 'package:softify/data/lyrics/spotify_lyrics_provider.dart';
 import 'package:softify/data/lyrics/spotify_lyrics_synchronizer.dart';
+import 'package:softify/data/updater/github_release_update_checker.dart';
 import 'package:softify/domain/entities/track.dart';
 import 'package:softify/domain/ports/i_lyrics_provider.dart';
 
@@ -358,6 +359,21 @@ void main() {
         SpotifyLyricsSynchronizer.cleanArtistName('The Weeknd VEVO'),
         equals('The Weeknd'),
       );
+    });
+  });
+
+  group('GitHubReleaseUpdateChecker Version Comparison', () {
+    test('does not report update available when versions match or current is newer', () {
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.9', '2.9.9'), isFalse);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('2.9.9', '2.9.9'), isFalse);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.8', '2.9.9'), isFalse);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.7', '2.9.9'), isFalse);
+    });
+
+    test('reports update available when remote is strictly newer', () {
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.10.0', '2.9.9'), isTrue);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.10', '2.9.9'), isTrue);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v3.0.0', '2.9.9'), isTrue);
     });
   });
 }

@@ -61,6 +61,42 @@ void main() {
       expect(lines[1].words, isNull);
       expect(lines[1].text, 'Regular line');
     });
+
+    test('parses multi-format timestamps, single-digit minutes, colon separators, and offset tag', () {
+      const complexLrc = '''
+[offset:500]
+[1:05.20] Single digit minute
+[02:10:40] Colon subsecond separator
+[03:15.5] Single digit fraction
+[04:20.125] Three digit millisecond
+[00:10.00][00:25.00] Repeated chorus line
+''';
+      final lines = LrclibLyricsProvider.parseLrc(complexLrc);
+      expect(lines.length, 6);
+      // [00:10.00] + 500ms offset = 10500ms
+      expect(lines[0].timestamp, const Duration(milliseconds: 10500));
+      expect(lines[0].text, 'Repeated chorus line');
+
+      // [00:25.00] + 500ms offset = 25500ms
+      expect(lines[1].timestamp, const Duration(milliseconds: 25500));
+      expect(lines[1].text, 'Repeated chorus line');
+
+      // [1:05.20] (65200ms) + 500ms offset = 65700ms
+      expect(lines[2].timestamp, const Duration(milliseconds: 65700));
+      expect(lines[2].text, 'Single digit minute');
+
+      // [02:10:40] (130400ms) + 500ms offset = 130900ms
+      expect(lines[3].timestamp, const Duration(milliseconds: 130900));
+      expect(lines[3].text, 'Colon subsecond separator');
+
+      // [03:15.5] (195500ms) + 500ms offset = 196000ms
+      expect(lines[4].timestamp, const Duration(milliseconds: 196000));
+      expect(lines[4].text, 'Single digit fraction');
+
+      // [04:20.125] (260125ms) + 500ms offset = 260625ms
+      expect(lines[5].timestamp, const Duration(milliseconds: 260625));
+      expect(lines[5].text, 'Three digit millisecond');
+    });
   });
 
   group('LyricsView Widget UI/UX Tests', () {

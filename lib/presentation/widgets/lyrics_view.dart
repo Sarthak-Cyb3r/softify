@@ -53,10 +53,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   Duration _lastPlayerPosition = Duration.zero;
   DateTime _lastPlayerReceipt = DateTime.now();
   bool _isPlaying = false;
-  Duration _interpolatedPosition = Duration.zero;
-
-  // Visual perceptual lead compensation (matches human auditory-visual synchrony curve)
-  static const int _baseLeadMs = 280;
 
   // Track-calibrated sync offset (persisted in Drift SQLite)
   int _syncOffsetMs = 0;
@@ -67,6 +63,22 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   int _lastScrolledIndex = -1;
   bool _userIsScrolling = false;
   Timer? _userScrollTimer;
+
+  Duration _calculateEffectivePosition(DateTime now) {
+    if (!_isPlaying) {
+      final pausedMs = _lastPlayerPosition.inMilliseconds + _syncOffsetMs;
+      return Duration(milliseconds: pausedMs < 0 ? 0 : pausedMs);
+    }
+    final elapsed = now.difference(_lastPlayerReceipt);
+    final clampedElapsedMs = elapsed.inMilliseconds.clamp(0, 1500);
+    final extrapolatedMs = _lastPlayerPosition.inMilliseconds +
+        clampedElapsedMs +
+        _syncOffsetMs;
+    final clampedMs = (widget.track.duration.inMilliseconds > 0)
+        ? extrapolatedMs.clamp(0, widget.track.duration.inMilliseconds)
+        : (extrapolatedMs < 0 ? 0 : extrapolatedMs);
+    return Duration(milliseconds: clampedMs);
+  }
 
   @override
   void initState() {
@@ -86,26 +98,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
       final now = DateTime.now();
       if (rawPlayerPos != _lastPlayerPosition && rawPlayerPos > Duration.zero) {
-        final posDelta = (rawPlayerPos - _lastPlayerPosition).abs();
         _lastPlayerPosition = rawPlayerPos;
         _lastPlayerReceipt = now;
-        if (posDelta > const Duration(milliseconds: 1200)) {
-          // Explicit seek by user
-          _interpolatedPosition = rawPlayerPos;
-        }
       }
 
-      // High-precision dead-reckoning extrapolation (Spotify xpui Module 29735)
-      final effectivePos = SpotifyLyricsSynchronizer.extrapolatePosition(
-        referencePosition: _lastPlayerPosition,
-        referenceTimestamp: _lastPlayerReceipt,
-        now: now,
-        isPaused: !_isPlaying,
-        duration: widget.track.duration,
-        latencyCompensationMs: _baseLeadMs,
-        userOffsetMs: _syncOffsetMs,
-      );
-      _interpolatedPosition = effectivePos;
+      final effectivePos = _calculateEffectivePosition(now);
       _positionNotifier.value = effectivePos;
 
       // Only trigger widget tree re-layout when active lyric line advances (Module 52427)
@@ -129,7 +126,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       _isPlaying = audioHandler.playbackState.value.playing;
       _lastPlayerPosition = audioHandler.position;
       _lastPlayerReceipt = DateTime.now();
-      _interpolatedPosition = _lastPlayerPosition;
+      _positionNotifier.value = _calculateEffectivePosition(_lastPlayerReceipt);
       if (_isPlaying) {
         _ticker.start();
       }
@@ -208,6 +205,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.track.id != widget.track.id) {
       _lastActiveIndex = -1;
+      _lastScrolledIndex = -1;
+      _lastPlayerPosition = Duration.zero;
+      _lastPlayerReceipt = DateTime.now();
+      _positionNotifier.value = Duration.zero;
       _lineKeys.clear();
       _loadSavedOffset();
     }
@@ -227,27 +228,26 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       final key = _lineKeys[index];
       final ctx = key?.currentContext;
       if (ctx != null) {
-        if (!force && _scrollController.position.haveDimensions) {
-          final lineBox = ctx.findRenderObject() as RenderBox?;
-          final scrollBox = _scrollController.position.context.notificationContext?.findRenderObject() as RenderBox?;
-          if (lineBox != null && scrollBox != null && lineBox.hasSize && scrollBox.hasSize) {
-            final lineOffset = lineBox.localToGlobal(Offset.zero, ancestor: scrollBox);
-            final inZone = SpotifyLyricsSynchronizer.isInAutoScrollZone(
-              lineTop: lineOffset.dy,
-              lineHeight: lineBox.size.height,
-              viewTop: 0.0,
-              viewHeight: scrollBox.size.height,
-            );
-            if (inZone) return; // Already smoothly centered in safe deadzone (Module 52427)
-          }
-        }
-
         Scrollable.ensureVisible(
           ctx,
           duration: const Duration(milliseconds: 320),
           curve: Curves.easeOutCubic,
-          alignment: 0.38, // Golden ratio focal line (Spotify xpui Module 52427 spec)
+          alignment: 0.35, // Focal golden ratio line where active lyrics sit
         );
+      } else {
+        // Line widget not laid out yet; retry on next post-frame
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scrollController.hasClients) return;
+          final retryCtx = _lineKeys[index]?.currentContext;
+          if (retryCtx != null) {
+            Scrollable.ensureVisible(
+              retryCtx,
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              alignment: 0.35,
+            );
+          }
+        });
       }
     }
 
@@ -313,13 +313,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     ref.listen(positionStreamProvider, (prev, next) {
       final streamPos = next.valueOrNull ?? Duration.zero;
       if (streamPos != _lastPlayerPosition) {
-        final posDelta = (streamPos - _lastPlayerPosition).abs();
         _lastPlayerPosition = streamPos;
         _lastPlayerReceipt = DateTime.now();
-        if (posDelta > const Duration(milliseconds: 1200) || streamPos > _interpolatedPosition) {
-          _interpolatedPosition = streamPos;
-        }
-        final effective = _interpolatedPosition + Duration(milliseconds: _syncOffsetMs + _baseLeadMs);
+        final effective = _calculateEffectivePosition(_lastPlayerReceipt);
         _positionNotifier.value = effective;
 
         final lyrics = ref.read(trackLyricsProvider(widget.track)).valueOrNull;
@@ -338,10 +334,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       }
     });
 
-    // Apply lead compensation offset to eliminate audio pipeline latency
-    final effectivePos =
-        _interpolatedPosition + Duration(milliseconds: _syncOffsetMs + _baseLeadMs);
-    _positionNotifier.value = effectivePos;
+    final effectivePos = _positionNotifier.value;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(tokens.radiusXl),
