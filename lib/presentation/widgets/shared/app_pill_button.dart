@@ -41,11 +41,14 @@ class AppPillButton extends StatelessWidget {
 
     switch (variant) {
       case AppPillButtonVariant.primary:
-        bgColor = isEnabled ? tokens.accent : tokens.accent.withValues(alpha: 0.4);
-        fgColor = Colors.black;
+        bgColor =
+            isEnabled ? tokens.accent : tokens.accent.withValues(alpha: 0.4);
+        fgColor = tokens.isGlass ? Colors.white : Colors.black;
         break;
       case AppPillButtonVariant.secondary:
-        bgColor = isEnabled ? tokens.surfaceElevated : tokens.card;
+        bgColor = isEnabled
+            ? (tokens.isGlass ? tokens.glassSurface : tokens.surfaceElevated)
+            : tokens.card;
         fgColor = isEnabled ? tokens.textPrimary : tokens.textMuted;
         break;
       case AppPillButtonVariant.destructive:
@@ -110,6 +113,14 @@ class AppPillButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(tokens.radiusPill),
+            border: (tokens.isGlass && variant != AppPillButtonVariant.ghost)
+                ? Border.all(
+                    color: variant == AppPillButtonVariant.primary
+                        ? tokens.accentCyan.withValues(alpha: 0.50)
+                        : tokens.glassBorder,
+                    width: 1.0,
+                  )
+                : null,
           ),
           alignment: Alignment.center,
           child: content,

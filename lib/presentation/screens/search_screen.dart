@@ -131,9 +131,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
-      backgroundColor: tokens.background,
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       appBar: AppBar(
-        backgroundColor: tokens.background,
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
         elevation: 0,
         title: Text(
           'Search',
@@ -212,17 +213,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(tokens.radiusPill),
-                  borderSide: BorderSide.none,
+                  borderSide: tokens.isGlass
+                      ? BorderSide(color: tokens.glassBorder, width: 1.0)
+                      : BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(tokens.radiusPill),
-                  borderSide: BorderSide.none,
+                  borderSide: tokens.isGlass
+                      ? BorderSide(color: tokens.glassBorder, width: 1.0)
+                      : BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(tokens.radiusPill),
                   borderSide: BorderSide(
-                    color: tokens.accent,
-                    width: 1.0,
+                    color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                    width: 1.5,
                   ),
                 ),
               ),

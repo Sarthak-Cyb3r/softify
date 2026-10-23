@@ -112,7 +112,9 @@ class _TrackRowState extends State<TrackRow> {
                           fontSize: 14.0,
                           fontWeight: FontWeight.w600,
                           color: (widget.isPlaying || widget.isSelected)
-                              ? tokens.accent
+                              ? (tokens.isGlass
+                                  ? tokens.accentCyan
+                                  : tokens.accent)
                               : tokens.textPrimary,
                         ),
                       ),
@@ -145,7 +147,9 @@ class _TrackRowState extends State<TrackRow> {
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
                       color: widget.track.isLiked
-                          ? tokens.accent
+                          ? (tokens.isGlass
+                              ? tokens.accentRose
+                              : tokens.accent)
                           : tokens.textSecondary,
                     ),
                     onPressed: widget.onLikeTap,
@@ -202,7 +206,7 @@ class _TrackRowState extends State<TrackRow> {
                 height: 14.0,
                 child: AnimatedMusicWaveIndicator(
                   isPlaying: widget.isPlaying,
-                  color: AppTheme.accent,
+                  color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
                   barCount: 3,
                 ),
               )
@@ -211,9 +215,9 @@ class _TrackRowState extends State<TrackRow> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                     iconSize: 18.0,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.play_arrow_rounded,
-                      color: AppTheme.accent,
+                      color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
                     ),
                     onPressed: widget.onPlayTap ?? widget.onTap,
                   )
@@ -234,7 +238,7 @@ class _TrackRowState extends State<TrackRow> {
       imageUrl: widget.track.coverUrl,
       width: 40.0,
       height: 40.0,
-      borderRadius: BorderRadius.circular(4.0),
+      borderRadius: BorderRadius.circular(tokens.isGlass ? 8.0 : 4.0),
       fit: BoxFit.cover,
       fallbackIcon: Icons.music_note_rounded,
       backgroundColor: tokens.card,

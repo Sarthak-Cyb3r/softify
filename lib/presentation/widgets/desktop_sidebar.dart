@@ -7,6 +7,7 @@ import '../screens/equalizer_screen.dart';
 import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'wrapped_insights_dialog.dart';
+import 'shared/app_surface.dart';
 
 /// Desktop Sidebar adhering to Content-First Spotify-inspired design:
 /// - Background: Sidebar #000000 (Chrome surface 0)
@@ -46,9 +47,18 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
             ? watchedName
             : 'My Account';
 
-    return Container(
+    final isGlass = tokens.isGlass;
+
+    return AppSurface(
       width: 260.0,
-      color: tokens.sidebar, // Pure #000000
+      borderRadius: BorderRadius.zero,
+      color: isGlass ? tokens.glassSurface : tokens.sidebar,
+      withBlur: true,
+      border: isGlass
+          ? Border(
+              right: BorderSide(color: tokens.glassBorder, width: 1.0),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

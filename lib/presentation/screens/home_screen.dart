@@ -212,10 +212,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDesktop = screenWidth >= 850;
 
     return Scaffold(
-      backgroundColor: tokens.background,
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       appBar: isDesktop
           ? null
           : AppBar(
+              backgroundColor:
+                  tokens.isGlass ? Colors.transparent : tokens.background,
+              elevation: 0,
               titleSpacing: 16,
               title: Row(
                 children: [
@@ -1488,8 +1491,23 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
           duration: const Duration(milliseconds: 140),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: _isHovered ? const Color(0xFF383838) : const Color(0xFF282828),
-            borderRadius: BorderRadius.circular(8),
+            color: tokens.isGlass
+                ? (_isHovered
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : tokens.glassSurface)
+                : (_isHovered
+                    ? const Color(0xFF383838)
+                    : const Color(0xFF282828)),
+            border: tokens.isGlass
+                ? Border.all(
+                    color: _isHovered
+                        ? tokens.accentCyan.withValues(alpha: 0.40)
+                        : tokens.glassBorder,
+                    width: 1.0,
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(tokens.isGlass ? 12 : 8),
+            boxShadow: tokens.isGlass ? tokens.cardShadow : null,
           ),
           child: Row(
             children: [

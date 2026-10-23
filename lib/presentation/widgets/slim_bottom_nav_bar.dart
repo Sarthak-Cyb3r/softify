@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
+import 'shared/app_surface.dart';
 
 class SlimNavItem {
   final IconData icon;
@@ -16,9 +17,8 @@ class SlimNavItem {
 }
 
 /// 6-Tab mobile bottom navigation bar adhering to Stitch mobile design:
-/// - Background: Chrome #000000 / elevated #181818
-/// - Strict 12px font size floor with Manrope typography
-/// - Active accent highlight and tactile bouncing touch targets
+/// - Classic: Solid #121212 chrome with white active highlights
+/// - Aurora Glass: Frosted glassmorphism with cyan/violet aurora highlights
 class SlimBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -33,15 +33,19 @@ class SlimBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final tokens = context.tokens;
+    final isGlass = tokens.isGlass;
+
+    return AppSurface(
       height: 60,
-      decoration: const BoxDecoration(
-        color: Color(0xFF121212),
-        border: Border(
-          top: BorderSide(
-            color: Color(0x1AFFFFFF),
-            width: 0.5,
-          ),
+      borderRadius: BorderRadius.zero,
+      withBlur: true,
+      blurSigma: 14.0,
+      color: isGlass ? tokens.glassSurface : const Color(0xFF121212),
+      border: Border(
+        top: BorderSide(
+          color: isGlass ? tokens.glassBorder : const Color(0x1AFFFFFF),
+          width: isGlass ? 1.0 : 0.5,
         ),
       ),
       child: Center(
@@ -51,8 +55,9 @@ class SlimBottomNavBar extends StatelessWidget {
             children: List.generate(items.length, (index) {
               final item = items[index];
               final isSelected = index == currentIndex;
-              const activeColor = Colors.white; // Authentic Spotify pure white
-              const inactiveColor = Color(0xFFB3B3B3);
+              final activeColor = isGlass ? tokens.accentCyan : Colors.white;
+              final inactiveColor =
+                  isGlass ? const Color(0xFF8E8BAE) : const Color(0xFFB3B3B3);
 
               return Expanded(
                 child: Semantics(
@@ -82,7 +87,9 @@ class SlimBottomNavBar extends StatelessWidget {
                             style: TextStyle(
                               fontFamily: AppTheme.fontUi,
                               fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: isSelected ? activeColor : inactiveColor,
                               letterSpacing: -0.1,
                             ),
@@ -100,3 +107,4 @@ class SlimBottomNavBar extends StatelessWidget {
     );
   }
 }
+

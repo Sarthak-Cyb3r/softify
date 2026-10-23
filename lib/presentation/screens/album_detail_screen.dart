@@ -10,6 +10,7 @@ import '../widgets/bouncing_scale_button.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/shared/app_network_image.dart';
+import '../widgets/shared/aurora_background.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
@@ -91,8 +92,10 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
         _tracks.fold<int>(0, (sum, t) => sum + t.duration.inSeconds);
     final totalMinutes = totalDurationSeconds ~/ 60;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AuroraBackground(
+      child: Scaffold(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
           ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
           : const DesktopPlayerBar(),
@@ -139,7 +142,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           SliverAppBar(
             expandedHeight: 330,
             pinned: true,
-            backgroundColor: tokens.background,
+            backgroundColor:
+                tokens.isGlass ? Colors.transparent : tokens.background,
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: Padding(
@@ -527,8 +531,9 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
 
 }

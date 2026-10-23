@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'ui_style.dart';
+
+export 'ui_style.dart';
+
 @immutable
 class AppTokens extends ThemeExtension<AppTokens> {
+  // Style Identifier
+  final UiStyle style;
+  final bool isGlass;
+
   // Surface Colors
   final Color background;
   final Color sidebar;
@@ -11,7 +19,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color card;
   final Color cardHover;
   final Color glass;
+  final Color glassSurface;
+  final Color glassBorder;
   final Color accent;
+  final Color accentViolet;
+  final Color accentCyan;
+  final Color accentRose;
   final Color textPrimary;
   final Color textSecondary;
   final Color textMuted;
@@ -27,10 +40,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final double spaceXxl; // 48
 
   // Radii
-  final double radiusSm; // 8
-  final double radiusCard; // 8
-  final double radiusMd; // 14
-  final double radiusLg; // 20
+  final double radiusSm; // 8 / 10
+  final double radiusCard; // 8 / 20
+  final double radiusMd; // 14 / 18
+  final double radiusLg; // 20 / 24
   final double radiusXl; // 28
   final double radiusFull; // 999
   final double radiusPill; // 999
@@ -43,7 +56,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Curve curveDecel;
   final Curve curveSpring;
 
+  // Soft Elevation Shadows
+  final List<BoxShadow> cardShadow;
+
   const AppTokens({
+    this.style = UiStyle.classic,
+    this.isGlass = false,
     this.background = const Color(0xFF121212),
     this.sidebar = const Color(0xFF000000),
     this.surface = const Color(0xFF121212),
@@ -52,7 +70,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.card = const Color(0xFF181818),
     this.cardHover = const Color(0xFF282828),
     this.glass = const Color(0xCC181818),
+    this.glassSurface = const Color(0x1AFFFFFF),
+    this.glassBorder = const Color(0x1FFFFFFF),
     this.accent = const Color(0xFF1DB954),
+    this.accentViolet = const Color(0xFF7C5CFF),
+    this.accentCyan = const Color(0xFF4FD1FF),
+    this.accentRose = const Color(0xFFFF7AC6),
     this.textPrimary = const Color(0xFFFFFFFF),
     this.textSecondary = const Color(0xFFB3B3B3),
     this.textMuted = const Color(0xFF6A6A6A),
@@ -77,10 +100,63 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.motionCinematic = const Duration(milliseconds: 500),
     this.curveDecel = Curves.fastOutSlowIn,
     this.curveSpring = Curves.easeOutCubic,
+    this.cardShadow = const [],
   });
 
-  /// Canonical Unified Token Spec (Content-First)
+  /// Canonical Classic Spotify-Inspired Token Spec (Default)
   static const AppTokens standardTokens = AppTokens();
+
+  /// Aurora Glass Token Spec (Deep Midnight Frosted Glassmorphism)
+  static const AppTokens auroraTokens = AppTokens(
+    style: UiStyle.auroraGlass,
+    isGlass: true,
+    background: Color(0xFF0B0B1A), // Deep midnight
+    sidebar: Color(0xFF0B0B1A),
+    surface: Color(0xFF14122B),
+    surfaceElevated: Color(0xFF1D1A3B),
+    surfaceHighlight: Color(0xFF27244F),
+    card: Color(0x18FFFFFF), // 9.4% white glass fill
+    cardHover: Color(0x28FFFFFF), // 15.7% white glass hover
+    glass: Color(0x1FFFFFFF), // 12% white
+    glassSurface: Color(0x1AFFFFFF), // ~10% white
+    glassBorder: Color(0x2EFFFFFF), // 18% white border
+    accent: Color(0xFF7C5CFF), // Aurora violet
+    accentViolet: Color(0xFF7C5CFF),
+    accentCyan: Color(0xFF4FD1FF),
+    accentRose: Color(0xFFFF7AC6),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFFC4C2E2), // Soft silvery lilac, meets WCAG AA 4.5:1+
+    textMuted: Color(0xFF7E7B9D),
+    divider: Color(0x26FFFFFF),
+    error: Color(0xFFFF5C7A),
+    spaceXs: 4.0,
+    spaceSm: 8.0,
+    spaceMd: 16.0,
+    spaceLg: 24.0,
+    spaceXl: 32.0,
+    spaceXxl: 48.0,
+    radiusSm: 10.0,
+    radiusCard: 22.0, // 20-28 glass card radius
+    radiusMd: 18.0,
+    radiusLg: 24.0,
+    radiusXl: 28.0,
+    radiusFull: 999.0,
+    radiusPill: 999.0,
+    motionQuick: Duration(milliseconds: 150),
+    motionStandard: Duration(milliseconds: 250),
+    motionSmooth: Duration(milliseconds: 300),
+    motionCinematic: Duration(milliseconds: 300),
+    curveDecel: Curves.easeOutCubic,
+    curveSpring: Curves.easeOutCubic,
+    cardShadow: [
+      BoxShadow(
+        color: Color(0x38000000),
+        blurRadius: 18,
+        spreadRadius: 0,
+        offset: Offset(0, 6),
+      ),
+    ],
+  );
 
   /// Aliases for platform symmetry
   static const AppTokens linuxTokens = standardTokens;
@@ -88,6 +164,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
 
   @override
   AppTokens copyWith({
+    UiStyle? style,
+    bool? isGlass,
     Color? background,
     Color? sidebar,
     Color? surface,
@@ -96,7 +174,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? card,
     Color? cardHover,
     Color? glass,
+    Color? glassSurface,
+    Color? glassBorder,
     Color? accent,
+    Color? accentViolet,
+    Color? accentCyan,
+    Color? accentRose,
     Color? textPrimary,
     Color? textSecondary,
     Color? textMuted,
@@ -121,8 +204,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Duration? motionCinematic,
     Curve? curveDecel,
     Curve? curveSpring,
+    List<BoxShadow>? cardShadow,
   }) {
     return AppTokens(
+      style: style ?? this.style,
+      isGlass: isGlass ?? this.isGlass,
       background: background ?? this.background,
       sidebar: sidebar ?? this.sidebar,
       surface: surface ?? this.surface,
@@ -131,7 +217,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
       card: card ?? this.card,
       cardHover: cardHover ?? this.cardHover,
       glass: glass ?? this.glass,
+      glassSurface: glassSurface ?? this.glassSurface,
+      glassBorder: glassBorder ?? this.glassBorder,
       accent: accent ?? this.accent,
+      accentViolet: accentViolet ?? this.accentViolet,
+      accentCyan: accentCyan ?? this.accentCyan,
+      accentRose: accentRose ?? this.accentRose,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
       textMuted: textMuted ?? this.textMuted,
@@ -156,6 +247,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       motionCinematic: motionCinematic ?? this.motionCinematic,
       curveDecel: curveDecel ?? this.curveDecel,
       curveSpring: curveSpring ?? this.curveSpring,
+      cardShadow: cardShadow ?? this.cardShadow,
     );
   }
 
@@ -163,6 +255,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
   AppTokens lerp(ThemeExtension<AppTokens>? other, double t) {
     if (other is! AppTokens) return this;
     return AppTokens(
+      style: t < 0.5 ? style : other.style,
+      isGlass: t < 0.5 ? isGlass : other.isGlass,
       background: Color.lerp(background, other.background, t)!,
       sidebar: Color.lerp(sidebar, other.sidebar, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
@@ -171,7 +265,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
       card: Color.lerp(card, other.card, t)!,
       cardHover: Color.lerp(cardHover, other.cardHover, t)!,
       glass: Color.lerp(glass, other.glass, t)!,
+      glassSurface: Color.lerp(glassSurface, other.glassSurface, t)!,
+      glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
+      accentViolet: Color.lerp(accentViolet, other.accentViolet, t)!,
+      accentCyan: Color.lerp(accentCyan, other.accentCyan, t)!,
+      accentRose: Color.lerp(accentRose, other.accentRose, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
@@ -183,11 +282,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
       spaceLg: spaceLg,
       spaceXl: spaceXl,
       spaceXxl: spaceXxl,
-      radiusSm: radiusSm,
-      radiusCard: radiusCard,
-      radiusMd: radiusMd,
-      radiusLg: radiusLg,
-      radiusXl: radiusXl,
+      radiusSm: radiusSm + (other.radiusSm - radiusSm) * t,
+      radiusCard: radiusCard + (other.radiusCard - radiusCard) * t,
+      radiusMd: radiusMd + (other.radiusMd - radiusMd) * t,
+      radiusLg: radiusLg + (other.radiusLg - radiusLg) * t,
+      radiusXl: radiusXl + (other.radiusXl - radiusXl) * t,
       radiusFull: radiusFull,
       radiusPill: radiusPill,
       motionQuick: motionQuick,
@@ -196,6 +295,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       motionCinematic: motionCinematic,
       curveDecel: other.curveDecel,
       curveSpring: other.curveSpring,
+      cardShadow: t < 0.5 ? cardShadow : other.cardShadow,
     );
   }
 }
@@ -203,4 +303,5 @@ class AppTokens extends ThemeExtension<AppTokens> {
 extension AppTokensBuildContext on BuildContext {
   AppTokens get tokens =>
       Theme.of(this).extension<AppTokens>() ?? AppTokens.standardTokens;
+  bool get isGlass => tokens.isGlass;
 }

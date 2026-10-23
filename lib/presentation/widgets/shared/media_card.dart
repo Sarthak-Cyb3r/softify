@@ -54,8 +54,21 @@ class _MediaCardState extends State<MediaCard> {
             width: widget.width,
             padding: EdgeInsets.all(tokens.spaceSm + 2.0),
             decoration: BoxDecoration(
-              color: cardBg,
+              color: tokens.isGlass
+                  ? (_isHovered
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : tokens.glassSurface)
+                  : cardBg,
               borderRadius: BorderRadius.circular(tokens.radiusCard),
+              border: tokens.isGlass
+                  ? Border.all(
+                      color: _isHovered
+                          ? tokens.accentCyan.withValues(alpha: 0.40)
+                          : tokens.glassBorder,
+                      width: 1.0,
+                    )
+                  : null,
+              boxShadow: tokens.isGlass ? tokens.cardShadow : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,17 +79,19 @@ class _MediaCardState extends State<MediaCard> {
                   aspectRatio: 1.0,
                   child: Stack(
                     children: [
-                      // Image with 6px inner radius
+                      // Image with rounded inner radius
                       Positioned.fill(
                         child: AppNetworkImage(
                           imageUrl: widget.imageUrl,
-                          borderRadius: BorderRadius.circular(6.0),
+                          borderRadius: BorderRadius.circular(
+                            tokens.isGlass ? 14.0 : 6.0,
+                          ),
                           fit: BoxFit.cover,
                           fallbackIcon: widget.placeholderIcon,
                         ),
                       ),
 
-                      // Green Play Pill Button on hover or playing
+                      // Play Pill Button on hover or playing
                       Positioned(
                         right: 8.0,
                         bottom: 8.0,
@@ -86,10 +101,12 @@ class _MediaCardState extends State<MediaCard> {
                           child: Container(
                             width: 40.0,
                             height: 40.0,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppTheme.accent,
-                              boxShadow: [
+                              color: tokens.isGlass
+                                  ? tokens.accentCyan
+                                  : tokens.accent,
+                              boxShadow: const [
                                 BoxShadow(
                                   color: Color(0x66000000),
                                   blurRadius: 8.0,

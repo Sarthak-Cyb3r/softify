@@ -17,13 +17,13 @@ import 'features/podcasts/data/podcast_metadata_service.dart';
 import 'features/podcasts/data/podcast_rss_resolver.dart';
 import 'features/podcasts/presentation/podcast_controller.dart';
 import 'presentation/providers/player_providers.dart';
+import 'presentation/providers/ui_style_provider.dart';
 import 'data/lyrics/composite_lyrics_provider.dart';
 import 'data/lyrics/spotify_lyrics_provider.dart';
 import 'dart:io';
 import 'data/player/linux_audio_backend.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
-import 'presentation/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -151,13 +151,15 @@ class _SoftifyAppState extends ConsumerState<SoftifyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final activeTheme = ref.watch(uiThemeDataProvider);
+
     return MaterialApp(
       title: 'Softify',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         overscroll: false,
       ),
-      theme: AppTheme.darkTheme,
+      theme: activeTheme,
       home: const AppScaffold(),
     );
   }

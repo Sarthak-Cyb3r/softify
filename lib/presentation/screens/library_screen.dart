@@ -256,9 +256,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
-      backgroundColor: tokens.background,
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       appBar: AppBar(
-        backgroundColor: tokens.background,
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
         elevation: 0,
         title: Text(
           'Your Library',

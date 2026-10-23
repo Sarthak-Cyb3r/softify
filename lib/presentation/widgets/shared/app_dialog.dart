@@ -65,10 +65,14 @@ class AppDialog extends StatelessWidget {
     final tokens = context.tokens;
 
     return Dialog(
-      backgroundColor: tokens.surfaceElevated,
+      backgroundColor:
+          tokens.isGlass ? const Color(0xE614122B) : tokens.surfaceElevated,
       elevation: 16.0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(tokens.radiusCard),
+        side: tokens.isGlass
+            ? BorderSide(color: tokens.glassBorder, width: 1.0)
+            : BorderSide.none,
       ),
       insetPadding: EdgeInsets.all(tokens.spaceLg),
       child: ConstrainedBox(

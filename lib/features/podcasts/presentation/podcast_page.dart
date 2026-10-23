@@ -138,8 +138,11 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
         ref.watch(audioHandlerProvider).speed;
 
     return Scaffold(
-      backgroundColor: tokens.background,
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       appBar: AppBar(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
+        elevation: 0,
         title: Text(
           'Podcasts',
           style: TextStyle(

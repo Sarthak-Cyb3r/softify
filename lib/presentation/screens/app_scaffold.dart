@@ -9,6 +9,7 @@ import '../widgets/desktop_player_bar.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/quick_playback_panel.dart';
+import '../widgets/shared/aurora_background.dart';
 import 'music_screensaver_screen.dart';
 import '../../features/podcasts/domain/parse_podcast_link.dart';
 import '../../features/podcasts/presentation/podcast_controller.dart';
@@ -196,16 +197,20 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       return const DeviceBlockedScreen();
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 800;
+    final tokens = context.tokens;
 
-        if (isDesktop) {
-          return _buildDesktopLayout(context, AppTokens.standardTokens);
-        } else {
-          return _buildMobileLayout(context, AppTokens.standardTokens);
-        }
-      },
+    return AuroraBackground(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= 800;
+
+          if (isDesktop) {
+            return _buildDesktopLayout(context, tokens);
+          } else {
+            return _buildMobileLayout(context, tokens);
+          }
+        },
+      ),
     );
   }
 
@@ -286,7 +291,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           onPointerHover: (_) => _resetScreensaverIdleTimer(),
           onPointerDown: (_) => _resetScreensaverIdleTimer(),
           child: Scaffold(
-          backgroundColor: tokens.background,
+            backgroundColor:
+                tokens.isGlass ? Colors.transparent : tokens.background,
           body: Row(
             children: [
               // 1. Persistent Desktop Sidebar (256px)
@@ -341,7 +347,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      color: tokens.background, // Pure #121212
+      color: tokens.isGlass ? Colors.transparent : tokens.background,
       child: Row(
         children: [
           // Navigation Chevrons
@@ -532,7 +538,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
   Widget _buildMobileLayout(BuildContext context, AppTokens tokens) {
     return Scaffold(
-      backgroundColor: tokens.background,
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       body: Stack(
         children: [
           // Current Tab Page (IndexedStack preserves state for all tabs)

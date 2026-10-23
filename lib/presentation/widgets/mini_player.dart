@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'animated_music_wave_indicator.dart';
 import 'bouncing_scale_button.dart';
 import 'shared/app_network_image.dart';
+import 'shared/app_surface.dart';
 
 /// Floating mini player adhering to Content-First Stitch mobile design:
 /// - Surface: #181818 card surface with 8px radius
@@ -111,255 +112,284 @@ class MiniPlayer extends ConsumerWidget {
             }
           }
         },
-        child: Container(
+        child: AppSurface(
           margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xF0252528),
-                Color(0xF018181B),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-              width: 0.8,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x99000000),
-                blurRadius: 16,
-                spreadRadius: 0,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  child: Row(
-                    children: [
-                      // Artwork 42x42 with 6px radius
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: isPlaceholder
-                            ? Container(
-                                width: 42,
-                                height: 42,
-                                color: tokens.surfaceElevated,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.0,
-                                      valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : AppNetworkImage(
-                                imageUrl: displayTrack.coverUrl,
-                                width: 42,
-                                height: 42,
-                                fit: BoxFit.cover,
-                                fallbackIcon: Icons.music_note_rounded,
-                                backgroundColor: tokens.surfaceElevated,
-                              ),
-                      ),
-                      const SizedBox(width: 10),
-
-                      // Title & Artist
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                if (isBuffering) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: SizedBox(
-                                      width: 11,
-                                      height: 11,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.8,
-                                        valueColor: AlwaysStoppedAnimation<Color>(tokens.accent),
-                                      ),
-                                    ),
-                                  ),
-                                ] else if (isPlaying) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: AnimatedMusicWaveIndicator(
-                                      isPlaying: true,
-                                      size: 11,
-                                      barCount: 3,
-                                      color: tokens.accent,
-                                    ),
-                                  ),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    displayTrack.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontFamily: AppTheme.fontUi,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              displayTrack.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: AppTheme.fontUi,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w400,
-                                color: Color(0xFFB3B3B3),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Like Action
-                      BouncingScaleButton(
-                        scaleFactor: 0.88,
-                        onTap: isPlaceholder
-                            ? null
-                            : () {
-                                HapticFeedback.selectionClick();
-                                ref
-                                    .read(libraryRepositoryProvider)
-                                    .setLiked(displayTrack.id, !isLiked, track: displayTrack);
-                              },
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          child: Icon(
-                            isLiked
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            color: isLiked ? tokens.accent : const Color(0xFFB3B3B3),
-                            size: 21,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-
-                      // Borderless Play / Pause Icon Button with spinner when buffering
-                      BouncingScaleButton(
-                        scaleFactor: 0.90,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          if (isPlaying) {
-                            audioHandler.pause();
-                          } else if (currentTrack != null) {
-                            audioHandler.play();
-                          } else if (effectiveTrack != null && !isPlaceholder) {
-                            audioHandler.playTrack(effectiveTrack);
-                          } else {
-                            audioHandler.play();
-                          }
-                        },
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.10),
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: isBuffering
-                              ? const SizedBox(
+          borderRadius: BorderRadius.circular(tokens.isGlass ? 20 : 10),
+          withBlur: true,
+          blurSigma: 14.0,
+          color: tokens.isGlass ? tokens.glassSurface : const Color(0xF018181B),
+          border: tokens.isGlass
+              ? Border.all(color: tokens.glassBorder, width: 1.0)
+              : Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 0.8,
+                ),
+          boxShadow: tokens.isGlass
+              ? tokens.cardShadow
+              : const [
+                  BoxShadow(
+                    color: Color(0x99000000),
+                    blurRadius: 16,
+                    spreadRadius: 0,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                child: Row(
+                  children: [
+                    // Artwork 42x42 with rounded radius
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(tokens.isGlass ? 10 : 6),
+                      child: isPlaceholder
+                          ? Container(
+                              width: 42,
+                              height: 42,
+                              color: tokens.surfaceElevated,
+                              child: Center(
+                                child: SizedBox(
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    strokeWidth: 2.0,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      tokens.accent,
+                                    ),
                                   ),
-                                )
-                              : Icon(
-                                  isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 24,
                                 ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-
-                      // Skip Next Action
-                      BouncingScaleButton(
-                        scaleFactor: 0.90,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          audioHandler.skipToNext();
-                        },
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.skip_next_rounded,
-                            color: Colors.white,
-                            size: 26,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 2.5px Isolated Hairline Progress Bar
-                Consumer(
-                  builder: (context, ref, _) {
-                    final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
-                    final duration =
-                        ref.watch(durationStreamProvider).value ?? displayTrack.duration;
-                    final progress = (duration.inMilliseconds > 0)
-                        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-                        : (isBuffering ? 0.35 : 0.0);
-                    return Container(
-                      height: 2.5,
-                      color: const Color(0x22FFFFFF),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: progress,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: tokens.accent,
-                              borderRadius: const BorderRadius.horizontal(
-                                right: Radius.circular(2),
                               ),
+                            )
+                          : AppNetworkImage(
+                              imageUrl: displayTrack.coverUrl,
+                              width: 42,
+                              height: 42,
+                              fit: BoxFit.cover,
+                              fallbackIcon: Icons.music_note_rounded,
+                              backgroundColor: tokens.surfaceElevated,
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Title & Artist
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              if (isBuffering) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: SizedBox(
+                                    width: 11,
+                                    height: 11,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.8,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        tokens.accent,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ] else if (isPlaying) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: AnimatedMusicWaveIndicator(
+                                    isPlaying: true,
+                                    size: 11,
+                                    barCount: 3,
+                                    color: tokens.isGlass
+                                        ? tokens.accentCyan
+                                        : tokens.accent,
+                                  ),
+                                ),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  displayTrack.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.fontUi,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            displayTrack.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w400,
+                              color: tokens.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Like Action
+                    BouncingScaleButton(
+                      scaleFactor: 0.88,
+                      onTap: isPlaceholder
+                          ? null
+                          : () {
+                              HapticFeedback.selectionClick();
+                              ref.read(libraryRepositoryProvider).setLiked(
+                                  displayTrack.id, !isLiked,
+                                  track: displayTrack);
+                            },
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          isLiked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: isLiked
+                              ? (tokens.isGlass
+                                  ? tokens.accentRose
+                                  : tokens.accent)
+                              : tokens.textSecondary,
+                          size: 21,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+
+                    // Borderless Play / Pause Icon Button with spinner when buffering
+                    BouncingScaleButton(
+                      scaleFactor: 0.90,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        if (isPlaying) {
+                          audioHandler.pause();
+                        } else if (currentTrack != null) {
+                          audioHandler.play();
+                        } else if (effectiveTrack != null && !isPlaceholder) {
+                          audioHandler.playTrack(effectiveTrack);
+                        } else {
+                          audioHandler.play();
+                        }
+                      },
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: tokens.isGlass
+                              ? tokens.accentCyan.withValues(alpha: 0.22)
+                              : Colors.white.withValues(alpha: 0.10),
+                          shape: BoxShape.circle,
+                          border: tokens.isGlass
+                              ? Border.all(
+                                  color: tokens.accentCyan.withValues(alpha: 0.40),
+                                  width: 1,
+                                )
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: isBuffering
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    tokens.isGlass
+                                        ? tokens.accentCyan
+                                        : Colors.white,
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+
+                    // Skip Next Action
+                    BouncingScaleButton(
+                      scaleFactor: 0.90,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        audioHandler.skipToNext();
+                      },
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.skip_next_rounded,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 2.5px Isolated Hairline Progress Bar
+              Consumer(
+                builder: (context, ref, _) {
+                  final position =
+                      ref.watch(positionStreamProvider).value ?? Duration.zero;
+                  final duration =
+                      ref.watch(durationStreamProvider).value ??
+                          displayTrack.duration;
+                  final progress = (duration.inMilliseconds > 0)
+                      ? (position.inMilliseconds / duration.inMilliseconds)
+                          .clamp(0.0, 1.0)
+                      : (isBuffering ? 0.35 : 0.0);
+                  return Container(
+                    height: 2.5,
+                    color: const Color(0x22FFFFFF),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: progress,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: tokens.isGlass
+                                ? LinearGradient(
+                                    colors: [
+                                      tokens.accentViolet,
+                                      tokens.accentCyan,
+                                    ],
+                                  )
+                                : null,
+                            color: tokens.isGlass ? null : tokens.accent,
+                            borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(2),
                             ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),

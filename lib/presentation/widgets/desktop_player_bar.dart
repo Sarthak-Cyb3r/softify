@@ -11,6 +11,7 @@ import 'lyrics_view.dart';
 import 'queue_bottom_sheet.dart';
 import 'shared/app_slider.dart';
 import 'shared/app_network_image.dart';
+import 'shared/app_surface.dart';
 
 /// Desktop Bottom Player Bar adhering to Content-First Spotify-inspired design:
 /// - Background: Chrome #000000
@@ -99,10 +100,20 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
     final isLikedAsync = ref.watch(isTrackLikedProvider(currentTrack.id));
     final isLiked = isLikedAsync.value ?? currentTrack.isLiked;
 
-    return Container(
+    final isGlass = tokens.isGlass;
+
+    return AppSurface(
       height: 90,
+      borderRadius: BorderRadius.zero,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      color: tokens.sidebar, // Pure #000000 (Chrome surface 0)
+      color: isGlass ? tokens.glassSurface : tokens.sidebar,
+      withBlur: true,
+      border: Border(
+        top: BorderSide(
+          color: isGlass ? tokens.glassBorder : tokens.divider,
+          width: isGlass ? 1.0 : 0.5,
+        ),
+      ),
       child: Row(
         children: [
           // ==========================================

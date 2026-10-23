@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/equalizer_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/equalizer_curve_visualizer.dart';
+import '../widgets/shared/aurora_background.dart';
 
 class EqualizerScreen extends ConsumerWidget {
   const EqualizerScreen({super.key});
@@ -16,11 +17,14 @@ class EqualizerScreen extends ConsumerWidget {
     final eqState = ref.watch(equalizerProvider);
     final eqNotifier = ref.read(equalizerProvider.notifier);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
-      appBar: AppBar(
-        backgroundColor: tokens.background,
-        elevation: 0,
+    return AuroraBackground(
+      child: Scaffold(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
+        appBar: AppBar(
+          backgroundColor:
+              tokens.isGlass ? Colors.transparent : tokens.background,
+          elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
           tooltip: 'Back',
@@ -203,8 +207,9 @@ class EqualizerScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPresetsCarousel(
     AppTokens tokens,
@@ -365,8 +370,12 @@ class EqualizerScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
       decoration: BoxDecoration(
-        color: tokens.card,
+        color: tokens.isGlass ? tokens.glassSurface : tokens.card,
         borderRadius: BorderRadius.circular(tokens.radiusCard),
+        border: tokens.isGlass
+            ? Border.all(color: tokens.glassBorder, width: 1.0)
+            : null,
+        boxShadow: tokens.isGlass ? tokens.cardShadow : null,
       ),
       child: Column(
         children: [

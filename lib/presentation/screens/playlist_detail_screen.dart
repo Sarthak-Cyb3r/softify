@@ -9,6 +9,7 @@ import '../widgets/desktop_player_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/shared/app_dialog.dart';
 import '../widgets/shared/app_network_image.dart';
+import '../widgets/shared/aurora_background.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
@@ -89,8 +90,10 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
         ref.watch(currentTrackProvider).value ?? audioHandler.currentTrack;
     final isPlaying = ref.watch(isPlayingProvider);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AuroraBackground(
+      child: Scaffold(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
           ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
           : const DesktopPlayerBar(),
@@ -131,7 +134,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
-                backgroundColor: tokens.surface,
+                backgroundColor:
+                    tokens.isGlass ? Colors.transparent : tokens.surface,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => Navigator.pop(context),
@@ -345,8 +349,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTrackTile({
     required BuildContext context,

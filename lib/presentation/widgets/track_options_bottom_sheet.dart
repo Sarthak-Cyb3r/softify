@@ -11,6 +11,7 @@ import 'artist_chooser_bottom_sheet.dart';
 import 'shared/app_dialog.dart';
 import 'shared/app_network_image.dart';
 import 'shared/app_pill_button.dart';
+import 'shared/app_surface.dart';
 import 'sleep_timer_bottom_sheet.dart';
 
 class TrackOptionsBottomSheet extends ConsumerWidget {
@@ -58,11 +59,20 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
 
     final tokens = context.tokens;
 
-    return Material(
-      color: tokens.surfaceElevated,
+    return AppSurface(
+      withBlur: true,
+      color: tokens.isGlass ? tokens.glassSurface : tokens.surfaceElevated,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
+      border: tokens.isGlass
+          ? Border(
+              top: BorderSide(color: tokens.glassBorder, width: 1.0),
+              left: BorderSide(color: tokens.glassBorder, width: 1.0),
+              right: BorderSide(color: tokens.glassBorder, width: 1.0),
+            )
+          : null,
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -459,8 +469,9 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
 
   void _showAddToPlaylistSheet(BuildContext context, WidgetRef ref, Track track) {

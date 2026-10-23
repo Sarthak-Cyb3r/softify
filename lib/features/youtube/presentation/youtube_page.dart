@@ -117,8 +117,11 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
     final historyAsync = ref.watch(youtubeRecentHistoryProvider);
 
     return Scaffold(
-      backgroundColor: tokens.background,
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       appBar: AppBar(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
+        elevation: 0,
         title: Text(
           'Paste a Link',
           style: TextStyle(
@@ -153,7 +156,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                     onSubmitted: (_) => _submitCurrentText(),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: tokens.card,
+                      fillColor: tokens.isGlass ? tokens.glassSurface : tokens.card,
                       hintText: 'Paste YouTube link (watch, youtu.be, shorts)...',
                       hintStyle: TextStyle(
                         color: tokens.textMuted,
@@ -161,7 +164,7 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                       ),
                       prefixIcon: Icon(
                         Icons.smart_display_outlined,
-                        color: tokens.accent,
+                        color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
                         size: 22,
                       ),
                       suffixIcon: Row(
@@ -196,22 +199,26 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(tokens.radiusPill),
-                        borderSide: BorderSide(
-                          color: tokens.surfaceHighlight,
-                          width: 1,
-                        ),
+                        borderSide: tokens.isGlass
+                            ? BorderSide(color: tokens.glassBorder, width: 1.0)
+                            : BorderSide(
+                                color: tokens.surfaceHighlight,
+                                width: 1,
+                              ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(tokens.radiusPill),
-                        borderSide: BorderSide(
-                          color: tokens.surfaceHighlight,
-                          width: 1,
-                        ),
+                        borderSide: tokens.isGlass
+                            ? BorderSide(color: tokens.glassBorder, width: 1.0)
+                            : BorderSide(
+                                color: tokens.surfaceHighlight,
+                                width: 1,
+                              ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(tokens.radiusPill),
                         borderSide: BorderSide(
-                          color: tokens.accent,
+                          color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
                           width: 1.5,
                         ),
                       ),
@@ -598,8 +605,12 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: tokens.card,
+          color: tokens.isGlass ? tokens.glassSurface : tokens.card,
           borderRadius: BorderRadius.circular(tokens.radiusCard),
+          border: tokens.isGlass
+              ? Border.all(color: tokens.glassBorder, width: 1.0)
+              : null,
+          boxShadow: tokens.isGlass ? tokens.cardShadow : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -866,11 +877,14 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
-        color: tokens.card,
+        color: tokens.isGlass ? tokens.glassSurface : tokens.card,
         borderRadius: BorderRadius.circular(tokens.radiusCard),
         border: Border.all(
-          color: tokens.surfaceHighlight.withValues(alpha: 0.5),
+          color: tokens.isGlass
+              ? tokens.glassBorder
+              : tokens.surfaceHighlight.withValues(alpha: 0.5),
         ),
+        boxShadow: tokens.isGlass ? tokens.cardShadow : null,
       ),
       child: Column(
         children: [

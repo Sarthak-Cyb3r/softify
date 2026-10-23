@@ -285,8 +285,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final lyricsAsync = ref.watch(trackLyricsProvider(widget.track));
     final lyricsData = lyricsAsync.valueOrNull;
 
-    Color activeAccent = widget.ambientColor ?? tokens.accent;
-    Color backgroundColor = const Color(0xFF0D0E11);
+    Color activeAccent = widget.ambientColor ??
+        (tokens.isGlass ? tokens.accentCyan : tokens.accent);
+    Color backgroundColor =
+        tokens.isGlass ? const Color(0xDD0B0B1A) : const Color(0xFF0D0E11);
     if (lyricsData?.colors != null) {
       if (lyricsData!.colors!.highlightText != null) {
         activeAccent = Color(lyricsData.colors!.highlightText!);
@@ -343,7 +345,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           color: backgroundColor,
           borderRadius: BorderRadius.circular(tokens.radiusXl),
           border: Border.all(
-            color: const Color(0xFF1F1F23),
+            color: tokens.isGlass
+                ? tokens.glassBorder
+                : const Color(0xFF1F1F23),
             width: 1,
           ),
           gradient: LinearGradient(

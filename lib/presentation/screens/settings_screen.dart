@@ -15,7 +15,9 @@ import '../providers/device_control_providers.dart';
 import '../providers/player_providers.dart';
 import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
+import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/shared/aurora_background.dart';
 import 'debug_metrics_screen.dart';
 import 'equalizer_screen.dart';
 import 'music_screensaver_screen.dart';
@@ -251,13 +253,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final learningPausedAsync = ref.watch(learningPausedProvider);
     final snoozedArtistsAsync = ref.watch(snoozedArtistsProvider);
 
+    final currentUiStyle = ref.watch(uiStyleProvider);
+    final currentReduceEffects = ref.watch(reduceEffectsProvider);
+
     final tokens = context.tokens;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
-      appBar: AppBar(
-        backgroundColor: tokens.background,
-        elevation: 0,
+    return AuroraBackground(
+      child: Scaffold(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
+        appBar: AppBar(
+          backgroundColor:
+              tokens.isGlass ? Colors.transparent : tokens.background,
+          elevation: 0,
         leading: Navigator.of(context).canPop()
             ? IconButton(
                 icon: Icon(Icons.arrow_back_rounded, color: tokens.textPrimary),
@@ -301,6 +309,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: Icon(Icons.edit_outlined, color: tokens.textSecondary, size: 20),
               onTap: () => _showEditNameDialog(context),
             ),
+          ),
+          const SizedBox(height: 24),
+
+          // Section 0.5: Appearance
+          _buildAppearanceSection(
+            context,
+            tokens,
+            currentUiStyle,
+            currentReduceEffects,
           ),
           const SizedBox(height: 24),
 
@@ -1314,8 +1331,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 40),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSectionHeader(String title) {
     final tokens = context.tokens;
@@ -1329,6 +1347,375 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           fontSize: 12.0,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppearanceSection(
+    BuildContext context,
+    AppTokens tokens,
+    UiStyle currentStyle,
+    ReduceEffectsMode currentEffects,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Appearance'),
+        Material(
+          color: tokens.card,
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.palette_outlined, color: tokens.accent, size: 22),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'UI Style',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          'Select your visual presentation theme',
+                          style: TextStyle(
+                            color: tokens.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildUiStylePreviewCard(
+                        style: UiStyle.classic,
+                        isSelected: currentStyle == UiStyle.classic,
+                        tokens: tokens,
+                        onTap: () => ref
+                            .read(uiStyleProvider.notifier)
+                            .setStyle(UiStyle.classic),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildUiStylePreviewCard(
+                        style: UiStyle.auroraGlass,
+                        isSelected: currentStyle == UiStyle.auroraGlass,
+                        tokens: tokens,
+                        onTap: () => ref
+                            .read(uiStyleProvider.notifier)
+                            .setStyle(UiStyle.auroraGlass),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white10, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.blur_on_rounded, color: tokens.accent, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Reduce effects',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            currentEffects.description,
+                            style: TextStyle(
+                              color: tokens.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Row(
+                    children: ReduceEffectsMode.values.map((mode) {
+                      final isSelected = currentEffects == mode;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => ref
+                              .read(reduceEffectsProvider.notifier)
+                              .setMode(mode),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? tokens.accent.withOpacity(0.2)
+                                  : Colors.transparent,
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusSm - 2),
+                              border: Border.all(
+                                color: isSelected
+                                    ? tokens.accent
+                                    : Colors.transparent,
+                                width: 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                mode.displayName,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? (tokens.isGlass
+                                          ? tokens.accentCyan
+                                          : tokens.accent)
+                                      : tokens.textSecondary,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUiStylePreviewCard({
+    required UiStyle style,
+    required bool isSelected,
+    required AppTokens tokens,
+    required VoidCallback onTap,
+  }) {
+    final isClassic = style == UiStyle.classic;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isClassic ? const Color(0xFF181818) : const Color(0xFF14122B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? (isClassic ? const Color(0xFF1DB954) : const Color(0xFF7C5CFF))
+                : Colors.white12,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: (isClassic
+                            ? const Color(0xFF1DB954)
+                            : const Color(0xFF7C5CFF))
+                        .withOpacity(0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Mini Preview Window
+            Container(
+              height: 90,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: isClassic
+                    ? const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFF282828), Color(0xFF121212)],
+                      )
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF1D1740),
+                          Color(0xFF0B0B1A),
+                          Color(0xFF0F1E38),
+                        ],
+                      ),
+              ),
+              child: Stack(
+                children: [
+                  if (!isClassic) ...[
+                    Positioned(
+                      top: -15,
+                      right: -15,
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF7C5CFF).withOpacity(0.35),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -10,
+                      left: -10,
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF4FD1FF).withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                  ],
+                  // Mockup Mini Card
+                  Center(
+                    child: Container(
+                      width: 105,
+                      height: 56,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isClassic
+                            ? const Color(0xFF242424)
+                            : Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isClassic
+                              ? Colors.white10
+                              : Colors.white.withOpacity(0.22),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: isClassic
+                                  ? const Color(0xFF1DB954)
+                                  : const Color(0xFF7C5CFF),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.play_arrow_rounded,
+                              size: 18,
+                              color: isClassic ? Colors.black : Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  height: 6,
+                                  width: 44,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  height: 4,
+                                  width: 28,
+                                  decoration: BoxDecoration(
+                                    color: isClassic
+                                        ? const Color(0xFFB3B3B3)
+                                        : const Color(0xFFC4C2E2),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Card Title & Status
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          style.displayName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isClassic ? 'Spotify Dark' : 'Frosted Glass',
+                          style: TextStyle(
+                            color: tokens.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isSelected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: isSelected
+                        ? (isClassic
+                            ? const Color(0xFF1DB954)
+                            : const Color(0xFF7C5CFF))
+                        : tokens.textSecondary.withOpacity(0.5),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

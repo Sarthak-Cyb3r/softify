@@ -9,6 +9,7 @@ import '../widgets/desktop_player_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/shared/app_network_image.dart';
 import '../widgets/shared/app_pill_button.dart';
+import '../widgets/shared/aurora_background.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 
@@ -137,8 +138,10 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       }
     }
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AuroraBackground(
+      child: Scaffold(
+        backgroundColor:
+            tokens.isGlass ? Colors.transparent : tokens.background,
       bottomNavigationBar: !isDesktop
           ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
           : const DesktopPlayerBar(),
@@ -383,6 +386,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
                       ),
                   ],
                 ),
+      ),
     );
   }
 

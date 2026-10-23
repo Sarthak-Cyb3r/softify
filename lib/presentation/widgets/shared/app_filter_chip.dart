@@ -24,8 +24,12 @@ class AppFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
 
-    final bgColor = isSelected ? tokens.accent : tokens.surfaceElevated;
-    final textColor = isSelected ? Colors.black : tokens.textPrimary;
+    final bgColor = isSelected
+        ? (tokens.isGlass ? tokens.accentViolet : tokens.accent)
+        : (tokens.isGlass ? tokens.glassSurface : tokens.surfaceElevated);
+    final textColor = isSelected
+        ? (tokens.isGlass ? Colors.white : Colors.black)
+        : tokens.textPrimary;
 
     return Semantics(
       label: label,
@@ -43,6 +47,14 @@ class AppFilterChip extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(tokens.radiusPill),
+            border: tokens.isGlass
+                ? Border.all(
+                    color: isSelected
+                        ? tokens.accentCyan.withValues(alpha: 0.60)
+                        : tokens.glassBorder,
+                    width: 1.0,
+                  )
+                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
