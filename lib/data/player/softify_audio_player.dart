@@ -230,9 +230,23 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     return result;
   }
 
+  AudioPlayer? _getStandbyPlayer() {
+    if (_standbyPlayer != null) return _standbyPlayer;
+    if (Platform.isLinux) {
+      try {
+        _standbyPlayer = AudioPlayer(
+          audioLoadConfiguration: defaultAudioLoadConfiguration,
+        );
+      } catch (_) {
+        _standbyPlayer = null;
+      }
+    }
+    return _standbyPlayer;
+  }
+
   @override
   Future<void> preloadNextUrl(String url, {Map<String, String>? headers}) async {
-    final standby = _standbyPlayer;
+    final standby = _getStandbyPlayer();
     if (standby == null) return;
     if (_preloadedSource == url && _isStandbyReady) return;
     _preloadedSource = url;
@@ -251,7 +265,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Future<void> preloadNextFilePath(String path) async {
-    final standby = _standbyPlayer;
+    final standby = _getStandbyPlayer();
     if (standby == null) return;
     if (_preloadedSource == path && _isStandbyReady) return;
     _preloadedSource = path;
@@ -279,45 +293,52 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final standby = _standbyPlayer;
     if (!_isStandbyReady || standby == null) return;
 
-    if (crossfade <= Duration.zero || Platform.isLinux) {
-      await _activePlayer.stop();
-
-      final temp = _activePlayer;
-      _activePlayer = standby;
-      _standbyPlayer = temp;
-
-      _preloadedSource = null;
-      _isStandbyReady = false;
-
-      _bindActivePlayerStreams();
-      _syncEqualizerEffects();
-      await _activePlayer.setSpeed(_speedSubject.value);
-      await _activePlayer.play();
-      return;
-    }
-
-    // Equal-power constant-acoustic-energy crossfade between active and standby players
     final outgoing = _activePlayer;
     final incoming = standby;
 
     _activePlayer = incoming;
     _standbyPlayer = outgoing;
+
     _preloadedSource = null;
     _isStandbyReady = false;
 
     _bindActivePlayerStreams();
     _syncEqualizerEffects();
+    await _activePlayer.setSpeed(_speedSubject.value);
 
     final targetVol = _volumeSubject.value;
-    await incoming.setVolume(0.0);
-    await incoming.setSpeed(_speedSubject.value);
-    await incoming.play();
+    final bool canCrossfade = crossfade > Duration.zero &&
+        !Platform.isLinux &&
+        outgoing.playing &&
+        outgoing.processingState == ProcessingState.ready;
 
+    if (!canCrossfade) {
+      await outgoing.stop();
+      await incoming.setVolume(targetVol);
+      await incoming.play();
+      return;
+    }
+
+    // High-performance asynchronous equal-power crossfade:
+    // Starts incoming playback immediately without stalling the caller or UI thread.
+    await incoming.setVolume(0.0);
+    await incoming.play();
+    unawaited(_executeEqualPowerCrossfade(outgoing, incoming, crossfade, targetVol));
+  }
+
+  Future<void> _executeEqualPowerCrossfade(
+    AudioPlayer outgoing,
+    AudioPlayer incoming,
+    Duration crossfade,
+    double targetVol,
+  ) async {
     const steps = 20;
-    final stepDuration = Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
+    final stepDuration =
+        Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
 
     for (int i = 1; i <= steps; i++) {
       await Future.delayed(stepDuration);
+      if (_activePlayer != incoming) break; // Abort if superseded by user skip
       final factor = i / steps;
       final theta = factor * (math.pi / 2.0);
       final outVol = (targetVol * math.cos(theta)).clamp(0.0, 1.0);
@@ -328,7 +349,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
     await outgoing.stop();
     await outgoing.setVolume(targetVol);
-    await incoming.setVolume(targetVol);
+    if (_activePlayer == incoming) {
+      await incoming.setVolume(targetVol);
+    }
   }
 
   @override
@@ -527,6 +550,10 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     await Future.wait([
       _playerA.dispose(),
       if (_playerB != null) _playerB.dispose(),
+      if (_standbyPlayer != null &&
+          _standbyPlayer != _playerA &&
+          _standbyPlayer != _playerB)
+        _standbyPlayer!.dispose(),
     ]);
   }
 }

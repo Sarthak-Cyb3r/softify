@@ -698,6 +698,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _logTrackPlayEvent(previousTrack, isCompleted: false);
     _currentIndex = index;
     _syncQueueState();
+    unawaited(_prefetchNextTrackStream());
     await _playCurrentIndex();
     _checkAndPrefetchRecommendations();
   }
@@ -721,6 +722,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _queue.add(track);
     _currentIndex = 0;
     _syncQueueState();
+    unawaited(_prefetchNextTrackStream());
     await _playCurrentIndex();
     _checkAndPrefetchRecommendations();
   }
@@ -738,6 +740,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _currentIndex =
         (startIndex >= 0 && startIndex < tracks.length) ? startIndex : 0;
     _syncQueueState();
+    unawaited(_prefetchNextTrackStream());
     await _playCurrentIndex();
     _checkAndPrefetchRecommendations();
   }
@@ -1083,7 +1086,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _prefetchNextTrackStream() async {
-    if (_queue.isEmpty || _currentIndex < 0 || _isPrefetching) return;
+    if (_queue.isEmpty || _currentIndex < 0) return;
 
     final int nextIdx;
     if (_currentIndex < _queue.length - 1) {
@@ -1094,10 +1097,20 @@ class SoftifyAudioHandler extends BaseAudioHandler
       return;
     }
 
+    // 1. Speculatively pre-resolve stream URLs for upcoming tracks into stream cache
+    for (int offset = 1; offset <= 3; offset++) {
+      final targetIdx = _currentIndex + offset;
+      if (targetIdx < _queue.length) {
+        final lookaheadTrack = _queue[targetIdx];
+        unawaited(_streamResolver.prefetch(lookaheadTrack, quality: _qualityPreset));
+      }
+    }
+
     final nextTrack = _queue[nextIdx];
     if (_currentlyPreloadingTrackId == nextTrack.id && _player.hasPreloadedNext) {
       return;
     }
+    if (_isPrefetching) return;
     _isPrefetching = true;
     _currentlyPreloadingTrackId = nextTrack.id;
     final prefetchId = ++_activePrefetchRequestId;
