@@ -2,6 +2,19 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [3.0.0] - 2026-10-23
+
+### 🌌 Major Milestone: Aurora Glass UI Experience (Pre-Release)
+- **Selectable Aurora Glass Design System**: Introduced Softify's second selectable visual interface alongside the authentic Spotify "Classic" theme. Features deep midnight backdrop (`#0B0B1A` to `#14122B`), vibrant aurora accents (violet `#7C5CFF`, cyan `#4FD1FF`, rose `#FF7AC6`), 20–28px rounded glass cards, and 1px 18% translucent borders.
+- **Dynamic Track-Palette Wallpaper**: `AuroraBackground` extracts and LRU-caches dominant colors directly from currently playing album art, generating dynamic ambient gradients that smoothly transition per track with fallback to aurora violet.
+- **Instant Reactive Switching**: Change themes on the fly in **Settings → Appearance** with interactive live preview cards. Switching styles is instantaneous via Riverpod `uiStyleProvider` with zero audio interruption, zero route popping, and full SQLite persistence across app restarts.
+- **Strict Performance Guardrails (60fps on Budget Hardware)**:
+  - Confined `BackdropFilter` exclusively to static chrome surfaces (`MiniPlayer`, `SlimBottomNavBar`, desktop player/sidebar, modal sheets), completely isolating them inside `RepaintBoundary`.
+  - Prohibited heavy Gaussian blurs inside scrollable lists and grids—scrolling rows use optimized zero-blur translucent gradients with hairline borders.
+  - Added a 3-way **Reduce effects** selector (**Auto / On / Off**) and automated low-end hardware detection (≤4 CPU cores) that drops blurs in favor of translucent solid fills.
+- **Universal Shell Coverage**: Cohesive styling extended across Mobile and Linux Desktop shells, including Home, Search, Your Library, YouTube Link Player, Podcasts, Equalizer, Album, and Playlist details.
+- **WCAG AA Compliance**: Silvery lavender secondary text (`#C4C2E2`) and contrast scrims guarantee compliant contrast ratios (>4.5:1 on glass surfaces and >15:1 against deep midnight backgrounds).
+
 ## [2.9.9] - 2026-10-23
 
 ### 🛠️ Critical Hotfix: Update Checker & Lyrics Real-Time Sync
