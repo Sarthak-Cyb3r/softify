@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -33,6 +34,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   final ITasteProfileRepository? _tasteRepo;
   final IAutomixTailReorderer? _automixTailReorderer;
   final ILyricsProvider? _lyricsProvider;
+  ILyricsProvider? get lyricsProvider => _lyricsProvider;
   final AudioQualityPreset _qualityPreset;
 
   SyncedLyrics? _currentSyncedLyrics;
@@ -130,6 +132,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
       enableAudioSession: enableAudioSession,
       autoRestoreState: autoRestoreState,
     );
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint(message);
+    }
   }
 
   void setTrackSource(String source) {
@@ -978,21 +986,18 @@ class SoftifyAudioHandler extends BaseAudioHandler
           return;
         } catch (downloadErr) {
           if (requestId != _activePlayRequestId) return;
-          // ignore: avoid_print
-          print('[SoftifyAudioHandler] Local file playback failed ($downloadErr)');
+          _log('[SoftifyAudioHandler] Local file playback failed ($downloadErr)');
           if (track.id.startsWith('local_')) {
             rethrow;
           }
         }
       } else if (track.id.startsWith('local_')) {
-        // ignore: avoid_print
-        print('[SoftifyAudioHandler] Local track file not found on disk: ${track.sourceId}');
+        _log('[SoftifyAudioHandler] Local track file not found on disk: ${track.sourceId}');
         throw FileSystemException('Local file not found on device', track.sourceId);
       }
 
       // 2. JIT Stream URL Resolution (D5)
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Resolving stream for "${track.title}" (${track.artist})...');
+      _log('[SoftifyAudioHandler] Resolving stream for "${track.title}" (${track.artist})...');
       final streamInfo = await _streamResolver.resolve(
         track,
         quality: _qualityPreset,
@@ -1001,8 +1006,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
       if (requestId != _activePlayRequestId) return;
 
       _currentStreamInfoSubject.add(streamInfo);
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Resolved stream: ${streamInfo.providerName}, container=${streamInfo.container}');
+      _log('[SoftifyAudioHandler] Resolved stream: ${streamInfo.providerName}, container=${streamInfo.container}');
 
       await _player.setUrl(
         streamInfo.url.toString(),
@@ -1011,13 +1015,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
       );
       if (requestId != _activePlayRequestId) return;
 
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Player setUrl completed, calling play()...');
+      _log('[SoftifyAudioHandler] Player setUrl completed, calling play()...');
       await _player.play();
       if (requestId != _activePlayRequestId) return;
 
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Player play() called successfully!');
+      _log('[SoftifyAudioHandler] Player play() called successfully!');
       _consecutiveFailures = 0;
       _debouncedSaveQueue();
       unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
@@ -1028,8 +1030,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         // Superseded by newer track selection; discard cleanly without retry or error.
         return;
       }
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] ERROR playing "${track.title}": $e\n$st');
+      _log('[SoftifyAudioHandler] ERROR playing "${track.title}": $e\n$st');
       // HTTP 403 Forbidden / Expired URL: Trigger transparent JIT re-resolution
       if (!forceFresh) {
         final savedPos = _player.position;
@@ -1210,8 +1211,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     if (_isPrefetchingRecommendations) return;
     _isPrefetchingRecommendations = true;
     try {
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Autoplay pre-fetching similar tracks for "${seedTrack.title}" in background...');
+      _log('[SoftifyAudioHandler] Autoplay pre-fetching similar tracks for "${seedTrack.title}" in background...');
       final related = await _catalogRepo!
           .getRelatedTracks(seedTrack)
           .timeout(const Duration(seconds: 10), onTimeout: () => <Track>[]);
@@ -1223,12 +1223,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
         _unshuffledQueue.addAll(fresh);
         _syncQueueState();
         _debouncedSaveQueue();
-        // ignore: avoid_print
-        print('[SoftifyAudioHandler] Appended ${fresh.length} recommended tracks to queue.');
+        _log('[SoftifyAudioHandler] Appended ${fresh.length} recommended tracks to queue.');
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Background pre-fetch recommendations error: $e');
+      _log('[SoftifyAudioHandler] Background pre-fetch recommendations error: $e');
     } finally {
       _isPrefetchingRecommendations = false;
     }
@@ -1252,8 +1250,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
 
     try {
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] End of queue reached. Autoplay fetching recommendations for "${seedTrack.title}" (${seedTrack.artist})...');
+      _log('[SoftifyAudioHandler] End of queue reached. Autoplay fetching recommendations for "${seedTrack.title}" (${seedTrack.artist})...');
       final related = await _catalogRepo!
           .getRelatedTracks(seedTrack)
           .timeout(const Duration(seconds: 10), onTimeout: () => <Track>[]);
@@ -1280,8 +1277,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         return;
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('[SoftifyAudioHandler] Failed to load autoplay recommendations: $e');
+      _log('[SoftifyAudioHandler] Failed to load autoplay recommendations: $e');
     }
     await stop();
   }

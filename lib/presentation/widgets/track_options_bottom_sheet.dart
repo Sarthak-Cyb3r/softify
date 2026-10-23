@@ -625,13 +625,14 @@ class _AddToPlaylistModal extends ConsumerWidget {
     );
   }
 
-  void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {
+  Future<void> _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) async {
     final tokens = context.tokens;
     final controller = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AppDialog(
+    try {
+      await showDialog(
+        context: context,
+        builder: (dialogCtx) => AppDialog(
         title: 'New Playlist',
         content: TextField(
           controller: controller,
@@ -686,5 +687,8 @@ class _AddToPlaylistModal extends ConsumerWidget {
         ],
       ),
     );
+    } finally {
+      controller.dispose();
+    }
   }
 }

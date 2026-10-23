@@ -1,45 +1,61 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import '../database/app_database.dart';
+import '../services/spotify_api_service.dart';
+import '../services/spotify_auth_service.dart';
+import 'lrclib_lyrics_provider.dart';
 import 'spotify_lyrics_synchronizer.dart';
 
 /// Unofficial Spotify Color-Lyrics v2 provider.
 /// Reverse-engineered from Spotify's internal spclient.wg.spotify.com/color-lyrics endpoint.
-/// Enforces bounded caching, SSRF endpoint sanitization, and syllable/color parsing.
+/// Enforces bounded caching, SSRF endpoint sanitization, dynamic Spotify ID resolution,
+/// and syllable/color parsing.
 class SpotifyLyricsProvider implements ILyricsProvider {
   final HttpClient _httpClient;
-  final String? Function()? _tokenGetter;
-  final String? Function()? _customEndpointGetter;
+  final FutureOr<String?> Function()? _tokenGetter;
+  final FutureOr<String?> Function()? _customEndpointGetter;
+  final SpotifyApiService? _spotifyApi;
+  final SpotifyAuthService? _authService;
+  final AppDatabase? _db;
   final Map<String, SyncedLyrics?> _cache = {};
+  final Map<String, String> _resolvedSpotifyIds = {};
 
-  static const int maxCacheEntries = 100;
+  static const int maxCacheEntries = 150;
   static const String defaultSpClientUrl =
       'https://spclient.wg.spotify.com/color-lyrics/v2/track';
 
   SpotifyLyricsProvider({
     HttpClient? httpClient,
-    String? Function()? tokenGetter,
-    String? Function()? customEndpointGetter,
+    FutureOr<String?> Function()? tokenGetter,
+    FutureOr<String?> Function()? customEndpointGetter,
+    SpotifyApiService? spotifyApi,
+    SpotifyAuthService? authService,
+    AppDatabase? db,
   })  : _httpClient = httpClient ??
             (HttpClient()
               ..idleTimeout = const Duration(seconds: 30)
               ..maxConnectionsPerHost = 4),
         _tokenGetter = tokenGetter,
-        _customEndpointGetter = customEndpointGetter;
+        _customEndpointGetter = customEndpointGetter,
+        _spotifyApi = spotifyApi,
+        _authService = authService,
+        _db = db;
 
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
-    final spotifyId = _extractSpotifyId(track);
-    if (spotifyId == null) return null;
-
     if (_cache.containsKey(track.id)) {
       return _cache[track.id];
     }
 
-    final token = _tokenGetter?.call()?.trim();
-    final customEndpoint = _customEndpointGetter?.call()?.trim();
+    final spotifyId = await resolveSpotifyId(track);
+    if (spotifyId == null) return null;
+
+    final token = await _getToken();
+    final customEndpoint = await _getCustomEndpoint();
 
     // If neither a token nor a custom endpoint is configured, return null gracefully
     if ((token == null || token.isEmpty) &&
@@ -48,14 +64,13 @@ class SpotifyLyricsProvider implements ILyricsProvider {
     }
 
     try {
-      final SyncedLyrics? result;
+      SyncedLyrics? result;
       if (customEndpoint != null && customEndpoint.isNotEmpty) {
         result =
             await _fetchFromCustomEndpoint(customEndpoint, spotifyId, track);
-      } else if (token != null && token.isNotEmpty) {
+      }
+      if (result == null && token != null && token.isNotEmpty) {
         result = await _fetchFromSpClient(token, spotifyId, track);
-      } else {
-        result = null;
       }
 
       _addToCache(track.id, result);
@@ -63,6 +78,96 @@ class SpotifyLyricsProvider implements ILyricsProvider {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Resolves the 22-character Spotify track ID for any track, including
+  /// tracks originating from YouTube, JioSaavn, iTunes, Deezer, or local files.
+  Future<String?> resolveSpotifyId(Track track) async {
+    final direct = _extractSpotifyId(track);
+    if (direct != null) return direct;
+
+    if (_resolvedSpotifyIds.containsKey(track.id)) {
+      return _resolvedSpotifyIds[track.id];
+    }
+
+    if (_spotifyApi != null) {
+      try {
+        final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
+        final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
+        final primary = cleanArtist.split(RegExp(r'[,&/]')).first.trim();
+        final searchResult = await _spotifyApi.search('$cleanTitle $primary', limit: 2);
+        if (searchResult.tracks.isNotEmpty) {
+          for (final cand in searchResult.tracks) {
+            final sId = _extractSpotifyId(cand);
+            if (sId != null) {
+              if (_resolvedSpotifyIds.length >= 150) {
+                _resolvedSpotifyIds.remove(_resolvedSpotifyIds.keys.first);
+              }
+              _resolvedSpotifyIds[track.id] = sId;
+              return sId;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  Future<String?> _getToken() async {
+    // 1. Explicit getter passed in constructor
+    if (_tokenGetter != null) {
+      final token = await _tokenGetter();
+      if (token != null && token.trim().isNotEmpty) {
+        return token.trim();
+      }
+    }
+
+    // 2. Setting from SQLite database
+    if (_db != null) {
+      try {
+        final row = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals('spotify_lyrics_token')))
+            .getSingleOrNull();
+        if (row != null && row.value.trim().isNotEmpty) {
+          return row.value.trim();
+        }
+      } catch (_) {}
+    }
+
+    // 3. User logged in via Spotify PKCE OAuth
+    if (_authService != null) {
+      try {
+        final userToken = await _authService.getValidAccessToken();
+        if (userToken != null && userToken.trim().isNotEmpty) {
+          return userToken.trim();
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  Future<String?> _getCustomEndpoint() async {
+    if (_customEndpointGetter != null) {
+      final ep = await _customEndpointGetter();
+      if (ep != null && ep.trim().isNotEmpty) {
+        return ep.trim();
+      }
+    }
+
+    if (_db != null) {
+      try {
+        final row = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals('spotify_lyrics_endpoint')))
+            .getSingleOrNull();
+        if (row != null && row.value.trim().isNotEmpty) {
+          return row.value.trim();
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   void _addToCache(String key, SyncedLyrics? value) {
@@ -116,28 +221,60 @@ class SpotifyLyricsProvider implements ILyricsProvider {
     String spotifyId,
     Track track,
   ) async {
-    // AppSec: Sanitize endpoint against SSRF and invalid schemes
     final sanitizedUri = SpotifyLyricsSynchronizer.sanitizeEndpoint(endpoint);
     if (sanitizedUri == null) return null;
 
     final baseStr = sanitizedUri.toString();
     final cleanBase =
         baseStr.endsWith('/') ? baseStr.substring(0, baseStr.length - 1) : baseStr;
-    final uri = Uri.parse('$cleanBase/?trackid=$spotifyId&format=raw');
 
-    final request =
-        await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
-    request.headers.set(
-      'User-Agent',
-      'Softify/1.0 (https://github.com/softify/softify)',
-    );
-    request.headers.set('Accept', 'application/json');
+    // Support standard proxy formats: /?trackid=..., /lyrics?trackid=..., and /:id
+    final candidateUrls = [
+      '$cleanBase/?trackid=$spotifyId&format=raw',
+      '$cleanBase/lyrics?trackid=$spotifyId',
+      '$cleanBase/$spotifyId',
+    ];
 
-    final response = await request.close().timeout(const Duration(seconds: 5));
-    if (response.statusCode != 200) return null;
+    for (final rawUrl in candidateUrls) {
+      try {
+        final uri = Uri.parse(rawUrl);
+        final request =
+            await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
+        request.headers.set(
+          'User-Agent',
+          'Softify/1.0 (https://github.com/softify/softify)',
+        );
+        request.headers.set('Accept', 'application/json');
 
-    final body = await response.transform(utf8.decoder).join();
-    return parseSpotifyLyricsJson(body, track.id);
+        final response =
+            await request.close().timeout(const Duration(seconds: 5));
+        if (response.statusCode != 200) continue;
+
+        final body = (await response.transform(utf8.decoder).join()).trim();
+        if (body.isEmpty) continue;
+
+        if (body.startsWith('{')) {
+          final parsed = parseSpotifyLyricsJson(body, track.id);
+          if (parsed != null) return parsed;
+        } else if (body.startsWith('[')) {
+          final lines = LrclibLyricsProvider.parseLrc(body);
+          if (lines.isNotEmpty) {
+            return SyncedLyrics(
+              trackId: track.id,
+              lines: lines,
+              plainLyrics: lines.map((l) => l.text).join('\n'),
+              rawLrc: body,
+              syncType: 'LINE_SYNCED',
+              providerName: 'Spotify Lyrics Proxy',
+            );
+          }
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return null;
   }
 
   /// Parses Spotify color-lyrics v2 JSON response into domain SyncedLyrics model.

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
@@ -114,31 +115,36 @@ class LocalAudioScanner {
     return dirs;
   }
 
-  /// Scans directories safely for genuine audio music files.
+  /// Scans directories safely for genuine audio music files on a background isolate.
   static Future<List<Track>> scanDirectories({
     List<Directory>? customDirectories,
   }) async {
     final targets = customDirectories ?? await getTargetDirectories();
-    final List<Track> discovered = [];
-    final Set<String> seenPaths = {};
+    final targetPaths = targets.map((d) => d.path).toList();
 
-    for (final dir in targets) {
-      if (!dir.existsSync()) continue;
-      // In Downloads, limit crawl depth to 2 to avoid descending into arbitrary project workspaces
-      final isDownloads = p.basename(dir.path).toLowerCase() == 'downloads' ||
-          p.basename(dir.path).toLowerCase() == 'download';
-      final maxDepth = isDownloads ? 2 : 4;
+    return Isolate.run(() {
+      final List<Track> discovered = [];
+      final Set<String> seenPaths = {};
 
-      await _walkDirectory(
-        dir: dir,
-        currentDepth: 0,
-        maxDepth: maxDepth,
-        seenPaths: seenPaths,
-        discovered: discovered,
-      );
-    }
+      for (final path in targetPaths) {
+        final dir = Directory(path);
+        if (!dir.existsSync()) continue;
+        // In Downloads, limit crawl depth to 2 to avoid descending into arbitrary project workspaces
+        final isDownloads = p.basename(dir.path).toLowerCase() == 'downloads' ||
+            p.basename(dir.path).toLowerCase() == 'download';
+        final maxDepth = isDownloads ? 2 : 4;
 
-    return discovered;
+        _walkDirectory(
+          dir: dir,
+          currentDepth: 0,
+          maxDepth: maxDepth,
+          seenPaths: seenPaths,
+          discovered: discovered,
+        );
+      }
+
+      return discovered;
+    });
   }
 
   static Future<void> _walkDirectory({

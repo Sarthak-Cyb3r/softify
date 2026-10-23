@@ -295,9 +295,10 @@ class SleepTimerBottomSheet extends ConsumerWidget {
   Future<void> _showCustomDurationDialog(BuildContext context, dynamic audioHandler) async {
     final controller = TextEditingController(text: '20');
     final tokens = context.tokens;
-    final result = await showDialog<int>(
-      context: context,
-      builder: (ctx) {
+    try {
+      final result = await showDialog<int>(
+        context: context,
+        builder: (ctx) {
         return AppDialog(
           title: 'Custom Sleep Timer',
           content: Column(
@@ -364,8 +365,11 @@ class SleepTimerBottomSheet extends ConsumerWidget {
       },
     );
 
-    if (result != null && context.mounted) {
-      _applyTimer(context, audioHandler, Duration(minutes: result));
+      if (result != null && context.mounted) {
+        _applyTimer(context, audioHandler, Duration(minutes: result));
+      }
+    } finally {
+      controller.dispose();
     }
   }
 

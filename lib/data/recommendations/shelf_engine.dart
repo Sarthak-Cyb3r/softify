@@ -195,18 +195,17 @@ class ShelfEngine implements IShelfRepository {
 
       // 1. Collect familiar tracks from local database
       if (topArtists.isNotEmpty) {
-        for (final artistRow in topArtists) {
-          final rows = await (_db.select(_db.tracks)
-                ..where((tbl) => tbl.artist.equals(artistRow.entityId))
-                ..limit(4))
-              .get();
-          for (final r in rows) {
-            final t = _mapRowToTrack(r);
-            if (_isExcludedTrack(t)) continue;
-            final key = _normalizeKey(t.title, t.artist);
-            if (seenIds.add(t.id) && seenKeys.add(key)) {
-              familiarTracks.add(t);
-            }
+        final artistNames = topArtists.map((a) => a.entityId).toList();
+        final rows = await (_db.select(_db.tracks)
+              ..where((tbl) => tbl.artist.isIn(artistNames))
+              ..limit(20))
+            .get();
+        for (final r in rows) {
+          final t = _mapRowToTrack(r);
+          if (_isExcludedTrack(t)) continue;
+          final key = _normalizeKey(t.title, t.artist);
+          if (seenIds.add(t.id) && seenKeys.add(key)) {
+            familiarTracks.add(t);
           }
         }
       }
@@ -411,7 +410,11 @@ class ShelfEngine implements IShelfRepository {
         historyTrackIds.add(r.id);
       }
 
-      final allTracks = (await _db.select(_db.tracks).get())
+      final allTracks = (await (_db.select(_db.tracks)
+            ..where((tbl) => tbl.isUnavailable.equals(false))
+            ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+            ..limit(100))
+          .get())
           .map(_mapRowToTrack)
           .toList();
 

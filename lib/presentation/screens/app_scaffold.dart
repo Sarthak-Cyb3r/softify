@@ -93,14 +93,20 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     super.dispose();
   }
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    SearchScreen(),
-    YoutubePage(),
-    PodcastPage(),
-    LibraryScreen(),
-    SettingsScreen(),
-  ];
+  static const int _tabCount = 6;
+  final Set<int> _loadedTabs = {0};
+
+  List<Widget> _buildTabScreens() {
+    _loadedTabs.add(_currentIndex);
+    return [
+      const HomeScreen(),
+      _loadedTabs.contains(1) ? const SearchScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(2) ? const YoutubePage() : const SizedBox.shrink(),
+      _loadedTabs.contains(3) ? const PodcastPage() : const SizedBox.shrink(),
+      _loadedTabs.contains(4) ? const LibraryScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(5) ? const SettingsScreen() : const SizedBox.shrink(),
+    ];
+  }
 
   @override
   void initState() {
@@ -304,7 +310,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                     Expanded(
                       child: IndexedStack(
                         index: _currentIndex,
-                        children: _screens,
+                        children: _buildTabScreens(),
                       ),
                     ),
 
@@ -356,7 +362,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 icon: Icons.chevron_right_rounded,
                 tooltip: 'Forward',
                 onTap: () {
-                  if (_currentIndex < _screens.length - 1) {
+                  if (_currentIndex < _tabCount - 1) {
                     setState(() => _currentIndex++);
                   }
                 },
@@ -532,7 +538,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           // Current Tab Page (IndexedStack preserves state for all tabs)
           IndexedStack(
             index: _currentIndex,
-            children: _screens,
+            children: _buildTabScreens(),
           ),
 
           // Floating MiniPlayer docked cleanly above SlimBottomNavBar

@@ -32,6 +32,8 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
   final Map<String, List<Track>> _genreCandidatePoolCache = {};
   final List<String> _recentlyServedTrackIds = [];
   List<Track>? _trendingCache;
+  DateTime? _trendingCacheTime;
+  static const Duration _trendingTtl = Duration(hours: 2);
 
   KeylessYouTubeCatalog({
     YoutubeExplode? yt,
@@ -471,7 +473,10 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
   @override
   Future<List<Track>> getTrendingTracks({int limit = 30}) async {
-    if (_trendingCache != null && _trendingCache!.isNotEmpty) {
+    if (_trendingCache != null &&
+        _trendingCache!.isNotEmpty &&
+        _trendingCacheTime != null &&
+        DateTime.now().difference(_trendingCacheTime!) < _trendingTtl) {
       return _trendingCache!;
     }
 
@@ -520,6 +525,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         }
         if (tracks.isNotEmpty) {
           _trendingCache = tracks;
+          _trendingCacheTime = DateTime.now();
           return tracks;
         }
       }
@@ -532,6 +538,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final plTracks = await _fetchSaavnPlaylistTracks('Hindi: India Superhits Top 50', limit: limit);
       if (plTracks.isNotEmpty) {
         _trendingCache = plTracks;
+        _trendingCacheTime = DateTime.now();
         return plTracks;
       }
     } catch (_) {}
@@ -540,6 +547,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final saavnTracks = await _searchSaavn('Bollywood Top Hits', limit: limit);
       if (saavnTracks.isNotEmpty) {
         _trendingCache = saavnTracks;
+        _trendingCacheTime = DateTime.now();
         return saavnTracks;
       }
     } catch (_) {}

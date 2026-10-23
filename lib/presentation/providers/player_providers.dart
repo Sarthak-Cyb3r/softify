@@ -18,7 +18,6 @@ import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/lyrics/composite_lyrics_provider.dart';
 import '../../data/lyrics/lrclib_lyrics_provider.dart';
 import '../../data/lyrics/spotify_lyrics_provider.dart';
-import 'settings_providers.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_download_repository.dart';
 import '../../domain/ports/i_event_logger.dart';
@@ -244,11 +243,18 @@ final localTracksStreamProvider = StreamProvider<List<Track>>((ref) {
 // ==========================================
 
 final lyricsProvider = Provider<ILyricsProvider>((ref) {
-  final config = ref.watch(spotifyLyricsConfigProvider);
+  try {
+    final audioHandler = ref.watch(audioHandlerProvider);
+    if (audioHandler.lyricsProvider != null) {
+      return audioHandler.lyricsProvider!;
+    }
+  } catch (_) {}
+  final db = ref.watch(databaseProvider);
+  final authService = ref.watch(spotifyAuthServiceProvider);
   return CompositeLyricsProvider(
     spotify: SpotifyLyricsProvider(
-      tokenGetter: () => config.token,
-      customEndpointGetter: () => config.endpoint,
+      db: db,
+      authService: authService,
     ),
   );
 });
@@ -269,12 +275,14 @@ final trackLyricsProvider =
           lines: lines,
           plainLyrics: cached.plainText,
           rawLrc: cached.syncedLrc,
+          syncType: 'LINE_SYNCED',
+          providerName: 'Local Cache',
         );
       }
     }
   }
 
-  // 2. Query multi-source lyrics engine (LRCLIB smart search + Kugou fallback)
+  // 2. Query multi-source lyrics engine (Spotify Direct + Multi-Tier Studio Catalogs)
   final lyrics = await lyricsEngine.getLyrics(track);
   if (lyrics != null) {
     await libraryRepo.cacheLyrics(
@@ -283,15 +291,29 @@ final trackLyricsProvider =
       plainText: lyrics.plainLyrics,
       isNotFound: false,
     );
-  } else {
-    // Negative response caching
-    await libraryRepo.cacheLyrics(
-      track.id,
-      isNotFound: true,
+    return lyrics;
+  }
+
+  // 3. Fallback to cached plain lyrics if synced could not be resolved
+  if (cached != null &&
+      cached.plainText != null &&
+      cached.plainText!.trim().isNotEmpty) {
+    return SyncedLyrics(
+      trackId: track.id,
+      lines: const [],
+      plainLyrics: cached.plainText!.trim(),
+      syncType: 'UNSYNCED',
+      providerName: 'Local Cache (Plain)',
     );
   }
 
-  return lyrics;
+  // Negative response caching
+  await libraryRepo.cacheLyrics(
+    track.id,
+    isNotFound: true,
+  );
+
+  return null;
 });
 
 // ==========================================

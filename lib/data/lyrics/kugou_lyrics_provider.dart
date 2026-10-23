@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import 'lrclib_lyrics_provider.dart';
+import 'spotify_lyrics_synchronizer.dart';
 
 /// Fallback / secondary lyrics provider backed by Kugou's public music catalog.
 /// Kugou provides millisecond-accurate synchronized LRC lyrics for global tracks.
@@ -24,8 +25,10 @@ class KugouLyricsProvider implements ILyricsProvider {
     }
 
     try {
-      final cleanTitle = _cleanTitle(track.title);
-      final query = '$cleanTitle ${track.artist}'.trim();
+      final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
+      final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
+      final primaryArtist = cleanArtist.split(RegExp(r'[,&/]')).first.trim();
+      final query = '$cleanTitle $primaryArtist'.trim();
 
       // 1. Search song info & file hash
       final searchUri = Uri.parse(
@@ -117,15 +120,6 @@ class KugouLyricsProvider implements ILyricsProvider {
     }
   }
 
-  String _cleanTitle(String title) {
-    return title
-        .replaceAll(RegExp(r'\(.*?\)'), '')
-        .replaceAll(RegExp(r'\[.*?\]'), '')
-        .replaceAll(RegExp(r'\s+feat\..*$', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s+ft\..*$', caseSensitive: false), '')
-        .trim();
-  }
-
   bool _isTitleMatch(String targetTitle, String candidateName) {
     final normTarget = _normalizeTitle(targetTitle);
     final normCand = _normalizeTitle(candidateName);
@@ -133,11 +127,11 @@ class KugouLyricsProvider implements ILyricsProvider {
     if (normTarget == normCand) return true;
     if (normCand.contains(normTarget) || normTarget.contains(normCand)) return true;
 
-    final targetTokens = normTarget.split(' ').where((w) => w.length > 2).toSet();
-    final candTokens = normCand.split(' ').where((w) => w.length > 2).toSet();
+    final targetTokens = normTarget.split(' ').where((w) => w.isNotEmpty).toSet();
+    final candTokens = normCand.split(' ').where((w) => w.isNotEmpty).toSet();
     if (targetTokens.isEmpty || candTokens.isEmpty) return false;
     final common = targetTokens.intersection(candTokens);
-    return (common.length / targetTokens.length) >= 0.6;
+    return (common.length / targetTokens.length) >= 0.5;
   }
 
   String _normalizeTitle(String text) {
@@ -145,7 +139,7 @@ class KugouLyricsProvider implements ILyricsProvider {
         .toLowerCase()
         .replaceAll(RegExp(r'\(.*?\)'), '')
         .replaceAll(RegExp(r'\[.*?\]'), '')
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]', unicode: true), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }

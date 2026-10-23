@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import 'spotify_lyrics_synchronizer.dart';
 
 /// Unofficial Genius lyrics provider for extensive global song coverage.
 /// Acts as the ultimate fallback for indie, rap, and obscure tracks when LRC catalogs have no entry.
@@ -15,8 +16,10 @@ class GeniusLyricsProvider implements ILyricsProvider {
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
     try {
-      final cleanTitle = _cleanTitle(track.title);
-      final query = '$cleanTitle ${track.artist}'.trim();
+      final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
+      final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
+      final primaryArtist = cleanArtist.split(RegExp(r'[,&/]')).first.trim();
+      final query = '$cleanTitle $primaryArtist'.trim();
       final songPath = await _searchSongPath(query);
       if (songPath == null) return null;
 
@@ -117,15 +120,6 @@ class GeniusLyricsProvider implements ILyricsProvider {
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>')
         .replaceAll('&nbsp;', ' ')
-        .trim();
-  }
-
-  String _cleanTitle(String title) {
-    return title
-        .replaceAll(RegExp(r'\(.*?\)'), '')
-        .replaceAll(RegExp(r'\[.*?\]'), '')
-        .replaceAll(RegExp(r'\s+feat\..*$', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s+ft\..*$', caseSensitive: false), '')
         .trim();
   }
 }

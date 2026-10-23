@@ -75,8 +75,9 @@ void main() async {
 
   final lyricsProvider = CompositeLyricsProvider(
     spotify: SpotifyLyricsProvider(
-      tokenGetter: () => null,
-      customEndpointGetter: () => null,
+      spotifyApi: spotifyApi,
+      authService: authService,
+      db: db,
     ),
   );
 

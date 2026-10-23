@@ -56,6 +56,9 @@ class HybridStreamResolver implements IStreamResolver {
 
     try {
       final info = await future;
+      if (_cache.length >= 100) {
+        _cache.remove(_cache.keys.first);
+      }
       _cache[cacheKey] = info;
       _cache[idKey] = info;
       return info;

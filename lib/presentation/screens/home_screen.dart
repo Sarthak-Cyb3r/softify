@@ -50,14 +50,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _showNamePromptModal(BuildContext context) async {
     final tokens = context.tokens;
     final controller = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: tokens.surfaceElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(tokens.radiusXl)),
-      ),
-      builder: (ctx) {
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: tokens.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(tokens.radiusXl)),
+        ),
+        builder: (ctx) {
         return Padding(
           padding: EdgeInsets.only(
             left: 24,
@@ -175,6 +176,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       },
     );
+    } finally {
+      controller.dispose();
+    }
   }
 
   String _getGreeting(String? userName, {bool isDesktop = false}) {
@@ -194,8 +198,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tokens = context.tokens;
     final userName = ref.watch(userNameProvider);
     final historyAsync = ref.watch(playHistoryStreamProvider);
-    final likedCountAsync = ref.watch(likedTracksStreamProvider);
-    final downloadsCountAsync = ref.watch(downloadsStreamProvider);
+    final likedCount = ref.watch(likedTracksStreamProvider.select((v) => v.value?.length ?? 0));
+    final completedDownloadsCount = ref.watch(
+      downloadsStreamProvider.select(
+        (v) => v.value?.where((d) => d.isCompleted).length ?? 0,
+      ),
+    );
     final featuredAsync = ref.watch(featuredMusicProvider);
     final shelvesAsync = ref.watch(homeShelvesProvider);
     final audioHandler = ref.watch(audioHandlerProvider);
@@ -290,10 +298,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       // 2. 6-Card Quick-Access Bento Grid
                       _buildBentoGrid(
                         tokens: tokens,
-                        likedCount: likedCountAsync.value?.length ?? 0,
-                        downloadsCount: downloadsCountAsync.value?.where((d) => d.isCompleted).length ?? 0,
+                        likedCount: likedCount,
+                        downloadsCount: completedDownloadsCount,
                         onLikedTap: () {
-                          final liked = likedCountAsync.value ?? [];
+                          final liked = ref.read(likedTracksStreamProvider).value ?? [];
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => TracksListScreen(
@@ -307,7 +315,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           );
                         },
                         onDownloadsTap: () {
-                          final dls = downloadsCountAsync.value
+                          final dls = ref.read(downloadsStreamProvider).value
                               ?.where((d) => d.isCompleted && d.track != null)
                               .map((d) => d.track!)
                               .toList() ?? [];
@@ -380,10 +388,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 12),
                 _buildBentoGrid(
                   tokens: tokens,
-                  likedCount: likedCountAsync.value?.length ?? 0,
-                  downloadsCount: downloadsCountAsync.value?.where((d) => d.isCompleted).length ?? 0,
+                  likedCount: likedCount,
+                  downloadsCount: completedDownloadsCount,
                   onLikedTap: () {
-                    final liked = likedCountAsync.value ?? [];
+                    final liked = ref.read(likedTracksStreamProvider).value ?? [];
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => TracksListScreen(
@@ -397,7 +405,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                   },
                   onDownloadsTap: () {
-                    final dls = downloadsCountAsync.value
+                    final dls = ref.read(downloadsStreamProvider).value
                         ?.where((d) => d.isCompleted && d.track != null)
                         .map((d) => d.track!)
                         .toList() ?? [];

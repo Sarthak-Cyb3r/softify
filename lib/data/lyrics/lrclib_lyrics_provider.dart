@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import 'spotify_lyrics_synchronizer.dart';
 
 class LrclibLyricsProvider implements ILyricsProvider {
   final HttpClient _httpClient;
@@ -21,27 +22,31 @@ class LrclibLyricsProvider implements ILyricsProvider {
     }
 
     try {
-      // 1. Try exact match with track artist
-      var result = await _tryExactGet(track.title, track.artist, track.duration, track.id);
+      final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
+      final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
+      final primaryArtist = cleanArtist
+          .split(RegExp(r',|\s+feat\.?|\s+ft\.?', caseSensitive: false))
+          .first
+          .trim();
+
+      // 1. Try exact match with cleaned title & primary artist
+      var result = await _tryExactGet(cleanTitle, primaryArtist, track.duration, track.id);
       if (result != null) {
         _memoryCache[track.id] = result;
         return result;
       }
 
-      // If artist has multiple collaborators (comma/feat), try primary artist
-      if (track.artist.contains(',') || track.artist.toLowerCase().contains('feat')) {
-        final primaryArtist = track.artist.split(RegExp(r',|\s+feat\.?|\s+ft\.?', caseSensitive: false)).first.trim();
-        if (primaryArtist.isNotEmpty && primaryArtist != track.artist) {
-          result = await _tryExactGet(track.title, primaryArtist, track.duration, track.id);
-          if (result != null) {
-            _memoryCache[track.id] = result;
-            return result;
-          }
+      // 2. Try exact match with cleaned title & full cleaned artist
+      if (cleanArtist.isNotEmpty && cleanArtist != primaryArtist) {
+        result = await _tryExactGet(cleanTitle, cleanArtist, track.duration, track.id);
+        if (result != null) {
+          _memoryCache[track.id] = result;
+          return result;
         }
       }
 
-      // 2. Fallback to smart search with duration-proximity ranking
-      final searchResult = await _searchFallback(track);
+      // 3. Fallback to smart search with duration-proximity ranking
+      final searchResult = await _searchFallback(track, cleanTitle, primaryArtist);
       if (searchResult != null) {
         _memoryCache[track.id] = searchResult;
         return searchResult;
@@ -121,15 +126,13 @@ class LrclibLyricsProvider implements ILyricsProvider {
     return null;
   }
 
-  Future<SyncedLyrics?> _searchFallback(Track track) async {
+  Future<SyncedLyrics?> _searchFallback(
+    Track track,
+    String cleanTitle,
+    String primaryArtist,
+  ) async {
     try {
-      final cleanTitle = track.title
-          .replaceAll(RegExp(r'\(.*?\)'), '')
-          .replaceAll(RegExp(r'\[.*?\]'), '')
-          .replaceAll(RegExp(r'\s+feat\..*$', caseSensitive: false), '')
-          .replaceAll(RegExp(r'\s+ft\..*$', caseSensitive: false), '')
-          .trim();
-      final query = '$cleanTitle ${track.artist}'.trim();
+      final query = '$cleanTitle $primaryArtist'.trim();
 
       final uri = Uri.https('lrclib.net', '/api/search', {'q': query});
       final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
@@ -140,11 +143,30 @@ class LrclibLyricsProvider implements ILyricsProvider {
 
       final body = await response.transform(utf8.decoder).join();
       final list = jsonDecode(body) as List<dynamic>;
-      final candidates = list.cast<Map<String, dynamic>>().where((item) {
+      var candidates = list.cast<Map<String, dynamic>>().where((item) {
         final synced = item['syncedLyrics'] as String?;
         final candName = (item['trackName'] ?? item['name'] ?? '').toString();
         return (synced != null && synced.trim().isNotEmpty) && _isTitleMatch(cleanTitle, candName);
       }).toList();
+
+      // If no candidates matched with artist included, retry search with clean title alone
+      if (candidates.isEmpty && cleanTitle.length > 2) {
+        try {
+          final titleUri = Uri.https('lrclib.net', '/api/search', {'q': cleanTitle});
+          final titleReq = await _httpClient.getUrl(titleUri).timeout(const Duration(seconds: 4));
+          titleReq.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
+          final titleRes = await titleReq.close().timeout(const Duration(seconds: 4));
+          if (titleRes.statusCode == 200) {
+            final titleBody = await titleRes.transform(utf8.decoder).join();
+            final titleList = jsonDecode(titleBody) as List<dynamic>;
+            candidates = titleList.cast<Map<String, dynamic>>().where((item) {
+              final synced = item['syncedLyrics'] as String?;
+              final candName = (item['trackName'] ?? item['name'] ?? '').toString();
+              return (synced != null && synced.trim().isNotEmpty) && _isTitleMatch(cleanTitle, candName);
+            }).toList();
+          }
+        } catch (_) {}
+      }
 
       final target = track.duration.inSeconds.toDouble();
 
@@ -309,11 +331,11 @@ class LrclibLyricsProvider implements ILyricsProvider {
     if (normTarget == normCand) return true;
     if (normCand.contains(normTarget) || normTarget.contains(normCand)) return true;
 
-    final targetTokens = normTarget.split(' ').where((w) => w.length > 2).toSet();
-    final candTokens = normCand.split(' ').where((w) => w.length > 2).toSet();
+    final targetTokens = normTarget.split(' ').where((w) => w.isNotEmpty).toSet();
+    final candTokens = normCand.split(' ').where((w) => w.isNotEmpty).toSet();
     if (targetTokens.isEmpty || candTokens.isEmpty) return false;
     final common = targetTokens.intersection(candTokens);
-    return (common.length / targetTokens.length) >= 0.6;
+    return (common.length / targetTokens.length) >= 0.5;
   }
 
   static String _normalizeTitle(String text) {
@@ -321,7 +343,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
         .toLowerCase()
         .replaceAll(RegExp(r'\(.*?\)'), '')
         .replaceAll(RegExp(r'\[.*?\]'), '')
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]', unicode: true), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }

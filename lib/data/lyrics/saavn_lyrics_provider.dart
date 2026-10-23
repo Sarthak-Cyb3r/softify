@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import 'spotify_lyrics_synchronizer.dart';
 
 /// Official JioSaavn verified lyrics provider.
 /// Supplies verified studio lyrics for tens of millions of Indian, Bollywood, Punjabi,
@@ -82,10 +83,10 @@ class SaavnLyricsProvider implements ILyricsProvider {
 
   Future<String?> _resolvePid(Track track) async {
     try {
-      final cleanTitle = _normalize(track.title);
-      final primaryArtist = track.artist.split(RegExp(r'[,&/]')).first.trim();
-      final cleanArtist = _normalize(primaryArtist);
-      final query = '$cleanTitle $cleanArtist'.trim();
+      final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
+      final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
+      final primaryArtist = cleanArtist.split(RegExp(r'[,&/]')).first.trim();
+      final query = '$cleanTitle $primaryArtist'.trim();
 
       final searchUri = Uri.parse(
         'https://www.jiosaavn.com/api.php?__call=autocomplete.get&query=${Uri.encodeComponent(query)}&_format=json&_marker=0&ctx=web6dot0',

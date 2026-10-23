@@ -153,6 +153,50 @@ class SpotifyLyricsSynchronizer {
     return lineTop >= lowerBound && lineTop <= upperBound;
   }
 
+  /// Sanitizes track titles by stripping bracketed video/metadata tags,
+  /// featured artist clauses, and remaster/deluxe suffixes so lyrics APIs
+  /// match the underlying song title accurately.
+  static String cleanTrackTitle(String title) {
+    var cleaned = title;
+    // Remove (Official Video), [Audio], (Lyric Video), (From "..."), (Remastered...), etc.
+    cleaned = cleaned.replaceAll(
+      RegExp(
+        r'\s*[\(\[](?:official|lyric|audio|video|remaster|live|from|original|deluxe|bonus|version|acoustic|full|hd|4k)[^\)\]]*[\)\]]',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    // Remove general dashes with movie or album tags: " - From ..." or " - Remastered ..."
+    cleaned = cleaned.replaceAll(
+      RegExp(
+        r'\s*-\s*(?:from|official|remastered|remaster|radio edit|single|bonus|deluxe|live).*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    // Remove featured artists: feat., ft., featuring
+    cleaned = cleaned.replaceAll(
+      RegExp(r'\s+(?:feat\.?|ft\.?|featuring)\s+.*$', caseSensitive: false),
+      '',
+    );
+    // Remove trailing pipes (e.g. "Song | Movie")
+    if (cleaned.contains('|')) {
+      cleaned = cleaned.split('|').first;
+    }
+    final trimmed = cleaned.trim();
+    return trimmed.isNotEmpty ? trimmed : title.trim();
+  }
+
+  /// Cleans artist string by stripping YouTube/VEVO tags and topic channels.
+  static String cleanArtistName(String artist) {
+    var cleaned = artist;
+    cleaned = cleaned.replaceAll(RegExp(r'\s*-\s*Topic$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+VEVO$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+Official$', caseSensitive: false), '');
+    final trimmed = cleaned.trim();
+    return trimmed.isNotEmpty ? trimmed : artist.trim();
+  }
+
   /// AppSec: Validates and sanitizes custom lyrics endpoint URLs to prevent SSRF.
   /// Rejects localhost, loopback, private RFC-1918 networks, and non-http(s) schemes.
   static Uri? sanitizeEndpoint(String? endpoint) {

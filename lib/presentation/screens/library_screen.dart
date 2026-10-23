@@ -45,37 +45,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   LibrarySortOrder _deviceMusicSort = LibrarySortOrder.recentlyAdded;
 
   List<Track> _sortTracks(List<Track> list, LibrarySortOrder sort) {
+    if (sort == LibrarySortOrder.recentlyAdded) return list;
     final copy = List<Track>.from(list);
     switch (sort) {
       case LibrarySortOrder.recentlyAdded:
         return copy;
       case LibrarySortOrder.titleAZ:
-        copy.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        final titles = {for (final t in copy) t: t.title.toLowerCase()};
+        copy.sort((a, b) => titles[a]!.compareTo(titles[b]!));
         return copy;
       case LibrarySortOrder.artistAZ:
-        copy.sort((a, b) => a.artist.toLowerCase().compareTo(b.artist.toLowerCase()));
+        final artists = {for (final t in copy) t: t.artist.toLowerCase()};
+        copy.sort((a, b) => artists[a]!.compareTo(artists[b]!));
         return copy;
     }
   }
 
   List<DownloadItem> _sortDownloads(List<DownloadItem> list, LibrarySortOrder sort) {
+    if (sort == LibrarySortOrder.recentlyAdded) return list;
     final copy = List<DownloadItem>.from(list);
     switch (sort) {
       case LibrarySortOrder.recentlyAdded:
         return copy;
       case LibrarySortOrder.titleAZ:
-        copy.sort((a, b) {
-          final aTitle = a.track?.title ?? a.trackId;
-          final bTitle = b.track?.title ?? b.trackId;
-          return aTitle.toLowerCase().compareTo(bTitle.toLowerCase());
-        });
+        final titles = {for (final d in copy) d: (d.track?.title ?? d.trackId).toLowerCase()};
+        copy.sort((a, b) => titles[a]!.compareTo(titles[b]!));
         return copy;
       case LibrarySortOrder.artistAZ:
-        copy.sort((a, b) {
-          final aArtist = a.track?.artist ?? '';
-          final bArtist = b.track?.artist ?? '';
-          return aArtist.toLowerCase().compareTo(bArtist.toLowerCase());
-        });
+        final artists = {for (final d in copy) d: (d.track?.artist ?? '').toLowerCase()};
+        copy.sort((a, b) => artists[a]!.compareTo(artists[b]!));
         return copy;
     }
   }
@@ -185,58 +183,64 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     }
   }
 
-  void _showCreatePlaylistDialog(BuildContext context) {
+  Future<void> _showCreatePlaylistDialog(BuildContext context) async {
     final tokens = context.tokens;
     final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AppDialog(
-        title: 'New Playlist',
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(
-            fontFamily: AppTheme.fontUi,
-            color: tokens.textPrimary,
-            fontSize: 14,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Playlist name',
-            hintStyle: TextStyle(
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AppDialog(
+          title: 'New Playlist',
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(
               fontFamily: AppTheme.fontUi,
-              color: tokens.textMuted,
+              color: tokens.textPrimary,
               fontSize: 14,
             ),
-            filled: true,
-            fillColor: tokens.card,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(tokens.radiusSm),
-              borderSide: BorderSide.none,
+            decoration: InputDecoration(
+              hintText: 'Playlist name',
+              hintStyle: TextStyle(
+                fontFamily: AppTheme.fontUi,
+                color: tokens.textMuted,
+                fontSize: 14,
+              ),
+              filled: true,
+              fillColor: tokens.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
-        ),
-        customActions: [
-          AppPillButton(
-            label: 'Cancel',
-            variant: AppPillButtonVariant.ghost,
-            onPressed: () => Navigator.of(dialogContext).pop(),
-          ),
-          AppPillButton(
-            label: 'Create',
-            variant: AppPillButtonVariant.primary,
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                await ref.read(libraryRepositoryProvider).createPlaylist(name);
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
+          customActions: [
+            AppPillButton(
+              label: 'Cancel',
+              variant: AppPillButtonVariant.ghost,
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            AppPillButton(
+              label: 'Create',
+              variant: AppPillButtonVariant.primary,
+              onPressed: () async {
+                final name = controller.text.trim();
+                if (name.isNotEmpty) {
+                  try {
+                    await ref.read(libraryRepositoryProvider).createPlaylist(name);
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  } catch (_) {}
                 }
-              }
-            },
-          ),
-        ],
-      ),
-    );
+              },
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
   }
 
   @override

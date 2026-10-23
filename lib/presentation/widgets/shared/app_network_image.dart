@@ -138,13 +138,18 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
       content = _buildFallback(context);
     } else {
       final currentUrl = _candidates[_candidateIndex];
+      final effectiveCacheWidth = widget.cacheWidth ??
+          (widget.width != null ? (widget.width! * 2.5).round() : null);
+      final effectiveCacheHeight = widget.cacheHeight ??
+          (widget.height != null ? (widget.height! * 2.5).round() : null);
+
       content = Image.network(
         currentUrl,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        cacheWidth: widget.cacheWidth,
-        cacheHeight: widget.cacheHeight,
+        cacheWidth: effectiveCacheWidth,
+        cacheHeight: effectiveCacheHeight,
         gaplessPlayback: true,
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
           if (wasSynchronouslyLoaded || frame != null) {

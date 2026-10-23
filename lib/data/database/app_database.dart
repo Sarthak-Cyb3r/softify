@@ -319,7 +319,15 @@ LazyDatabase openDefaultConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'softify.sqlite'));
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(
+      file,
+      setup: (rawDb) {
+        rawDb.execute('PRAGMA journal_mode = WAL;');
+        rawDb.execute('PRAGMA synchronous = NORMAL;');
+        rawDb.execute('PRAGMA foreign_keys = ON;');
+        rawDb.execute('PRAGMA busy_timeout = 3000;');
+      },
+    );
   });
 }
 
@@ -410,6 +418,28 @@ class AppDatabase extends _$AppDatabase {
           if (from < 11) {
             await m.createTable(podcastHistory);
           }
+          await _createIndexes();
+        },
+        beforeOpen: (details) async {
+          await _createIndexes();
         },
       );
+
+  Future<void> _createIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_tracks_liked_created ON tracks(is_liked, created_at DESC);',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_play_histories_played_at ON play_histories(played_at DESC);',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_play_histories_track ON play_histories(track_id);',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads(status);',
+    );
+  }
 }

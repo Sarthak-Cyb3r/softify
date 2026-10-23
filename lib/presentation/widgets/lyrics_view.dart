@@ -74,17 +74,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     _positionNotifier = ValueNotifier<Duration>(Duration.zero);
     _loadSavedOffset();
 
-    try {
-      final audioHandler = ref.read(audioHandlerProvider);
-      _isPlaying = audioHandler.playbackState.value.playing;
-      _lastPlayerPosition = audioHandler.position;
-      _lastPlayerReceipt = DateTime.now();
-      _interpolatedPosition = _lastPlayerPosition;
-      if (_isPlaying) {
-        _ticker.start();
-      }
-    } catch (_) {}
-
     _ticker = createTicker((elapsed) {
       if (!_isPlaying) return;
 
@@ -134,6 +123,17 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         }
       }
     });
+
+    try {
+      final audioHandler = ref.read(audioHandlerProvider);
+      _isPlaying = audioHandler.playbackState.value.playing;
+      _lastPlayerPosition = audioHandler.position;
+      _lastPlayerReceipt = DateTime.now();
+      _interpolatedPosition = _lastPlayerPosition;
+      if (_isPlaying) {
+        _ticker.start();
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadSavedOffset() async {
@@ -449,6 +449,59 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       ),
                     ),
                     data: (lyrics) {
+                      final isInstrumental = lyrics != null &&
+                          ((lyrics.plainLyrics != null &&
+                              (lyrics.plainLyrics!.contains('♪ Instrumental ♪') ||
+                               lyrics.plainLyrics!.contains('[instrumental]'))) ||
+                           (lyrics.lines.isNotEmpty &&
+                              (lyrics.lines.first.text.contains('♪ Instrumental ♪') ||
+                               lyrics.lines.first.text.contains('[instrumental]'))));
+
+                      if (isInstrumental) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: activeAccent.withValues(alpha: 0.1),
+                                  border: Border.all(
+                                    color: activeAccent.withValues(alpha: 0.25),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.graphic_eq_rounded,
+                                  color: activeAccent,
+                                  size: 40,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                '♪ Instrumental Track ♪',
+                                style: TextStyle(
+                                  color: tokens.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Enjoy the studio instrumentation',
+                                style: TextStyle(
+                                  color: tokens.textSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
                       if (lyrics == null ||
                           (!lyrics.isSynced &&
                               (lyrics.plainLyrics == null ||

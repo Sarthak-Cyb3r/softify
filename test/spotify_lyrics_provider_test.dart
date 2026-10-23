@@ -310,6 +310,55 @@ void main() {
       expect(result, isNotNull);
       expect(result!.lines.first.text, equals('Kugou Line 1'));
     });
+
+    test('detects instrumental tracks and returns synchronized instrumental cue', () async {
+      const instrumentalTrack = Track(
+        id: 'yt_abc123',
+        sourceId: 'abc123',
+        title: 'Interstellar Theme (Soundtrack Instrumental Version)',
+        artist: 'Hans Zimmer - Topic',
+        duration: Duration(seconds: 240),
+      );
+
+      final composite = CompositeLyricsProvider(
+        spotify: _MockLyricsProvider(null),
+        primary: _MockLyricsProvider(null),
+        secondary: _MockLyricsProvider(null),
+      );
+
+      final result = await composite.getLyrics(instrumentalTrack);
+      expect(result, isNotNull);
+      expect(result!.isSynced, isTrue);
+      expect(result.lines.first.text, equals('♪ Instrumental ♪'));
+      expect(result.providerName, equals('Instrumental'));
+    });
+
+    test('cleans track titles and artist names for lyrics API matching', () {
+      expect(
+        SpotifyLyricsSynchronizer.cleanTrackTitle('Kesariya (From "Brahmastra")'),
+        equals('Kesariya'),
+      );
+      expect(
+        SpotifyLyricsSynchronizer.cleanTrackTitle('Blinding Lights (Official Video)'),
+        equals('Blinding Lights'),
+      );
+      expect(
+        SpotifyLyricsSynchronizer.cleanTrackTitle('Shape of You [Audio]'),
+        equals('Shape of You'),
+      );
+      expect(
+        SpotifyLyricsSynchronizer.cleanTrackTitle('Levitating feat. DaBaby'),
+        equals('Levitating'),
+      );
+      expect(
+        SpotifyLyricsSynchronizer.cleanArtistName('Pritam - Topic'),
+        equals('Pritam'),
+      );
+      expect(
+        SpotifyLyricsSynchronizer.cleanArtistName('The Weeknd VEVO'),
+        equals('The Weeknd'),
+      );
+    });
   });
 }
 
