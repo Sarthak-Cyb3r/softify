@@ -370,15 +370,7 @@ class MiniPlayer extends ConsumerWidget {
                         widthFactor: progress,
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: tokens.isGlass
-                                ? LinearGradient(
-                                    colors: [
-                                      tokens.accentViolet,
-                                      tokens.accentCyan,
-                                    ],
-                                  )
-                                : null,
-                            color: tokens.isGlass ? null : tokens.accent,
+                            color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
                             borderRadius: const BorderRadius.horizontal(
                               right: Radius.circular(2),
                             ),

@@ -273,7 +273,7 @@ class AppTheme {
     );
   }
 
-  /// Aurora Glass Dark ThemeData (Deep Midnight Frosted Glassmorphism)
+  /// Aurora Glass Dark ThemeData (Minimalist Editorial Frosted Glass)
   static ThemeData get auroraDarkTheme {
     const tokens = AppTokens.auroraTokens;
 
@@ -284,10 +284,10 @@ class AppTheme {
       fontFamily: fontUi,
       extensions: const [tokens],
       colorScheme: ColorScheme.dark(
-        primary: tokens.accentViolet,
-        onPrimary: Colors.white,
-        primaryContainer: tokens.accentViolet,
-        onPrimaryContainer: Colors.white,
+        primary: tokens.accent,
+        onPrimary: Colors.black,
+        primaryContainer: tokens.surfaceElevated,
+        onPrimaryContainer: tokens.textPrimary,
         secondary: tokens.accentCyan,
         onSecondary: Colors.black,
         tertiary: tokens.accentRose,
@@ -297,19 +297,19 @@ class AppTheme {
         error: tokens.error,
         onError: Colors.white,
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
           fontFamily: fontPageTitle,
-          color: Colors.white,
+          color: tokens.textPrimary,
           fontSize: 24,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.4,
         ),
-        iconTheme: IconThemeData(color: Colors.white, size: 22),
+        iconTheme: IconThemeData(color: tokens.textPrimary, size: 22),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: tokens.background,
@@ -329,12 +329,12 @@ class AppTheme {
         ),
       ),
       sliderTheme: SliderThemeData(
-        activeTrackColor: tokens.accentViolet,
-        inactiveTrackColor: const Color(0x33FFFFFF),
+        activeTrackColor: tokens.accentCyan,
+        inactiveTrackColor: const Color(0x1FFFFFFF),
         thumbColor: tokens.accentCyan,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        trackHeight: 3.0,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+        trackHeight: 2.5,
       ),
       cardTheme: CardThemeData(
         color: tokens.card,
@@ -342,7 +342,7 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(tokens.radiusCard),
-          side: const BorderSide(color: Color(0x2EFFFFFF), width: 1.0),
+          side: BorderSide(color: tokens.glassBorder, width: 1.0),
         ),
       ),
       dialogTheme: DialogThemeData(

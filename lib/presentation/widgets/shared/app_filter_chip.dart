@@ -26,7 +26,7 @@ class AppFilterChip extends StatelessWidget {
     final tokens = context.tokens;
 
     final textColor = isSelected
-        ? (tokens.isGlass ? Colors.white : Colors.black)
+        ? Colors.black
         : tokens.textPrimary;
 
     final chipContent = Row(
@@ -72,23 +72,15 @@ class AppFilterChip extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(tokens.radiusPill),
                 color: isSelected
-                    ? tokens.accentViolet.withValues(alpha: 0.85)
-                    : Colors.white.withValues(alpha: 0.12),
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.08),
                 border: Border.all(
                   color: isSelected
-                      ? tokens.accentCyan.withValues(alpha: 0.70)
+                      ? Colors.white
                       : tokens.glassBorder,
                   width: 1.0,
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: tokens.accentViolet.withValues(alpha: 0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : tokens.cardShadow,
+                boxShadow: null,
                 child: chipContent,
               )
             : Container(

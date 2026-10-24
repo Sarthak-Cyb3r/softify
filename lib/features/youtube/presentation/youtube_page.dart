@@ -306,38 +306,26 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                           child: Container(
                             height: 48,
                             decoration: BoxDecoration(
-                              color: tokens.isGlass ? null : tokens.accent,
-                              gradient: tokens.isGlass
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFF7C5CFF),
-                                        Color(0xFF00D2FF),
-                                      ],
-                                    )
-                                  : null,
+                              color: tokens.isGlass ? Colors.white : tokens.accent,
                               borderRadius:
                                   BorderRadius.circular(tokens.radiusPill),
                               boxShadow: tokens.isGlass
                                   ? tokens.cardShadow
                                   : null,
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons.play_arrow_rounded,
-                                  color: tokens.isGlass
-                                      ? Colors.white
-                                      : Colors.black,
+                                  color: Colors.black,
                                   size: 24,
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 Text(
                                   'Play Audio',
                                   style: TextStyle(
-                                    color: tokens.isGlass
-                                        ? Colors.white
-                                        : Colors.black,
+                                    color: Colors.black,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,

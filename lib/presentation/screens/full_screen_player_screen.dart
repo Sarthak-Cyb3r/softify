@@ -799,18 +799,18 @@ class _FullScreenPlayerScreenState
                               ),
                               borderRadius: BorderRadius.circular(tokens.radiusFull),
                               color: _showLyrics
-                                  ? tokens.accentViolet.withValues(alpha: 0.85)
-                                  : Colors.white.withValues(alpha: 0.12),
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.08),
                               border: Border.all(
                                 color: _showLyrics
-                                    ? tokens.accentCyan.withValues(alpha: 0.70)
+                                    ? Colors.white
                                     : tokens.glassBorder,
                                 width: 1.0,
                               ),
                               boxShadow: _showLyrics
                                   ? [
                                       BoxShadow(
-                                        color: tokens.accentViolet.withValues(alpha: 0.4),
+                                        color: Colors.black.withValues(alpha: 0.25),
                                         blurRadius: 12,
                                         offset: const Offset(0, 3),
                                       ),
@@ -822,7 +822,7 @@ class _FullScreenPlayerScreenState
                                   Icon(
                                     Icons.lyrics_rounded,
                                     size: 18,
-                                    color: _showLyrics ? tokens.accentCyan : Colors.white,
+                                    color: _showLyrics ? Colors.black : Colors.white,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -830,7 +830,7 @@ class _FullScreenPlayerScreenState
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: _showLyrics ? tokens.accentCyan : Colors.white,
+                                      color: _showLyrics ? Colors.black : Colors.white,
                                     ),
                                   ),
                                 ],

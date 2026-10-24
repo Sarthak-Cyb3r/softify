@@ -73,9 +73,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.glassSurface = const Color(0x1AFFFFFF),
     this.glassBorder = const Color(0x1FFFFFFF),
     this.accent = const Color(0xFF1DB954),
-    this.accentViolet = const Color(0xFF7C5CFF),
-    this.accentCyan = const Color(0xFF4FD1FF),
-    this.accentRose = const Color(0xFFFF7AC6),
+    this.accentViolet = const Color(0xFFF4F4F6),
+    this.accentCyan = const Color(0xFF34D399),
+    this.accentRose = const Color(0xFFE57373),
     this.textPrimary = const Color(0xFFFFFFFF),
     this.textSecondary = const Color(0xFFB3B3B3),
     this.textMuted = const Color(0xFF6A6A6A),
@@ -106,40 +106,40 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Canonical Classic Spotify-Inspired Token Spec (Default)
   static const AppTokens standardTokens = AppTokens();
 
-  /// Aurora Glass Token Spec (Deep Midnight Frosted Glassmorphism)
+  /// Aurora Glass Token Spec (Minimalist Editorial Frosted Glass)
   static const AppTokens auroraTokens = AppTokens(
     style: UiStyle.auroraGlass,
     isGlass: true,
-    background: Color(0xFF0B0B1A), // Deep midnight #0B0B1A
-    sidebar: Color(0xFF0B0B1A),
-    surface: Color(0xFF14122B),
-    surfaceElevated: Color(0xFF1B163B),
-    surfaceHighlight: Color(0xFF261F4D),
-    card: Color(0x22FFFFFF), // 13.5% translucent white glass
-    cardHover: Color(0x35FFFFFF), // 21% white glass hover
-    glass: Color(0x24FFFFFF), // 14% translucent white
-    glassSurface: Color(0x22FFFFFF), // 13.5% white glass surface
-    glassBorder: Color(0x3DFFFFFF), // 24% specular white border
-    accent: Color(0xFF7C5CFF), // Aurora violet
-    accentViolet: Color(0xFF7C5CFF),
-    accentCyan: Color(0xFF4FD1FF), // Cyan #4FD1FF
-    accentRose: Color(0xFFFF7AC6), // Rose #FF7AC6
-    textPrimary: Color(0xFFFFFFFF),
-    textSecondary: Color(0xFFC4C2E2), // Soft silvery lilac, meets WCAG AA 4.5:1+
-    textMuted: Color(0xFF7E7B9D),
-    divider: Color(0x2EFFFFFF),
-    error: Color(0xFFFF5C7A),
+    background: Color(0xFF0E0E11), // Deep warm obsidian charcoal
+    sidebar: Color(0xFF0E0E11),
+    surface: Color(0xFF16161A), // Quiet graphite surface
+    surfaceElevated: Color(0xFF1C1C22),
+    surfaceHighlight: Color(0xFF24242B),
+    card: Color(0x0FFFFFFF), // 6.2% translucent white glass
+    cardHover: Color(0x18FFFFFF), // 9.5% white glass hover
+    glass: Color(0x0DFFFFFF), // 5% translucent white
+    glassSurface: Color(0x12FFFFFF), // 7% translucent white surface
+    glassBorder: Color(0x1AFFFFFF), // 10% crisp hairline border
+    accent: Color(0xFF34D399), // Studio sage mint
+    accentViolet: Color(0xFFF4F4F6), // Warm titanium alabaster
+    accentCyan: Color(0xFF34D399), // Studio sage mint
+    accentRose: Color(0xFFE57373), // Muted terracotta / dusty rose
+    textPrimary: Color(0xFFF4F4F6),
+    textSecondary: Color(0xFFA1A1AA), // Neutral zinc, meets WCAG AA & AAA
+    textMuted: Color(0xFF71717A),
+    divider: Color(0x14FFFFFF),
+    error: Color(0xFFF87171),
     spaceXs: 4.0,
     spaceSm: 8.0,
     spaceMd: 16.0,
     spaceLg: 24.0,
     spaceXl: 32.0,
     spaceXxl: 48.0,
-    radiusSm: 10.0,
-    radiusCard: 22.0, // 20-28 glass card radius
-    radiusMd: 18.0,
-    radiusLg: 24.0,
-    radiusXl: 28.0,
+    radiusSm: 8.0,
+    radiusCard: 14.0, // Architectural crisp card radius
+    radiusMd: 12.0,
+    radiusLg: 16.0,
+    radiusXl: 20.0,
     radiusFull: 999.0,
     radiusPill: 999.0,
     motionQuick: Duration(milliseconds: 150),
@@ -150,15 +150,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     curveSpring: Curves.easeOutCubic,
     cardShadow: [
       BoxShadow(
-        color: Color(0x40000000),
-        blurRadius: 22,
+        color: Color(0x33000000),
+        blurRadius: 16,
         spreadRadius: -2,
-        offset: Offset(0, 8),
-      ),
-      BoxShadow(
-        color: Color(0x1F7C5CFF), // Radiant aurora violet ambient bloom
-        blurRadius: 26,
-        spreadRadius: -4,
         offset: Offset(0, 4),
       ),
     ],

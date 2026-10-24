@@ -155,7 +155,7 @@ final Map<String, Color> _auroraPaletteCache = {};
 final auroraPaletteProvider =
     FutureProvider.family<Color, String?>((ref, coverUrl) async {
   if (coverUrl == null || coverUrl.isEmpty) {
-    return const Color(0xFF7C5CFF); // Default aurora violet
+    return const Color(0xFF34D399); // Default studio sage mint
   }
 
   if (_auroraPaletteCache.containsKey(coverUrl)) {
@@ -170,9 +170,9 @@ final auroraPaletteProvider =
     );
 
     final color = generator.dominantColor?.color ??
-        generator.vibrantColor?.color ??
         generator.mutedColor?.color ??
-        const Color(0xFF7C5CFF);
+        generator.vibrantColor?.color ??
+        const Color(0xFF34D399);
 
     if (_auroraPaletteCache.length >= 100) {
       _auroraPaletteCache.remove(_auroraPaletteCache.keys.first);
@@ -180,6 +180,6 @@ final auroraPaletteProvider =
     _auroraPaletteCache[coverUrl] = color;
     return color;
   } catch (_) {
-    return const Color(0xFF7C5CFF);
+    return const Color(0xFF34D399);
   }
 });

@@ -41,9 +41,12 @@ class AppPillButton extends StatelessWidget {
 
     switch (variant) {
       case AppPillButtonVariant.primary:
-        bgColor =
-            isEnabled ? tokens.accent : tokens.accent.withValues(alpha: 0.4);
-        fgColor = tokens.isGlass ? Colors.white : Colors.black;
+        bgColor = isEnabled
+            ? (tokens.isGlass ? Colors.white : tokens.accent)
+            : (tokens.isGlass
+                ? Colors.white.withValues(alpha: 0.4)
+                : tokens.accent.withValues(alpha: 0.4));
+        fgColor = Colors.black;
         break;
       case AppPillButtonVariant.secondary:
         bgColor = isEnabled
@@ -111,22 +114,12 @@ class AppPillButton extends StatelessWidget {
                 vertical: 0.0,
               ),
           decoration: BoxDecoration(
-            color: (tokens.isGlass && variant == AppPillButtonVariant.primary)
-                ? null
-                : bgColor,
-            gradient: (tokens.isGlass && variant == AppPillButtonVariant.primary)
-                ? LinearGradient(
-                    colors: [tokens.accentViolet, tokens.accentCyan],
-                  )
-                : null,
+            color: bgColor,
             borderRadius: BorderRadius.circular(tokens.radiusPill),
-            boxShadow: (tokens.isGlass && variant == AppPillButtonVariant.primary)
-                ? tokens.cardShadow
-                : null,
             border: (tokens.isGlass && variant != AppPillButtonVariant.ghost)
                 ? Border.all(
                     color: variant == AppPillButtonVariant.primary
-                        ? tokens.accentCyan.withValues(alpha: 0.50)
+                        ? Colors.white
                         : tokens.glassBorder,
                     width: 1.0,
                   )

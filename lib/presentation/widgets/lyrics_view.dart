@@ -291,7 +291,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     Color activeAccent = widget.ambientColor ??
         (tokens.isGlass ? tokens.accentCyan : tokens.accent);
     Color backgroundColor =
-        tokens.isGlass ? const Color(0xDD0B0B1A) : const Color(0xFF0D0E11);
+        tokens.isGlass ? const Color(0xF20E0E11) : const Color(0xFF0D0E11);
     if (lyricsData?.colors != null) {
       if (lyricsData!.colors!.highlightText != null) {
         activeAccent = Color(lyricsData.colors!.highlightText!);

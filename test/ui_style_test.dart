@@ -71,11 +71,11 @@ void main() {
 
       expect(aurora.style, equals(UiStyle.auroraGlass));
       expect(aurora.isGlass, isTrue);
-      expect(aurora.background, equals(const Color(0xFF0B0B1A))); // Midnight
-      expect(aurora.accent, equals(const Color(0xFF7C5CFF))); // Aurora violet
-      expect(aurora.accentCyan, equals(const Color(0xFF4FD1FF)));
-      expect(aurora.accentRose, equals(const Color(0xFFFF7AC6)));
-      expect(aurora.radiusCard, equals(22.0)); // 20-28 glass radius
+      expect(aurora.background, equals(const Color(0xFF0E0E11))); // Warm obsidian
+      expect(aurora.accent, equals(const Color(0xFF34D399))); // Studio Sage Mint
+      expect(aurora.accentCyan, equals(const Color(0xFF34D399)));
+      expect(aurora.accentRose, equals(const Color(0xFFE57373)));
+      expect(aurora.radiusCard, equals(14.0)); // Architectural crisp card radius
     });
 
     test('ThemeData generated for each style adheres to ColorScheme contracts', () {
@@ -85,10 +85,10 @@ void main() {
       expect(classicTheme.colorScheme.primary, equals(const Color(0xFF1DB954)));
       expect(classicTheme.scaffoldBackgroundColor, equals(const Color(0xFF121212)));
 
-      expect(auroraTheme.colorScheme.primary, equals(const Color(0xFF7C5CFF)));
-      expect(auroraTheme.colorScheme.secondary, equals(const Color(0xFF4FD1FF)));
-      expect(auroraTheme.colorScheme.tertiary, equals(const Color(0xFFFF7AC6)));
-      expect(auroraTheme.scaffoldBackgroundColor, equals(const Color(0xFF0B0B1A)));
+      expect(auroraTheme.colorScheme.primary, equals(const Color(0xFF34D399)));
+      expect(auroraTheme.colorScheme.secondary, equals(const Color(0xFF34D399)));
+      expect(auroraTheme.colorScheme.tertiary, equals(const Color(0xFFE57373)));
+      expect(auroraTheme.scaffoldBackgroundColor, equals(const Color(0xFF0E0E11)));
     });
 
     test('WCAG AA Contrast verification for Aurora Glass text tokens', () {
@@ -103,11 +103,11 @@ void main() {
         return (lighter + 0.05) / (darker + 0.05);
       }
 
-      // Text primary against midnight background must be >= 7.0 (AAA)
+      // Text primary against warm obsidian background must be >= 7.0 (AAA)
       final primaryRatio = contrastRatio(aurora.textPrimary, aurora.background);
       expect(primaryRatio, greaterThanOrEqualTo(7.0));
 
-      // Text secondary (silvery lavender) against midnight background must be >= 4.5 (AA)
+      // Text secondary (zinc) against warm obsidian background must be >= 4.5 (AA)
       final secondaryRatio = contrastRatio(aurora.textSecondary, aurora.background);
       expect(secondaryRatio, greaterThanOrEqualTo(4.5));
     });

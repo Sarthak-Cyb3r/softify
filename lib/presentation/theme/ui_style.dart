@@ -3,7 +3,7 @@ enum UiStyle {
   /// Authentic Spotify-inspired content-first solid UI (#121212, #181818, #1DB954).
   classic,
 
-  /// Luminous frosted glassmorphism UI (#0B0B1A, #14122B, #7C5CFF, #4FD1FF, #FF7AC6).
+  /// Minimalist frosted glassmorphism UI (#0E0E11, #16161A, #34D399, #F4F4F6).
   auroraGlass;
 
   String get displayName {
@@ -20,7 +20,7 @@ enum UiStyle {
       case UiStyle.classic:
         return 'Spotify-inspired solid dark theme with emerald green accents';
       case UiStyle.auroraGlass:
-        return 'Frosted midnight glassmorphism with violet, cyan, and rose aurora accents';
+        return 'Minimalist frosted glass with warm obsidian surfaces and quiet studio accents';
     }
   }
 

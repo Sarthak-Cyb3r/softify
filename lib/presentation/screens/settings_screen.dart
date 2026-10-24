@@ -1512,11 +1512,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: isClassic ? const Color(0xFF181818) : const Color(0xFF14122B),
+          color: isClassic ? const Color(0xFF181818) : const Color(0xFF16161A),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? (isClassic ? const Color(0xFF1DB954) : const Color(0xFF7C5CFF))
+                ? (isClassic ? const Color(0xFF1DB954) : const Color(0xFF34D399))
                 : Colors.white12,
             width: isSelected ? 2 : 1,
           ),
@@ -1525,7 +1525,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   BoxShadow(
                     color: (isClassic
                             ? const Color(0xFF1DB954)
-                            : const Color(0xFF7C5CFF))
+                            : const Color(0xFF34D399))
                         .withOpacity(0.25),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
@@ -1552,9 +1552,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color(0xFF1D1740),
-                          Color(0xFF0B0B1A),
-                          Color(0xFF0F1E38),
+                          Color(0xFF18181D),
+                          Color(0xFF0E0E11),
+                          Color(0xFF121216),
                         ],
                       ),
               ),
@@ -1565,23 +1565,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       top: -15,
                       right: -15,
                       child: Container(
-                        width: 60,
-                        height: 60,
+                        width: 65,
+                        height: 65,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF7C5CFF).withOpacity(0.35),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -10,
-                      left: -10,
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF4FD1FF).withOpacity(0.3),
+                          color: const Color(0xFF34D399).withOpacity(0.18),
                         ),
                       ),
                     ),
@@ -1596,12 +1584,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       decoration: BoxDecoration(
                         color: isClassic
                             ? const Color(0xFF242424)
-                            : Colors.white.withOpacity(0.12),
+                            : Colors.white.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: isClassic
                               ? Colors.white10
-                              : Colors.white.withOpacity(0.22),
+                              : Colors.white.withOpacity(0.12),
                           width: 1,
                         ),
                       ),
@@ -1613,13 +1601,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             decoration: BoxDecoration(
                               color: isClassic
                                   ? const Color(0xFF1DB954)
-                                  : const Color(0xFF7C5CFF),
+                                  : const Color(0xFF34D399),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.play_arrow_rounded,
                               size: 18,
-                              color: isClassic ? Colors.black : Colors.white,
+                              color: Colors.black,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -1643,7 +1631,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   decoration: BoxDecoration(
                                     color: isClassic
                                         ? const Color(0xFFB3B3B3)
-                                        : const Color(0xFFC4C2E2),
+                                        : const Color(0xFFA1A1AA),
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
@@ -1692,7 +1680,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     color: isSelected
                         ? (isClassic
                             ? const Color(0xFF1DB954)
-                            : const Color(0xFF7C5CFF))
+                            : const Color(0xFF34D399))
                         : tokens.textSecondary.withOpacity(0.5),
                     size: 18,
                   ),
