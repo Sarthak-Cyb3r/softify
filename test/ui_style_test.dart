@@ -126,22 +126,22 @@ void main() {
 
     test('UiStyleNotifier persists style selection to Drift SQLite', () async {
       final notifier = UiStyleNotifier(db);
-      expect(notifier.state, equals(UiStyle.classic));
-
-      await notifier.setStyle(UiStyle.auroraGlass);
       expect(notifier.state, equals(UiStyle.auroraGlass));
+
+      await notifier.setStyle(UiStyle.classic);
+      expect(notifier.state, equals(UiStyle.classic));
 
       // Verify row in database
       final row = await (db.select(db.settings)
             ..where((t) => t.key.equals('ui_style')))
           .getSingle();
-      expect(row.value, equals('auroraGlass'));
+      expect(row.value, equals('classic'));
 
-      // New instance loading from same DB should restore auroraGlass
+      // New instance loading from same DB should restore classic
       final restored = UiStyleNotifier(db);
       // Wait for async load
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(restored.state, equals(UiStyle.auroraGlass));
+      expect(restored.state, equals(UiStyle.classic));
     });
 
     test('ReduceEffectsNotifier persists mode selection to Drift SQLite', () async {

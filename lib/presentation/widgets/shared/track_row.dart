@@ -85,6 +85,9 @@ class _TrackRowState extends State<TrackRow> {
             decoration: BoxDecoration(
               color: rowColor,
               borderRadius: BorderRadius.circular(tokens.radiusSm),
+              border: (tokens.isGlass && isHovered)
+                  ? Border.all(color: tokens.glassBorder, width: 0.8)
+                  : null,
             ),
             child: Row(
               children: [

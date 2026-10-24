@@ -152,86 +152,153 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           // Search Input Field
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchController,
-              cursorColor: tokens.accent,
-              onChanged: _onQueryChanged,
-              onSubmitted: (val) {
-                if (val.trim().isNotEmpty) {
-                  ref.read(searchNotifierProvider.notifier).executeSearch(val.trim());
-                }
-              },
-              style: TextStyle(
-                fontFamily: AppTheme.fontUi,
-                color: tokens.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlignVertical: TextAlignVertical.center,
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: tokens.surfaceElevated,
-                hintText: 'What do you want to listen to?',
-                hintStyle: TextStyle(
-                  fontFamily: AppTheme.fontUi,
-                  color: tokens.textMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 44,
-                  minHeight: 44,
-                ),
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: tokens.textSecondary,
-                  size: 22,
-                ),
-                suffixIconConstraints: const BoxConstraints(
-                  minWidth: 44,
-                  minHeight: 44,
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: tokens.textSecondary,
-                          size: 18,
+            child: tokens.isGlass
+                ? AppSurface(
+                    withBlur: true,
+                    borderRadius: BorderRadius.circular(tokens.radiusPill),
+                    border: Border.all(color: tokens.glassBorder, width: 1.0),
+                    boxShadow: tokens.cardShadow,
+                    color: Colors.white.withValues(alpha: 0.12),
+                    child: TextField(
+                      controller: _searchController,
+                      cursorColor: tokens.accentCyan,
+                      onChanged: _onQueryChanged,
+                      onSubmitted: (val) {
+                        if (val.trim().isNotEmpty) {
+                          ref.read(searchNotifierProvider.notifier).executeSearch(val.trim());
+                        }
+                      },
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: false,
+                        hintText: 'What do you want to listen to?',
+                        hintStyle: TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          color: tokens.textMuted,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
                         ),
-                        splashRadius: 20,
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(searchNotifierProvider.notifier).setQuery('');
-                          setState(() {});
-                        },
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusPill),
-                  borderSide: tokens.isGlass
-                      ? BorderSide(color: tokens.glassBorder, width: 1.0)
-                      : BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusPill),
-                  borderSide: tokens.isGlass
-                      ? BorderSide(color: tokens.glassBorder, width: 1.0)
-                      : BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radiusPill),
-                  borderSide: BorderSide(
-                    color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
-                    width: 1.5,
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: tokens.accentCyan,
+                          size: 22,
+                        ),
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: tokens.textSecondary,
+                                  size: 18,
+                                ),
+                                splashRadius: 20,
+                                onPressed: () {
+                                  _searchController.clear();
+                                  ref.read(searchNotifierProvider.notifier).setQuery('');
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                      ),
+                    ),
+                  )
+                : TextField(
+                    controller: _searchController,
+                    cursorColor: tokens.accent,
+                    onChanged: _onQueryChanged,
+                    onSubmitted: (val) {
+                      if (val.trim().isNotEmpty) {
+                        ref.read(searchNotifierProvider.notifier).executeSearch(val.trim());
+                      }
+                    },
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      color: tokens.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlignVertical: TextAlignVertical.center,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: tokens.surfaceElevated,
+                      hintText: 'What do you want to listen to?',
+                      hintStyle: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        color: tokens.textMuted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: tokens.textSecondary,
+                        size: 22,
+                      ),
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color: tokens.textSecondary,
+                                size: 18,
+                              ),
+                              splashRadius: 20,
+                              onPressed: () {
+                                _searchController.clear();
+                                ref.read(searchNotifierProvider.notifier).setQuery('');
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(tokens.radiusPill),
+                        borderSide: BorderSide(
+                          color: tokens.accent,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
           ),
 
           // Quick Category Chips when search bar is idle
@@ -604,64 +671,140 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     .executeSearch(category.title);
                 setState(() {});
               },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: category.color,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    // Top-Left Category Title
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        category.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontUi,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-
-                    // Bottom-Right Slanted Graphic Card (Spotify Signature)
-                    Positioned(
-                      right: -10,
-                      bottom: -6,
-                      child: Transform.rotate(
-                        angle: 0.42,
-                        child: Container(
-                          width: 58,
-                          height: 58,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                blurRadius: 10,
-                                offset: const Offset(-2, 4),
-                              ),
+              child: tokens.isGlass
+                  ? AppSurface(
+                      withBlur: true,
+                      borderRadius: BorderRadius.circular(tokens.radiusCard),
+                      border: Border.all(color: tokens.glassBorder, width: 1.0),
+                      boxShadow: tokens.cardShadow,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              category.color.withValues(alpha: 0.50),
+                              category.color.withValues(alpha: 0.18),
                             ],
                           ),
-                          child: Center(
-                            child: Icon(
-                              category.icon,
-                              color: Colors.white.withValues(alpha: 0.85),
-                              size: 28,
+                          borderRadius: BorderRadius.circular(tokens.radiusCard),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          children: [
+                            // Top-Left Category Title
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                category.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontUi,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.3,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          ),
+
+                            // Bottom-Right Slanted Graphic Card (Spotify Signature)
+                            Positioned(
+                              right: -10,
+                              bottom: -6,
+                              child: Transform.rotate(
+                                angle: 0.42,
+                                child: Container(
+                                  width: 58,
+                                  height: 58,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.25),
+                                      width: 0.8,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.35),
+                                        blurRadius: 10,
+                                        offset: const Offset(-2, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      category.icon,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: category.color,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          // Top-Left Category Title
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              category.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontUi,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.3,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+
+                          // Bottom-Right Slanted Graphic Card (Spotify Signature)
+                          Positioned(
+                            right: -10,
+                            bottom: -6,
+                            child: Transform.rotate(
+                              angle: 0.42,
+                              child: Container(
+                                width: 58,
+                                height: 58,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(6),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.35),
+                                      blurRadius: 10,
+                                      offset: const Offset(-2, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    category.icon,
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ),
             );
           },
         ),
@@ -670,15 +813,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildTopResultCard(AppTokens tokens, Track track, dynamic audioHandler) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: tokens.card,
-        borderRadius: BorderRadius.circular(tokens.radiusCard),
-      ),
-      child: Stack(
-        children: [
+    return tokens.isGlass
+        ? AppSurface(
+            withBlur: true,
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 14),
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+            border: Border.all(color: tokens.glassBorder, width: 1.0),
+            boxShadow: tokens.cardShadow,
+            child: _buildTopResultCardBody(tokens, track, audioHandler),
+          )
+        : Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: tokens.card,
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
+            ),
+            child: _buildTopResultCardBody(tokens, track, audioHandler),
+          );
+  }
+
+  Widget _buildTopResultCardBody(AppTokens tokens, Track track, dynamic audioHandler) {
+    return Stack(
+      children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -793,8 +951,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildSearchResultTile(

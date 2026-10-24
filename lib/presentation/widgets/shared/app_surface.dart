@@ -38,8 +38,8 @@ class AppSurface extends ConsumerWidget {
     this.border,
     this.color,
     this.boxShadow,
-    this.withBlur = false,
-    this.blurSigma = 14.0,
+    this.withBlur = true,
+    this.blurSigma = 16.0,
     this.clipBehavior = Clip.antiAlias,
   });
 
@@ -76,7 +76,7 @@ class AppSurface extends ConsumerWidget {
 
     final effectiveShadow = boxShadow ?? tokens.cardShadow;
 
-    // Use BackdropFilter only when explicitly requested AND hardware allows
+    // Use BackdropFilter when hardware allows
     final canBlur = withBlur && !reduceEffects;
 
     if (canBlur) {
@@ -94,13 +94,20 @@ class AppSurface extends ConsumerWidget {
             clipBehavior: clipBehavior,
             child: BackdropFilter(
               filter: ImageFilter.blur(
-                sigmaX: blurSigma.clamp(8.0, 16.0),
-                sigmaY: blurSigma.clamp(8.0, 16.0),
+                sigmaX: blurSigma.clamp(8.0, 24.0),
+                sigmaY: blurSigma.clamp(8.0, 24.0),
               ),
               child: Container(
                 padding: padding,
                 decoration: BoxDecoration(
-                  color: color ?? tokens.glassSurface,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      (color ?? Colors.white).withValues(alpha: 0.18),
+                      (color ?? Colors.white).withValues(alpha: 0.08),
+                    ],
+                  ),
                   borderRadius: radius,
                   border: effectiveBorder,
                 ),
@@ -112,8 +119,7 @@ class AppSurface extends ConsumerWidget {
       );
     }
 
-    // Fake Glass: High-performance gradient fill with 1px border.
-    // Zero GPU fill overhead, silky 60fps in scrolling lists.
+    // Specular Translucent Fill when blur is reduced/bypassed
     return Container(
       width: width,
       height: height,
@@ -124,8 +130,8 @@ class AppSurface extends ConsumerWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            (color ?? Colors.white).withValues(alpha: 0.12),
-            (color ?? Colors.white).withValues(alpha: 0.06),
+            (color ?? Colors.white).withValues(alpha: 0.20),
+            (color ?? Colors.white).withValues(alpha: 0.08),
           ],
         ),
         borderRadius: radius,
@@ -139,7 +145,6 @@ class AppSurface extends ConsumerWidget {
 }
 
 /// Tappable card wrapper around [AppSurface].
-/// Always uses zero-blur fake glass in Aurora style for scroll performance.
 class AppGlassCard extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -152,6 +157,8 @@ class AppGlassCard extends StatelessWidget {
   final Border? border;
   final Color? color;
   final List<BoxShadow>? boxShadow;
+  final bool withBlur;
+  final double blurSigma;
 
   const AppGlassCard({
     super.key,
@@ -166,6 +173,8 @@ class AppGlassCard extends StatelessWidget {
     this.border,
     this.color,
     this.boxShadow,
+    this.withBlur = true,
+    this.blurSigma = 16.0,
   });
 
   @override
@@ -182,7 +191,8 @@ class AppGlassCard extends StatelessWidget {
       border: border,
       color: color,
       boxShadow: boxShadow,
-      withBlur: false, // Never blur cards in lists
+      withBlur: withBlur,
+      blurSigma: blurSigma,
       child: child,
     );
 

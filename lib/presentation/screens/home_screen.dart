@@ -261,10 +261,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     );
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.tune_rounded, size: 22, color: Color(0xFFB3B3B3)),
-                  ),
+                  child: tokens.isGlass
+                      ? AppSurface(
+                          withBlur: true,
+                          width: 36,
+                          height: 36,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: tokens.glassBorder, width: 1.0),
+                          child: const Center(
+                            child: Icon(Icons.tune_rounded, size: 20, color: Colors.white),
+                          ),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          child: Icon(Icons.tune_rounded, size: 22, color: Color(0xFFB3B3B3)),
+                        ),
                 ),
                 BouncingScaleButton(
                   scaleFactor: 0.9,
@@ -275,10 +287,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     );
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-                    child: Icon(Icons.settings_outlined, size: 22, color: Color(0xFFB3B3B3)),
-                  ),
+                  child: tokens.isGlass
+                      ? AppSurface(
+                          withBlur: true,
+                          width: 36,
+                          height: 36,
+                          margin: const EdgeInsets.only(left: 4, right: 16),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: tokens.glassBorder, width: 1.0),
+                          child: const Center(
+                            child: Icon(Icons.settings_outlined, size: 20, color: Colors.white),
+                          ),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+                          child: Icon(Icons.settings_outlined, size: 22, color: Color(0xFFB3B3B3)),
+                        ),
                 ),
               ],
             ),
@@ -1408,12 +1432,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
 
           // Friendly Tip spacebar shortcut card
-          Container(
+          AppSurface(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: tokens.card,
-              borderRadius: BorderRadius.circular(tokens.radiusCard),
-            ),
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+            withBlur: true,
             child: Row(
               children: [
                 Container(
@@ -1481,118 +1503,124 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
   @override
   Widget build(BuildContext context) {
     final tokens = widget.tokens;
+
+    final itemContent = Row(
+      children: [
+        Container(
+          width: 52,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: widget.isGradient
+                ? const LinearGradient(
+                    colors: [Color(0xFF450AF5), Color(0xFFC4EFD9)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: widget.isGradient ? null : const Color(0xFF333333),
+            borderRadius: BorderRadius.horizontal(
+              left: Radius.circular(tokens.isGlass ? 14 : 8),
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              widget.icon,
+              color: widget.iconColor,
+              size: 22,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.title,
+                maxLines: widget.subtitle.isNotEmpty ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              if (widget.subtitle.isNotEmpty) ...[
+                const SizedBox(height: 1),
+                Text(
+                  widget.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontUi,
+                    fontSize: 11,
+                    color: tokens.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 140),
+          opacity: _isHovered ? 1.0 : 0.0,
+          child: Container(
+            width: 28,
+            height: 28,
+            margin: const EdgeInsets.only(right: 6),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: tokens.isGlass ? tokens.accentCyan : AppTheme.accent,
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.play_arrow_rounded,
+                size: 18,
+                color: Colors.black,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: tokens.isGlass
-                ? (_isHovered
-                    ? Colors.white.withValues(alpha: 0.18)
-                    : tokens.glassSurface)
-                : (_isHovered
-                    ? const Color(0xFF383838)
-                    : const Color(0xFF282828)),
-            border: tokens.isGlass
-                ? Border.all(
-                    color: _isHovered
-                        ? tokens.accentCyan.withValues(alpha: 0.40)
-                        : tokens.glassBorder,
-                    width: 1.0,
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(tokens.isGlass ? 12 : 8),
-            boxShadow: tokens.isGlass ? tokens.cardShadow : null,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: widget.isGradient
-                      ? const LinearGradient(
-                          colors: [Color(0xFF450AF5), Color(0xFFC4EFD9)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: widget.isGradient ? null : const Color(0xFF333333),
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(8),
-                  ),
+        child: tokens.isGlass
+            ? AppSurface(
+                withBlur: true,
+                borderRadius: BorderRadius.circular(tokens.radiusCard),
+                border: Border.all(
+                  color: _isHovered
+                      ? tokens.accentCyan.withValues(alpha: 0.65)
+                      : tokens.glassBorder,
+                  width: 1.0,
                 ),
-                child: Center(
-                  child: Icon(
-                    widget.icon,
-                    color: widget.iconColor,
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      maxLines: widget.subtitle.isNotEmpty ? 1 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    if (widget.subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        widget.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontUi,
-                          fontSize: 11,
-                          color: tokens.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              AnimatedOpacity(
+                boxShadow: tokens.cardShadow,
+                color: _isHovered
+                    ? Colors.white.withValues(alpha: 0.20)
+                    : tokens.glassSurface,
+                child: itemContent,
+              )
+            : AnimatedContainer(
                 duration: const Duration(milliseconds: 140),
-                opacity: _isHovered ? 1.0 : 0.0,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppTheme.accent,
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      size: 18,
-                      color: Colors.black,
-                    ),
-                  ),
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: _isHovered
+                      ? const Color(0xFF383838)
+                      : const Color(0xFF282828),
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: itemContent,
               ),
-            ],
-          ),
-        ),
       ),
     );
   }

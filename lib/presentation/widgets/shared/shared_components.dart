@@ -8,3 +8,5 @@ export 'empty_error_state.dart';
 export 'media_card.dart';
 export 'track_row.dart';
 export 'app_network_image.dart';
+export 'app_surface.dart';
+export 'aurora_background.dart';

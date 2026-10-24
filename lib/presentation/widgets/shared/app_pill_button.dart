@@ -111,8 +111,18 @@ class AppPillButton extends StatelessWidget {
                 vertical: 0.0,
               ),
           decoration: BoxDecoration(
-            color: bgColor,
+            color: (tokens.isGlass && variant == AppPillButtonVariant.primary)
+                ? null
+                : bgColor,
+            gradient: (tokens.isGlass && variant == AppPillButtonVariant.primary)
+                ? LinearGradient(
+                    colors: [tokens.accentViolet, tokens.accentCyan],
+                  )
+                : null,
             borderRadius: BorderRadius.circular(tokens.radiusPill),
+            boxShadow: (tokens.isGlass && variant == AppPillButtonVariant.primary)
+                ? tokens.cardShadow
+                : null,
             border: (tokens.isGlass && variant != AppPillButtonVariant.ghost)
                 ? Border.all(
                     color: variant == AppPillButtonVariant.primary

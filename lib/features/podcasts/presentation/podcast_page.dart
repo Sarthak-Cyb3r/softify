@@ -8,6 +8,7 @@ import '../../../presentation/providers/player_providers.dart';
 import '../../../presentation/theme/app_theme.dart';
 import '../../../presentation/widgets/bouncing_scale_button.dart';
 import '../../../presentation/widgets/shared/app_network_image.dart';
+import '../../../presentation/widgets/shared/app_surface.dart';
 import '../../../presentation/widgets/shimmer_skeleton.dart';
 import '../domain/parse_podcast_link.dart';
 import 'podcast_controller.dart';
@@ -163,83 +164,156 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    controller: _urlController,
-                    focusNode: _focusNode,
-                    cursorColor: tokens.accent,
-                    style: TextStyle(
-                      color: tokens.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textInputAction: TextInputAction.go,
-                    onSubmitted: (_) => _submitCurrentText(),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: tokens.surfaceElevated,
-                      hintText: 'Paste Spotify episode, show link, or podcast name...',
-                      hintStyle: TextStyle(
-                        color: tokens.textMuted,
-                        fontSize: 13,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.podcasts_rounded,
-                        color: tokens.accent,
-                        size: 22,
-                      ),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_urlController.text.isNotEmpty)
-                            IconButton(
-                              icon: Icon(
-                                Icons.close_rounded,
-                                color: tokens.textSecondary,
-                                size: 18,
+                  tokens.isGlass
+                      ? AppSurface(
+                          withBlur: true,
+                          borderRadius:
+                              BorderRadius.circular(tokens.radiusFull),
+                          border: Border.all(
+                              color: tokens.glassBorder, width: 1.0),
+                          boxShadow: tokens.cardShadow,
+                          color: Colors.white.withValues(alpha: 0.12),
+                          child: TextField(
+                            controller: _urlController,
+                            focusNode: _focusNode,
+                            cursorColor: tokens.accentCyan,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textInputAction: TextInputAction.go,
+                            onSubmitted: (_) => _submitCurrentText(),
+                            decoration: InputDecoration(
+                              filled: false,
+                              hintText:
+                                  'Paste Spotify episode, show link, or podcast name...',
+                              hintStyle: TextStyle(
+                                color: tokens.textMuted,
+                                fontSize: 13,
                               ),
-                              onPressed: () {
-                                _urlController.clear();
-                                setState(() {});
-                              },
+                              prefixIcon: Icon(
+                                Icons.podcasts_rounded,
+                                color: tokens.accentCyan,
+                                size: 22,
+                              ),
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_urlController.text.isNotEmpty)
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.close_rounded,
+                                        color: tokens.textSecondary,
+                                        size: 18,
+                                      ),
+                                      onPressed: () {
+                                        _urlController.clear();
+                                        setState(() {});
+                                      },
+                                    ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.content_paste_rounded,
+                                      color: tokens.textSecondary,
+                                      size: 18,
+                                    ),
+                                    tooltip: 'Paste from clipboard',
+                                    onPressed: _pasteFromClipboard,
+                                  ),
+                                ],
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
                             ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.content_paste_rounded,
-                              color: tokens.textSecondary,
-                              size: 18,
-                            ),
-                            tooltip: 'Paste from clipboard',
-                            onPressed: _pasteFromClipboard,
                           ),
-                        ],
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        borderSide: BorderSide(
-                          color: tokens.surfaceHighlight,
-                          width: 1,
+                        )
+                      : TextField(
+                          controller: _urlController,
+                          focusNode: _focusNode,
+                          cursorColor: tokens.accent,
+                          style: TextStyle(
+                            color: tokens.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textInputAction: TextInputAction.go,
+                          onSubmitted: (_) => _submitCurrentText(),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: tokens.surfaceElevated,
+                            hintText:
+                                'Paste Spotify episode, show link, or podcast name...',
+                            hintStyle: TextStyle(
+                              color: tokens.textMuted,
+                              fontSize: 13,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.podcasts_rounded,
+                              color: tokens.accent,
+                              size: 22,
+                            ),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_urlController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      color: tokens.textSecondary,
+                                      size: 18,
+                                    ),
+                                    onPressed: () {
+                                      _urlController.clear();
+                                      setState(() {});
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.content_paste_rounded,
+                                    color: tokens.textSecondary,
+                                    size: 18,
+                                  ),
+                                  tooltip: 'Paste from clipboard',
+                                  onPressed: _pasteFromClipboard,
+                                ),
+                              ],
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusFull),
+                              borderSide: BorderSide(
+                                color: tokens.surfaceHighlight,
+                                width: 1,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusFull),
+                              borderSide: BorderSide(
+                                color: tokens.surfaceHighlight,
+                                width: 1,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusFull),
+                              borderSide: BorderSide(
+                                color: tokens.accent,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        borderSide: BorderSide(
-                          color: tokens.surfaceHighlight,
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        borderSide: BorderSide(
-                          color: tokens.accent,
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
 
                   const SizedBox(height: 12),
 
@@ -252,30 +326,45 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
                           child: Container(
                             height: 48,
                             decoration: BoxDecoration(
-                              color: tokens.accent,
+                              color: tokens.isGlass ? null : tokens.accent,
+                              gradient: tokens.isGlass
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF7C5CFF),
+                                        Color(0xFF00D2FF),
+                                      ],
+                                    )
+                                  : null,
                               borderRadius:
                                   BorderRadius.circular(tokens.radiusFull),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: tokens.accent.withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                              boxShadow: tokens.isGlass
+                                  ? tokens.cardShadow
+                                  : [
+                                      BoxShadow(
+                                        color:
+                                            tokens.accent.withValues(alpha: 0.3),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons.play_arrow_rounded,
-                                  color: Colors.black,
+                                  color: tokens.isGlass
+                                      ? Colors.white
+                                      : Colors.black,
                                   size: 24,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   'Load & Play',
                                   style: TextStyle(
-                                    color: Colors.black,
+                                    color: tokens.isGlass
+                                        ? Colors.white
+                                        : Colors.black,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
@@ -364,16 +453,10 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Container(
+                child: AppSurface(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(tokens.radiusLg),
-                    border: Border.all(
-                      color: tokens.surfaceHighlight,
-                      width: 1,
-                    ),
-                  ),
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  withBlur: true,
                   child: Row(
                     children: [
                       ShimmerSkeleton(
@@ -464,16 +547,10 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Container(
+                child: AppSurface(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(tokens.radiusLg),
-                    border: Border.all(
-                      color: tokens.surfaceHighlight,
-                      width: 1,
-                    ),
-                  ),
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  withBlur: true,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -792,16 +869,10 @@ class _PodcastPageState extends ConsumerState<PodcastPage>
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Container(
+                child: AppSurface(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(tokens.radiusLg),
-                    border: Border.all(
-                      color: tokens.surfaceHighlight,
-                      width: 1,
-                    ),
-                  ),
+                  borderRadius: BorderRadius.circular(tokens.radiusLg),
+                  withBlur: true,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

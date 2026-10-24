@@ -2,6 +2,26 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [3.0.1] - 2026-10-24
+
+### 💎 Comprehensive Glassmorphism Overhaul (UI UX Pro MAX Standard)
+- **App-Wide Authentic Frosted Glass**: Refactored every major surface, card, and interactive control in Softify to render with authentic, high-depth frosted glassmorphism according to `UI UX Pro MAX` design principles:
+  - **Quad-Node Vibrant Aurora Backdrop**: Upgraded `AuroraBackground` with a 4-point dynamic mesh (dominant artwork aura 0.50 alpha, electric cyan 0.38 alpha, aurora violet 0.35 alpha, and radiant rose 0.28 alpha) delivering luminous chromatic backlight across all glass layers.
+  - **Backdrop Blur & Dual Bloom Shadows**: Standardized `AppSurface` with hardware-accelerated `BackdropFilter` (sigma 16.0), top-left to bottom-right specular linear gradients (`rgba(255, 255, 255, 0.18)` down to `0.08`), 1px specular hairline borders (`rgba(255, 255, 255, 0.24)`), and ethereal ambient violet/black dual drop shadows.
+  - **Default Theme Setting**: Updated initial launch style default to `UiStyle.auroraGlass` so every user experiences the new modern glassmorphism aesthetic out of the box without requiring manual configuration.
+- **Screen & Component Coverage**:
+  - **Settings Screen**: Converted all 8 preference sections (Profile, Appearance, Playback, Lyrics, Screensaver, Fallbacks, Storage, Security & About) from flat solid tiles to frosted `AppSurface` glass cards.
+  - **Full-Screen Player**: Enclosed back/dismiss chevrons, speed selectors, lyrics pills, and skip controls in frosted circular glass capsules with glowing violet playback hubs.
+  - **Lyrics Deck**: Upgraded `LyricsView` container with frosted blur (sigma 16.0) over album color gradients.
+  - **Search & YouTube / Podcast Link Inputs**: Transformed query text fields into frosted glass pills with cyan focus accents, and upgraded top result, discography, and ready state cards to frosted glass surfaces.
+  - **Library & Smart Bento Cards**: Converted Liked Songs, Downloads storage bars, playlist tiles, and library smart cards to frosted glass containers.
+  - **Dialogs & Action Sheets**: Converted `AppDialog` and `QueueBottomSheet` to frosted glass surfaces with specular borders.
+  - **Buttons & Chips**: Filter chips and `AppPillButton` primary actions now feature smooth cyan-to-violet aurora gradient fills with glowing drop shadows.
+- **Performance & 60fps Optimization**:
+  - Isolated all blurred surfaces in individual `RepaintBoundary` layers.
+  - Preserved list view scrolling performance on large libraries with lightweight specular gradients.
+  - Verified low-end device fallback (`shouldReduceEffectsProvider`) seamlessly switches from blur to translucent solid fills on constrained hardware.
+
 ## [3.0.0] - 2026-10-23
 
 ### 🌌 Major Milestone: Aurora Glass UI Experience (Pre-Release)

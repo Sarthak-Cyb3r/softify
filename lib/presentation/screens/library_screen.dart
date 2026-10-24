@@ -660,13 +660,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                 ),
                               );
                             },
-                            child: Container(
+                            child: AppSurface(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: tokens.card,
-                                borderRadius: BorderRadius.circular(tokens.radiusCard),
-                              ),
+                              borderRadius: BorderRadius.circular(tokens.radiusCard),
+                              withBlur: true,
                               child: Row(
                                 children: [
                                   Container(
@@ -793,12 +791,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       child: InkWell(
         borderRadius: BorderRadius.circular(tokens.radiusCard),
         onTap: () => setState(() => _tabController.animateTo(1)),
-        child: Container(
+        child: AppSurface(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-          ),
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+          withBlur: true,
           child: Row(
             children: [
               Container(
@@ -880,12 +876,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       child: InkWell(
         borderRadius: BorderRadius.circular(tokens.radiusCard),
         onTap: () => setState(() => _tabController.animateTo(2)),
-        child: Container(
+        child: AppSurface(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-          ),
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+          withBlur: true,
           child: Row(
             children: [
               Container(
@@ -1169,13 +1163,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             // Storage Stats Bar
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Container(
+              child: AppSurface(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: tokens.card,
-                  borderRadius: BorderRadius.circular(tokens.radiusCard),
-                ),
+                borderRadius: BorderRadius.circular(tokens.radiusCard),
+                withBlur: true,
                 child: Row(
                   children: [
                     Icon(Icons.storage_rounded,
@@ -1314,13 +1306,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: tokens.card,
-                        borderRadius: BorderRadius.circular(tokens.radiusCard),
-                      ),
+                    child: AppSurface(
+                      borderRadius: BorderRadius.circular(tokens.radiusCard),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 8),
+                      withBlur: false,
                       child: Row(
                         children: [
                           ClipRRect(
@@ -1537,13 +1527,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return BouncingScaleButton(
       scaleFactor: 0.95,
       onTap: onTap,
-      child: Container(
+      child: AppSurface(
         width: 155,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: tokens.card,
-          borderRadius: BorderRadius.circular(tokens.radiusCard),
-        ),
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+        withBlur: true,
         child: Row(
           children: [
             Container(

@@ -11,6 +11,7 @@ import '../../../presentation/widgets/bouncing_scale_button.dart';
 import '../../../presentation/widgets/shimmer_skeleton.dart';
 import '../../../presentation/widgets/shared/app_dialog.dart';
 import '../../../presentation/widgets/shared/app_network_image.dart';
+import '../../../presentation/widgets/shared/app_surface.dart';
 import '../../../presentation/widgets/track_options_bottom_sheet.dart';
 import '../domain/parse_youtube_link.dart';
 import 'youtube_controller.dart';
@@ -143,87 +144,156 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Text input row with Paste and Clear icons
-                  TextField(
-                    controller: _urlController,
-                    focusNode: _focusNode,
-                    cursorColor: tokens.accent,
-                    style: TextStyle(
-                      color: tokens.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textInputAction: TextInputAction.go,
-                    onSubmitted: (_) => _submitCurrentText(),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: tokens.isGlass ? tokens.glassSurface : tokens.card,
-                      hintText: 'Paste YouTube link (watch, youtu.be, shorts)...',
-                      hintStyle: TextStyle(
-                        color: tokens.textMuted,
-                        fontSize: 13,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.smart_display_outlined,
-                        color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
-                        size: 22,
-                      ),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_urlController.text.isNotEmpty)
-                            IconButton(
-                              icon: Icon(
-                                Icons.close_rounded,
-                                color: tokens.textSecondary,
-                                size: 18,
+                  tokens.isGlass
+                      ? AppSurface(
+                          withBlur: true,
+                          borderRadius:
+                              BorderRadius.circular(tokens.radiusPill),
+                          border: Border.all(
+                              color: tokens.glassBorder, width: 1.0),
+                          boxShadow: tokens.cardShadow,
+                          color: Colors.white.withValues(alpha: 0.12),
+                          child: TextField(
+                            controller: _urlController,
+                            focusNode: _focusNode,
+                            cursorColor: tokens.accentCyan,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textInputAction: TextInputAction.go,
+                            onSubmitted: (_) => _submitCurrentText(),
+                            decoration: InputDecoration(
+                              filled: false,
+                              hintText:
+                                  'Paste YouTube link (watch, youtu.be, shorts)...',
+                              hintStyle: TextStyle(
+                                color: tokens.textMuted,
+                                fontSize: 13,
                               ),
-                              onPressed: () {
-                                _urlController.clear();
-                                setState(() {});
-                              },
+                              prefixIcon: Icon(
+                                Icons.smart_display_outlined,
+                                color: tokens.accentCyan,
+                                size: 22,
+                              ),
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_urlController.text.isNotEmpty)
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.close_rounded,
+                                        color: tokens.textSecondary,
+                                        size: 18,
+                                      ),
+                                      onPressed: () {
+                                        _urlController.clear();
+                                        setState(() {});
+                                      },
+                                    ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.content_paste_rounded,
+                                      color: tokens.textSecondary,
+                                      size: 18,
+                                    ),
+                                    tooltip: 'Paste from clipboard',
+                                    onPressed: _pasteFromClipboard,
+                                  ),
+                                ],
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
                             ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.content_paste_rounded,
-                              color: tokens.textSecondary,
-                              size: 18,
-                            ),
-                            tooltip: 'Paste from clipboard',
-                            onPressed: _pasteFromClipboard,
                           ),
-                        ],
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusPill),
-                        borderSide: tokens.isGlass
-                            ? BorderSide(color: tokens.glassBorder, width: 1.0)
-                            : BorderSide(
+                        )
+                      : TextField(
+                          controller: _urlController,
+                          focusNode: _focusNode,
+                          cursorColor: tokens.accent,
+                          style: TextStyle(
+                            color: tokens.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textInputAction: TextInputAction.go,
+                          onSubmitted: (_) => _submitCurrentText(),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: tokens.card,
+                            hintText:
+                                'Paste YouTube link (watch, youtu.be, shorts)...',
+                            hintStyle: TextStyle(
+                              color: tokens.textMuted,
+                              fontSize: 13,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.smart_display_outlined,
+                              color: tokens.accent,
+                              size: 22,
+                            ),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_urlController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      color: tokens.textSecondary,
+                                      size: 18,
+                                    ),
+                                    onPressed: () {
+                                      _urlController.clear();
+                                      setState(() {});
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.content_paste_rounded,
+                                    color: tokens.textSecondary,
+                                    size: 18,
+                                  ),
+                                  tooltip: 'Paste from clipboard',
+                                  onPressed: _pasteFromClipboard,
+                                ),
+                              ],
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusPill),
+                              borderSide: BorderSide(
                                 color: tokens.surfaceHighlight,
                                 width: 1,
                               ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusPill),
-                        borderSide: tokens.isGlass
-                            ? BorderSide(color: tokens.glassBorder, width: 1.0)
-                            : BorderSide(
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusPill),
+                              borderSide: BorderSide(
                                 color: tokens.surfaceHighlight,
                                 width: 1,
                               ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusPill),
-                        borderSide: BorderSide(
-                          color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
-                          width: 1.5,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusPill),
+                              borderSide: BorderSide(
+                                color: tokens.accent,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
 
                   const SizedBox(height: 12),
 
@@ -236,23 +306,38 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
                           child: Container(
                             height: 48,
                             decoration: BoxDecoration(
-                              color: tokens.accent,
+                              color: tokens.isGlass ? null : tokens.accent,
+                              gradient: tokens.isGlass
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF7C5CFF),
+                                        Color(0xFF00D2FF),
+                                      ],
+                                    )
+                                  : null,
                               borderRadius:
                                   BorderRadius.circular(tokens.radiusPill),
+                              boxShadow: tokens.isGlass
+                                  ? tokens.cardShadow
+                                  : null,
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons.play_arrow_rounded,
-                                  color: Colors.black,
+                                  color: tokens.isGlass
+                                      ? Colors.white
+                                      : Colors.black,
                                   size: 24,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   'Play Audio',
                                   style: TextStyle(
-                                    color: Colors.black,
+                                    color: tokens.isGlass
+                                        ? Colors.white
+                                        : Colors.black,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
@@ -602,16 +687,10 @@ class _YoutubePageState extends ConsumerState<YoutubePage>
       final isPlayingThisTrack =
           currentTrack?.id == track.id && (pbState?.playing ?? false);
 
-      return Container(
+      return AppSurface(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: tokens.isGlass ? tokens.glassSurface : tokens.card,
-          borderRadius: BorderRadius.circular(tokens.radiusCard),
-          border: tokens.isGlass
-              ? Border.all(color: tokens.glassBorder, width: 1.0)
-              : null,
-          boxShadow: tokens.isGlass ? tokens.cardShadow : null,
-        ),
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+        withBlur: true,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

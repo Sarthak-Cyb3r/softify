@@ -13,7 +13,7 @@ class UiStyleNotifier extends StateNotifier<UiStyle> {
   final AppDatabase? _db;
   static const String _key = 'ui_style';
 
-  UiStyleNotifier(this._db) : super(UiStyle.classic) {
+  UiStyleNotifier(this._db) : super(UiStyle.auroraGlass) {
     if (_db != null) {
       _loadFromDb();
     }
@@ -27,10 +27,10 @@ class UiStyleNotifier extends StateNotifier<UiStyle> {
             ..where((t) => t.key.equals(_key)))
           .getSingleOrNull();
       if (row != null) {
-        if (row.value == UiStyle.auroraGlass.name) {
-          state = UiStyle.auroraGlass;
-        } else {
+        if (row.value == UiStyle.classic.name) {
           state = UiStyle.classic;
+        } else {
+          state = UiStyle.auroraGlass;
         }
       }
     } catch (_) {}
@@ -121,9 +121,9 @@ final reduceEffectsProvider =
 /// Auto-detects whether the current device is low-spec or constrained.
 final isLowEndDeviceProvider = Provider<bool>((ref) {
   try {
-    // If device has 4 or fewer processor cores, consider it low/mid tier
+    // If device has 2 or fewer processor cores, consider it constrained
     final cores = Platform.numberOfProcessors;
-    if (cores <= 4) return true;
+    if (cores <= 2) return true;
   } catch (_) {}
   return false;
 });

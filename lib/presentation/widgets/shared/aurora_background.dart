@@ -42,9 +42,9 @@ class AuroraBackground extends ConsumerWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF14122B),
-                Color(0xFF0B0B1A),
-                Color(0xFF080814),
+                Color(0xFF140F30),
+                Color(0xFF090818),
+                Color(0xFF060512),
               ],
             ),
           ),
@@ -72,52 +72,32 @@ class AuroraBackground extends ConsumerWidget {
               child: RepaintBoundary(
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
-                    color: Color(0xFF0B0B1A),
+                    color: Color(0xFF090818),
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color(0xFF14122B),
-                        Color(0xFF0B0B1A),
-                        Color(0xFF070712),
+                        Color(0xFF130E2E),
+                        Color(0xFF090818),
+                        Color(0xFF050410),
                       ],
                     ),
                   ),
                   child: Stack(
                     children: [
-                      // Dynamic Artwork Aura (Top-Left)
+                      // 1. Dynamic Artwork Aura (Top-Left / Header region)
                       Positioned(
-                        top: -120,
+                        top: -100,
                         left: -80,
-                        width: 420,
-                        height: 420,
+                        width: 480,
+                        height: 480,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
                               colors: [
-                                color.withValues(alpha: 0.25),
-                                color.withValues(alpha: 0.08),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.5, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Cyan Aurora Glow (Bottom-Right)
-                      Positioned(
-                        bottom: -100,
-                        right: -100,
-                        width: 440,
-                        height: 440,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                const Color(0xFF4FD1FF).withValues(alpha: 0.18),
-                                const Color(0xFF7C5CFF).withValues(alpha: 0.08),
+                                color.withValues(alpha: 0.50),
+                                color.withValues(alpha: 0.22),
                                 Colors.transparent,
                               ],
                               stops: const [0.0, 0.45, 1.0],
@@ -125,18 +105,58 @@ class AuroraBackground extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      // Rose Subtle Mid-glow
+                      // 2. Electric Cyan Aurora Beam (Bottom-Right / Floating Dock region)
                       Positioned(
-                        top: 260,
-                        right: -60,
-                        width: 300,
-                        height: 300,
+                        bottom: -90,
+                        right: -80,
+                        width: 460,
+                        height: 460,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
                               colors: [
-                                const Color(0xFFFF7AC6).withValues(alpha: 0.10),
+                                const Color(0xFF00D2FF).withValues(alpha: 0.38),
+                                const Color(0xFF7C5CFF).withValues(alpha: 0.16),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.45, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 3. Aurora Violet Ambient Node (Top-Right / Actions region)
+                      Positioned(
+                        top: 40,
+                        right: -100,
+                        width: 420,
+                        height: 420,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                const Color(0xFF7C5CFF).withValues(alpha: 0.35),
+                                const Color(0xFF4338CA).withValues(alpha: 0.14),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.50, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 4. Radiant Rose / Magenta Mid-body Glow (Center-Left)
+                      Positioned(
+                        top: 320,
+                        left: -80,
+                        width: 360,
+                        height: 360,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                const Color(0xFFFF2E93).withValues(alpha: 0.28),
                                 Colors.transparent,
                               ],
                               stops: const [0.0, 1.0],

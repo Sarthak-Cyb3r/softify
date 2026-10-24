@@ -5,6 +5,7 @@ import '../providers/player_providers.dart';
 import '../theme/app_tokens.dart';
 import 'animated_music_wave_indicator.dart';
 import 'shared/app_network_image.dart';
+import 'shared/app_surface.dart';
 
 class QueueBottomSheet extends ConsumerWidget {
   const QueueBottomSheet({super.key});
@@ -19,15 +20,16 @@ class QueueBottomSheet extends ConsumerWidget {
     final queue = queueAsync.value ?? [];
     final currentIndex = audioHandler.currentIndex;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: tokens.surfaceElevated,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(tokens.radiusXl)),
-        border: Border(
-          top: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
-            width: 0.8,
-          ),
+    return AppSurface(
+      withBlur: true,
+      color: tokens.isGlass ? tokens.glassSurface : tokens.surfaceElevated,
+      borderRadius: BorderRadius.vertical(top: Radius.circular(tokens.radiusXl)),
+      border: Border(
+        top: BorderSide(
+          color: tokens.isGlass
+              ? tokens.glassBorder
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1.0,
         ),
       ),
       child: Column(

@@ -110,24 +110,24 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const AppTokens auroraTokens = AppTokens(
     style: UiStyle.auroraGlass,
     isGlass: true,
-    background: Color(0xFF0B0B1A), // Deep midnight
+    background: Color(0xFF0B0B1A), // Deep midnight #0B0B1A
     sidebar: Color(0xFF0B0B1A),
     surface: Color(0xFF14122B),
-    surfaceElevated: Color(0xFF1D1A3B),
-    surfaceHighlight: Color(0xFF27244F),
-    card: Color(0x18FFFFFF), // 9.4% white glass fill
-    cardHover: Color(0x28FFFFFF), // 15.7% white glass hover
-    glass: Color(0x1FFFFFFF), // 12% white
-    glassSurface: Color(0x1AFFFFFF), // ~10% white
-    glassBorder: Color(0x2EFFFFFF), // 18% white border
+    surfaceElevated: Color(0xFF1B163B),
+    surfaceHighlight: Color(0xFF261F4D),
+    card: Color(0x22FFFFFF), // 13.5% translucent white glass
+    cardHover: Color(0x35FFFFFF), // 21% white glass hover
+    glass: Color(0x24FFFFFF), // 14% translucent white
+    glassSurface: Color(0x22FFFFFF), // 13.5% white glass surface
+    glassBorder: Color(0x3DFFFFFF), // 24% specular white border
     accent: Color(0xFF7C5CFF), // Aurora violet
     accentViolet: Color(0xFF7C5CFF),
-    accentCyan: Color(0xFF4FD1FF),
-    accentRose: Color(0xFFFF7AC6),
+    accentCyan: Color(0xFF4FD1FF), // Cyan #4FD1FF
+    accentRose: Color(0xFFFF7AC6), // Rose #FF7AC6
     textPrimary: Color(0xFFFFFFFF),
     textSecondary: Color(0xFFC4C2E2), // Soft silvery lilac, meets WCAG AA 4.5:1+
     textMuted: Color(0xFF7E7B9D),
-    divider: Color(0x26FFFFFF),
+    divider: Color(0x2EFFFFFF),
     error: Color(0xFFFF5C7A),
     spaceXs: 4.0,
     spaceSm: 8.0,
@@ -150,10 +150,16 @@ class AppTokens extends ThemeExtension<AppTokens> {
     curveSpring: Curves.easeOutCubic,
     cardShadow: [
       BoxShadow(
-        color: Color(0x38000000),
-        blurRadius: 18,
-        spreadRadius: 0,
-        offset: Offset(0, 6),
+        color: Color(0x40000000),
+        blurRadius: 22,
+        spreadRadius: -2,
+        offset: Offset(0, 8),
+      ),
+      BoxShadow(
+        color: Color(0x1F7C5CFF), // Radiant aurora violet ambient bloom
+        blurRadius: 26,
+        spreadRadius: -4,
+        offset: Offset(0, 4),
       ),
     ],
   );

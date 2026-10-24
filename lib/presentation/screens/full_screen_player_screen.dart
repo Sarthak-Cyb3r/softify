@@ -16,6 +16,8 @@ import '../widgets/queue_bottom_sheet.dart';
 import '../widgets/shared/app_network_image.dart';
 import '../widgets/sleep_timer_bottom_sheet.dart';
 import '../widgets/track_options_bottom_sheet.dart';
+import '../widgets/shared/app_surface.dart';
+import '../widgets/shared/aurora_background.dart';
 import 'equalizer_screen.dart';
 
 class FullScreenPlayerScreen extends ConsumerStatefulWidget {
@@ -122,8 +124,8 @@ class _FullScreenPlayerScreenState
         (sleepRemaining != null && sleepRemaining > Duration.zero) ||
             isSleepEndOfTrack;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    final playerScaffold = Scaffold(
+      backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       body: TweenAnimationBuilder<Color?>(
         tween: ColorTween(
           begin: const Color(0xFF0A0A0A),
@@ -138,7 +140,7 @@ class _FullScreenPlayerScreenState
             fit: StackFit.expand,
             children: [
               // 1. Root OLED Obsidian Canvas
-              Container(color: tokens.background),
+              if (!tokens.isGlass) Container(color: tokens.background),
 
               // 2. Primary ambient color mesh glow node behind artwork
               Positioned.fill(
@@ -210,10 +212,21 @@ class _FullScreenPlayerScreenState
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () => Navigator.of(context).pop(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(Icons.keyboard_arrow_down_rounded, size: 30),
-                      ),
+                      child: tokens.isGlass
+                          ? AppSurface(
+                              withBlur: true,
+                              width: 38,
+                              height: 38,
+                              borderRadius: BorderRadius.circular(19),
+                              border: Border.all(color: tokens.glassBorder, width: 1.0),
+                              child: const Center(
+                                child: Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
+                              ),
+                            )
+                          : const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(Icons.keyboard_arrow_down_rounded, size: 30),
+                            ),
                     ),
                     Expanded(
                       child: Column(
@@ -284,14 +297,29 @@ class _FullScreenPlayerScreenState
                       onTap: isPlaceholder
                           ? null
                           : () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Icon(
-                          Icons.more_vert_rounded,
-                          size: 24,
-                          color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : null,
-                        ),
-                      ),
+                      child: tokens.isGlass
+                          ? AppSurface(
+                              withBlur: true,
+                              width: 38,
+                              height: 38,
+                              borderRadius: BorderRadius.circular(19),
+                              border: Border.all(color: tokens.glassBorder, width: 1.0),
+                              child: Center(
+                                child: Icon(
+                                  Icons.more_vert_rounded,
+                                  size: 22,
+                                  color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : Colors.white,
+                                ),
+                              ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.more_vert_rounded,
+                                size: 24,
+                                color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : null,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -560,20 +588,35 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.skipToPrevious();
                       },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.skip_previous_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
-                      ),
+                      child: tokens.isGlass
+                          ? AppSurface(
+                              withBlur: true,
+                              width: 48,
+                              height: 48,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: tokens.glassBorder, width: 1.0),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.skip_previous_rounded,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.skip_previous_rounded,
+                                color: Colors.white,
+                                size: 34,
+                              ),
+                            ),
                     ),
 
                     // Center Play/Pause Morphing Button (Glow + Smooth Loading Spinner when Buffering)
@@ -582,8 +625,8 @@ class _FullScreenPlayerScreenState
                       isLoading: isBuffering,
                       size: 68,
                       iconSize: 36,
-                      backgroundColor: Colors.white,
-                      iconColor: Colors.black,
+                      backgroundColor: tokens.isGlass ? tokens.accentViolet : Colors.white,
+                      iconColor: tokens.isGlass ? Colors.white : Colors.black,
                       showGlow: true,
                       onTap: () {
                         if (isPlaying) {
@@ -605,20 +648,35 @@ class _FullScreenPlayerScreenState
                         HapticFeedback.selectionClick();
                         audioHandler.skipToNext();
                       },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.skip_next_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
-                      ),
+                      child: tokens.isGlass
+                          ? AppSurface(
+                              withBlur: true,
+                              width: 48,
+                              height: 48,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: tokens.glassBorder, width: 1.0),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.skip_next_rounded,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.skip_next_rounded,
+                                color: Colors.white,
+                                size: 34,
+                              ),
+                            ),
                     ),
 
                     // Repeat Button with signature emerald active dot
@@ -732,37 +790,83 @@ class _FullScreenPlayerScreenState
                           _showLyrics = !_showLyrics;
                         });
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _showLyrics
-                              ? tokens.accent.withValues(alpha: 0.2)
-                              : Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(tokens.radiusFull),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.lyrics_rounded,
-                              size: 18,
-                              color: _showLyrics ? tokens.accent : Colors.white,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Lyrics',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: _showLyrics ? tokens.accent : Colors.white,
+                      child: tokens.isGlass
+                          ? AppSurface(
+                              withBlur: true,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              borderRadius: BorderRadius.circular(tokens.radiusFull),
+                              color: _showLyrics
+                                  ? tokens.accentViolet.withValues(alpha: 0.85)
+                                  : Colors.white.withValues(alpha: 0.12),
+                              border: Border.all(
+                                color: _showLyrics
+                                    ? tokens.accentCyan.withValues(alpha: 0.70)
+                                    : tokens.glassBorder,
+                                width: 1.0,
+                              ),
+                              boxShadow: _showLyrics
+                                  ? [
+                                      BoxShadow(
+                                        color: tokens.accentViolet.withValues(alpha: 0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.lyrics_rounded,
+                                    size: 18,
+                                    color: _showLyrics ? tokens.accentCyan : Colors.white,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Lyrics',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _showLyrics ? tokens.accentCyan : Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _showLyrics
+                                    ? tokens.accent.withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(tokens.radiusFull),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.lyrics_rounded,
+                                    size: 18,
+                                    color: _showLyrics ? tokens.accent : Colors.white,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Lyrics',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _showLyrics ? tokens.accent : Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
                     ),
 
                     // Playback Speed Button (YouTube & Podcasts only)
@@ -836,6 +940,11 @@ class _FullScreenPlayerScreenState
         ),
       ),
     );
+
+    if (tokens.isGlass) {
+      return AuroraBackground(child: playerScaffold);
+    }
+    return playerScaffold;
   }
 
   void _cycleSpeed() {

@@ -17,6 +17,7 @@ import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/shared/app_surface.dart';
 import '../widgets/shared/aurora_background.dart';
 import 'debug_metrics_screen.dart';
 import 'equalizer_screen.dart';
@@ -287,10 +288,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           // Section 0: Profile
           _buildSectionHeader('Profile'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: tokens.accent,
@@ -323,10 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 1: Audio Quality & Playback
           _buildSectionHeader('Playback & Streaming'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: Column(
               children: [
                 RadioListTile<AudioQualityPreset>(
@@ -535,10 +530,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 2: Lyrics & Synchronization
           _buildSectionHeader('Lyrics & Synchronization'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: Consumer(
               builder: (context, ref, _) {
                 final lyricsConfig = ref.watch(spotifyLyricsConfigProvider);
@@ -611,10 +603,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section: Music Screensaver (Linux & Desktop)
           _buildSectionHeader('Music Screensaver (Linux & Desktop)'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: Consumer(
               builder: (context, ref, _) {
                 final screensaverConfig = ref.watch(screensaverConfigProvider);
@@ -852,10 +841,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 3: Fallback Instances & Health
           _buildSectionHeader('Fallback Instances (Piped)'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: Column(
               children: [
                 Padding(
@@ -938,10 +924,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 4: Storage & Cache
           _buildSectionHeader('Storage & Cache'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: Column(
               children: [
                 Consumer(
@@ -1129,10 +1112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 5: Discovery & Learning Controls
           _buildSectionHeader('Discovery & Taste Controls'),
-          Material(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            clipBehavior: Clip.antiAlias,
+          _buildCard(
             child: Column(
               children: [
                 SwitchListTile(
@@ -1190,11 +1170,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section: Device Control & Fleet Security
           _buildSectionHeader('Device Control & Security'),
-          Container(
-            decoration: BoxDecoration(
-              color: tokens.card,
-              borderRadius: BorderRadius.circular(tokens.radiusCard),
-            ),
+          _buildCard(
             child: Column(
               children: [
                 Consumer(
@@ -1275,12 +1251,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           // Section 6: About Softify
           _buildSectionHeader('About Softify'),
-          Container(
+          _buildCard(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: tokens.card,
-              borderRadius: BorderRadius.circular(tokens.radiusCard),
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1352,6 +1324,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Widget _buildCard({
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+  }) {
+    final tokens = context.tokens;
+    return AppSurface(
+      withBlur: true,
+      padding: padding,
+      borderRadius: BorderRadius.circular(tokens.radiusCard),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildAppearanceSection(
     BuildContext context,
     AppTokens tokens,
@@ -1362,13 +1351,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Appearance'),
-        Material(
-          color: tokens.card,
-          borderRadius: BorderRadius.circular(tokens.radiusCard),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+        _buildCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -1511,7 +1496,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-        ),
       ],
     );
   }

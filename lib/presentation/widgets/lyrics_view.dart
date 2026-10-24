@@ -14,6 +14,7 @@ import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
+import 'shared/app_surface.dart';
 
 enum LyricFontSize {
   compact(17.0, 19.0, 'S'),
@@ -338,24 +339,19 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
     final effectivePos = _positionNotifier.value;
 
-    return ClipRRect(
+    return AppSurface(
       borderRadius: BorderRadius.circular(tokens.radiusXl),
+      withBlur: true,
+      color: tokens.isGlass ? Colors.white.withValues(alpha: 0.08) : backgroundColor,
       child: Container(
         decoration: BoxDecoration(
-          color: backgroundColor,
           borderRadius: BorderRadius.circular(tokens.radiusXl),
-          border: Border.all(
-            color: tokens.isGlass
-                ? tokens.glassBorder
-                : const Color(0xFF1F1F23),
-            width: 1,
-          ),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              activeAccent.withValues(alpha: 0.12),
-              backgroundColor,
+              activeAccent.withValues(alpha: tokens.isGlass ? 0.22 : 0.12),
+              tokens.isGlass ? Colors.transparent : backgroundColor,
             ],
             stops: const [0.0, 0.45],
           ),

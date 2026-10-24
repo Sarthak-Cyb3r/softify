@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'app_pill_button.dart';
+import 'app_surface.dart';
 
 /// Content-first dialog modal adhering to elevated #2A2A2A surface and 8px radius.
 class AppDialog extends StatelessWidget {
@@ -64,25 +65,14 @@ class AppDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
 
-    return Dialog(
-      backgroundColor:
-          tokens.isGlass ? const Color(0xE614122B) : tokens.surfaceElevated,
-      elevation: 16.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(tokens.radiusCard),
-        side: tokens.isGlass
-            ? BorderSide(color: tokens.glassBorder, width: 1.0)
-            : BorderSide.none,
-      ),
-      insetPadding: EdgeInsets.all(tokens.spaceLg),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440.0),
-        child: Padding(
-          padding: EdgeInsets.all(tokens.spaceLg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    final contentWidget = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440.0),
+      child: Padding(
+        padding: EdgeInsets.all(tokens.spaceLg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
               // Dialog Title (Bricolage Grotesque)
               Text(
                 title,
@@ -145,7 +135,29 @@ class AppDialog extends StatelessWidget {
             ],
           ),
         ),
+      );
+
+    if (tokens.isGlass) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: EdgeInsets.all(tokens.spaceLg),
+        child: AppSurface(
+          withBlur: true,
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+          child: contentWidget,
+        ),
+      );
+    }
+
+    return Dialog(
+      backgroundColor: tokens.surfaceElevated,
+      elevation: 16.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
       ),
+      insetPadding: EdgeInsets.all(tokens.spaceLg),
+      child: contentWidget,
     );
   }
 }
