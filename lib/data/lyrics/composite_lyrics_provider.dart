@@ -44,7 +44,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
 
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
-    if (_cache.containsKey(track.id)) {
+    if (_cache.containsKey(track.id) && _cache[track.id] != null) {
       return _cache[track.id];
     }
 
@@ -73,34 +73,52 @@ class CompositeLyricsProvider implements ILyricsProvider {
       } catch (_) {}
     }
 
-    // Tier 2: Query LRCLIB with exact + search fallback
+    // Tier 2: Query LRCLIB and JioSaavn concurrently
     SyncedLyrics? lrclibResult;
+    SyncedLyrics? saavnResult;
     try {
-      lrclibResult = await _lrclib.getLyrics(track);
+      final tier2Results = await Future.wait([
+        _lrclib.getLyrics(track).catchError((_) => null),
+        _saavn.getLyrics(track).catchError((_) => null),
+      ]);
+      lrclibResult = tier2Results[0];
+      saavnResult = tier2Results[1];
+
+      // If LRCLIB returned valid synced lyrics, immediately return
       if (lrclibResult != null &&
           lrclibResult.isSynced &&
           lrclibResult.lines.isNotEmpty) {
         _addToCache(track.id, lrclibResult);
         return lrclibResult;
       }
+
+      // If JioSaavn returned synced lyrics, return
+      if (saavnResult != null &&
+          saavnResult.isSynced &&
+          saavnResult.lines.isNotEmpty) {
+        _addToCache(track.id, saavnResult);
+        return saavnResult;
+      }
     } catch (_) {}
 
-    // Tier 3: Query NetEase Cloud Music global synced database
+    // Tier 3: Query NetEase Cloud Music and Kugou concurrently
     SyncedLyrics? neteaseResult;
+    SyncedLyrics? kugouResult;
     try {
-      neteaseResult = await _netease.getLyrics(track);
+      final tier3Results = await Future.wait([
+        _netease.getLyrics(track).catchError((_) => null),
+        _kugou.getLyrics(track).catchError((_) => null),
+      ]);
+      neteaseResult = tier3Results[0];
+      kugouResult = tier3Results[1];
+
       if (neteaseResult != null &&
           neteaseResult.isSynced &&
           neteaseResult.lines.isNotEmpty) {
         _addToCache(track.id, neteaseResult);
         return neteaseResult;
       }
-    } catch (_) {}
 
-    // Tier 4: Query Kugou global synced database
-    SyncedLyrics? kugouResult;
-    try {
-      kugouResult = await _kugou.getLyrics(track);
       if (kugouResult != null &&
           kugouResult.isSynced &&
           kugouResult.lines.isNotEmpty) {
@@ -109,8 +127,16 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    // Tier 5: Fallback to any plain lyrics found across providers (Spotify, LRCLIB, NetEase, Kugou)
-    final plainCandidates = [spotifyResult, lrclibResult, neteaseResult, kugouResult];
+    // Tier 4: Fallback to verified plain lyrics across sources
+    // (JioSaavn verified studio lyrics first, then LRCLIB plain, NetEase, Kugou, Spotify)
+    final plainCandidates = [
+      saavnResult,
+      lrclibResult,
+      neteaseResult,
+      kugouResult,
+      spotifyResult,
+    ];
+
     final plainFallback = plainCandidates.firstWhere(
       (c) =>
           c != null &&
@@ -119,19 +145,12 @@ class CompositeLyricsProvider implements ILyricsProvider {
       orElse: () => null,
     );
 
-    // Tier 6: Query JioSaavn official verified lyrics database
-    try {
-      final saavnResult = await _saavn.getLyrics(track);
-      if (saavnResult != null &&
-          ((saavnResult.plainLyrics != null &&
-                  saavnResult.plainLyrics!.trim().isNotEmpty) ||
-              saavnResult.lines.isNotEmpty)) {
-        _addToCache(track.id, saavnResult);
-        return saavnResult;
-      }
-    } catch (_) {}
+    if (plainFallback != null) {
+      _addToCache(track.id, plainFallback);
+      return plainFallback;
+    }
 
-    // Tier 7: Query Genius for verified song lyrics
+    // Tier 5: Query Genius for verified song lyrics
     try {
       final geniusResult = await _fallback.getLyrics(track);
       if (geniusResult != null &&
@@ -142,18 +161,14 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    if (plainFallback != null) {
-      _addToCache(track.id, plainFallback);
-      return plainFallback;
-    }
-
-    // Tier 8: Instrumental Track Detection (Classical, Scores, Ambient, Lofi Beats)
-    final isInstrumental = RegExp(
-      r'(?:instrumental|karaoke|backing track|bgm|score|soundtrack|lofi beat|ambient sound|white noise|relaxing music|study beat)',
+    // Tier 6: Strict Instrumental Detection
+    // Note: Do NOT match "soundtrack", "score", or "album" as those are vocal movie songs!
+    final isExplicitInstrumental = RegExp(
+      r'\b(?:instrumental|karaoke|backing track|minus one|white noise|relaxing sound|nature sounds|ambient rain)\b',
       caseSensitive: false,
     ).hasMatch(track.title);
 
-    if (isInstrumental) {
+    if (isExplicitInstrumental) {
       final instrumentalResult = SyncedLyrics(
         trackId: track.id,
         lines: const [
@@ -167,11 +182,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
       return instrumentalResult;
     }
 
-    _addToCache(track.id, null);
     return null;
   }
 
   void _addToCache(String key, SyncedLyrics? value) {
+    if (value == null) return;
     if (_cache.length >= maxCacheEntries) {
       _cache.remove(_cache.keys.first);
     }

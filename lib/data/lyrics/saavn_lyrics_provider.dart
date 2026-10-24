@@ -23,7 +23,7 @@ class SaavnLyricsProvider implements ILyricsProvider {
 
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
-    if (_cache.containsKey(track.id)) {
+    if (_cache.containsKey(track.id) && _cache[track.id] != null) {
       return _cache[track.id];
     }
 
@@ -36,7 +36,6 @@ class SaavnLyricsProvider implements ILyricsProvider {
       }
 
       if (pid == null || pid.isEmpty) {
-        _cache[track.id] = null;
         return null;
       }
 
@@ -48,7 +47,6 @@ class SaavnLyricsProvider implements ILyricsProvider {
       req.headers.set('User-Agent', _userAgent);
       final res = await req.close().timeout(const Duration(seconds: 6));
       if (res.statusCode != 200) {
-        _cache[track.id] = null;
         return null;
       }
 
@@ -57,13 +55,11 @@ class SaavnLyricsProvider implements ILyricsProvider {
       final rawLyrics = json['lyrics'] as String?;
 
       if (rawLyrics == null || rawLyrics.trim().isEmpty) {
-        _cache[track.id] = null;
         return null;
       }
 
       final cleanLyrics = _sanitizeLyrics(rawLyrics);
       if (cleanLyrics.isEmpty) {
-        _cache[track.id] = null;
         return null;
       }
 
@@ -71,12 +67,13 @@ class SaavnLyricsProvider implements ILyricsProvider {
         trackId: track.id,
         lines: const [],
         plainLyrics: cleanLyrics,
+        syncType: 'UNSYNCED',
+        providerName: 'JioSaavn',
       );
 
       _cache[track.id] = result;
       return result;
     } catch (_) {
-      _cache[track.id] = null;
       return null;
     }
   }
@@ -86,38 +83,97 @@ class SaavnLyricsProvider implements ILyricsProvider {
       final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
       final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
       final primaryArtist = cleanArtist.split(RegExp(r'[,&/]')).first.trim();
-      final query = '$cleanTitle $primaryArtist'.trim();
+      final normTarget = _normalize(cleanTitle);
 
-      final searchUri = Uri.parse(
-        'https://www.jiosaavn.com/api.php?__call=autocomplete.get&query=${Uri.encodeComponent(query)}&_format=json&_marker=0&ctx=web6dot0',
-      );
+      final queries = [
+        if (primaryArtist.isNotEmpty) '$cleanTitle $primaryArtist'.trim(),
+        cleanTitle,
+      ];
 
-      final req = await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
-      req.headers.set('User-Agent', _userAgent);
-      final res = await req.close().timeout(const Duration(seconds: 5));
-      if (res.statusCode != 200) return null;
+      for (final q in queries) {
+        final searchUri = Uri.parse(
+          'https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=8&p=1&q=${Uri.encodeComponent(q)}',
+        );
 
-      final body = await res.transform(utf8.decoder).join();
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final songsObj = json['songs'];
-      if (songsObj is! Map<String, dynamic>) return null;
+        final req = await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
+        req.headers.set('User-Agent', _userAgent);
+        final res = await req.close().timeout(const Duration(seconds: 5));
+        if (res.statusCode != 200) continue;
 
-      final songList = (songsObj['data'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-      if (songList.isEmpty) return null;
+        final body = await res.transform(utf8.decoder).join();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final results = (json['results'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
 
-      // Find best match by title
-      for (final song in songList) {
-        final candTitle = _normalize((song['title'] ?? '').toString());
-        if (candTitle == cleanTitle || candTitle.contains(cleanTitle) || cleanTitle.contains(candTitle)) {
-          final pid = song['id']?.toString();
-          if (pid != null && pid.isNotEmpty) {
-            return pid;
+        // 1. First pass: Exact or substring title match that has verified lyrics
+        for (final song in results) {
+          final candTitle = _normalize((song['title'] ?? song['song'] ?? '').toString());
+          final moreInfo = song['more_info'] as Map<String, dynamic>? ?? {};
+          final hasLyrics = moreInfo['has_lyrics'] == 'true' ||
+              moreInfo['has_lyrics'] == true ||
+              song['has_lyrics'] == 'true' ||
+              song['has_lyrics'] == true;
+
+          if (hasLyrics &&
+              (candTitle == normTarget ||
+                  candTitle.contains(normTarget) ||
+                  normTarget.contains(candTitle))) {
+            final pid = moreInfo['lyrics_id']?.toString().isNotEmpty == true
+                ? moreInfo['lyrics_id'].toString()
+                : song['id']?.toString();
+            if (pid != null && pid.isNotEmpty) {
+              return pid;
+            }
+          }
+        }
+
+        // 2. Second pass: Try any title match in search results
+        for (final song in results) {
+          final candTitle = _normalize((song['title'] ?? song['song'] ?? '').toString());
+          if (candTitle == normTarget ||
+              candTitle.contains(normTarget) ||
+              normTarget.contains(candTitle)) {
+            final moreInfo = song['more_info'] as Map<String, dynamic>? ?? {};
+            final pid = moreInfo['lyrics_id']?.toString().isNotEmpty == true
+                ? moreInfo['lyrics_id'].toString()
+                : song['id']?.toString();
+            if (pid != null && pid.isNotEmpty) {
+              return pid;
+            }
           }
         }
       }
 
-      // Fallback to top song result
-      return songList.first['id']?.toString();
+      // Fallback: autocomplete endpoint
+      final acUri = Uri.parse(
+        'https://www.jiosaavn.com/api.php?__call=autocomplete.get&query=${Uri.encodeComponent(cleanTitle)}&_format=json&_marker=0&ctx=web6dot0',
+      );
+      final acReq = await _httpClient.getUrl(acUri).timeout(const Duration(seconds: 4));
+      acReq.headers.set('User-Agent', _userAgent);
+      final acRes = await acReq.close().timeout(const Duration(seconds: 4));
+      if (acRes.statusCode == 200) {
+        final acBody = await acRes.transform(utf8.decoder).join();
+        final acJson = jsonDecode(acBody) as Map<String, dynamic>;
+        final songsObj = acJson['songs'];
+        if (songsObj is Map<String, dynamic>) {
+          final songList = (songsObj['data'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+          for (final song in songList) {
+            final candTitle = _normalize((song['title'] ?? '').toString());
+            if (candTitle == normTarget ||
+                candTitle.contains(normTarget) ||
+                normTarget.contains(candTitle)) {
+              final pid = song['id']?.toString();
+              if (pid != null && pid.isNotEmpty) {
+                return pid;
+              }
+            }
+          }
+          if (songList.isNotEmpty) {
+            return songList.first['id']?.toString();
+          }
+        }
+      }
+
+      return null;
     } catch (_) {
       return null;
     }

@@ -686,35 +686,336 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     return [];
   }
 
+  static Set<String> _extractNumberTokens(String s) {
+    final tokens = RegExp(r'\b(?:\d+|ii|iii|iv|v|vi|vii|viii|ix|x)\b', caseSensitive: false)
+        .allMatches(s)
+        .map((m) => m.group(0)!.toLowerCase())
+        .toSet();
+    const romanMap = {
+      'i': '1',
+      'ii': '2',
+      'iii': '3',
+      'iv': '4',
+      'v': '5',
+      'vi': '6',
+      'vii': '7',
+      'viii': '8',
+      'ix': '9',
+      'x': '10',
+    };
+    return tokens.map((t) => romanMap[t] ?? t).toSet();
+  }
+
+  static String _cleanAlbumTitleForMatch(String s) {
+    var cleaned = s.replaceAll(
+      RegExp(
+        r'[\(\[](?:original motion picture soundtrack|soundtrack|deluxe edition|deluxe|bonus track version|edition|ep|single|ost|remixes)[\)\]]',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    cleaned = cleaned.replaceAll(
+      RegExp(r'\s*-\s*(?:ep|single|deluxe|soundtrack).*$', caseSensitive: false),
+      '',
+    );
+    cleaned = cleaned.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ').toLowerCase();
+    return cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  static double _calculateAlbumMatchScore(
+    String targetAlbum,
+    String candidateAlbum, {
+    String? targetArtist,
+    String? candidateArtist,
+  }) {
+    final targetNums = _extractNumberTokens(targetAlbum);
+    final candNums = _extractNumberTokens(candidateAlbum);
+
+    // Strict number parity: if target has numbers, candidate MUST have the exact same numbers.
+    // Prevents "Student of the Year 2" from matching "Student of the Year 1", and vice versa.
+    if (targetNums.length != candNums.length || !targetNums.containsAll(candNums)) {
+      return -1.0;
+    }
+
+    final normTarget = _cleanAlbumTitleForMatch(targetAlbum);
+    final normCand = _cleanAlbumTitleForMatch(candidateAlbum);
+
+    if (normTarget.isEmpty || normCand.isEmpty) return 0.0;
+    if (normTarget == normCand) return 1.0;
+    if (normCand.startsWith(normTarget) || normTarget.startsWith(normCand)) return 0.9;
+
+    final tWords = normTarget.split(' ').where((w) => w.isNotEmpty).toSet();
+    final cWords = normCand.split(' ').where((w) => w.isNotEmpty).toSet();
+    if (tWords.isEmpty || cWords.isEmpty) return 0.0;
+
+    final intersection = tWords.intersection(cWords);
+    final union = tWords.union(cWords);
+    var score = intersection.length / union.length;
+
+    // Boost score if artist tokens match
+    if (targetArtist != null &&
+        candidateArtist != null &&
+        targetArtist.isNotEmpty &&
+        candidateArtist.isNotEmpty) {
+      if (TextNormalizer.matchesArtist(candidateArtist, targetArtist)) {
+        score += 0.15;
+      }
+    }
+
+    return score.clamp(0.0, 1.0);
+  }
+
+  Future<List<Track>> _getSaavnAlbumTracks(
+    String album,
+    String artist, {
+    int limit = 25,
+  }) async {
+    try {
+      final encoded = Uri.encodeComponent(album);
+      final searchUri = Uri.parse(
+        'https://www.jiosaavn.com/api.php?__call=search.getAlbumResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=5&p=1&q=$encoded',
+      );
+
+      final req = await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
+      req.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
+      final res = await req.close().timeout(const Duration(seconds: 5));
+      if (res.statusCode != 200) return [];
+
+      final body = await res.transform(utf8.decoder).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final results = (json['results'] as List<dynamic>?) ?? [];
+      if (results.isEmpty) return [];
+
+      String? bestAlbumId;
+      double bestScore = 0.65;
+
+      for (final it in results) {
+        if (it is! Map<String, dynamic>) continue;
+        final title = (it['title'] ?? it['name'] ?? '').toString();
+        final sub = (it['subtitle'] ?? '').toString();
+        final score = _calculateAlbumMatchScore(
+          album,
+          title,
+          targetArtist: artist,
+          candidateArtist: sub,
+        );
+        if (score > bestScore) {
+          bestScore = score;
+          bestAlbumId = it['id']?.toString();
+        }
+      }
+
+      if (bestAlbumId == null) return [];
+
+      final detailUri = Uri.parse(
+        'https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=$bestAlbumId',
+      );
+      final dReq = await _httpClient.getUrl(detailUri).timeout(const Duration(seconds: 5));
+      dReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
+      final dRes = await dReq.close().timeout(const Duration(seconds: 5));
+      if (dRes.statusCode != 200) return [];
+
+      final dBody = await dRes.transform(utf8.decoder).join();
+      final dJson = jsonDecode(dBody) as Map<String, dynamic>;
+      final songList = (dJson['list'] as List<dynamic>?) ?? [];
+      if (songList.isEmpty) return [];
+
+      final List<Track> tracks = [];
+      for (final item in songList) {
+        if (item is! Map<String, dynamic>) continue;
+        final trackId = item['id']?.toString();
+        final trackName = (item['title'] ?? item['song']) as String?;
+        if (trackId == null || trackName == null) continue;
+
+        final subtitle = (item['subtitle'] as String?) ?? '';
+        final rawImage = item['image'] as String?;
+        var highResCover = rawImage?.replaceAll('150x150', '500x500');
+        if (highResCover != null && highResCover.startsWith('http://')) {
+          highResCover = 'https://${highResCover.substring(7)}';
+        }
+
+        final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
+        String artistName = '';
+        if (moreInfo['artistMap'] is Map &&
+            moreInfo['artistMap']['primary_artists'] is List) {
+          final artistsList = (moreInfo['artistMap']['primary_artists'] as List)
+              .map((a) => (a is Map ? a['name'] : null)?.toString())
+              .whereType<String>()
+              .toList();
+          artistName = artistsList.join(', ');
+        }
+        if (artistName.isEmpty) {
+          artistName = (moreInfo['singers'] as String?) ??
+              (moreInfo['music'] as String?) ??
+              subtitle;
+        }
+
+        final cleanTrackTitle = trackName
+            .replaceAll(RegExp(r'&quot;'), '"')
+            .replaceAll(RegExp(r'&amp;'), '&')
+            .replaceAll(RegExp(r'&#039;'), "'")
+            .trim();
+
+        final durationSeconds = int.tryParse(moreInfo['duration']?.toString() ?? '') ?? 0;
+
+        tracks.add(
+          Track(
+            id: 'saavn_$trackId',
+            sourceId: 'saavn_$trackId',
+            title: cleanTrackTitle,
+            artist: artistName.isEmpty ? artist : artistName,
+            album: (dJson['title'] as String?) ?? album,
+            duration: Duration(seconds: durationSeconds),
+            coverUrl: highResCover,
+            matchConfidence: 1.0,
+          ),
+        );
+      }
+
+      return tracks.take(limit).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Track>> _getItunesAlbumTracks(
+    String album,
+    String artist, {
+    int limit = 25,
+  }) async {
+    try {
+      final encoded = Uri.encodeComponent(album);
+      final searchUri = Uri.parse(
+        'https://itunes.apple.com/search?term=$encoded&entity=album&limit=5',
+      );
+      final req = await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
+      req.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
+      final res = await req.close().timeout(const Duration(seconds: 5));
+      if (res.statusCode != 200) return [];
+
+      final body = await res.transform(utf8.decoder).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final results = (json['results'] as List<dynamic>?) ?? [];
+      if (results.isEmpty) return [];
+
+      int? bestCollectionId;
+      double bestScore = 0.65;
+
+      for (final it in results) {
+        if (it is! Map<String, dynamic>) continue;
+        final name = (it['collectionName'] ?? '').toString();
+        final art = (it['artistName'] ?? '').toString();
+        final score = _calculateAlbumMatchScore(
+          album,
+          name,
+          targetArtist: artist,
+          candidateArtist: art,
+        );
+        if (score > bestScore) {
+          bestScore = score;
+          bestCollectionId = (it['collectionId'] as num?)?.toInt();
+        }
+      }
+
+      if (bestCollectionId == null) return [];
+
+      final lookupUri = Uri.parse(
+        'https://itunes.apple.com/lookup?id=$bestCollectionId&entity=song',
+      );
+      final lReq = await _httpClient.getUrl(lookupUri).timeout(const Duration(seconds: 5));
+      lReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
+      final lRes = await lReq.close().timeout(const Duration(seconds: 5));
+      if (lRes.statusCode != 200) return [];
+
+      final lBody = await lRes.transform(utf8.decoder).join();
+      final lJson = jsonDecode(lBody) as Map<String, dynamic>;
+      final lResults = (lJson['results'] as List<dynamic>?) ?? [];
+
+      final List<Track> tracks = [];
+      for (final item in lResults) {
+        if (item is! Map<String, dynamic>) continue;
+        if (item['wrapperType'] != 'track') continue;
+
+        final trackId = item['trackId']?.toString();
+        final trackName = item['trackName'] as String?;
+        final artistName = item['artistName'] as String?;
+        final collectionName = item['collectionName'] as String?;
+        final trackTimeMillis = (item['trackTimeMillis'] as num?)?.toInt() ?? 0;
+        final rawArtwork = item['artworkUrl100'] as String?;
+        var highResCover = rawArtwork?.replaceAll('100x100bb', '600x600bb');
+        if (highResCover != null && highResCover.startsWith('http://')) {
+          highResCover = 'https://${highResCover.substring(7)}';
+        }
+
+        if (trackId == null || trackName == null || artistName == null) continue;
+
+        tracks.add(
+          Track(
+            id: 'itunes_$trackId',
+            sourceId: 'itunes_$trackId',
+            title: trackName,
+            artist: artistName,
+            album: collectionName ?? album,
+            duration: Duration(milliseconds: trackTimeMillis),
+            coverUrl: highResCover,
+            matchConfidence: 1.0,
+          ),
+        );
+      }
+
+      return tracks.take(limit).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   @override
   Future<List<Track>> getAlbumTracks(
     String album,
     String artist, {
     int limit = 25,
   }) async {
-    // 1. Primary: Reverse engineered Spotify Album Tracks
+    // 1. Primary: Reverse engineered Spotify Album Tracks with strict album scoring
     try {
-      final sRes = await _spotifyApi.search('$album $artist', limit: 5);
+      var sRes = await _spotifyApi.search('$album $artist', limit: 5);
+      if (sRes.albums.isEmpty) {
+        sRes = await _spotifyApi.search(album, limit: 5);
+      }
       if (sRes.albums.isNotEmpty) {
-        final spotifyTracks = await _spotifyApi.getAlbumTracks(sRes.albums.first.id);
-        if (spotifyTracks.isNotEmpty) return spotifyTracks.take(limit).toList();
+        SpotifyAlbumRef? bestAlbum;
+        double bestScore = 0.65;
+        for (final cand in sRes.albums) {
+          final score = _calculateAlbumMatchScore(
+            album,
+            cand.name,
+            targetArtist: artist,
+            candidateArtist: cand.artist,
+          );
+          if (score > bestScore) {
+            bestScore = score;
+            bestAlbum = cand;
+          }
+        }
+        if (bestAlbum != null) {
+          final spotifyTracks = await _spotifyApi.getAlbumTracks(bestAlbum.id);
+          if (spotifyTracks.isNotEmpty) return spotifyTracks.take(limit).toList();
+        }
       }
     } catch (_) {}
 
+    // 2. Secondary: JioSaavn Official Verified Album Details
     try {
-      final saavn = await search('$album $artist', limit: limit);
-      if (saavn.isNotEmpty) return saavn;
+      final saavnTracks = await _getSaavnAlbumTracks(album, artist, limit: limit);
+      if (saavnTracks.isNotEmpty) return saavnTracks;
     } catch (_) {}
 
+    // 3. Tertiary: Apple iTunes Official Album Lookup
     try {
-      final itunes = await _searchItunes(
-        '$album $artist',
-        limit: limit,
-        attribute: 'albumTerm',
-      );
-      if (itunes.isNotEmpty) return itunes;
+      final itunesTracks = await _getItunesAlbumTracks(album, artist, limit: limit);
+      if (itunesTracks.isNotEmpty) return itunesTracks;
     } catch (_) {}
 
+    // 4. Quaternary: Deezer Album Fallback
     try {
       final deezer = await _searchDeezer('$album $artist', limit: limit);
       if (deezer.isNotEmpty) return deezer;

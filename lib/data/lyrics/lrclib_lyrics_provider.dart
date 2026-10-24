@@ -17,7 +17,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
 
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
-    if (_memoryCache.containsKey(track.id)) {
+    if (_memoryCache.containsKey(track.id) && _memoryCache[track.id] != null) {
       return _memoryCache[track.id];
     }
 
@@ -52,7 +52,6 @@ class LrclibLyricsProvider implements ILyricsProvider {
         return searchResult;
       }
 
-      _memoryCache[track.id] = null;
       return null;
     } catch (_) {
       return null;
@@ -65,13 +64,34 @@ class LrclibLyricsProvider implements ILyricsProvider {
     Duration duration,
     String trackId,
   ) async {
-    try {
-      final queryParams = {
+    // 1. Try with duration parameter first
+    if (duration.inSeconds > 0) {
+      final withDur = await _executeExactGet(
+        {
+          'track_name': title,
+          'artist_name': artist,
+          'duration': duration.inSeconds.toString(),
+        },
+        trackId,
+      );
+      if (withDur != null) return withDur;
+    }
+
+    // 2. Retry without duration parameter (handles slight duration deviations across platforms)
+    return _executeExactGet(
+      {
         'track_name': title,
         'artist_name': artist,
-        if (duration.inSeconds > 0) 'duration': duration.inSeconds.toString(),
-      };
+      },
+      trackId,
+    );
+  }
 
+  Future<SyncedLyrics?> _executeExactGet(
+    Map<String, String> queryParams,
+    String trackId,
+  ) async {
+    try {
       final uri = Uri.https('lrclib.net', '/api/get', queryParams);
       final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
       request.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
@@ -132,108 +152,86 @@ class LrclibLyricsProvider implements ILyricsProvider {
     String primaryArtist,
   ) async {
     try {
-      final query = '$cleanTitle $primaryArtist'.trim();
+      final queries = [
+        if (primaryArtist.isNotEmpty) '$cleanTitle $primaryArtist'.trim(),
+        cleanTitle,
+      ];
 
-      final uri = Uri.https('lrclib.net', '/api/search', {'q': query});
-      final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
-      request.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
+      for (final query in queries) {
+        final uri = Uri.https('lrclib.net', '/api/search', {'q': query});
+        final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
+        request.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
 
-      final response = await request.close().timeout(const Duration(seconds: 4));
-      if (response.statusCode != 200) return null;
+        final response = await request.close().timeout(const Duration(seconds: 4));
+        if (response.statusCode != 200) continue;
 
-      final body = await response.transform(utf8.decoder).join();
-      final list = jsonDecode(body) as List<dynamic>;
-      var candidates = list.cast<Map<String, dynamic>>().where((item) {
-        final synced = item['syncedLyrics'] as String?;
-        final candName = (item['trackName'] ?? item['name'] ?? '').toString();
-        return (synced != null && synced.trim().isNotEmpty) && _isTitleMatch(cleanTitle, candName);
-      }).toList();
+        final body = await response.transform(utf8.decoder).join();
+        final list = jsonDecode(body) as List<dynamic>;
+        if (list.isEmpty) continue;
 
-      // If no candidates matched with artist included, retry search with clean title alone
-      if (candidates.isEmpty && cleanTitle.length > 2) {
-        try {
-          final titleUri = Uri.https('lrclib.net', '/api/search', {'q': cleanTitle});
-          final titleReq = await _httpClient.getUrl(titleUri).timeout(const Duration(seconds: 4));
-          titleReq.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
-          final titleRes = await titleReq.close().timeout(const Duration(seconds: 4));
-          if (titleRes.statusCode == 200) {
-            final titleBody = await titleRes.transform(utf8.decoder).join();
-            final titleList = jsonDecode(titleBody) as List<dynamic>;
-            candidates = titleList.cast<Map<String, dynamic>>().where((item) {
-              final synced = item['syncedLyrics'] as String?;
-              final candName = (item['trackName'] ?? item['name'] ?? '').toString();
-              return (synced != null && synced.trim().isNotEmpty) && _isTitleMatch(cleanTitle, candName);
-            }).toList();
+        final matchingItems = list.cast<Map<String, dynamic>>().where((item) {
+          final candName = (item['trackName'] ?? item['name'] ?? '').toString();
+          return _isTitleMatch(cleanTitle, candName);
+        }).toList();
+
+        if (matchingItems.isEmpty) continue;
+
+        final targetSec = track.duration.inSeconds.toDouble();
+
+        // 1. Prioritize line-synced lyrics
+        final syncedCandidates = matchingItems.where((item) {
+          final synced = item['syncedLyrics'] as String?;
+          return synced != null && synced.trim().isNotEmpty;
+        }).toList();
+
+        if (syncedCandidates.isNotEmpty) {
+          final viable = targetSec > 30
+              ? syncedCandidates.where((c) {
+                  final dur = (c['duration'] as num?)?.toDouble() ?? 0.0;
+                  return dur > 0 && (dur - targetSec).abs() <= 25;
+                }).toList()
+              : syncedCandidates;
+
+          final candidateList = viable.isNotEmpty ? viable : syncedCandidates;
+          if (targetSec > 30) {
+            candidateList.sort((a, b) {
+              final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
+              final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
+              return (durA - targetSec).abs().compareTo((durB - targetSec).abs());
+            });
           }
-        } catch (_) {}
-      }
 
-      final target = track.duration.inSeconds.toDouble();
-
-      if (candidates.isNotEmpty) {
-        // Filter out tracks with massive duration mismatch (> 25s) when duration is known
-        final viableCandidates = target > 30
-            ? candidates.where((c) {
-                final dur = (c['duration'] as num?)?.toDouble() ?? 0.0;
-                return dur > 0 && (dur - target).abs() <= 25;
-              }).toList()
-            : candidates;
-
-        final candidateList =
-            viableCandidates.isNotEmpty ? viableCandidates : candidates;
-
-        if (target > 30) {
-          candidateList.sort((a, b) {
-            final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
-            final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
-            return (durA - target).abs().compareTo((durB - target).abs());
-          });
+          for (final cand in candidateList) {
+            final syncedLrc = cand['syncedLyrics'] as String?;
+            final plainLyrics = cand['plainLyrics'] as String?;
+            if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
+              final lines = parseLrc(syncedLrc);
+              if (lines.isNotEmpty) {
+                return SyncedLyrics(
+                  trackId: track.id,
+                  lines: lines,
+                  plainLyrics: plainLyrics,
+                  rawLrc: syncedLrc,
+                  syncType: 'LINE_SYNCED',
+                  providerName: 'LRCLIB (Search)',
+                );
+              }
+            }
+          }
         }
 
-        final best = candidateList.first;
-        final syncedLrc = best['syncedLyrics'] as String?;
-        final plainLyrics = best['plainLyrics'] as String?;
-        if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
-          final lines = parseLrc(syncedLrc);
-          if (lines.isNotEmpty) {
+        // 2. Fallback to matching plain lyrics
+        for (final item in matchingItems) {
+          final plain = item['plainLyrics'] as String?;
+          if (plain != null && plain.trim().isNotEmpty) {
             return SyncedLyrics(
               trackId: track.id,
-              lines: lines,
-              plainLyrics: plainLyrics,
-              rawLrc: syncedLrc,
-              syncType: 'LINE_SYNCED',
-              providerName: 'LRCLIB (Search)',
+              lines: const [],
+              plainLyrics: plain.trim(),
+              syncType: 'UNSYNCED',
+              providerName: 'LRCLIB (Plain)',
             );
           }
-        }
-      }
-
-      // Check for plain lyrics or instrumental flag among search results
-      for (final item in list) {
-        if (item is! Map<String, dynamic>) continue;
-        if (item['instrumental'] == true) {
-          return SyncedLyrics(
-            trackId: track.id,
-            lines: const [
-              LyricLine(
-                timestamp: Duration.zero,
-                text: '[instrumental]',
-              ),
-            ],
-            plainLyrics: '[instrumental]',
-            syncType: 'LINE_SYNCED',
-            providerName: 'LRCLIB (Instrumental)',
-          );
-        }
-        final plain = item['plainLyrics'] as String?;
-        if (plain != null && plain.trim().isNotEmpty) {
-          return SyncedLyrics(
-            trackId: track.id,
-            lines: const [],
-            plainLyrics: plain.trim(),
-            syncType: 'UNSYNCED',
-            providerName: 'LRCLIB (Plain)',
-          );
         }
       }
 

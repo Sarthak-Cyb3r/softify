@@ -311,14 +311,6 @@ final trackLyricsProvider =
     );
   }
 
-  // Negative response caching (safe error barrier)
-  try {
-    await libraryRepo.cacheLyrics(
-      track.id,
-      isNotFound: true,
-    );
-  } catch (_) {}
-
   return null;
 });
 

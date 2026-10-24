@@ -154,37 +154,87 @@ class SpotifyLyricsSynchronizer {
   }
 
   /// Sanitizes track titles by stripping bracketed video/metadata tags,
-  /// featured artist clauses, and remaster/deluxe suffixes so lyrics APIs
-  /// match the underlying song title accurately.
+  /// movie/film name suffixes, featured artist clauses, and remaster/deluxe suffixes
+  /// so lyrics APIs match the underlying song title accurately.
   static String cleanTrackTitle(String title) {
-    var cleaned = title;
-    // Remove (Official Video), [Audio], (Lyric Video), (From "..."), (Remastered...), etc.
+    var cleaned = title.trim();
+
+    // 1. Remove trailing pipes (e.g. "Song | Movie | Actor | Label")
+    if (cleaned.contains('|')) {
+      cleaned = cleaned.split('|').first.trim();
+    }
+
+    // 2. Remove quotation marks enclosing title
+    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+        (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+      cleaned = cleaned.substring(1, cleaned.length - 1).trim();
+    }
+
+    // 3. Remove metadata in brackets/parentheses:
+    // (Official Video), [Audio], (Lyric Video), (From "..."), [From ...],
+    // (Remastered...), (Hindi), (Lyrical), (Full Song), (Visualizer), etc.
     cleaned = cleaned.replaceAll(
       RegExp(
-        r'\s*[\(\[](?:official|lyric|audio|video|remaster|live|from|original|deluxe|bonus|version|acoustic|full|hd|4k)[^\)\]]*[\)\]]',
+        r'\s*[\(\[](?:official|lyric|audio|video|remaster|live|from|original|deluxe|bonus|version|acoustic|full|hd|4k|hindi|telugu|tamil|punjabi|bhojpuri|kannada|malayalam|visualizer|extended|slowed|reverb)[^\)\]]*[\)\]]',
         caseSensitive: false,
       ),
       '',
     );
-    // Remove general dashes with movie or album tags: " - From ..." or " - Remastered ..."
-    cleaned = cleaned.replaceAll(
-      RegExp(
-        r'\s*-\s*(?:from|official|remastered|remaster|radio edit|single|bonus|deluxe|live).*$',
-        caseSensitive: false,
-      ),
-      '',
-    );
-    // Remove featured artists: feat., ft., featuring
+
+    // 4. Remove featured artists: feat., ft., featuring
     cleaned = cleaned.replaceAll(
       RegExp(r'\s+(?:feat\.?|ft\.?|featuring)\s+.*$', caseSensitive: false),
       '',
     );
-    // Remove trailing pipes (e.g. "Song | Movie")
-    if (cleaned.contains('|')) {
-      cleaned = cleaned.split('|').first;
+
+    // 5. Remove movie/soundtrack clauses after dashes:
+    // "Song - Movie Name", "Song - From ...", "Song - Lyrical ...", "Song - Full Audio"
+    cleaned = cleaned.replaceAll(
+      RegExp(
+        r'\s*-\s*(?:from|official|remastered|remaster|radio edit|single|bonus|deluxe|live|lyrical|full audio|title track).*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
+
+    // If there is still a dash " - " and the left side has at least 2 characters,
+    // in 99% of Bollywood/regional catalog titles, the left side is the pure song name:
+    // e.g. "The Jawaani Song - Student Of The Year 2" -> "The Jawaani Song"
+    // e.g. "Kesariya - Brahmāstra" -> "Kesariya"
+    // e.g. "Apna Bana Le - Bhediya" -> "Apna Bana Le"
+    if (cleaned.contains(' - ')) {
+      final parts = cleaned.split(' - ');
+      if (parts.first.trim().length >= 2) {
+        cleaned = parts.first.trim();
+      }
     }
+
     final trimmed = cleaned.trim();
     return trimmed.isNotEmpty ? trimmed : title.trim();
+  }
+
+  /// Generates ordered search title candidates to ensure lyrics resolution succeeds
+  /// across varied database naming conventions (pure title, with movie, original).
+  static List<String> titleSearchCandidates(String title) {
+    final cleaned = cleanTrackTitle(title);
+    final candidates = <String>[cleaned];
+
+    // If the original title had a dash and was different from cleaned
+    if (title.contains(' - ')) {
+      final left = title.split(' - ').first.trim();
+      final cleanLeft = cleanTrackTitle(left);
+      if (cleanLeft.isNotEmpty && !candidates.contains(cleanLeft)) {
+        candidates.insert(0, cleanLeft);
+      }
+    }
+
+    // Add original title stripped of outer whitespace if not already included
+    final trimmedOriginal = title.trim();
+    if (trimmedOriginal.isNotEmpty && !candidates.contains(trimmedOriginal)) {
+      candidates.add(trimmedOriginal);
+    }
+
+    return candidates;
   }
 
   /// Cleans artist string by stripping YouTube/VEVO tags and topic channels.
@@ -193,6 +243,8 @@ class SpotifyLyricsSynchronizer {
     cleaned = cleaned.replaceAll(RegExp(r'\s*-\s*Topic$', caseSensitive: false), '');
     cleaned = cleaned.replaceAll(RegExp(r'\s+VEVO$', caseSensitive: false), '');
     cleaned = cleaned.replaceAll(RegExp(r'\s+Official$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+Records$', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+Music$', caseSensitive: false), '');
     final trimmed = cleaned.trim();
     return trimmed.isNotEmpty ? trimmed : artist.trim();
   }
