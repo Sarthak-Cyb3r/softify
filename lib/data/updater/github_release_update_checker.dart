@@ -25,8 +25,20 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
   @override
   Future<AppReleaseInfo?> checkForUpdate(String currentVersion) async {
     try {
+      // Query native Android PackageManager if available to ensure exact installed version comparison
+      String effectiveCurrent = currentVersion;
+      if (Platform.isAndroid) {
+        try {
+          final info = await _installerChannel.invokeMapMethod<dynamic, dynamic>('getInstalledInfo');
+          final nativeVersion = info?['versionName'] as String?;
+          if (nativeVersion != null && nativeVersion.trim().isNotEmpty) {
+            effectiveCurrent = nativeVersion.trim();
+          }
+        } catch (_) {}
+      }
+
       final uri = Uri.parse(
-        'https://api.github.com/repos/$repoOwner/$repoName/releases/latest',
+        'https://api.github.com/repos/$repoOwner/$repoName/releases?per_page=5',
       );
       final request =
           await _client.getUrl(uri).timeout(const Duration(seconds: 5));
@@ -40,59 +52,60 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
       }
 
       final body = await response.transform(utf8.decoder).join();
-      final json = jsonDecode(body) as Map<String, dynamic>;
+      final decoded = jsonDecode(body);
+      final List<dynamic> releases = decoded is List ? decoded : [decoded];
 
-      final tagName = (json['tag_name'] as String? ?? '').trim();
-      if (tagName.isEmpty || !isNewerVersion(tagName, currentVersion)) {
-        return null;
+      for (final rel in releases) {
+        if (rel is! Map<String, dynamic>) continue;
+        final tagName = (rel['tag_name'] as String? ?? '').trim();
+        if (tagName.isEmpty || !isNewerVersion(tagName, effectiveCurrent)) {
+          continue;
+        }
+
+        final releaseNotes = (rel['body'] as String? ?? '').trim();
+        final assets = (rel['assets'] as List<dynamic>?) ?? [];
+
+        // Find primary APK asset: prioritize compact 64-bit ARM APK (arm64-v8a, ~19MB), fallback to Universal
+        dynamic apkAsset = assets.firstWhere(
+          (a) {
+            final name = (a['name'] as String? ?? '').toLowerCase();
+            return name.endsWith('.apk') &&
+                name.contains('arm64-v8a') &&
+                !name.contains('unaligned');
+          },
+          orElse: () => null,
+        );
+
+        apkAsset ??= assets.firstWhere(
+          (a) {
+            final name = (a['name'] as String? ?? '').toLowerCase();
+            return name.endsWith('.apk') && !name.contains('unaligned');
+          },
+          orElse: () => null,
+        );
+
+        if (apkAsset == null) continue;
+
+        final downloadUrl = apkAsset['browser_download_url'] as String? ?? '';
+        final apkSizeBytes = (apkAsset['size'] as num?)?.toInt() ?? 0;
+        if (downloadUrl.isEmpty) continue;
+
+        // Extract SHA-256 checksum from release description if available
+        final shaMatch = RegExp(
+          r'(?:sha-?256|checksum):\s*([a-fA-F0-9]{64})',
+          caseSensitive: false,
+        ).firstMatch(releaseNotes);
+        final expectedSha256 = shaMatch != null ? shaMatch.group(1)! : '';
+
+        return AppReleaseInfo(
+          tagName: tagName,
+          releaseNotes: releaseNotes,
+          apkDownloadUrl: downloadUrl,
+          expectedSha256: expectedSha256,
+          apkSizeBytes: apkSizeBytes,
+        );
       }
-
-      final releaseNotes = (json['body'] as String? ?? '').trim();
-      final assets = (json['assets'] as List<dynamic>?) ?? [];
-
-      // Find primary APK asset: prioritize compact 64-bit ARM APK (arm64-v8a, ~19MB), fallback to Universal
-      dynamic apkAsset = assets.firstWhere(
-        (a) {
-          final name = (a['name'] as String? ?? '').toLowerCase();
-          return name.endsWith('.apk') &&
-              name.contains('arm64-v8a') &&
-              !name.contains('unaligned');
-        },
-        orElse: () => null,
-      );
-
-      apkAsset ??= assets.firstWhere(
-        (a) {
-          final name = (a['name'] as String? ?? '').toLowerCase();
-          return name.endsWith('.apk') && !name.contains('unaligned');
-        },
-        orElse: () => null,
-      );
-
-      if (apkAsset == null) {
-        return null;
-      }
-
-      final downloadUrl = apkAsset['browser_download_url'] as String? ?? '';
-      final apkSizeBytes = (apkAsset['size'] as num?)?.toInt() ?? 0;
-      if (downloadUrl.isEmpty) {
-        return null;
-      }
-
-      // Extract SHA-256 checksum from release description if available
-      final shaMatch = RegExp(
-        r'(?:sha-?256|checksum):\s*([a-fA-F0-9]{64})',
-        caseSensitive: false,
-      ).firstMatch(releaseNotes);
-      final expectedSha256 = shaMatch != null ? shaMatch.group(1)! : '';
-
-      return AppReleaseInfo(
-        tagName: tagName,
-        releaseNotes: releaseNotes,
-        apkDownloadUrl: downloadUrl,
-        expectedSha256: expectedSha256,
-        apkSizeBytes: apkSizeBytes,
-      );
+      return null;
     } catch (_) {
       return null;
     }

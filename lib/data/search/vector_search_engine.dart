@@ -130,11 +130,7 @@ class VectorSearchEngine implements IVectorSearchEngine {
         final rows = await db.select(db.trackEmbeddings).get();
         for (final row in rows) {
           final uint8 = row.vector;
-          final float32 = Float32List.view(
-            uint8.buffer,
-            uint8.offsetInBytes,
-            uint8.lengthInBytes ~/ 4,
-          );
+          final float32 = Uint8List.fromList(uint8).buffer.asFloat32List();
           _inMemoryEmbeddings[row.trackId] = float32;
         }
       } catch (_) {}

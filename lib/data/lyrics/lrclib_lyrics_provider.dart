@@ -182,11 +182,13 @@ class LrclibLyricsProvider implements ILyricsProvider {
         final candidateList =
             viableCandidates.isNotEmpty ? viableCandidates : candidates;
 
-        candidateList.sort((a, b) {
-          final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
-          final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
-          return (durA - target).abs().compareTo((durB - target).abs());
-        });
+        if (target > 30) {
+          candidateList.sort((a, b) {
+            final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
+            final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
+            return (durA - target).abs().compareTo((durB - target).abs());
+          });
+        }
 
         final best = candidateList.first;
         final syncedLrc = best['syncedLyrics'] as String?;

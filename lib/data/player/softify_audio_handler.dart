@@ -55,6 +55,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   bool _isPrefetchingRecommendations = false;
   List<Track> _unshuffledQueue = [];
   String? _currentlyPreloadingTrackId;
+  StreamInfo? _preloadedStreamInfo;
   DateTime? _currentTrackStartedAt;
   String _currentTrackSource = 'library';
 
@@ -614,6 +615,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
+        if (nextTrack != null) {
+          _loadLyricsForCurrentTrack(nextTrack);
+          if (_preloadedStreamInfo != null) {
+            _currentStreamInfoSubject.add(_preloadedStreamInfo);
+            _preloadedStreamInfo = null;
+          }
+        }
         final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
         await _player.playPreloadedNext(
           crossfade: effectiveCrossfade,
@@ -642,6 +650,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = currentTrack;
         _currentlyPreloadingTrackId = null;
         _currentTrackStartedAt = DateTime.now();
+        if (nextTrack != null) {
+          _loadLyricsForCurrentTrack(nextTrack);
+          if (_preloadedStreamInfo != null) {
+            _currentStreamInfoSubject.add(_preloadedStreamInfo);
+            _preloadedStreamInfo = null;
+          }
+        }
         final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
         await _player.playPreloadedNext(
           crossfade: effectiveCrossfade,
@@ -726,6 +741,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
     _queue.clear();
     _queue.add(track);
     _currentIndex = 0;
@@ -742,6 +758,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
     _queue.clear();
     _queue.addAll(tracks);
     _unshuffledQueue = List.from(tracks);
@@ -774,6 +791,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
     _queue.insert(_currentIndex + 1, track);
     _unshuffledQueue.add(track);
     _syncQueueState();
@@ -802,6 +820,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
     _syncQueueState();
     _debouncedSaveQueue();
     unawaited(_prefetchNextTrackStream());
@@ -836,6 +855,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   Future<void> clearQueue() async {
     _player.clearPreloadedNext();
     _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
     _queue.clear();
     _unshuffledQueue.clear();
     _currentIndex = -1;
@@ -1132,6 +1152,14 @@ class SoftifyAudioHandler extends BaseAudioHandler
       }
       if (downloadedPath != null) {
         if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
+          _preloadedStreamInfo = StreamInfo(
+            url: Uri.file(downloadedPath),
+            container: downloadedPath.endsWith('.flac') ? 'flac' : (downloadedPath.endsWith('.mp3') ? 'mp3' : 'm4a'),
+            bitrate: downloadedPath.endsWith('.flac') ? 1411000 : 320000,
+            codec: downloadedPath.endsWith('.flac') ? 'flac' : 'aac',
+            expiresAt: DateTime.now().add(const Duration(days: 365)),
+            providerName: 'offline_cached',
+          );
           await _player.preloadNextFilePath(downloadedPath);
         }
         return;
@@ -1146,6 +1174,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
       if (prefetchId != _activePrefetchRequestId) return;
 
       if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
+        _preloadedStreamInfo = streamInfo;
         await _player.preloadNextUrl(
           streamInfo.url.toString(),
           headers: streamInfo.headers,
@@ -1155,6 +1184,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
       // Best-effort prefetch; clear lock so speculative retry or manual trigger can retry
       if (_currentlyPreloadingTrackId == nextTrack.id) {
         _currentlyPreloadingTrackId = null;
+        _preloadedStreamInfo = null;
       }
     } finally {
       _isPrefetching = false;

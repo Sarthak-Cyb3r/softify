@@ -19,9 +19,9 @@ class PipedStreamResolver implements IStreamResolver {
     HttpClient? httpClient,
   })  : _instances = instances ??
             [
-              'https://pipedapi.kavin.rocks',
               'https://api.piped.privacydev.net',
               'https://piped-api.lunar.icu',
+              'https://pipedapi.tokhmi.xyz',
             ],
         _httpClient = httpClient ?? HttpClient();
 

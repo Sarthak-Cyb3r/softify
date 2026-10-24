@@ -51,6 +51,7 @@ class AppScaffold extends ConsumerStatefulWidget {
 }
 
 class _AppScaffoldState extends ConsumerState<AppScaffold> {
+  static String? _sessionNotifiedUpdateTag;
   int _currentIndex = 0;
   bool _isScreensaverOpen = false;
   Timer? _screensaverIdleTimer;
@@ -670,6 +671,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       final checker = ref.read(updateCheckerProvider);
       final release = await checker.checkForUpdate(currentVersion);
       if (release == null || !mounted) return;
+      if (_sessionNotifiedUpdateTag == release.tagName) return;
+      _sessionNotifiedUpdateTag = release.tagName;
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

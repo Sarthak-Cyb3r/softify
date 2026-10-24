@@ -63,6 +63,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   String? _preloadedSource;
   bool _isStandbyReady = false;
+  int _crossfadeGenerationId = 0;
 
   final BehaviorSubject<PlayerState> _playerStateSubject =
       BehaviorSubject<PlayerState>.seeded(PlayerState(false, ProcessingState.idle));
@@ -312,6 +313,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         outgoing.playing &&
         outgoing.processingState == ProcessingState.ready;
 
+    final currentGen = ++_crossfadeGenerationId;
     if (!canCrossfade) {
       await outgoing.stop();
       await incoming.setVolume(targetVol);
@@ -323,7 +325,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     // Starts incoming playback immediately without stalling the caller or UI thread.
     await incoming.setVolume(0.0);
     await incoming.play();
-    unawaited(_executeEqualPowerCrossfade(outgoing, incoming, crossfade, targetVol));
+    unawaited(_executeEqualPowerCrossfade(outgoing, incoming, crossfade, targetVol, currentGen));
   }
 
   Future<void> _executeEqualPowerCrossfade(
@@ -331,31 +333,42 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     AudioPlayer incoming,
     Duration crossfade,
     double targetVol,
+    int generationId,
   ) async {
     const steps = 20;
     final stepDuration =
         Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
 
-    for (int i = 1; i <= steps; i++) {
-      await Future.delayed(stepDuration);
-      if (_activePlayer != incoming) break; // Abort if superseded by user skip
-      final factor = i / steps;
-      final theta = factor * (math.pi / 2.0);
-      final outVol = (targetVol * math.cos(theta)).clamp(0.0, 1.0);
-      final inVol = (targetVol * math.sin(theta)).clamp(0.0, 1.0);
-      unawaited(outgoing.setVolume(outVol));
-      unawaited(incoming.setVolume(inVol));
-    }
-
-    await outgoing.stop();
-    await outgoing.setVolume(targetVol);
-    if (_activePlayer == incoming) {
-      await incoming.setVolume(targetVol);
+    try {
+      for (int i = 1; i <= steps; i++) {
+        await Future.delayed(stepDuration);
+        if (_crossfadeGenerationId != generationId || _activePlayer != incoming) break;
+        final factor = i / steps;
+        final theta = factor * (math.pi / 2.0);
+        final outVol = (targetVol * math.cos(theta)).clamp(0.0, 1.0);
+        final inVol = (targetVol * math.sin(theta)).clamp(0.0, 1.0);
+        unawaited(outgoing.setVolume(outVol));
+        unawaited(incoming.setVolume(inVol));
+      }
+    } finally {
+      if (_crossfadeGenerationId == generationId) {
+        await outgoing.stop();
+        await outgoing.setVolume(targetVol);
+        if (_activePlayer == incoming) {
+          await incoming.setVolume(targetVol);
+        }
+      } else {
+        // Superseded mid-transition: ensure incoming player is restored to full target volume
+        if (_activePlayer == incoming) {
+          await incoming.setVolume(targetVol);
+        }
+      }
     }
   }
 
   @override
   void clearPreloadedNext() {
+    _crossfadeGenerationId++;
     _preloadedSource = null;
     _isStandbyReady = false;
     if (_standbyPlayer != null) {

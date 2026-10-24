@@ -43,9 +43,16 @@ class DriftLibraryRepository implements ILibraryRepository {
 
   @override
   Future<void> upsertTrack(Track track) async {
+    // Check if a row with this sourceId already exists to avoid unique constraint conflict
+    final existingBySource = await (_db.select(_db.tracks)
+          ..where((t) => t.sourceId.equals(track.sourceId)))
+        .getSingleOrNull();
+
+    final targetId = existingBySource?.id ?? track.id;
+
     await _db.into(_db.tracks).insertOnConflictUpdate(
           TracksCompanion(
-            id: Value(track.id),
+            id: Value(targetId),
             sourceId: Value(track.sourceId),
             title: Value(track.title),
             artist: Value(track.artist),
@@ -55,7 +62,7 @@ class DriftLibraryRepository implements ILibraryRepository {
             matchConfidence: Value(track.matchConfidence),
             isLiked: Value(track.isLiked),
             isUnavailable: Value(track.isUnavailable),
-            createdAt: Value(DateTime.now().millisecondsSinceEpoch),
+            createdAt: Value(existingBySource?.createdAt ?? DateTime.now().millisecondsSinceEpoch),
           ),
         );
   }
@@ -687,15 +694,34 @@ class DriftLibraryRepository implements ILibraryRepository {
     String? plainText,
     bool isNotFound = false,
   }) async {
-    await _db.into(_db.cachedLyrics).insertOnConflictUpdate(
-          CachedLyricsCompanion.insert(
-            trackId: trackId,
-            syncedLrc: Value(syncedLrc),
-            plainText: Value(plainText),
-            isNotFound: Value(isNotFound),
-            cachedAt: DateTime.now().millisecondsSinceEpoch,
-          ),
-        );
+    try {
+      // Ensure track exists in tracks table so foreign key constraint is satisfied
+      final existing = await (_db.select(_db.tracks)..where((t) => t.id.equals(trackId))).getSingleOrNull();
+      if (existing == null) {
+        await _db.into(_db.tracks).insertOnConflictUpdate(
+              TracksCompanion.insert(
+                id: trackId,
+                sourceId: trackId,
+                title: 'Unknown Title',
+                artist: 'Unknown Artist',
+                durationMs: 0,
+                createdAt: DateTime.now().millisecondsSinceEpoch,
+              ),
+            );
+      }
+
+      await _db.into(_db.cachedLyrics).insertOnConflictUpdate(
+            CachedLyricsCompanion.insert(
+              trackId: trackId,
+              syncedLrc: Value(syncedLrc),
+              plainText: Value(plainText),
+              isNotFound: Value(isNotFound),
+              cachedAt: DateTime.now().millisecondsSinceEpoch,
+            ),
+          );
+    } catch (_) {
+      // Non-fatal error barrier: transient SQLite constraint or write lock must never crash caller
+    }
   }
 
   @override

@@ -242,9 +242,13 @@ class SaavnStreamResolver implements IStreamResolver {
 
     // Bulletproof extraction of clean URL up to '.mp4'
     final mp4Index = rawDecrypted.indexOf('.mp4');
-    final baseMp4Url = mp4Index != -1
+    final rawMp4Url = mp4Index != -1
         ? rawDecrypted.substring(0, mp4Index + 4)
         : rawDecrypted.replaceAll(RegExp(r'[^\x20-\x7E]'), '').trim();
+    // Enforce HTTPS to prevent Android cleartext network traffic blocks
+    final baseMp4Url = rawMp4Url.startsWith('http://')
+        ? rawMp4Url.replaceFirst('http://', 'https://')
+        : rawMp4Url;
 
     // Strict 320 kbps Studio Master Invariant (preserve 320 kbps on all devices)
     final String finalUrl;

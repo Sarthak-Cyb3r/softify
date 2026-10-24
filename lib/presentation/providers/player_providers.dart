@@ -287,12 +287,14 @@ final trackLyricsProvider =
   // 2. Query multi-source lyrics engine (Spotify Direct + Multi-Tier Studio Catalogs)
   final lyrics = await lyricsEngine.getLyrics(track);
   if (lyrics != null) {
-    await libraryRepo.cacheLyrics(
-      track.id,
-      syncedLrc: lyrics.rawLrc,
-      plainText: lyrics.plainLyrics,
-      isNotFound: false,
-    );
+    try {
+      await libraryRepo.cacheLyrics(
+        track.id,
+        syncedLrc: lyrics.rawLrc,
+        plainText: lyrics.plainLyrics,
+        isNotFound: false,
+      );
+    } catch (_) {}
     return lyrics;
   }
 
@@ -309,11 +311,13 @@ final trackLyricsProvider =
     );
   }
 
-  // Negative response caching
-  await libraryRepo.cacheLyrics(
-    track.id,
-    isNotFound: true,
-  );
+  // Negative response caching (safe error barrier)
+  try {
+    await libraryRepo.cacheLyrics(
+      track.id,
+      isNotFound: true,
+    );
+  } catch (_) {}
 
   return null;
 });

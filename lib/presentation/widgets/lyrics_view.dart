@@ -71,9 +71,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       return Duration(milliseconds: pausedMs < 0 ? 0 : pausedMs);
     }
     final elapsed = now.difference(_lastPlayerReceipt);
-    final clampedElapsedMs = elapsed.inMilliseconds.clamp(0, 1500);
+    final elapsedMs = elapsed.inMilliseconds < 0 ? 0 : elapsed.inMilliseconds;
+    // High-precision extrapolation bounded by 10s safeguard to prevent unbound drift while buffering
+    final safeElapsedMs = elapsedMs.clamp(0, 10000);
     final extrapolatedMs = _lastPlayerPosition.inMilliseconds +
-        clampedElapsedMs +
+        safeElapsedMs +
         _syncOffsetMs;
     final clampedMs = (widget.track.duration.inMilliseconds > 0)
         ? extrapolatedMs.clamp(0, widget.track.duration.inMilliseconds)
@@ -98,7 +100,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       }
 
       final now = DateTime.now();
-      if (rawPlayerPos != _lastPlayerPosition && rawPlayerPos > Duration.zero) {
+      if (rawPlayerPos != _lastPlayerPosition && rawPlayerPos >= Duration.zero) {
         _lastPlayerPosition = rawPlayerPos;
         _lastPlayerReceipt = now;
       }

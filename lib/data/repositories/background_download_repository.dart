@@ -263,24 +263,27 @@ class BackgroundDownloadRepository implements IDownloadRepository {
       int lastReportedBytes = 0;
 
       final sink = tempFile.openWrite();
-      await for (final chunk in response) {
-        sink.add(chunk);
-        downloadedBytes += chunk.length;
-        if (downloadedBytes - lastReportedBytes > 128 * 1024) {
-          lastReportedBytes = downloadedBytes;
-          await (_db.update(_db.downloads)
-                ..where((d) => d.trackId.equals(track.id)))
-              .write(
-            DownloadsCompanion(
-              fileSizeBytes: Value(totalBytes > 0 ? totalBytes : downloadedBytes),
-              bytesDownloaded: Value(downloadedBytes),
-            ),
-          );
+      try {
+        await for (final chunk in response) {
+          sink.add(chunk);
+          downloadedBytes += chunk.length;
+          if (downloadedBytes - lastReportedBytes > 128 * 1024) {
+            lastReportedBytes = downloadedBytes;
+            await (_db.update(_db.downloads)
+                  ..where((d) => d.trackId.equals(track.id)))
+                .write(
+              DownloadsCompanion(
+                fileSizeBytes: Value(totalBytes > 0 ? totalBytes : downloadedBytes),
+                bytesDownloaded: Value(downloadedBytes),
+              ),
+            );
+          }
         }
+        await sink.flush();
+      } finally {
+        await sink.close();
+        client.close();
       }
-      await sink.flush();
-      await sink.close();
-      client.close();
 
       if (await targetFile.exists()) {
         await targetFile.delete();
