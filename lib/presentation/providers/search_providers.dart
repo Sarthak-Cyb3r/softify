@@ -162,7 +162,9 @@ class SearchNotifier extends StateNotifier<SearchState> {
         }
       }
 
-      final localCandidates = localTrackMap.values.map((track) {
+      final localCandidates = localTrackMap.values
+          .where((track) => !track.isYoutube && !track.id.startsWith('yt_') && !track.sourceId.startsWith('yt_'))
+          .map((track) {
         return SearchCandidate(
           track: track,
           source: 'local_fts',
@@ -198,14 +200,18 @@ class SearchNotifier extends StateNotifier<SearchState> {
       final expandedQueries = TextNormalizer.expandAliases(query, aliases);
       final primaryQuery = query;
 
-      final netTracks = await _catalogRepo.search(primaryQuery, limit: 25);
+      final netTracks = (await _catalogRepo.search(primaryQuery, limit: 25))
+          .where((t) => !t.isYoutube && !t.id.startsWith('yt_') && !t.sourceId.startsWith('yt_'))
+          .toList();
       final netTrackMap = {for (final t in netTracks) t.id: t};
 
       // If user typed a short alias with 0 results, query the first alias expansion
       if (netTracks.isEmpty && expandedQueries.length > 1) {
         final altQuery = expandedQueries.firstWhere((q) => q != primaryQuery);
         try {
-          final altTracks = await _catalogRepo.search(altQuery, limit: 15);
+          final altTracks = (await _catalogRepo.search(altQuery, limit: 15))
+              .where((t) => !t.isYoutube && !t.id.startsWith('yt_') && !t.sourceId.startsWith('yt_'))
+              .toList();
           for (final t in altTracks) {
             netTrackMap.putIfAbsent(t.id, () => t);
           }

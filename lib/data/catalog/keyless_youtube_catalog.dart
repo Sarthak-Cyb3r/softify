@@ -26,7 +26,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
   final List<String> _instances;
   final HttpClient _httpClient;
   final SpotifyApiService _spotifyApi;
-  int _currentInstanceIndex = 0;
 
   final Map<String, List<Track>> _searchCache = {};
   final Map<String, List<Track>> _genreCandidatePoolCache = {};
@@ -73,111 +72,49 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     try {
       final spotifyRes = await _spotifyApi.search(cleanQuery, limit: limit).catchError((_) => const SpotifySearchResult());
       if (spotifyRes.tracks.isNotEmpty) {
-        final deduped = _deduplicateTracks(spotifyRes.tracks, limit: limit, query: cleanQuery);
-        _cacheResult(_searchCache, cacheKey, deduped);
-        return deduped;
+        final filtered = spotifyRes.tracks.where((t) => !t.isYoutube).toList();
+        if (filtered.isNotEmpty) {
+          final deduped = _deduplicateTracks(filtered, limit: limit, query: cleanQuery);
+          _cacheResult(_searchCache, cacheKey, deduped);
+          return deduped;
+        }
       }
     } catch (_) {
-      // Fall through to JioSaavn & iTunes
+      // Fall through to JioSaavn, iTunes & Deezer
     }
 
     // 2. Secondary: JioSaavn Studio Engine (320kbps studio masters, direct PID matching)
     try {
-      final saavnResults = await _searchSaavn(cleanQuery, limit: limit).catchError((_) => <Track>[]);
+      final saavnResults = (await _searchSaavn(cleanQuery, limit: limit).catchError((_) => <Track>[]))
+          .where((t) => !t.isYoutube)
+          .toList();
       if (saavnResults.isNotEmpty) {
         _cacheResult(_searchCache, cacheKey, saavnResults);
         return saavnResults;
       }
 
       // Secondary studio fallback: iTunes (for obscure Western/Indie catalog)
-      final itunesResults = await _searchItunes(cleanQuery, limit: limit).catchError((_) => <Track>[]);
+      final itunesResults = (await _searchItunes(cleanQuery, limit: limit).catchError((_) => <Track>[]))
+          .where((t) => !t.isYoutube)
+          .toList();
       if (itunesResults.isNotEmpty) {
         _cacheResult(_searchCache, cacheKey, itunesResults);
         return itunesResults;
       }
 
       // Tertiary studio fallback: Deezer (90M+ global & European catalog with 1000x1000 master art)
-      final deezerResults = await _searchDeezer(cleanQuery, limit: limit).catchError((_) => <Track>[]);
+      final deezerResults = (await _searchDeezer(cleanQuery, limit: limit).catchError((_) => <Track>[]))
+          .where((t) => !t.isYoutube)
+          .toList();
       if (deezerResults.isNotEmpty) {
         _cacheResult(_searchCache, cacheKey, deezerResults);
         return deezerResults;
       }
     } catch (_) {
-      // Fall through to YouTube curated fallback
+      // All studio engines failed
     }
 
-    // 2. Secondary Fallback: Curated YouTube Search with Official Channel Filtering
-    try {
-      final ytResults = await _searchCuratedYouTube(cleanQuery, limit: limit);
-      if (ytResults.isNotEmpty) {
-        _cacheResult(_searchCache, cacheKey, ytResults);
-        return ytResults;
-      }
-    } catch (_) {
-      // Fall through to Piped instances
-    }
-
-    // 3. Tertiary Fallback: Query Piped API instances
-    Exception? lastError;
-    final encodedQuery = Uri.encodeComponent(cleanQuery);
-
-    for (int attempt = 0; attempt < _instances.length; attempt++) {
-      final index = (_currentInstanceIndex + attempt) % _instances.length;
-      final instance = _instances[index];
-
-      try {
-        final uri =
-            Uri.parse('$instance/search?q=$encodedQuery&filter=music_songs');
-        final request =
-            await _httpClient.getUrl(uri).timeout(const Duration(seconds: 7));
-        request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-
-        final response =
-            await request.close().timeout(const Duration(seconds: 7));
-        if (response.statusCode != 200) {
-          throw HttpException('HTTP ${response.statusCode}', uri: uri);
-        }
-
-        final body = await response.transform(utf8.decoder).join();
-        final json = jsonDecode(body) as Map<String, dynamic>;
-        final items = (json['items'] as List<dynamic>?) ?? [];
-
-        final List<Track> tracks = [];
-        for (final item in items.take(limit)) {
-          final url = item['url'] as String? ?? '';
-          final videoId = url.replaceFirst('/watch?v=', '');
-          if (videoId.isEmpty) continue;
-
-          final title = (item['title'] as String?) ?? 'Unknown Title';
-          final uploaderName =
-              (item['uploaderName'] as String?) ?? 'Unknown Artist';
-          final durationSec = (item['duration'] as num?)?.toInt() ?? 0;
-          final thumbnail = item['thumbnail'] as String?;
-
-          tracks.add(
-            Track(
-              id: 'yt_$videoId',
-              sourceId: videoId,
-              title: _cleanTitle(title),
-              artist: uploaderName,
-              duration: Duration(seconds: durationSec),
-              coverUrl: thumbnail,
-              matchConfidence: 0.85,
-            ),
-          );
-        }
-
-        _currentInstanceIndex = index;
-        _cacheResult(_searchCache, cacheKey, tracks);
-        return tracks;
-      } catch (e) {
-        lastError = Exception('Search failed on $instance: $e');
-      }
-    }
-
-    throw Exception(
-      'Catalog search failed for "$query": $lastError',
-    );
+    return [];
   }
 
   Future<List<Track>> _searchItunes(
@@ -370,48 +307,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     return _deduplicateTracks(rawTracks, limit: limit, query: query);
   }
 
-  Future<List<Track>> _searchCuratedYouTube(String query, {int limit = 20}) async {
-    final searchList = await _yt.search.search('$query official');
-    final List<Track> rawTracks = [];
-    const junkKeywords = [
-      'reaction',
-      'review',
-      'tutorial',
-      'cover',
-      'dance',
-      'teaser',
-      'trailer',
-      '1 hour',
-      'karaoke',
-      'slowed',
-      'reverb',
-      'bass boosted',
-      'status',
-      'short',
-    ];
-
-    for (final video in searchList) {
-      final lowerTitle = video.title.toLowerCase();
-      if (junkKeywords.any((bad) => lowerTitle.contains(bad))) {
-        continue;
-      }
-
-      final coverUrl = 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg';
-
-      rawTracks.add(
-        Track(
-          id: 'yt_${video.id.value}',
-          sourceId: video.id.value,
-          title: _cleanTitle(video.title),
-          artist: video.author,
-          duration: video.duration ?? Duration.zero,
-          coverUrl: coverUrl.isNotEmpty ? coverUrl : null,
-          matchConfidence: 0.9,
-        ),
-      );
-    }
-    return _deduplicateTracks(rawTracks, limit: limit, query: query);
-  }
 
   List<Track> _deduplicateTracks(
     List<Track> rawTracks, {

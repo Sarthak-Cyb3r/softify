@@ -91,11 +91,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final audioHandler = ref.watch(audioHandlerProvider);
     final searchState = ref.watch(searchNotifierProvider);
 
-    // Deduplicate search results by ID or title+artist key
+    // Deduplicate search results by ID or title+artist key, strictly excluding any YouTube tracks
     final rawResults = searchState.combinedResults;
     final seenTrackKeys = <String>{};
     final results = <Track>[];
     for (final track in rawResults) {
+      if (track.isYoutube ||
+          track.id.startsWith('yt_') ||
+          track.sourceId.startsWith('yt_') ||
+          track.album == 'YouTube') {
+        continue;
+      }
       final key = track.id.isNotEmpty
           ? track.id
           : '${track.title.toLowerCase().trim()}_${track.artist.toLowerCase().trim()}';

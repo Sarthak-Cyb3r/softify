@@ -26,12 +26,19 @@ class LinearSearchReranker implements ISearchReranker {
     Map<String, double>? weights,
     bool deduplicate = false,
   }) {
-    if (candidates.isEmpty) return [];
+    final cleanCandidates = candidates
+        .where((c) =>
+            !c.track.isYoutube &&
+            !c.track.id.startsWith('yt_') &&
+            !c.track.sourceId.startsWith('yt_') &&
+            c.track.album != 'YouTube')
+        .toList();
+    if (cleanCandidates.isEmpty) return [];
 
     final activeWeights = weights ?? _weights;
     final normalizedQuery = TextNormalizer.normalize(query);
 
-    for (final candidate in candidates) {
+    for (final candidate in cleanCandidates) {
       final track = candidate.track;
       final normTitle = TextNormalizer.normalize(track.title);
       final normArtist = TextNormalizer.normalize(track.artist);
@@ -106,7 +113,7 @@ class LinearSearchReranker implements ISearchReranker {
       candidate.score = score;
     }
 
-    final sorted = List<SearchCandidate>.from(candidates)
+    final sorted = List<SearchCandidate>.from(cleanCandidates)
       ..sort((a, b) => b.score.compareTo(a.score));
 
     if (!deduplicate) {
