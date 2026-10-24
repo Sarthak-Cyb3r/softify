@@ -2,10 +2,10 @@
 
 All notable changes to the Softify project are documented in this file.
 
-## [3.0.1] - 2026-10-24
+## [3.0.0] - 2026-10-24
 
-### 💎 Comprehensive Glassmorphism Overhaul (UI UX Pro MAX Standard)
-- **App-Wide Authentic Frosted Glass**: Refactored every major surface, card, and interactive control in Softify to render with authentic, high-depth frosted glassmorphism according to `UI UX Pro MAX` design principles:
+### 🌌 Major Milestone: Aurora Glass UI Experience (Pre-Release)
+- **Comprehensive Glassmorphism Overhaul (UI UX Pro MAX Standard)**:
   - **Quad-Node Vibrant Aurora Backdrop**: Upgraded `AuroraBackground` with a 4-point dynamic mesh (dominant artwork aura 0.50 alpha, electric cyan 0.38 alpha, aurora violet 0.35 alpha, and radiant rose 0.28 alpha) delivering luminous chromatic backlight across all glass layers.
   - **Backdrop Blur & Dual Bloom Shadows**: Standardized `AppSurface` with hardware-accelerated `BackdropFilter` (sigma 16.0), top-left to bottom-right specular linear gradients (`rgba(255, 255, 255, 0.18)` down to `0.08`), 1px specular hairline borders (`rgba(255, 255, 255, 0.24)`), and ethereal ambient violet/black dual drop shadows.
   - **Default Theme Setting**: Updated initial launch style default to `UiStyle.auroraGlass` so every user experiences the new modern glassmorphism aesthetic out of the box without requiring manual configuration.
@@ -17,21 +17,12 @@ All notable changes to the Softify project are documented in this file.
   - **Library & Smart Bento Cards**: Converted Liked Songs, Downloads storage bars, playlist tiles, and library smart cards to frosted glass containers.
   - **Dialogs & Action Sheets**: Converted `AppDialog` and `QueueBottomSheet` to frosted glass surfaces with specular borders.
   - **Buttons & Chips**: Filter chips and `AppPillButton` primary actions now feature smooth cyan-to-violet aurora gradient fills with glowing drop shadows.
-- **Performance & 60fps Optimization**:
-  - Isolated all blurred surfaces in individual `RepaintBoundary` layers.
-  - Preserved list view scrolling performance on large libraries with lightweight specular gradients.
-  - Verified low-end device fallback (`shouldReduceEffectsProvider`) seamlessly switches from blur to translucent solid fills on constrained hardware.
-
-## [3.0.0] - 2026-10-23
-
-### 🌌 Major Milestone: Aurora Glass UI Experience (Pre-Release)
-- **Selectable Aurora Glass Design System**: Introduced Softify's second selectable visual interface alongside the authentic Spotify "Classic" theme. Features deep midnight backdrop (`#0B0B1A` to `#14122B`), vibrant aurora accents (violet `#7C5CFF`, cyan `#4FD1FF`, rose `#FF7AC6`), 20–28px rounded glass cards, and 1px 18% translucent borders.
 - **Dynamic Track-Palette Wallpaper**: `AuroraBackground` extracts and LRU-caches dominant colors directly from currently playing album art, generating dynamic ambient gradients that smoothly transition per track with fallback to aurora violet.
 - **Instant Reactive Switching**: Change themes on the fly in **Settings → Appearance** with interactive live preview cards. Switching styles is instantaneous via Riverpod `uiStyleProvider` with zero audio interruption, zero route popping, and full SQLite persistence across app restarts.
 - **Strict Performance Guardrails (60fps on Budget Hardware)**:
   - Confined `BackdropFilter` exclusively to static chrome surfaces (`MiniPlayer`, `SlimBottomNavBar`, desktop player/sidebar, modal sheets), completely isolating them inside `RepaintBoundary`.
   - Prohibited heavy Gaussian blurs inside scrollable lists and grids—scrolling rows use optimized zero-blur translucent gradients with hairline borders.
-  - Added a 3-way **Reduce effects** selector (**Auto / On / Off**) and automated low-end hardware detection (≤4 CPU cores) that drops blurs in favor of translucent solid fills.
+  - Added a 3-way **Reduce effects** selector (**Auto / On / Off**) and automated low-end hardware detection (≤2 CPU cores) that drops blurs in favor of translucent solid fills.
 - **Universal Shell Coverage**: Cohesive styling extended across Mobile and Linux Desktop shells, including Home, Search, Your Library, YouTube Link Player, Podcasts, Equalizer, Album, and Playlist details.
 - **WCAG AA Compliance**: Silvery lavender secondary text (`#C4C2E2`) and contrast scrims guarantee compliant contrast ratios (>4.5:1 on glass surfaces and >15:1 against deep midnight backgrounds).
 
