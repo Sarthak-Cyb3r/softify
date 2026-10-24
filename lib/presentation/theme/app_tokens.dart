@@ -79,7 +79,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     this.textPrimary = const Color(0xFFFFFFFF),
     this.textSecondary = const Color(0xFFB3B3B3),
     this.textMuted = const Color(0xFF6A6A6A),
-    this.divider = const Color(0xFF282828),
+    this.divider = const Color(0x1FFFFFFF),
     this.error = const Color(0xFFF15E6C),
     this.spaceXs = 4.0,
     this.spaceSm = 8.0,

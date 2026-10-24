@@ -152,9 +152,13 @@ class AppDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: tokens.surfaceElevated,
-      elevation: 16.0,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(tokens.radiusCard),
+        side: BorderSide(
+          color: tokens.divider,
+          width: 1.0,
+        ),
       ),
       insetPadding: EdgeInsets.all(tokens.spaceLg),
       child: contentWidget,

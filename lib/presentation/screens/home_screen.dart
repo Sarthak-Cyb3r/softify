@@ -230,9 +230,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF1DB954),
+                        color: tokens.accent,
                       ),
                       child: Center(
                         child: Text(
@@ -273,9 +273,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: Icon(Icons.tune_rounded, size: 20, color: Colors.white),
                           ),
                         )
-                      : const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          child: Icon(Icons.tune_rounded, size: 22, color: Color(0xFFB3B3B3)),
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          child: Icon(Icons.tune_rounded, size: 22, color: tokens.textSecondary),
                         ),
                 ),
                 BouncingScaleButton(
@@ -299,9 +299,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: Icon(Icons.settings_outlined, size: 20, color: Colors.white),
                           ),
                         )
-                      : const Padding(
-                          padding: EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-                          child: Icon(Icons.settings_outlined, size: 22, color: Color(0xFFB3B3B3)),
+                      : Padding(
+                          padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+                          child: Icon(Icons.settings_outlined, size: 22, color: tokens.textSecondary),
                         ),
                 ),
               ],
@@ -1229,10 +1229,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       margin: const EdgeInsets.fromLTRB(0, 24, 24, 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B1F),
-        borderRadius: BorderRadius.circular(16),
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
         border: Border.all(
-          color: const Color(0xFF1F1F23),
+          color: tokens.divider,
           width: 1,
         ),
       ),
@@ -1242,27 +1242,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Up Next',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFFE3E2E6),
+                  fontFamily: AppTheme.fontPageTitle,
+                  color: tokens.textPrimary,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF292A2D),
-                  borderRadius: BorderRadius.circular(999),
+                  color: tokens.surfaceElevated,
+                  borderRadius: BorderRadius.circular(tokens.radiusFull),
+                  border: Border.all(color: tokens.divider, width: 1),
                 ),
                 child: Text(
                   '${queue.length} in queue',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF4EDEA3),
+                    color: tokens.accent,
                   ),
                 ),
               ),
@@ -1275,10 +1277,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF292A2D),
-                borderRadius: BorderRadius.circular(12),
+                color: tokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
                 border: Border.all(
-                  color: const Color(0xFF4EDEA3).withValues(alpha: 0.25),
+                  color: tokens.accent.withValues(alpha: 0.35),
                   width: 1,
                 ),
               ),
@@ -1291,8 +1293,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1F1F23),
-                          borderRadius: BorderRadius.circular(8),
+                          color: tokens.card,
+                          borderRadius: BorderRadius.circular(6),
                           image: currentTrack.coverUrl != null
                               ? DecorationImage(
                                   image: NetworkImage(currentTrack.coverUrl!),
@@ -1301,7 +1303,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               : null,
                         ),
                         child: currentTrack.coverUrl == null
-                            ? const Icon(Icons.music_note_rounded, color: Color(0xFF4EDEA3), size: 22)
+                            ? Icon(Icons.music_note_rounded, color: tokens.accent, size: 22)
                             : null,
                       ),
                       const SizedBox(width: 10),
@@ -1313,10 +1315,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               currentTrack.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFFE3E2E6),
+                                color: tokens.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1324,9 +1326,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               currentTrack.artist,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
-                                color: Color(0xFFBBCABF),
+                                color: tokens.textSecondary,
                               ),
                             ),
                           ],
@@ -1334,7 +1336,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       Icon(
                         isPlaying ? Icons.graphic_eq_rounded : Icons.pause_rounded,
-                        color: const Color(0xFF4EDEA3),
+                        color: tokens.accent,
                         size: 20,
                       ),
                     ],
@@ -1372,8 +1374,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isCurrent ? const Color(0xFF292A2D) : Colors.transparent,
+                            color: isCurrent ? tokens.surfaceElevated : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
+                            border: isCurrent
+                                ? Border.all(color: tokens.divider, width: 1)
+                                : null,
                           ),
                           child: Row(
                             children: [
@@ -1439,18 +1444,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF292A2D),
+                    color: tokens.surfaceElevated,
                     borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: tokens.divider, width: 1.0),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Space',
                     style: TextStyle(
-                      fontSize: 12, // Strict 12px floor
-                      fontFamily: AppTheme.fontUi,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.accent,
+                      color: tokens.accent,
                     ),
                   ),
                 ),
@@ -1517,9 +1523,9 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
                     end: Alignment.bottomRight,
                   )
                 : null,
-            color: widget.isGradient ? null : const Color(0xFF333333),
+            color: widget.isGradient ? null : tokens.surfaceElevated,
             borderRadius: BorderRadius.horizontal(
-              left: Radius.circular(tokens.isGlass ? 14 : 8),
+              left: Radius.circular(tokens.isGlass ? 14 : tokens.radiusCard),
             ),
           ),
           child: Center(
@@ -1614,10 +1620,14 @@ class _BentoHoverItemState extends State<_BentoHoverItem> {
                 duration: const Duration(milliseconds: 140),
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  color: _isHovered
-                      ? const Color(0xFF383838)
-                      : const Color(0xFF282828),
-                  borderRadius: BorderRadius.circular(8),
+                  color: _isHovered ? tokens.cardHover : tokens.card,
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
+                  border: Border.all(
+                    color: _isHovered
+                        ? const Color(0x33FFFFFF)
+                        : tokens.divider,
+                    width: 1.0,
+                  ),
                 ),
                 child: itemContent,
               ),

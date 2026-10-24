@@ -128,22 +128,30 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
+          side: const BorderSide(color: Color(0x14FFFFFF), width: 1.0),
         ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: surfaceElevated,
-        elevation: 8,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
+          side: const BorderSide(color: Color(0x1FFFFFFF), width: 1.0),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: surfaceElevated,
         modalBackgroundColor: surfaceElevated,
-        elevation: 12,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+          side: BorderSide(color: Color(0x1FFFFFFF), width: 1.0),
         ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0x1FFFFFFF),
+        thickness: 1.0,
+        space: 1.0,
       ),
       chipTheme: const ChipThemeData(
         backgroundColor: card,

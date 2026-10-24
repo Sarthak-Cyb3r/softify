@@ -54,11 +54,12 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
       borderRadius: BorderRadius.zero,
       color: isGlass ? tokens.glassSurface : tokens.sidebar,
       withBlur: true,
-      border: isGlass
-          ? Border(
-              right: BorderSide(color: tokens.glassBorder, width: 1.0),
-            )
-          : null,
+      border: Border(
+        right: BorderSide(
+          color: isGlass ? tokens.glassBorder : tokens.divider,
+          width: 1.0,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

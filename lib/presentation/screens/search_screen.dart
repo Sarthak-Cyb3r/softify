@@ -750,7 +750,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   : Container(
                       decoration: BoxDecoration(
                         color: category.color,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(tokens.radiusCard),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          width: 1.0,
+                        ),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: Stack(

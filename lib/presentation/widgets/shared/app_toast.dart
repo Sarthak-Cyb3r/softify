@@ -19,11 +19,15 @@ class AppToast {
     scaffoldMessenger.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        elevation: 8.0,
+        elevation: 0,
         backgroundColor: tokens.surfaceElevated,
         duration: duration,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(tokens.radiusCard),
+          side: BorderSide(
+            color: tokens.isGlass ? tokens.glassBorder : tokens.divider,
+            width: 1.0,
+          ),
         ),
         margin: EdgeInsets.all(tokens.spaceMd),
         content: Row(

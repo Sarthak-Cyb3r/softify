@@ -56,8 +56,7 @@ class SlimBottomNavBar extends StatelessWidget {
               final item = items[index];
               final isSelected = index == currentIndex;
               final activeColor = isGlass ? tokens.accentCyan : Colors.white;
-              final inactiveColor =
-                  isGlass ? const Color(0xFF8E8BAE) : const Color(0xFFB3B3B3);
+              final inactiveColor = tokens.textSecondary;
 
               return Expanded(
                 child: Semantics(

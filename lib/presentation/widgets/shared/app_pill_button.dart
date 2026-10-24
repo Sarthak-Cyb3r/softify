@@ -123,7 +123,12 @@ class AppPillButton extends StatelessWidget {
                         : tokens.glassBorder,
                     width: 1.0,
                   )
-                : null,
+                : (!tokens.isGlass && variant == AppPillButtonVariant.secondary)
+                    ? Border.all(
+                        color: tokens.divider,
+                        width: 1.0,
+                      )
+                    : null,
           ),
           alignment: Alignment.center,
           child: content,

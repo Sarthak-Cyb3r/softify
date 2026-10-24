@@ -160,6 +160,12 @@ class _ArtistCardState extends State<ArtistCard> {
                   decoration: BoxDecoration(
                     color: cardBg,
                     borderRadius: BorderRadius.circular(tokens.radiusCard),
+                    border: Border.all(
+                      color: _isHovered
+                          ? const Color(0x33FFFFFF)
+                          : tokens.divider,
+                      width: 1.0,
+                    ),
                   ),
                   child: cardContent,
                 ),

@@ -92,6 +92,9 @@ class AppFilterChip extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected ? tokens.accent : tokens.surfaceElevated,
                   borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  border: isSelected
+                      ? null
+                      : Border.all(color: tokens.divider, width: 1.0),
                 ),
                 child: chipContent,
               ),
