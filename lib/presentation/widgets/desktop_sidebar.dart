@@ -53,7 +53,7 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
       width: 260.0,
       borderRadius: BorderRadius.zero,
       color: isGlass ? tokens.glassSurface : tokens.sidebar,
-      withBlur: true,
+      withBlur: false,
       border: Border(
         right: BorderSide(
           color: isGlass ? tokens.glassBorder : tokens.divider,

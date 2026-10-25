@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -76,8 +77,9 @@ class AppSurface extends ConsumerWidget {
 
     final effectiveShadow = boxShadow ?? tokens.cardShadow;
 
-    // Use BackdropFilter when hardware allows
-    final canBlur = withBlur && !reduceEffects;
+    // Use BackdropFilter when hardware allows (bypass on Linux/Windows where Skia readback causes GPU compositor stalls)
+    final isConstrainedDesktop = Platform.isLinux || Platform.isWindows;
+    final canBlur = withBlur && !reduceEffects && !isConstrainedDesktop;
 
     if (canBlur) {
       return RepaintBoundary(

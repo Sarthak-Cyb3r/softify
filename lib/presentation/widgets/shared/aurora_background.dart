@@ -61,7 +61,8 @@ class AuroraBackground extends ConsumerWidget {
       ),
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeInOut,
-      builder: (context, dynamicColor, _) {
+      child: child,
+      builder: (context, dynamicColor, cachedChild) {
         final color = dynamicColor ?? const Color(0xFF34D399);
 
         return Stack(
@@ -131,7 +132,7 @@ class AuroraBackground extends ConsumerWidget {
             ),
             // Foreground Content
             Positioned.fill(
-              child: child,
+              child: cachedChild!,
             ),
           ],
         );

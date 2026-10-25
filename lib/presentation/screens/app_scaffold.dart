@@ -55,7 +55,15 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   int _currentIndex = 0;
   bool _isScreensaverOpen = false;
   Timer? _screensaverIdleTimer;
+  int _lastScreensaverResetMs = 0;
   bool _isQuickPanelOpen = false;
+
+  void _resetScreensaverIdleTimerThrottled() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastScreensaverResetMs < 1500) return;
+    _lastScreensaverResetMs = now;
+    _resetScreensaverIdleTimer();
+  }
 
   void _resetScreensaverIdleTimer() {
     _screensaverIdleTimer?.cancel();
@@ -289,21 +297,23 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         autofocus: true,
         child: Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerHover: (_) => _resetScreensaverIdleTimer(),
-          onPointerDown: (_) => _resetScreensaverIdleTimer(),
+          onPointerHover: (_) => _resetScreensaverIdleTimerThrottled(),
+          onPointerDown: (_) => _resetScreensaverIdleTimerThrottled(),
           child: Scaffold(
             backgroundColor:
                 tokens.isGlass ? Colors.transparent : tokens.background,
           body: Row(
             children: [
-              // 1. Persistent Desktop Sidebar (256px)
-              DesktopSidebar(
-                currentIndex: _currentIndex,
-                onSelectTab: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
+              // 1. Persistent Desktop Sidebar (256px) with isolated paint layer
+              RepaintBoundary(
+                child: DesktopSidebar(
+                  currentIndex: _currentIndex,
+                  onSelectTab: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                ),
               ),
 
               // 2. Main Content Viewport & Bottom Playback Bar
@@ -311,18 +321,24 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 child: Column(
                   children: [
                     // Persistent Desktop Top Header (Stitch Design)
-                    _buildDesktopTopHeader(context, tokens),
+                    RepaintBoundary(
+                      child: _buildDesktopTopHeader(context, tokens),
+                    ),
 
-                    // Main Viewport
+                    // Main Viewport isolated paint layer
                     Expanded(
-                      child: IndexedStack(
-                        index: _currentIndex,
-                        children: _buildTabScreens(),
+                      child: RepaintBoundary(
+                        child: IndexedStack(
+                          index: _currentIndex,
+                          children: _buildTabScreens(),
+                        ),
                       ),
                     ),
 
-                    // Persistent Desktop Bottom Player Bar
-                    const DesktopPlayerBar(),
+                    // Persistent Desktop Bottom Player Bar isolated paint layer
+                    const RepaintBoundary(
+                      child: DesktopPlayerBar(),
+                    ),
                   ],
                 ),
               ),

@@ -107,7 +107,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
       borderRadius: BorderRadius.zero,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       color: isGlass ? tokens.glassSurface : tokens.sidebar,
-      withBlur: true,
+      withBlur: false,
       border: Border(
         top: BorderSide(
           color: isGlass ? tokens.glassBorder : tokens.divider,

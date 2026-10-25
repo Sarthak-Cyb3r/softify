@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../providers/player_providers.dart';
+import '../providers/ui_style_provider.dart';
 import '../screens/full_screen_player_screen.dart';
 import '../theme/app_theme.dart';
 import 'animated_music_wave_indicator.dart';
@@ -114,23 +116,25 @@ class _QuickPlaybackPanelState extends ConsumerState<QuickPlaybackPanel> {
           ),
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: Container(
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 8,
-                  left: 18,
-                  right: 18,
-                  bottom: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xF00D0E12),
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
-                  border: Border.all(
-                    color: tokens.accent.withValues(alpha: 0.22),
-                    width: 0.8,
+            child: Builder(
+              builder: (context) {
+                final reduce = ref.watch(shouldReduceEffectsProvider);
+                final canBlur = !reduce && !Platform.isLinux && !Platform.isWindows;
+                final panelContent = Container(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 18,
+                    right: 18,
+                    bottom: 14,
                   ),
-                ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xF00D0E12),
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+                    border: Border.all(
+                      color: tokens.accent.withValues(alpha: 0.22),
+                      width: 0.8,
+                    ),
+                  ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -438,11 +442,20 @@ class _QuickPlaybackPanelState extends ConsumerState<QuickPlaybackPanel> {
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+
+              if (canBlur) {
+                return BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                  child: panelContent,
+                );
+              }
+              return panelContent;
+            },
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

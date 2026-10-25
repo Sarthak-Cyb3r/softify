@@ -192,19 +192,19 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                 children: [
                   // Ambient blurred backdrop if cover exists
                   if (widget.coverUrl != null) ...[
-                    Image.network(
-                      widget.coverUrl!,
-                      fit: BoxFit.cover,
-                      cacheWidth: 300,
-                      cacheHeight: 300,
-                      gaplessPlayback: true,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                    BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                      child: Container(
-                        color: tokens.background.withValues(alpha: 0.55),
+                    ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Image.network(
+                        widget.coverUrl!,
+                        fit: BoxFit.cover,
+                        cacheWidth: 300,
+                        cacheHeight: 300,
+                        gaplessPlayback: true,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                       ),
+                    ),
+                    Container(
+                      color: tokens.background.withValues(alpha: 0.55),
                     ),
                   ],
                   // Dark Vignette & Gradient wash

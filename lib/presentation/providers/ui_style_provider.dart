@@ -121,6 +121,8 @@ final reduceEffectsProvider =
 /// Auto-detects whether the current device is low-spec or constrained.
 final isLowEndDeviceProvider = Provider<bool>((ref) {
   try {
+    // Desktop Linux & Windows Skia engines suffer from glReadPixels GPU pipeline stalls on BackdropFilter
+    if (Platform.isLinux || Platform.isWindows) return true;
     // If device has 2 or fewer processor cores, consider it constrained
     final cores = Platform.numberOfProcessors;
     if (cores <= 2) return true;
