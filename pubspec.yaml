@@ -32,6 +32,8 @@ dependencies:
   media_kit_libs_linux: ^1.2.1
   media_kit_native_event_loop: ^1.0.9
   url_launcher: ^6.3.3
+  audio_service_mpris: '>=0.2.1 <2.0.0'
+  device_info_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

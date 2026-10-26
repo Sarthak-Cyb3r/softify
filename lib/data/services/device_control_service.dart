@@ -2,16 +2,46 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
 
 import '../../presentation/providers/settings_providers.dart';
 import '../database/app_database.dart';
+
+class AppNotice {
+  final String id;
+  final String title;
+  final String message;
+  final String type; // 'info' | 'announcement' | 'warning'
+  final DateTime? createdAt;
+
+  const AppNotice({
+    required this.id,
+    required this.title,
+    required this.message,
+    this.type = 'info',
+    this.createdAt,
+  });
+
+  factory AppNotice.fromJson(Map<String, dynamic> json) {
+    return AppNotice(
+      id: json['id']?.toString() ?? '',
+      title: json['title'] as String? ?? 'Notice',
+      message: json['message'] as String? ?? '',
+      type: json['type'] as String? ?? 'info',
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String)
+          : null,
+    );
+  }
+}
 
 class DeviceControlStatus {
   final bool isAllowed;
   final String status;
   final String? reason;
   final String? banner;
+  final AppNotice? notice;
   final bool isOffline;
 
   const DeviceControlStatus({
@@ -19,6 +49,7 @@ class DeviceControlStatus {
     required this.status,
     this.reason,
     this.banner,
+    this.notice,
     this.isOffline = false,
   });
 }
@@ -31,6 +62,7 @@ class DeviceControlService {
   static const String _keyServerUrl = 'device_control_server_url';
   static const String _keyLastStatus = 'device_control_last_status';
   static const String _keyLastReason = 'device_control_last_reason';
+  static const String _keyLastDismissedNoticeId = 'device_control_last_dismissed_notice_id';
 
   // Default server URL - deployed live fleet command center
   static const String defaultServerUrl = 'https://server-eight-gamma-81.vercel.app';
@@ -87,12 +119,79 @@ class DeviceControlService {
         );
   }
 
-  /// Gathers system metadata for device registry.
-  Map<String, String> _collectDeviceInfo() {
+  /// Gets the ID of the last notice dismissed by the user.
+  Future<String?> getLastDismissedNoticeId() async {
+    final row = await (_db.select(_db.settings)
+          ..where((tbl) => tbl.key.equals(_keyLastDismissedNoticeId)))
+        .getSingleOrNull();
+    return row?.value;
+  }
+
+  /// Persists notice dismissal so the banner isn't repeatedly shown.
+  Future<void> setLastDismissedNoticeId(String noticeId) async {
+    await _db.into(_db.settings).insertOnConflictUpdate(
+          SettingsCompanion.insert(
+            key: _keyLastDismissedNoticeId,
+            value: noticeId,
+          ),
+        );
+  }
+
+  /// Gathers system metadata for device registry, resolving genuine hardware model.
+  Future<Map<String, String>> _collectDeviceInfo() async {
     final platform = Platform.operatingSystem;
-    final osVersion = Platform.operatingSystemVersion;
-    final model = Platform.localHostname;
+    var osVersion = Platform.operatingSystemVersion;
+    var model = '';
     const appVersion = kAppVersion;
+
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final android = await deviceInfo.androidInfo;
+        final brand = android.brand.trim();
+        final rawModel = android.model.trim();
+        final cleanBrand = brand.isNotEmpty
+            ? '${brand[0].toUpperCase()}${brand.substring(1)}'
+            : '';
+        if (cleanBrand.isNotEmpty &&
+            !rawModel.toLowerCase().startsWith(cleanBrand.toLowerCase())) {
+          model = '$cleanBrand $rawModel';
+        } else {
+          model = rawModel.isNotEmpty ? rawModel : 'Android Device';
+        }
+        osVersion = 'Android ${android.version.release} (SDK ${android.version.sdkInt})';
+      } else if (Platform.isIOS) {
+        final ios = await deviceInfo.iosInfo;
+        model = ios.utsname.machine.isNotEmpty ? ios.utsname.machine : ios.name;
+        osVersion = '${ios.systemName} ${ios.systemVersion}';
+      } else if (Platform.isLinux) {
+        final linux = await deviceInfo.linuxInfo;
+        model = linux.prettyName.isNotEmpty
+            ? linux.prettyName
+            : (Platform.localHostname.isNotEmpty ? Platform.localHostname : 'Linux Desktop');
+        osVersion = linux.versionId ?? Platform.operatingSystemVersion;
+      } else if (Platform.isWindows) {
+        final win = await deviceInfo.windowsInfo;
+        model = win.productName.isNotEmpty ? win.productName : 'Windows PC';
+        osVersion = 'Windows ${win.buildNumber}';
+      } else if (Platform.isMacOS) {
+        final mac = await deviceInfo.macOsInfo;
+        model = mac.model.isNotEmpty ? mac.model : 'Apple Mac';
+        osVersion = 'macOS ${mac.osRelease}';
+      }
+    } catch (_) {
+      // Fallback
+    }
+
+    if (model.isEmpty || model.toLowerCase() == 'localhost') {
+      if (Platform.isAndroid) {
+        model = 'Android Device';
+      } else if (Platform.isLinux) {
+        model = Platform.localHostname != 'localhost' ? Platform.localHostname : 'Linux Desktop';
+      } else {
+        model = Platform.localHostname;
+      }
+    }
 
     return {
       'platform': platform,
@@ -107,7 +206,7 @@ class DeviceControlService {
   Future<DeviceControlStatus> syncDevice({String? overrideUrl}) async {
     final deviceId = await getDeviceId();
     final serverUrl = overrideUrl ?? await getServerUrl();
-    final info = _collectDeviceInfo();
+    final info = await _collectDeviceInfo();
 
     try {
       final uri = Uri.parse('$serverUrl/api/device/sync');
@@ -132,6 +231,17 @@ class DeviceControlService {
         final reason = data['reason'] as String?;
         final banner = data['banner'] as String?;
 
+        AppNotice? notice;
+        if (data['notice'] != null && data['notice'] is Map<String, dynamic>) {
+          notice = AppNotice.fromJson(data['notice'] as Map<String, dynamic>);
+        } else if (banner != null && banner.trim().isNotEmpty) {
+          notice = AppNotice(
+            id: banner.trim().hashCode.toString(),
+            title: 'Notice',
+            message: banner.trim(),
+          );
+        }
+
         // Cache last confirmed status
         await _db.into(_db.settings).insertOnConflictUpdate(
               SettingsCompanion.insert(
@@ -154,6 +264,7 @@ class DeviceControlService {
           status: status,
           reason: reason,
           banner: banner,
+          notice: notice,
           isOffline: false,
         );
       }

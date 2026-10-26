@@ -12,6 +12,7 @@ class DeviceControlState {
   final bool isChecking;
   final bool isOffline;
   final String? bannerMessage;
+  final AppNotice? pendingNotice;
 
   const DeviceControlState({
     this.isBlocked = false,
@@ -21,6 +22,7 @@ class DeviceControlState {
     this.isChecking = false,
     this.isOffline = false,
     this.bannerMessage,
+    this.pendingNotice,
   });
 
   DeviceControlState copyWith({
@@ -31,6 +33,8 @@ class DeviceControlState {
     bool? isChecking,
     bool? isOffline,
     String? bannerMessage,
+    AppNotice? pendingNotice,
+    bool clearPendingNotice = false,
   }) {
     return DeviceControlState(
       isBlocked: isBlocked ?? this.isBlocked,
@@ -40,6 +44,7 @@ class DeviceControlState {
       isChecking: isChecking ?? this.isChecking,
       isOffline: isOffline ?? this.isOffline,
       bannerMessage: bannerMessage ?? this.bannerMessage,
+      pendingNotice: clearPendingNotice ? null : (pendingNotice ?? this.pendingNotice),
     );
   }
 }
@@ -59,9 +64,9 @@ class DeviceControlNotifier extends StateNotifier<DeviceControlState> {
     state = state.copyWith(deviceId: id, serverUrl: url);
     await checkStatus();
 
-    // Automatically sync heartbeat in the background every 90 seconds
+    // Automatically sync heartbeat in the background every 60 seconds
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 90), (_) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       checkStatus();
     });
   }
@@ -77,12 +82,23 @@ class DeviceControlNotifier extends StateNotifier<DeviceControlState> {
     final status = await _service.syncDevice(overrideUrl: overrideUrl);
 
     final isBlocked = !status.isAllowed;
+    final lastDismissedId = await _service.getLastDismissedNoticeId();
+
+    AppNotice? pendingNotice;
+    if (status.notice != null &&
+        status.notice!.id.isNotEmpty &&
+        status.notice!.id != lastDismissedId &&
+        status.notice!.message.trim().isNotEmpty) {
+      pendingNotice = status.notice;
+    }
+
     state = state.copyWith(
       isBlocked: isBlocked,
       blockReason: status.reason,
       isChecking: false,
       isOffline: status.isOffline,
       bannerMessage: status.banner,
+      pendingNotice: pendingNotice,
     );
 
     // If blocked, immediately stop any running audio
@@ -91,6 +107,14 @@ class DeviceControlNotifier extends StateNotifier<DeviceControlState> {
         final audioHandler = _ref.read(audioHandlerProvider);
         await audioHandler.stop();
       } catch (_) {}
+    }
+  }
+
+  Future<void> dismissPendingNotice() async {
+    final notice = state.pendingNotice;
+    if (notice != null) {
+      await _service.setLastDismissedNoticeId(notice.id);
+      state = state.copyWith(clearPendingNotice: true);
     }
   }
 

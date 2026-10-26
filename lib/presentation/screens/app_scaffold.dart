@@ -28,6 +28,7 @@ import '../providers/settings_providers.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/device_control_providers.dart';
+import '../../data/services/device_control_service.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
 import 'device_blocked_screen.dart';
 
@@ -207,18 +208,154 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     }
 
     final tokens = context.tokens;
+    final pendingNotice = deviceState.pendingNotice;
 
     return AuroraBackground(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth >= 800;
+      child: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 800;
 
-          if (isDesktop) {
-            return _buildDesktopLayout(context, tokens);
-          } else {
-            return _buildMobileLayout(context, tokens);
-          }
-        },
+              if (isDesktop) {
+                return _buildDesktopLayout(context, tokens);
+              } else {
+                return _buildMobileLayout(context, tokens);
+              }
+            },
+          ),
+          if (pendingNotice != null)
+            _buildNoticeBannerModal(context, tokens, pendingNotice),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoticeBannerModal(BuildContext context, AppTokens tokens, AppNotice notice) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.72),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16161E),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF2EE66B).withValues(alpha: 0.35),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 32,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2EE66B).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.campaign_rounded,
+                        color: Color(0xFF2EE66B),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ADMINISTRATOR NOTICE',
+                            style: TextStyle(
+                              color: Color(0xFF2EE66B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            notice.title.isNotEmpty ? notice.title : 'Announcement',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                      onPressed: () {
+                        ref.read(deviceControlProvider.notifier).dismissPendingNotice();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Text(
+                    notice.message,
+                    style: const TextStyle(
+                      color: Color(0xFFE0E0E6),
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2EE66B),
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      ref.read(deviceControlProvider.notifier).dismissPendingNotice();
+                    },
+                    child: const Text(
+                      'Acknowledge & Continue',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

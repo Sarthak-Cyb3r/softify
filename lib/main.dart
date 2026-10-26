@@ -22,15 +22,26 @@ import 'data/lyrics/composite_lyrics_provider.dart';
 import 'data/lyrics/spotify_lyrics_provider.dart';
 import 'dart:io';
 import 'data/player/linux_audio_backend.dart';
+import 'package:audio_service_mpris/audio_service_mpris.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize media_kit audio backend with Linux DSP equalizer support
+  // Initialize media_kit audio backend with Linux DSP equalizer support & MPRIS 2 D-Bus
   if (Platform.isLinux) {
     SoftifyLinuxMediaKit.ensureInitialized();
+    AudioServiceMpris.init(
+      dBusName: 'softify',
+      identity: 'Softify',
+      desktopEntry: 'softify',
+      canGoNext: true,
+      canGoPrevious: true,
+      canPlay: true,
+      canPause: true,
+      canControl: true,
+    );
   } else {
     JustAudioMediaKit.ensureInitialized(
       linux: false,
@@ -94,8 +105,8 @@ void main() async {
       lyricsProvider: lyricsProvider,
     ),
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.softify.audio',
-      androidNotificationChannelName: 'Softify Playback',
+      androidNotificationChannelId: 'softify',
+      androidNotificationChannelName: 'Softify',
       androidNotificationChannelDescription: 'Softify Background Media Playback',
       androidNotificationIcon: 'drawable/ic_notification',
       notificationColor: Color(0xFF2EE66B),

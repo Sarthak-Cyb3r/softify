@@ -22,6 +22,7 @@ const DEFAULT_CONFIG = {
   adminKey: process.env.ADMIN_KEY || '2010',
   defaultPolicy: 'auto_allow', // 'auto_allow' | 'require_approval'
   broadcastBanner: '',
+  broadcastNotice: null,
   serverName: 'Softify Device Command Center'
 };
 
@@ -169,6 +170,17 @@ class Store {
     const now = new Date().toISOString();
     let device = this.devices.get(id);
 
+    let cleanModel = (info.deviceModel || '').trim();
+    if (!cleanModel || cleanModel.toLowerCase() === 'localhost') {
+      const p = (info.platform || '').toLowerCase();
+      if (p === 'android') cleanModel = 'Android Device';
+      else if (p === 'linux') cleanModel = 'Linux Desktop';
+      else if (p === 'ios') cleanModel = 'Apple iPhone';
+      else if (p === 'windows') cleanModel = 'Windows PC';
+      else if (p === 'macos') cleanModel = 'Apple Mac';
+      else cleanModel = 'Mobile Device';
+    }
+
     if (!device) {
       const initialStatus = this.config.defaultPolicy === 'require_approval' ? 'pending' : 'allowed';
       device = {
@@ -176,8 +188,8 @@ class Store {
         customAlias: info.customAlias || '',
         platform: info.platform || 'unknown',
         osVersion: info.osVersion || '',
-        deviceModel: info.deviceModel || 'Unknown Device',
-        appVersion: info.appVersion || '2.9.1',
+        deviceModel: cleanModel,
+        appVersion: info.appVersion || '3.0.2',
         ipAddress: clientIp,
         status: initialStatus, // 'allowed' | 'blocked' | 'pending'
         blockReason: initialStatus === 'pending' ? 'Device pending administrator approval' : '',
@@ -192,7 +204,7 @@ class Store {
       device.ipAddress = clientIp || device.ipAddress;
       if (info.platform) device.platform = info.platform;
       if (info.osVersion) device.osVersion = info.osVersion;
-      if (info.deviceModel) device.deviceModel = info.deviceModel;
+      device.deviceModel = cleanModel;
       if (info.appVersion) device.appVersion = info.appVersion;
       if (info.customAlias && !device.customAlias) device.customAlias = info.customAlias;
     }
@@ -202,7 +214,19 @@ class Store {
   }
 
   getAllDevices() {
-    return Array.from(this.devices.values()).sort(
+    return Array.from(this.devices.values()).map(d => {
+      let model = (d.deviceModel || '').trim();
+      if (!model || model.toLowerCase() === 'localhost') {
+        const p = (d.platform || '').toLowerCase();
+        if (p === 'android') model = 'Android Device';
+        else if (p === 'linux') model = 'Linux Desktop';
+        else if (p === 'ios') model = 'Apple iPhone';
+        else if (p === 'windows') model = 'Windows PC';
+        else if (p === 'macos') model = 'Apple Mac';
+        else model = 'Mobile Device';
+      }
+      return { ...d, deviceModel: model };
+    }).sort(
       (a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()
     );
   }
@@ -342,12 +366,20 @@ app.post('/api/device/sync', (req, res) => {
 
   const isAllowed = device.status === 'allowed';
 
+  const notice = store.config.broadcastNotice || (store.config.broadcastBanner ? {
+    id: 'active-banner',
+    title: 'Announcement',
+    message: store.config.broadcastBanner,
+    type: 'info'
+  } : null);
+
   return res.json({
     success: true,
     allowed: isAllowed,
     status: device.status,
     reason: isAllowed ? undefined : (device.blockReason || 'Access restricted by administrator'),
     banner: store.config.broadcastBanner || null,
+    notice,
     serverTime: new Date().toISOString()
   });
 });
@@ -415,12 +447,53 @@ app.delete('/api/admin/devices/:id', requireAdmin, (req, res) => {
   return res.json({ success: deleted });
 });
 
+app.get('/api/admin/notice', requireAdmin, (req, res) => {
+  return res.json({
+    success: true,
+    notice: store.config.broadcastNotice || null,
+    banner: store.config.broadcastBanner || ''
+  });
+});
+
+app.post('/api/admin/notice', requireAdmin, (req, res) => {
+  const { title, message, type } = req.body || {};
+  const cleanMessage = (message || '').trim();
+  const cleanTitle = (title || 'Announcement').trim();
+  const noticeType = type || 'info';
+
+  if (!cleanMessage) {
+    return res.status(400).json({ error: 'Notice message cannot be empty' });
+  }
+
+  const notice = {
+    id: Date.now().toString(),
+    title: cleanTitle,
+    message: cleanMessage,
+    type: noticeType,
+    createdAt: new Date().toISOString()
+  };
+
+  store.config.broadcastNotice = notice;
+  store.config.broadcastBanner = cleanMessage;
+  store._saveConfig();
+
+  return res.json({ success: true, notice });
+});
+
+app.delete('/api/admin/notice', requireAdmin, (req, res) => {
+  store.config.broadcastNotice = null;
+  store.config.broadcastBanner = '';
+  store._saveConfig();
+  return res.json({ success: true, message: 'Notice cleared successfully' });
+});
+
 app.get('/api/admin/config', requireAdmin, (req, res) => {
   return res.json({
     success: true,
     config: {
       defaultPolicy: store.config.defaultPolicy,
       broadcastBanner: store.config.broadcastBanner,
+      broadcastNotice: store.config.broadcastNotice || null,
       serverName: store.config.serverName
     }
   });

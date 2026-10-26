@@ -498,6 +498,230 @@
       border-color: var(--danger);
     }
 
+    /* Notice Center */
+    .notice-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .notice-panel::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #2EE66B, #3b82f6);
+    }
+    .notice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .notice-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .notice-icon {
+      font-size: 24px;
+      background: rgba(46, 230, 107, 0.12);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      border: 1px solid rgba(46, 230, 107, 0.25);
+    }
+    .notice-title-wrap h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .notice-title-wrap p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .active-notice-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(46, 230, 107, 0.1);
+      border: 1px solid rgba(46, 230, 107, 0.3);
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .active-notice-pill.hidden {
+      display: none;
+    }
+    .btn-clear-notice {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-clear-notice:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+    .notice-body {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 24px;
+    }
+    @media (max-width: 960px) {
+      .notice-body {
+        grid-template-columns: 1fr;
+      }
+    }
+    .notice-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .form-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .flex-1 { flex: 1; min-width: 200px; }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .notice-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .notice-preview-wrap {
+      background: #0d0d12;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .preview-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+    .mock-device-banner {
+      background: #16161E;
+      border: 1.2px solid rgba(46, 230, 107, 0.35);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    .mock-banner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .mock-badge {
+      font-size: 10px;
+      font-weight: 800;
+      color: #2EE66B;
+      letter-spacing: 0.8px;
+    }
+    .mock-close {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+      cursor: default;
+    }
+    .mock-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .mock-msg {
+      font-size: 12.5px;
+      color: #cbd5e1;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+    .mock-btn {
+      width: 100%;
+      background: #2EE66B;
+      color: #000;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 8px;
+      border-radius: 8px;
+      border: none;
+      cursor: default;
+    }
+    .activity-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .activity-pill.online {
+      background: rgba(46, 230, 107, 0.15);
+      color: #2EE66B;
+      border: 1px solid rgba(46, 230, 107, 0.3);
+    }
+    .activity-pill.recent {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .activity-pill.installed {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .activity-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #2EE66B;
+      box-shadow: 0 0 8px #2EE66B;
+      animation: pulse 1.8s infinite;
+    }
+    .version-tag {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      background: rgba(147, 197, 253, 0.12);
+      border: 1px solid rgba(147, 197, 253, 0.3);
+      color: #93c5fd;
+      border-radius: 6px;
+    }
+
     /* Modal */
     .modal-backdrop {
       position: fixed;
@@ -891,11 +1115,74 @@
 
       <div class="metric-card blocked">
         <div class="metric-label">
-          <span>Blocked Devices</span>
+          <span>Suspended / Blocked</span>
           <span>✕</span>
         </div>
         <div class="metric-value" id="statBlocked">0</div>
-        <div class="metric-sub">Access suspended via killswitch</div>
+        <div class="metric-sub">Access restricted via killswitch</div>
+      </div>
+    </div>
+
+    <!-- Notice Broadcast Center -->
+    <div class="notice-panel" id="noticePanel">
+      <div class="notice-header">
+        <div class="notice-title-wrap">
+          <span class="notice-icon">📢</span>
+          <div>
+            <h3>In-App Notice Broadcast Center</h3>
+            <p>Send custom announcements and banners to every installed device. Users will be shown the banner first upon launch.</p>
+          </div>
+        </div>
+        <div id="activeNoticePill" class="active-notice-pill hidden">
+          <span class="pulse-dot"></span>
+          <span id="activeNoticePillText">Active Notice Live</span>
+          <button class="btn-clear-notice" onclick="clearBroadcastNotice()" title="Revoke notice">✕ Clear</button>
+        </div>
+      </div>
+
+      <div class="notice-body">
+        <div class="notice-form">
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Notice Heading / Title</label>
+              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.2 Update Available" oninput="updateNoticePreview()">
+            </div>
+            <div class="form-group" style="width: 200px;">
+              <label>Notice Type</label>
+              <select id="noticeTypeSelect" class="modal-input" onchange="updateNoticePreview()">
+                <option value="announcement">📢 Announcement</option>
+                <option value="info">ℹ️ Information</option>
+                <option value="warning">⚠️ Important Alert</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notice Message</label>
+            <textarea id="noticeMessageInput" class="modal-input" rows="2" placeholder="e.g. Native lyrics search is now live! Type any lyric phrase to instantly find songs." oninput="updateNoticePreview()"></textarea>
+          </div>
+          <div class="notice-actions">
+            <button class="btn btn-primary" onclick="sendBroadcastNotice()">
+              <span>🚀 Broadcast Notice to All Devices</span>
+            </button>
+            <button class="btn btn-secondary" onclick="clearNoticeInputs()">
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live In-App Preview -->
+        <div class="notice-preview-wrap">
+          <div class="preview-label">Live In-App Mobile/Desktop Screen Preview</div>
+          <div class="mock-device-banner" id="mockBanner">
+            <div class="mock-banner-header">
+              <span class="mock-badge" id="mockTypeBadge">ADMINISTRATOR NOTICE</span>
+              <span class="mock-close">✕</span>
+            </div>
+            <div class="mock-title" id="mockTitle">Softify v3.0.2 Update Available</div>
+            <div class="mock-msg" id="mockMessage">Native lyrics search is now live! Type any lyric phrase to instantly find songs.</div>
+            <button class="mock-btn">Acknowledge & Continue</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1137,10 +1424,110 @@
           allDevices = data.devices || [];
           renderTable();
           fetchStats();
+          fetchNotice();
         }
       } catch (e) {
         console.error('Fetch error:', e);
       }
+    }
+
+    async function fetchNotice() {
+      const key = getAdminKey();
+      try {
+        const res = await fetch('/api/admin/notice', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const activePill = document.getElementById('activeNoticePill');
+          const pillText = document.getElementById('activeNoticePillText');
+          if (data.notice && data.notice.message) {
+            activePill.classList.remove('hidden');
+            pillText.innerText = `Active Notice: "${data.notice.title || 'Announcement'}"`;
+          } else if (data.banner) {
+            activePill.classList.remove('hidden');
+            pillText.innerText = `Active Banner: "${data.banner}"`;
+          } else {
+            activePill.classList.add('hidden');
+          }
+        }
+      } catch (e) {}
+    }
+
+    function updateNoticePreview() {
+      const title = document.getElementById('noticeTitleInput').value.trim() || 'Softify v3.0.2 Update Available';
+      const msg = document.getElementById('noticeMessageInput').value.trim() || 'Native lyrics search is now live! Type any lyric phrase to instantly find songs.';
+      const type = document.getElementById('noticeTypeSelect').value;
+
+      document.getElementById('mockTitle').innerText = title;
+      document.getElementById('mockMessage').innerText = msg;
+      const typeBadge = document.getElementById('mockTypeBadge');
+      if (type === 'warning') {
+        typeBadge.innerText = '⚠️ URGENT ALERT';
+        typeBadge.style.color = '#ef4444';
+      } else if (type === 'info') {
+        typeBadge.innerText = 'ℹ️ INFORMATIONAL NOTICE';
+        typeBadge.style.color = '#60a5fa';
+      } else {
+        typeBadge.innerText = '📢 ADMINISTRATOR NOTICE';
+        typeBadge.style.color = '#2EE66B';
+      }
+    }
+
+    async function sendBroadcastNotice() {
+      const title = document.getElementById('noticeTitleInput').value.trim();
+      const message = document.getElementById('noticeMessageInput').value.trim();
+      const type = document.getElementById('noticeTypeSelect').value;
+      const key = getAdminKey();
+
+      if (!message) {
+        showToast('Please enter a notice message');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/notice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ title, message, type })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Notice broadcasted to all devices! ✓');
+          fetchNotice();
+        } else {
+          showToast(data.error || 'Failed to broadcast notice');
+        }
+      } catch (e) {
+        showToast('Error broadcasting notice');
+      }
+    }
+
+    async function clearBroadcastNotice() {
+      const key = getAdminKey();
+      try {
+        const res = await fetch('/api/admin/notice', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Notice cleared ✓');
+          clearNoticeInputs();
+          fetchNotice();
+        }
+      } catch (e) {
+        showToast('Error clearing notice');
+      }
+    }
+
+    function clearNoticeInputs() {
+      document.getElementById('noticeTitleInput').value = '';
+      document.getElementById('noticeMessageInput').value = '';
+      updateNoticePreview();
     }
 
     async function fetchStats() {
@@ -1198,11 +1585,36 @@
         const isPending = d.status === 'pending';
         const shortId = d.id.length > 16 ? d.id.substring(0, 8) + '...' + d.id.substring(d.id.length - 4) : d.id;
 
+        let modelName = (d.deviceModel || '').trim();
+        if (!modelName || modelName.toLowerCase() === 'localhost') {
+          const p = (d.platform || '').toLowerCase();
+          if (p === 'android') modelName = 'Android Device';
+          else if (p === 'linux') modelName = 'Linux Desktop';
+          else if (p === 'ios') modelName = 'Apple iPhone';
+          else if (p === 'windows') modelName = 'Windows PC';
+          else if (p === 'macos') modelName = 'Apple Mac';
+          else modelName = 'Mobile Device';
+        }
+
+        const lastSeenMs = new Date(d.lastSeen).getTime();
+        const diffMs = Date.now() - lastSeenMs;
+        const isOnlineNow = diffMs < (3 * 60 * 1000);
+        const isActiveToday = diffMs < (24 * 60 * 60 * 1000);
+
+        let activityPillHtml = '';
+        if (isOnlineNow) {
+          activityPillHtml = `<span class="activity-pill online"><span class="activity-dot"></span> Online Now</span>`;
+        } else if (isActiveToday) {
+          activityPillHtml = `<span class="activity-pill recent">Active Today</span>`;
+        } else {
+          activityPillHtml = `<span class="activity-pill installed">Installed</span>`;
+        }
+
         return `
           <tr>
             <td>
-              <div style="font-weight: 700; color: #fff;">${escapeHtml(d.customAlias || d.deviceModel || 'Unknown Device')}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(d.deviceModel || '')}</div>
+              <div style="font-weight: 700; color: #fff;">${escapeHtml(d.customAlias || modelName)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(modelName)}</div>
             </td>
             <td>
               <span class="platform-badge">${getPlatformIcon(d.platform)}</span>
@@ -1218,11 +1630,13 @@
               <span style="font-family: var(--mono); font-size: 12px; color: #cbd5e1;">${escapeHtml(d.ipAddress || '127.0.0.1')}</span>
             </td>
             <td>
-              <span style="font-weight: 600;">v${escapeHtml(d.appVersion || '2.9.1')}</span>
+              <span class="version-tag">v${escapeHtml(d.appVersion || '3.0.2')}</span>
             </td>
             <td>
-              <div style="font-weight: 600;">${formatTimeAgo(d.lastSeen)}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${d.pingCount || 1} pings</div>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div>${activityPillHtml}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${formatTimeAgo(d.lastSeen)} • ${d.pingCount || 1} pings</div>
+              </div>
             </td>
             <td>
               <label class="switch" title="${isAllowed ? 'Click to Block' : 'Click to Allow'}">
