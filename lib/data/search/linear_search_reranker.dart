@@ -92,8 +92,11 @@ class LinearSearchReranker implements ISearchReranker {
       candidate.features['played_count'] = playedCount;
       candidate.features['taste_similarity'] = tasteSimilarity;
       candidate.features['popularity_proxy'] = popularityProxy;
-      candidate.features['edit_distance_penalty'] = editPenalty;
+      candidate.features['edit_distance_penalty'] = track.isLyricsMatch ? 0.0 : editPenalty;
       candidate.features['originality'] = originality;
+      if (track.isLyricsMatch) {
+        candidate.features['lyrics_match'] = 1.0;
+      }
 
       // Linear scoring: dot product of weights and features
       double score = 0.0;
@@ -108,6 +111,11 @@ class LinearSearchReranker implements ISearchReranker {
       // Hard constraint: Exact match always scores higher than fuzzy matches
       if (isExact == 1.0) {
         score += 10.0;
+      }
+
+      // Catalog verified lyrics match bonus
+      if (track.isLyricsMatch) {
+        score += 12.0;
       }
 
       candidate.score = score;

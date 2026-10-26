@@ -318,6 +318,11 @@ class TextNormalizer {
       }
     }
 
+    // 1b. Indexed Lyrics Match bonus (Catalog verified lyrics content match)
+    if (track.isLyricsMatch) {
+      score += 16.0;
+    }
+
     // 2. Official Catalog source bonus
     if (track.id.startsWith('spotify_')) {
       score += 4.0;

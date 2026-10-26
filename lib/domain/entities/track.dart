@@ -9,6 +9,8 @@ class Track {
   final double? matchConfidence;
   final bool isLiked;
   final bool isUnavailable;
+  final bool isLyricsMatch;
+  final String? matchedLyricSnippet;
 
   const Track({
     required this.id,
@@ -21,6 +23,8 @@ class Track {
     this.matchConfidence,
     this.isLiked = false,
     this.isUnavailable = false,
+    this.isLyricsMatch = false,
+    this.matchedLyricSnippet,
   });
 
   Track copyWith({
@@ -34,6 +38,8 @@ class Track {
     double? matchConfidence,
     bool? isLiked,
     bool? isUnavailable,
+    bool? isLyricsMatch,
+    String? matchedLyricSnippet,
   }) {
     return Track(
       id: id ?? this.id,
@@ -46,6 +52,8 @@ class Track {
       matchConfidence: matchConfidence ?? this.matchConfidence,
       isLiked: isLiked ?? this.isLiked,
       isUnavailable: isUnavailable ?? this.isUnavailable,
+      isLyricsMatch: isLyricsMatch ?? this.isLyricsMatch,
+      matchedLyricSnippet: matchedLyricSnippet ?? this.matchedLyricSnippet,
     );
   }
 
@@ -61,6 +69,8 @@ class Track {
       'match_confidence': matchConfidence,
       'is_liked': isLiked,
       'is_unavailable': isUnavailable,
+      'is_lyrics_match': isLyricsMatch,
+      'matched_lyric_snippet': matchedLyricSnippet,
     };
   }
 
@@ -76,6 +86,8 @@ class Track {
       matchConfidence: (map['match_confidence'] as num?)?.toDouble(),
       isLiked: (map['is_liked'] as bool?) ?? false,
       isUnavailable: (map['is_unavailable'] as bool?) ?? false,
+      isLyricsMatch: (map['is_lyrics_match'] as bool?) ?? false,
+      matchedLyricSnippet: map['matched_lyric_snippet'] as String?,
     );
   }
 

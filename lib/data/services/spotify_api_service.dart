@@ -191,7 +191,11 @@ class SpotifyApiService {
       for (final raw in rawTracks) {
         final item = raw['item']?['data'] as Map<String, dynamic>?;
         if (item == null) continue;
-        final track = _parseSpotifyTrack(item);
+        final matchedFields = (raw['matchedFields'] as List<dynamic>?)
+            ?.map((e) => e.toString().toUpperCase())
+            .toList() ?? [];
+        final isLyricsMatch = matchedFields.contains('LYRICS') && !matchedFields.contains('NAME');
+        final track = _parseSpotifyTrack(item, isLyricsMatch: isLyricsMatch);
         if (track != null) tracks.add(track);
       }
 
@@ -235,9 +239,10 @@ class SpotifyApiService {
         }
       }
 
-      // 4. Top Results
+      // 4. Top Results & Top Track Prioritization
       final rawTop = searchV2['topResultsV2']?['itemsV2'] as List<dynamic>? ?? [];
       final List<String> topTitles = [];
+      Track? topTrack;
       for (final raw in rawTop) {
         final item = raw['item']?['data'] as Map<String, dynamic>?;
         if (item == null) continue;
@@ -246,6 +251,23 @@ class SpotifyApiService {
             (item['title']?['transformedLabel'] as String?);
         if (tName != null && tName.isNotEmpty) {
           topTitles.add(tName);
+        }
+        if (topTrack == null && item['__typename'] == 'Track') {
+          final topMatchedFields = (raw['matchedFields'] as List<dynamic>?)
+              ?.map((e) => e.toString().toUpperCase())
+              .toList() ?? [];
+          final isLyricsMatch = topMatchedFields.contains('LYRICS') && !topMatchedFields.contains('NAME');
+          topTrack = _parseSpotifyTrack(item, isLyricsMatch: isLyricsMatch);
+        }
+      }
+
+      if (topTrack != null) {
+        final existingIdx = tracks.indexWhere((t) => t.id == topTrack!.id);
+        if (existingIdx > 0) {
+          tracks.removeAt(existingIdx);
+          tracks.insert(0, topTrack);
+        } else if (existingIdx == -1) {
+          tracks.insert(0, topTrack);
         }
       }
 
@@ -780,6 +802,8 @@ class SpotifyApiService {
     Map<String, dynamic> item, {
     String? fallbackAlbum,
     String? fallbackCover,
+    bool isLyricsMatch = false,
+    String? matchedLyricSnippet,
   }) {
     final title = (item['name'] as String?)?.trim();
     if (title == null || title.isEmpty) return null;
@@ -821,6 +845,8 @@ class SpotifyApiService {
       album: album,
       duration: Duration(milliseconds: durationMs),
       coverUrl: cover,
+      isLyricsMatch: isLyricsMatch,
+      matchedLyricSnippet: matchedLyricSnippet,
     );
   }
 

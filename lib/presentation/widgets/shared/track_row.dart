@@ -122,16 +122,53 @@ class _TrackRowState extends State<TrackRow> {
                         ),
                       ),
                       const SizedBox(height: 2.0),
-                      Text(
-                        widget.track.artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontUi,
-                          fontSize: 12.0, // Strict 12px min floor
-                          fontWeight: FontWeight.w400,
-                          color: tokens.textSecondary,
-                        ),
+                      Row(
+                        children: [
+                          if (widget.track.isLyricsMatch) ...[
+                            Container(
+                              margin: const EdgeInsets.only(right: 6.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: (tokens.isGlass ? tokens.accentCyan : tokens.accent).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(tokens.radiusPill),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.lyrics_outlined,
+                                    size: 11.0,
+                                    color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                                  ),
+                                  const SizedBox(width: 3.0),
+                                  Text(
+                                    'Lyrics match',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontUi,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                                      letterSpacing: 0.1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          Expanded(
+                            child: Text(
+                              widget.track.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontUi,
+                                fontSize: 12.0, // Strict 12px min floor
+                                fontWeight: FontWeight.w400,
+                                color: tokens.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

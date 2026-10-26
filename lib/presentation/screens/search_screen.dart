@@ -923,6 +923,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             ),
                           ),
                         ),
+                        if (track.isLyricsMatch) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (tokens.isGlass ? tokens.accentCyan : tokens.accent).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(tokens.radiusPill),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.lyrics_outlined,
+                                  size: 11,
+                                  color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Lyrics match',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontUi,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],

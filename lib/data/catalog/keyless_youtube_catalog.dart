@@ -291,16 +291,32 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final rawDuration = moreInfo['duration'] ?? item['duration'];
       final durationSec = int.tryParse(rawDuration?.toString() ?? '') ?? 0;
 
+      final cleanTrackTitle = _cleanTitle(trackName);
+      final cleanArtist = _decodeHtml(artistName);
+      final hasLyrics = moreInfo['has_lyrics'] == 'true' || moreInfo['has_lyrics'] == true;
+      final normQuery = TextNormalizer.normalize(query);
+      final normTitle = TextNormalizer.normalize(cleanTrackTitle);
+      final normArt = TextNormalizer.normalize(cleanArtist);
+      final isTitleOrArtistMatch = normTitle.contains(normQuery) ||
+          normQuery.contains(normTitle) ||
+          normArt.contains(normQuery) ||
+          normQuery.contains(normArt);
+
+      final isLyricsMatch = hasLyrics &&
+          normQuery.split(' ').where((w) => w.length > 2).length >= 3 &&
+          !isTitleOrArtistMatch;
+
       rawTracks.add(
         Track(
           id: 'saavn_$trackId',
           sourceId: 'saavn_$trackId',
-          title: _cleanTitle(trackName),
-          artist: _decodeHtml(artistName),
+          title: cleanTrackTitle,
+          artist: cleanArtist,
           album: albumName,
           duration: Duration(seconds: durationSec),
           coverUrl: highResCover,
           matchConfidence: 1.0,
+          isLyricsMatch: isLyricsMatch,
         ),
       );
     }
@@ -334,11 +350,13 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     final List<Track> deduplicated = [];
 
     for (final track in sorted) {
-      final isDup = deduplicated.any((existing) =>
+      final existingIdx = deduplicated.indexWhere((existing) =>
           TextNormalizer.isSameSongCluster(a: existing, b: track));
 
-      if (!isDup) {
+      if (existingIdx == -1) {
         deduplicated.add(track);
+      } else if (track.isLyricsMatch && !deduplicated[existingIdx].isLyricsMatch) {
+        deduplicated[existingIdx] = deduplicated[existingIdx].copyWith(isLyricsMatch: true);
       }
 
       if (deduplicated.length >= limit) break;
