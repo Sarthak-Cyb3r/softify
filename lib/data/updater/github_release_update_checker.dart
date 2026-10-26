@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/ports/i_update_checker.dart';
 
@@ -41,12 +42,12 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
         'https://api.github.com/repos/$repoOwner/$repoName/releases?per_page=5',
       );
       final request =
-          await _client.getUrl(uri).timeout(const Duration(seconds: 5));
+          await _client.getUrl(uri).timeout(const Duration(seconds: 10));
       request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
       request.headers.set('Accept', 'application/vnd.github.v3+json');
 
       final response =
-          await request.close().timeout(const Duration(seconds: 5));
+          await request.close().timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) {
         return null;
       }
@@ -83,6 +84,16 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
           },
           orElse: () => null,
         );
+
+        if (apkAsset == null && !Platform.isAndroid) {
+          apkAsset = assets.firstWhere(
+            (a) {
+              final name = (a['name'] as String? ?? '').toLowerCase();
+              return name.endsWith('.tar.gz') || name.endsWith('.zip');
+            },
+            orElse: () => null,
+          );
+        }
 
         if (apkAsset == null) continue;
 
@@ -179,12 +190,22 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
     _downloadedFilePath = targetFile.path;
     _lastReleaseTagName = release.tagName;
 
-    // Launch Android package installer
+    // Launch Android package installer (or open release URL on desktop)
     if (!Platform.isAndroid) {
-      throw const UpdateInstallException(
-        UpdateInstallError.installFailed,
-        'Automatic installation is only supported on Android.',
-      );
+      try {
+        await launchUrl(
+          Uri.parse(release.apkDownloadUrl.isNotEmpty
+              ? release.apkDownloadUrl
+              : 'https://github.com/Sarthak-Cyb3r/softify/releases/latest'),
+          mode: LaunchMode.externalApplication,
+        );
+        return;
+      } catch (_) {
+        throw const UpdateInstallException(
+          UpdateInstallError.installFailed,
+          'Automatic installation is only supported on Android. Please install via GitHub releases.',
+        );
+      }
     }
 
     // Refuse early when the APK cannot legally replace the installed app:

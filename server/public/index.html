@@ -1145,7 +1145,7 @@
           <div class="form-row">
             <div class="form-group flex-1">
               <label>Notice Heading / Title</label>
-              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.2 Update Available" oninput="updateNoticePreview()">
+              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.3 Update Available" oninput="updateNoticePreview()">
             </div>
             <div class="form-group" style="width: 200px;">
               <label>Notice Type</label>
@@ -1178,7 +1178,7 @@
               <span class="mock-badge" id="mockTypeBadge">ADMINISTRATOR NOTICE</span>
               <span class="mock-close">✕</span>
             </div>
-            <div class="mock-title" id="mockTitle">Softify v3.0.2 Update Available</div>
+            <div class="mock-title" id="mockTitle">Softify v3.0.3 Update Available</div>
             <div class="mock-msg" id="mockMessage">Native lyrics search is now live! Type any lyric phrase to instantly find songs.</div>
             <button class="mock-btn">Acknowledge & Continue</button>
           </div>
@@ -1455,7 +1455,7 @@
     }
 
     function updateNoticePreview() {
-      const title = document.getElementById('noticeTitleInput').value.trim() || 'Softify v3.0.2 Update Available';
+      const title = document.getElementById('noticeTitleInput').value.trim() || 'Softify v3.0.3 Update Available';
       const msg = document.getElementById('noticeMessageInput').value.trim() || 'Native lyrics search is now live! Type any lyric phrase to instantly find songs.';
       const type = document.getElementById('noticeTypeSelect').value;
 
@@ -1630,7 +1630,7 @@
               <span style="font-family: var(--mono); font-size: 12px; color: #cbd5e1;">${escapeHtml(d.ipAddress || '127.0.0.1')}</span>
             </td>
             <td>
-              <span class="version-tag">v${escapeHtml(d.appVersion || '3.0.2')}</span>
+              <span class="version-tag">v${escapeHtml(d.appVersion || '3.0.3')}</span>
             </td>
             <td>
               <div style="display: flex; flex-direction: column; gap: 4px;">

@@ -368,12 +368,16 @@ void main() {
       expect(GitHubReleaseUpdateChecker.isNewerVersion('2.9.9', '2.9.9'), isFalse);
       expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.8', '2.9.9'), isFalse);
       expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.7', '2.9.9'), isFalse);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v3.0.2', '3.0.2'), isFalse);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v3.0.3', '3.0.3'), isFalse);
     });
 
     test('reports update available when remote is strictly newer', () {
       expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.10.0', '2.9.9'), isTrue);
       expect(GitHubReleaseUpdateChecker.isNewerVersion('v2.9.10', '2.9.9'), isTrue);
       expect(GitHubReleaseUpdateChecker.isNewerVersion('v3.0.0', '2.9.9'), isTrue);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v3.0.3', '3.0.2'), isTrue);
+      expect(GitHubReleaseUpdateChecker.isNewerVersion('v3.0.3', '3.0.2+230'), isTrue);
     });
   });
 }

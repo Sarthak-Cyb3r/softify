@@ -189,7 +189,7 @@ class Store {
         platform: info.platform || 'unknown',
         osVersion: info.osVersion || '',
         deviceModel: cleanModel,
-        appVersion: info.appVersion || '3.0.2',
+        appVersion: info.appVersion || '3.0.3',
         ipAddress: clientIp,
         status: initialStatus, // 'allowed' | 'blocked' | 'pending'
         blockReason: initialStatus === 'pending' ? 'Device pending administrator approval' : '',
