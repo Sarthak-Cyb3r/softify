@@ -48,12 +48,26 @@ class SearchState {
     final merged = List<Track>.from(localResults);
 
     for (final netTrack in networkResults) {
-      if (seenIds.contains(netTrack.id)) continue;
-      final isDup = merged.any(
+      if (seenIds.contains(netTrack.id)) {
+        final localIdx = merged.indexWhere((t) => t.id == netTrack.id);
+        if (localIdx != -1 && netTrack.isLyricsMatch && !merged[localIdx].isLyricsMatch) {
+          merged[localIdx] = merged[localIdx].copyWith(
+            isLyricsMatch: true,
+            matchedLyricSnippet: netTrack.matchedLyricSnippet ?? merged[localIdx].matchedLyricSnippet,
+          );
+        }
+        continue;
+      }
+      final existingIdx = merged.indexWhere(
         (locTrack) => TextNormalizer.isSameSongCluster(a: locTrack, b: netTrack),
       );
-      if (!isDup) {
+      if (existingIdx == -1) {
         merged.add(netTrack);
+      } else if (netTrack.isLyricsMatch && !merged[existingIdx].isLyricsMatch) {
+        merged[existingIdx] = merged[existingIdx].copyWith(
+          isLyricsMatch: true,
+          matchedLyricSnippet: netTrack.matchedLyricSnippet ?? merged[existingIdx].matchedLyricSnippet,
+        );
       }
     }
     return merged;

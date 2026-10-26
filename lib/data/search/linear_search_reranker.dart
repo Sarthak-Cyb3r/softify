@@ -132,10 +132,18 @@ class LinearSearchReranker implements ISearchReranker {
     // keep the canonical original / most popular track on top and clean redundant clones.
     final List<SearchCandidate> deduped = [];
     for (final candidate in sorted) {
-      final isDup = deduped.any((existing) =>
+      final existingIdx = deduped.indexWhere((existing) =>
           TextNormalizer.isSameSongCluster(a: existing.track, b: candidate.track));
-      if (!isDup) {
+      if (existingIdx == -1) {
         deduped.add(candidate);
+      } else if (candidate.track.isLyricsMatch && !deduped[existingIdx].track.isLyricsMatch) {
+        deduped[existingIdx] = deduped[existingIdx].copyWith(
+          track: deduped[existingIdx].track.copyWith(
+            isLyricsMatch: true,
+            matchedLyricSnippet: candidate.track.matchedLyricSnippet ??
+                deduped[existingIdx].track.matchedLyricSnippet,
+          ),
+        );
       }
     }
 
