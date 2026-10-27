@@ -240,6 +240,15 @@ function resolveExactDeviceModel(info = {}) {
   if (searchStr.includes('A142')) return { commercialName: 'Nothing Phone (2a)', modelCode: 'A142', brand: 'Nothing' };
 
   // 8. Motorola Models
+  if (searchStr.includes('XT2363') || (searchStr.includes('MOTO') && searchStr.includes('G34'))) {
+    return { commercialName: 'Moto G34 5G', modelCode: 'XT2363', brand: 'Motorola' };
+  }
+  if (searchStr.includes('XT2347') || (searchStr.includes('MOTO') && searchStr.includes('G54'))) {
+    return { commercialName: 'Moto G54 5G', modelCode: 'XT2347', brand: 'Motorola' };
+  }
+  if (searchStr.includes('XT2431') || (searchStr.includes('MOTO') && searchStr.includes('G64'))) {
+    return { commercialName: 'Moto G64 5G', modelCode: 'XT2431', brand: 'Motorola' };
+  }
   if (searchStr.includes('XT2401')) return { commercialName: 'Motorola Edge 50 Ultra', modelCode: 'XT2401', brand: 'Motorola' };
   if (searchStr.includes('XT2403')) return { commercialName: 'Motorola Edge 50 Pro', modelCode: 'XT2403', brand: 'Motorola' };
   if (searchStr.includes('XT2407')) return { commercialName: 'Motorola Edge 50 Fusion', modelCode: 'XT2407', brand: 'Motorola' };
@@ -505,6 +514,8 @@ class Store {
         const remote = finalDevices[id];
         if (!remote) {
           finalDevices[id] = d;
+        } else if (targetDevice && targetDevice.id === id) {
+          finalDevices[id] = { ...remote, ...d };
         } else {
           const rTime = new Date(remote.lastSeen || 0).getTime();
           const lTime = new Date(d.lastSeen || 0).getTime();
@@ -685,6 +696,15 @@ class Store {
     if (updates.customAlias !== undefined) {
       device.customAlias = updates.customAlias;
       this.logEvent('ALIAS_UPDATED', device.deviceModel, `Alias renamed to '${updates.customAlias}'`, 'info');
+    }
+    if (updates.ipAddress !== undefined) {
+      device.ipAddress = updates.ipAddress;
+    }
+    if (updates.lastSeen !== undefined) {
+      device.lastSeen = updates.lastSeen;
+    }
+    if (updates.pingCount !== undefined) {
+      device.pingCount = updates.pingCount;
     }
 
     return device;
@@ -1011,8 +1031,8 @@ app.post('/api/admin/devices/:id/toggle', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/devices/:id/update', requireAdmin, async (req, res) => {
-  const { status, blockReason, customAlias } = req.body || {};
-  const updated = store.updateDevice(req.params.id, { status, blockReason, customAlias });
+  const { status, blockReason, customAlias, ipAddress, lastSeen, pingCount } = req.body || {};
+  const updated = store.updateDevice(req.params.id, { status, blockReason, customAlias, ipAddress, lastSeen, pingCount });
   if (!updated) {
     return res.status(404).json({ error: 'Device not found' });
   }
