@@ -41,8 +41,8 @@ class _DummyHandler extends Fake implements SoftifyAudioHandler {
 
 void main() {
   group('Desktop Performance Optimizations Tests', () {
-    test('kAppVersion is bumped to 3.0.3', () {
-      expect(kAppVersion, equals('3.0.3'));
+    test('kAppVersion is bumped to 3.0.4', () {
+      expect(kAppVersion, equals('3.0.4'));
     });
 
     test('isLowEndDeviceProvider detects desktop platforms for shader efficiency', () {

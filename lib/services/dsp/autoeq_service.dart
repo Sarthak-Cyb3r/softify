@@ -294,7 +294,7 @@ class AutoEqService {
         Uri.parse(gitTreeApiUrl),
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Softify/3.0.3 AutoEq-Indexer',
+          'User-Agent': 'Softify/3.0.4 AutoEq-Indexer',
         },
       ).timeout(const Duration(seconds: 15));
 
@@ -443,7 +443,7 @@ class AutoEqService {
     // 3. Download from raw GitHub URL
     final response = await _httpClient.get(
       Uri.parse(entry.rawUrl),
-      headers: {'User-Agent': 'Softify/3.0.3 AutoEq-Downloader'},
+      headers: {'User-Agent': 'Softify/3.0.4 AutoEq-Downloader'},
     ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
