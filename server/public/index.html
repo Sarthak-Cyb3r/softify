@@ -22,6 +22,7 @@
       --danger: #ef4444;
       --danger-glow: rgba(239, 68, 68, 0.2);
       --warning: #f59e0b;
+      --info: #3b82f6;
       --radius: 12px;
       --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'JetBrains Mono', monospace;
@@ -44,9 +45,8 @@
       line-height: 1.5;
     }
 
-    /* Top Navigation */
     header {
-      background: rgba(18, 18, 23, 0.8);
+      background: rgba(18, 18, 23, 0.85);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
@@ -57,6 +57,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     .brand {
@@ -66,8 +68,8 @@
     }
 
     .brand-logo {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       background: linear-gradient(135deg, #2EE66B 0%, #15803d 100%);
       border-radius: 10px;
       display: flex;
@@ -95,7 +97,8 @@
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
     .btn {
@@ -135,6 +138,15 @@
       transform: translateY(-1px);
     }
 
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
     .live-indicator {
       display: flex;
       align-items: center;
@@ -143,32 +155,31 @@
       font-weight: 600;
       color: var(--accent);
       background: rgba(46, 230, 107, 0.1);
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 20px;
-      border: 1px solid rgba(46, 230, 107, 0.2);
+      border: 1px solid rgba(46, 230, 107, 0.25);
     }
 
     .pulse-dot {
-      width: 7px;
-      height: 7px;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
       border-radius: 50%;
-      background-color: var(--accent);
-      animation: pulse 2s infinite;
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 1.8s infinite;
     }
 
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(46, 230, 107, 0.6); }
-      70% { box-shadow: 0 0 0 8px rgba(46, 230, 107, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(46, 230, 107, 0); }
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 230, 107, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(46, 230, 107, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 230, 107, 0); }
     }
 
-    /* Main Container */
     main {
-      flex: 1;
-      max-width: 1400px;
+      max-width: 1380px;
       width: 100%;
       margin: 0 auto;
-      padding: 28px 24px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -177,7 +188,7 @@
     /* Metrics Grid */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
     }
 
@@ -185,69 +196,128 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
       position: relative;
       overflow: hidden;
-      transition: border-color 0.2s ease;
     }
 
-    .metric-card:hover {
-      border-color: rgba(255, 255, 255, 0.15);
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--border);
     }
+
+    .metric-card.online::before { background: var(--accent); }
+    .metric-card.active-today::before { background: var(--warning); }
+    .metric-card.offline::before { background: #64748b; }
+    .metric-card.blocked::before { background: var(--danger); }
+    .metric-card.version::before { background: var(--info); }
 
     .metric-label {
       font-size: 12px;
       font-weight: 600;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 8px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
     }
 
     .metric-value {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--mono);
       letter-spacing: -1px;
     }
 
     .metric-sub {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
-      margin-top: 4px;
     }
 
-    .metric-card.allowed .metric-value { color: var(--accent); }
-    .metric-card.blocked .metric-value { color: var(--danger); }
-    .metric-card.online .metric-value { color: #60a5fa; }
-
-    /* Controls & Filter Toolbar */
-    .toolbar {
+    /* Notice & Broadcast Center */
+    .notice-panel {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px 20px;
+      padding: 20px 24px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      align-items: center;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .notice-header {
+      display: flex;
       justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
     }
 
-    .search-box {
-      flex: 1;
-      min-width: 260px;
-      position: relative;
+    .notice-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
-    .search-box input {
-      width: 100%;
+    .notice-icon {
+      font-size: 24px;
+      background: rgba(46, 230, 107, 0.12);
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(46, 230, 107, 0.25);
+    }
+
+    .notice-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .notice-header p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .notice-body {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .notice-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .flex-1 { flex: 1; }
+
+    .modal-input {
       background: var(--surface-elevated);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px 14px 10px 38px;
+      padding: 10px 14px;
       color: var(--text-main);
       font-family: var(--font);
       font-size: 13px;
@@ -255,31 +325,148 @@
       transition: all 0.2s;
     }
 
-    .search-box input:focus {
+    .modal-input:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-glow);
+      box-shadow: 0 0 10px var(--accent-glow);
     }
 
-    .search-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
+    /* In-App Device Preview */
+    .notice-preview-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .preview-label {
+      font-size: 11px;
+      font-weight: 700;
       color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mock-device-banner {
+      background: #141915;
+      border: 1px solid rgba(46, 230, 107, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+
+    .mock-device-banner.warning {
+      background: #1d1414;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .mock-device-banner.info {
+      background: #131922;
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+
+    .mock-banner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mock-badge {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 0.8px;
+    }
+
+    .mock-title {
       font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .mock-msg {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    .mock-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: default;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+
+    /* Active Notices Strip */
+    .active-notices-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+
+    .notice-item-card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      width: 340px;
+      max-width: 100%;
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-family: var(--font);
+      font-size: 13px;
+      margin-left: 8px;
+      outline: none;
+      width: 100%;
     }
 
     .filter-group {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
     }
 
     .filter-chip {
-      background: var(--surface-elevated);
+      background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 600;
@@ -287,19 +474,19 @@
       transition: all 0.2s;
     }
 
-    .filter-chip.active, .filter-chip:hover {
-      background: var(--surface-hover);
+    .filter-chip:hover, .filter-chip.active {
+      background: var(--surface-elevated);
       color: var(--text-main);
       border-color: rgba(255, 255, 255, 0.2);
     }
 
     .filter-chip.active {
       background: rgba(46, 230, 107, 0.12);
-      border-color: var(--accent);
       color: var(--accent);
+      border-color: rgba(46, 230, 107, 0.4);
     }
 
-    /* Devices Table */
+    /* Table */
     .table-container {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -314,118 +501,127 @@
       font-size: 13px;
     }
 
-    thead {
-      background: var(--surface-elevated);
-      border-bottom: 1px solid var(--border);
-    }
-
     th {
-      padding: 14px 18px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--text-muted);
-    }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      transition: background-color 0.15s;
-    }
-
-    tbody tr:last-child {
-      border-bottom: none;
-    }
-
-    tbody tr:hover {
       background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
     }
 
     td {
-      padding: 16px 18px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
       vertical-align: middle;
     }
 
-    .device-id-cell {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    tr:last-child td {
+      border-bottom: none;
     }
 
-    .id-tag {
-      font-family: var(--mono);
-      font-size: 12px;
-      background: var(--surface-elevated);
-      padding: 3px 8px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      color: #93c5fd;
-    }
-
-    .copy-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 12px;
-      padding: 2px 4px;
-      border-radius: 4px;
-    }
-
-    .copy-btn:hover {
-      color: var(--text-main);
-      background: var(--surface-hover);
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
     }
 
     .platform-badge {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
-      border-radius: 6px;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .id-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: var(--surface-elevated);
+      padding: 3px 6px;
+      border-radius: 4px;
+      color: #94a3b8;
+    }
+
+    .version-tag {
+      font-family: var(--mono);
       font-size: 11px;
       font-weight: 600;
-      text-transform: capitalize;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
+      background: rgba(46, 230, 107, 0.1);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(46, 230, 107, 0.2);
+    }
+
+    .version-tag.outdated {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--warning);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .activity-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .activity-pill.online {
+      background: rgba(46, 230, 107, 0.15);
+      color: var(--accent);
+    }
+
+    .activity-pill.recent {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .activity-pill.offline {
+      background: rgba(148, 163, 184, 0.12);
+      color: #94a3b8;
+    }
+
+    .activity-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
     }
 
     .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
     }
 
     .status-badge.allowed {
       background: rgba(46, 230, 107, 0.12);
       color: var(--accent);
-      border: 1px solid rgba(46, 230, 107, 0.3);
     }
 
     .status-badge.blocked {
       background: rgba(239, 68, 68, 0.12);
       color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
     .status-badge.pending {
       background: rgba(245, 158, 11, 0.12);
       color: var(--warning);
-      border: 1px solid rgba(245, 158, 11, 0.3);
     }
 
-    /* Switch Component */
+    /* Switch */
     .switch {
       position: relative;
       display: inline-block;
-      width: 44px;
-      height: 24px;
+      width: 38px;
+      height: 20px;
     }
 
     .switch input {
@@ -437,302 +633,76 @@
     .slider {
       position: absolute;
       cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: var(--danger);
-      transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
-      border-radius: 24px;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--surface-hover);
+      border: 1px solid var(--border);
+      transition: .2s;
+      border-radius: 20px;
     }
 
     .slider:before {
       position: absolute;
       content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #fff;
+      transition: .2s;
       border-radius: 50%;
     }
 
     input:checked + .slider {
       background-color: var(--accent);
+      border-color: var(--accent);
     }
 
     input:checked + .slider:before {
-      transform: translateX(20px);
+      transform: translateX(18px);
+      background-color: #000;
     }
 
     .action-btns {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .btn-icon {
-      width: 32px;
-      height: 32px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 30px;
+      height: 30px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s;
+      font-size: 13px;
+      transition: all 0.15s;
     }
 
     .btn-icon:hover {
       background: var(--surface-hover);
-      color: var(--text-main);
       border-color: rgba(255, 255, 255, 0.2);
     }
 
     .btn-icon.delete:hover {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
+      background: var(--danger);
       border-color: var(--danger);
     }
 
-    /* Notice Center */
-    .notice-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 24px;
-      position: relative;
-      overflow: hidden;
-    }
-    .notice-panel::before {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, #2EE66B, #3b82f6);
-    }
-    .notice-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .notice-title-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .notice-icon {
-      font-size: 24px;
-      background: rgba(46, 230, 107, 0.12);
-      width: 44px;
-      height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 10px;
-      border: 1px solid rgba(46, 230, 107, 0.25);
-    }
-    .notice-title-wrap h3 {
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
-    }
-    .notice-title-wrap p {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .active-notice-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      background: rgba(46, 230, 107, 0.1);
-      border: 1px solid rgba(46, 230, 107, 0.3);
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--accent);
-    }
-    .active-notice-pill.hidden {
-      display: none;
-    }
-    .btn-clear-notice {
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #f87171;
-      border-radius: 12px;
-      padding: 2px 8px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn-clear-notice:hover {
-      background: var(--danger);
-      color: #fff;
-    }
-    .notice-body {
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: 24px;
-    }
-    @media (max-width: 960px) {
-      .notice-body {
-        grid-template-columns: 1fr;
-      }
-    }
-    .notice-form {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .form-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .flex-1 { flex: 1; min-width: 200px; }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .form-group label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .notice-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 4px;
-    }
-    .notice-preview-wrap {
-      background: #0d0d12;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    .preview-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 12px;
-    }
-    .mock-device-banner {
-      background: #16161E;
-      border: 1.2px solid rgba(46, 230, 107, 0.35);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    }
-    .mock-banner-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .mock-badge {
-      font-size: 10px;
-      font-weight: 800;
-      color: #2EE66B;
-      letter-spacing: 0.8px;
-    }
-    .mock-close {
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 12px;
-      cursor: default;
-    }
-    .mock-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 4px;
-    }
-    .mock-msg {
-      font-size: 12.5px;
-      color: #cbd5e1;
-      line-height: 1.45;
-      margin-bottom: 12px;
-    }
-    .mock-btn {
-      width: 100%;
-      background: #2EE66B;
-      color: #000;
-      font-weight: 700;
-      font-size: 12px;
-      padding: 8px;
-      border-radius: 8px;
-      border: none;
-      cursor: default;
-    }
-    .activity-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    .activity-pill.online {
-      background: rgba(46, 230, 107, 0.15);
-      color: #2EE66B;
-      border: 1px solid rgba(46, 230, 107, 0.3);
-    }
-    .activity-pill.recent {
-      background: rgba(59, 130, 246, 0.15);
-      color: #60a5fa;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-    }
-    .activity-pill.installed {
-      background: rgba(148, 163, 184, 0.1);
-      color: #94a3b8;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-    }
-    .activity-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #2EE66B;
-      box-shadow: 0 0 8px #2EE66B;
-      animation: pulse 1.8s infinite;
-    }
-    .version-tag {
-      font-family: var(--mono);
-      font-size: 11.5px;
-      font-weight: 700;
-      padding: 3px 8px;
-      background: rgba(147, 197, 253, 0.12);
-      border: 1px solid rgba(147, 197, 253, 0.3);
-      color: #93c5fd;
-      border-radius: 6px;
-    }
-
-    /* Modal */
+    /* Modals */
     .modal-backdrop {
       position: fixed;
-      inset: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(8px);
-      z-index: 100;
+      -webkit-backdrop-filter: blur(8px);
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      z-index: 100;
+      padding: 16px;
     }
 
     .modal-backdrop.show {
@@ -743,84 +713,76 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      max-width: 480px;
       width: 100%;
+      max-width: 620px;
+      max-height: 90vh;
+      overflow-y: auto;
       padding: 24px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
       display: flex;
       flex-direction: column;
       gap: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-      animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes modalIn {
-      from { transform: scale(0.95); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-
-    .modal-box h2 {
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    .modal-box p {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .modal-input {
-      width: 100%;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      color: var(--text-main);
-      font-family: var(--font);
-      font-size: 13px;
-      outline: none;
-    }
-
-    .modal-input:focus {
-      border-color: var(--accent);
     }
 
     .modal-footer {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      margin-top: 8px;
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
     }
 
-    /* Empty State */
-    .empty-state {
-      padding: 60px 20px;
+    /* Login Screen */
+    .login-container {
+      margin: auto;
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
       text-align: center;
-      color: var(--text-muted);
     }
 
-    .empty-icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-      opacity: 0.5;
+    .login-logo {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #2EE66B 0%, #15803d 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: #000;
+      box-shadow: 0 0 30px var(--accent-glow);
     }
 
-    /* Toast Notification */
+    .view-hidden { display: none !important; }
+
+    /* Toast */
     .toast {
       position: fixed;
       bottom: 24px;
       right: 24px;
       background: var(--surface-elevated);
-      color: var(--text-main);
+      color: #fff;
       border: 1px solid var(--border);
-      padding: 12px 20px;
-      border-radius: 10px;
+      padding: 12px 18px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-      z-index: 200;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
       opacity: 0;
       transform: translateY(10px);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.25s;
+      z-index: 200;
       pointer-events: none;
     }
 
@@ -828,225 +790,23 @@
       opacity: 1;
       transform: translateY(0);
     }
-
-    /* Admin Login Screen */
-    .login-wrapper {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: radial-gradient(circle at 50% 30%, rgba(46, 230, 107, 0.08) 0%, rgba(9, 9, 12, 1) 75%);
-    }
-
-    .login-card {
-      width: 100%;
-      max-width: 400px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 36px 30px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(46, 230, 107, 0.06);
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.2s ease;
-    }
-
-    .login-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    }
-
-    .login-card.shake {
-      animation: shakeCard 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-    }
-
-    @keyframes shakeCard {
-      10%, 90% { transform: translate3d(-3px, 0, 0); }
-      20%, 80% { transform: translate3d(5px, 0, 0); }
-      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
-      40%, 60% { transform: translate3d(6px, 0, 0); }
-    }
-
-    .login-logo {
-      width: 52px;
-      height: 52px;
-      background: linear-gradient(135deg, #2EE66B 0%, #15803d 100%);
-      border-radius: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 26px;
-      font-weight: 800;
-      color: #000;
-      box-shadow: 0 0 25px var(--accent-glow);
-      margin-bottom: 18px;
-    }
-
-    .login-title {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.4px;
-      margin-bottom: 6px;
-    }
-
-    .login-subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 24px;
-      line-height: 1.4;
-    }
-
-    .login-form {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      text-align: left;
-    }
-
-    .login-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .login-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-
-    .login-input-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .login-input {
-      width: 100%;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 42px 12px 14px;
-      color: var(--text-main);
-      font-family: var(--font);
-      font-size: 14px;
-      outline: none;
-      transition: all 0.2s ease;
-    }
-
-    .login-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-
-    .login-eye-btn {
-      position: absolute;
-      right: 12px;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      padding: 4px;
-    }
-
-    .login-eye-btn:hover {
-      color: var(--text-main);
-    }
-
-    .login-error {
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #fca5a5;
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 500;
-      display: none;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .login-error.show {
-      display: flex;
-    }
-
-    .login-btn {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      border-radius: 10px;
-      padding: 12px;
-      font-family: var(--font);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .login-btn:hover {
-      filter: brightness(1.1);
-      box-shadow: 0 0 20px var(--accent-glow);
-    }
-
-    .view-hidden {
-      display: none !important;
-    }
   </style>
 </head>
 <body>
 
-  <!-- Dedicated Admin Login View -->
-  <div id="loginView" class="login-wrapper">
-    <div class="login-card" id="loginCard">
-      <div class="login-logo">S</div>
-      <h1 class="login-title">Softify Fleet Commander</h1>
-      <p class="login-subtitle">Administrator Authentication Required<br>Manage remote killswitch & fleet devices</p>
-
-      <form class="login-form" onsubmit="handleLogin(event)">
-        <div class="login-field">
-          <label class="login-label" for="loginPassInput">Admin Passcode</label>
-          <div class="login-input-wrap">
-            <input 
-              type="password" 
-              id="loginPassInput" 
-              class="login-input" 
-              placeholder="Enter passcode (e.g. 2010)" 
-              autocomplete="current-password"
-              autofocus
-            />
-            <button type="button" class="login-eye-btn" onclick="togglePasswordVisibility()" title="Show/Hide">
-              <span id="eyeIcon">👁</span>
-            </button>
-          </div>
-        </div>
-
-        <div id="loginError" class="login-error">
-          <span>⚠️</span>
-          <span id="loginErrorText">Invalid admin passcode</span>
-        </div>
-
-        <button type="submit" class="login-btn" id="loginSubmitBtn">
-          <span>Unlock Dashboard →</span>
-        </button>
-      </form>
+  <!-- Login View -->
+  <div id="loginView" class="login-container">
+    <div class="login-logo">S</div>
+    <div>
+      <h2 style="font-size: 20px; font-weight: 700;">Softify Command Center</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Enter administrator passcode to access live fleet telemetry and controls.</p>
     </div>
+
+    <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 12px;">
+      <input type="password" id="passcodeInput" class="modal-input" placeholder="Admin Passcode" required autofocus style="text-align: center; letter-spacing: 2px;">
+      <button type="submit" class="btn btn-primary" style="justify-content: center;">Authenticate</button>
+    </form>
+    <div id="loginError" style="font-size: 12px; color: var(--danger); display: none;"></div>
   </div>
 
   <!-- Dashboard App View (Protected) -->
@@ -1057,23 +817,23 @@
       <div class="brand">
         <div class="brand-logo">S</div>
         <div class="brand-title">
-          <h1>Softify Fleet Commander</h1>
-          <p>Live Device Access & Killswitch Controller</p>
+          <h1>Softify Fleet Command Center</h1>
+          <p>Global Device Access • Notice Dispatcher • Remote Configuration</p>
         </div>
       </div>
 
       <div class="header-actions">
-        <div class="live-indicator">
+        <div class="live-indicator" id="liveSyncStatus">
           <div class="pulse-dot"></div>
-          <span>Live Pings Active</span>
+          <span id="syncStatusText">Cloud Gist Live Sync</span>
         </div>
 
-        <button class="btn btn-secondary" id="refreshBtn" onclick="fetchDevices()">
-          <span>↻ Refresh</span>
+        <button class="btn btn-secondary" onclick="forceCloudSync()">
+          <span>↻ Force Cloud Sync</span>
         </button>
 
-        <button class="btn btn-secondary" onclick="openPolicyModal()">
-          <span>⚙ Settings</span>
+        <button class="btn btn-secondary" onclick="openConfigModal()">
+          <span>⚙ System Configuration</span>
         </button>
 
         <button class="btn btn-secondary" onclick="signOut()">
@@ -1082,194 +842,299 @@
       </div>
     </header>
 
-  <!-- Main Content -->
-  <main>
-    <!-- Metrics Grid -->
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-label">
-          <span>Total Registered</span>
-          <span>📱</span>
+    <!-- Main Content -->
+    <main>
+      <!-- Metrics Grid -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">
+            <span>Total Registered</span>
+            <span>📱</span>
+          </div>
+          <div class="metric-value" id="statTotal">0</div>
+          <div class="metric-sub">Durable fleet • Never pruned</div>
         </div>
-        <div class="metric-value" id="statTotal">0</div>
-        <div class="metric-sub">Unique device installations</div>
+
+        <div class="metric-card online">
+          <div class="metric-label">
+            <span>Online Now</span>
+            <span>⚡</span>
+          </div>
+          <div class="metric-value" id="statOnline">0</div>
+          <div class="metric-sub">Heartbeat in last 5 minutes</div>
+        </div>
+
+        <div class="metric-card active-today">
+          <div class="metric-label">
+            <span>Active Today</span>
+            <span>🕒</span>
+          </div>
+          <div class="metric-value" id="statActiveToday">0</div>
+          <div class="metric-sub">Seen within last 24 hours</div>
+        </div>
+
+        <div class="metric-card offline">
+          <div class="metric-label">
+            <span>Offline / Installed</span>
+            <span>💤</span>
+          </div>
+          <div class="metric-value" id="statOffline">0</div>
+          <div class="metric-sub">Queued for next launch</div>
+        </div>
+
+        <div class="metric-card blocked">
+          <div class="metric-label">
+            <span>Suspended</span>
+            <span>🛑</span>
+          </div>
+          <div class="metric-value" id="statBlocked">0</div>
+          <div class="metric-sub">Access revoked by admin</div>
+        </div>
+
+        <div class="metric-card version">
+          <div class="metric-label">
+            <span>Latest Release</span>
+            <span>🚀</span>
+          </div>
+          <div class="metric-value" id="statVersion">v3.0.3</div>
+          <div class="metric-sub" id="statVersionSub">Active target channel</div>
+        </div>
       </div>
 
-      <div class="metric-card online">
-        <div class="metric-label">
-          <span>Active / Online</span>
-          <span>⚡</span>
-        </div>
-        <div class="metric-value" id="statOnline">0</div>
-        <div class="metric-sub">Heartbeat in last 5 minutes</div>
-      </div>
-
-      <div class="metric-card allowed">
-        <div class="metric-label">
-          <span>Allowed Devices</span>
-          <span>✓</span>
-        </div>
-        <div class="metric-value" id="statAllowed">0</div>
-        <div class="metric-sub">Full playback & streaming access</div>
-      </div>
-
-      <div class="metric-card blocked">
-        <div class="metric-label">
-          <span>Suspended / Blocked</span>
-          <span>✕</span>
-        </div>
-        <div class="metric-value" id="statBlocked">0</div>
-        <div class="metric-sub">Access restricted via killswitch</div>
-      </div>
-    </div>
-
-    <!-- Notice Broadcast Center -->
-    <div class="notice-panel" id="noticePanel">
-      <div class="notice-header">
-        <div class="notice-title-wrap">
-          <span class="notice-icon">📢</span>
-          <div>
-            <h3>In-App Notice Broadcast Center</h3>
-            <p>Send custom announcements and banners to every installed device. Users will be shown the banner first upon launch.</p>
+      <!-- In-App Notice & Push Center -->
+      <div class="notice-panel" id="noticePanel">
+        <div class="notice-header">
+          <div class="notice-title-wrap">
+            <span class="notice-icon">📢</span>
+            <div>
+              <h3>In-App Notice & Push Dispatcher</h3>
+              <p>Deliver custom banners and announcements to all devices or targeted hardware. Offline devices receive and display queued notices upon next launch.</p>
+            </div>
           </div>
         </div>
-        <div id="activeNoticePill" class="active-notice-pill hidden">
-          <span class="pulse-dot"></span>
-          <span id="activeNoticePillText">Active Notice Live</span>
-          <button class="btn-clear-notice" onclick="clearBroadcastNotice()" title="Revoke notice">✕ Clear</button>
+
+        <div class="notice-body">
+          <div class="notice-form">
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label style="font-size: 12px; font-weight: 600;">Delivery Target</label>
+                <select id="noticeTargetSelect" class="modal-input" onchange="updateNoticePreview()">
+                  <option value="all">🌐 All Devices (Broadcast to entire fleet)</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="width: 180px;">
+                <label style="font-size: 12px; font-weight: 600;">Notice Type</label>
+                <select id="noticeTypeSelect" class="modal-input" onchange="updateNoticePreview()">
+                  <option value="announcement">📢 Announcement</option>
+                  <option value="info">ℹ️ Information</option>
+                  <option value="warning">⚠️ Important Alert</option>
+                  <option value="critical">🚨 Critical Warning</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label style="font-size: 12px; font-weight: 600;">Notice Heading / Title</label>
+              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.3 Update Available" oninput="updateNoticePreview()">
+            </div>
+
+            <div class="form-group">
+              <label style="font-size: 12px; font-weight: 600;">Notice Body Message</label>
+              <textarea id="noticeMessageInput" class="modal-input" rows="2" placeholder="e.g. Native lyrics search and Linux MPRIS 2 controls are now live! Enjoy enhanced streaming." oninput="updateNoticePreview()"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+              <button class="btn btn-primary" onclick="sendBroadcastNotice()">
+                <span>🚀 Dispatch Notice</span>
+              </button>
+              <button class="btn btn-secondary" onclick="clearNoticeInputs()">
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live In-App Preview -->
+          <div class="notice-preview-wrap">
+            <div class="preview-label">Live In-App Mobile/Desktop Screen Preview</div>
+            <div class="mock-device-banner" id="mockBanner">
+              <div class="mock-banner-header">
+                <span class="mock-badge" id="mockTypeBadge">📢 ADMINISTRATOR ANNOUNCEMENT</span>
+                <span style="font-size: 12px; color: #8e8e9b;">✕</span>
+              </div>
+              <div class="mock-title" id="mockTitle">Softify v3.0.3 Update Available</div>
+              <div class="mock-msg" id="mockMessage">Native lyrics search and Linux MPRIS 2 controls are now live! Enjoy enhanced streaming.</div>
+              <button class="mock-btn" id="mockBtn">Acknowledge & Continue</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Notices List -->
+        <div class="active-notices-container" id="activeNoticesContainer">
+          <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Queued Notices</div>
+          <div id="activeNoticesList" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 12px; color: var(--text-muted);">No active notices deployed.</div>
+          </div>
         </div>
       </div>
 
-      <div class="notice-body">
-        <div class="notice-form">
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label>Notice Heading / Title</label>
-              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.3 Update Available" oninput="updateNoticePreview()">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" id="searchInput" placeholder="Search by model, alias, IP, ID, OS..." oninput="filterDevices()">
+        </div>
+
+        <div class="filter-group">
+          <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">All (<span id="filterCountAll">0</span>)</button>
+          <button class="filter-chip" data-filter="online" onclick="setFilter('online')">🟢 Online (<span id="filterCountOnline">0</span>)</button>
+          <button class="filter-chip" data-filter="active-today" onclick="setFilter('active-today')">🟡 Active Today (<span id="filterCountActive">0</span>)</button>
+          <button class="filter-chip" data-filter="offline" onclick="setFilter('offline')">⚪ Offline (<span id="filterCountOffline">0</span>)</button>
+          <button class="filter-chip" data-filter="blocked" onclick="setFilter('blocked')">🛑 Blocked (<span id="filterCountBlocked">0</span>)</button>
+          <button class="filter-chip" data-filter="android" onclick="setFilter('android')">Android (<span id="filterCountAndroid">0</span>)</button>
+          <button class="filter-chip" data-filter="linux" onclick="setFilter('linux')">Linux (<span id="filterCountLinux">0</span>)</button>
+        </div>
+      </div>
+
+      <!-- Fleet Table -->
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Device & Hardware Model</th>
+              <th>Platform / OS</th>
+              <th>Device UUID</th>
+              <th>Client IP</th>
+              <th>Version</th>
+              <th>Telemetry Activity</th>
+              <th>Access Control</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="deviceTableBody">
+            <tr>
+              <td colspan="8">
+                <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+                  Loading fleet registry...
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- Comprehensive System Configuration Modal -->
+    <div class="modal-backdrop" id="configModal">
+      <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight: 700;">System Fleet Configuration</h2>
+            <p style="font-size: 12px; color: var(--text-muted);">Manage global governance, maintenance mode, feature flags, and security.</p>
+          </div>
+          <button class="btn-icon" onclick="closeConfigModal()">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <!-- 1. Access Governance -->
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Default Access Policy for New Devices:</label>
+            <select id="cfgDefaultPolicy" class="modal-input" style="width: 100%; margin-top: 4px;">
+              <option value="auto_allow">Auto-Allow (New devices immediately gain streaming access)</option>
+              <option value="require_approval">Require Approval (New devices held pending until unlocked by admin)</option>
+            </select>
+          </div>
+
+          <!-- 2. Maintenance Mode -->
+          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 13px; font-weight: 700; color: #fff;">Global Maintenance Mode</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Suspends playback on all clients with a maintenance banner</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgMaintenanceMode">
+                <span class="slider"></span>
+              </label>
             </div>
-            <div class="form-group" style="width: 200px;">
-              <label>Notice Type</label>
-              <select id="noticeTypeSelect" class="modal-input" onchange="updateNoticePreview()">
-                <option value="announcement">📢 Announcement</option>
-                <option value="info">ℹ️ Information</option>
-                <option value="warning">⚠️ Important Alert</option>
+            <input type="text" id="cfgMaintenanceMessage" class="modal-input" style="width: 100%; margin-top: 8px;" placeholder="Maintenance message displayed to users">
+          </div>
+
+          <!-- 3. Minimum App Version Governance -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Enforce Minimum Version:</label>
+              <input type="text" id="cfgMinAppVersion" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="e.g. 3.0.3">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Client Heartbeat Interval:</label>
+              <select id="cfgHeartbeatInterval" class="modal-input" style="width: 100%; margin-top: 4px;">
+                <option value="30">30 Seconds (Fastest Real-time)</option>
+                <option value="60" selected>60 Seconds (Recommended)</option>
+                <option value="120">120 Seconds (Battery Saver)</option>
+                <option value="300">300 Seconds (Low Power)</option>
               </select>
             </div>
           </div>
-          <div class="form-group">
-            <label>Notice Message</label>
-            <textarea id="noticeMessageInput" class="modal-input" rows="2" placeholder="e.g. Native lyrics search is now live! Type any lyric phrase to instantly find songs." oninput="updateNoticePreview()"></textarea>
-          </div>
-          <div class="notice-actions">
-            <button class="btn btn-primary" onclick="sendBroadcastNotice()">
-              <span>🚀 Broadcast Notice to All Devices</span>
-            </button>
-            <button class="btn btn-secondary" onclick="clearNoticeInputs()">
-              <span>Reset</span>
-            </button>
-          </div>
-        </div>
 
-        <!-- Live In-App Preview -->
-        <div class="notice-preview-wrap">
-          <div class="preview-label">Live In-App Mobile/Desktop Screen Preview</div>
-          <div class="mock-device-banner" id="mockBanner">
-            <div class="mock-banner-header">
-              <span class="mock-badge" id="mockTypeBadge">ADMINISTRATOR NOTICE</span>
-              <span class="mock-close">✕</span>
+          <!-- 4. Remote Feature Switches -->
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">Remote Feature Toggles:</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <label style="display: flex; align-items: center; gap: 8px; background: var(--surface-elevated); padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" id="cfgFeatLyrics" checked>
+                <span>Spotify Lyrics Search</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; background: var(--surface-elevated); padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" id="cfgFeatPiped" checked>
+                <span>Piped Stream Failovers</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; background: var(--surface-elevated); padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" id="cfgFeatDiscord" checked>
+                <span>Discord RPC Rich Presence</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; background: var(--surface-elevated); padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" id="cfgFeatHeartbeat" checked>
+                <span>Automated Heartbeat Sync</span>
+              </label>
             </div>
-            <div class="mock-title" id="mockTitle">Softify v3.0.3 Update Available</div>
-            <div class="mock-msg" id="mockMessage">Native lyrics search is now live! Type any lyric phrase to instantly find songs.</div>
-            <button class="mock-btn">Acknowledge & Continue</button>
           </div>
+
+          <!-- 5. Marquee Banner -->
+          <div>
+            <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Global Top Marquee Banner (Optional):</label>
+            <input type="text" id="cfgBroadcastBanner" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="e.g. Softify v3.0.3 is now live with Linux MPRIS support!">
+          </div>
+
+          <!-- 6. Change Admin Key -->
+          <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+            <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Change Admin Passcode (Optional):</label>
+            <input type="text" id="cfgNewAdminKey" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="Leave blank to keep current passcode">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeConfigModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveSystemConfig()">Save All Configuration</button>
         </div>
       </div>
     </div>
 
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="Filter by ID, IP, Model, OS, Alias..." oninput="filterDevices()">
-      </div>
-
-      <div class="filter-group">
-        <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</button>
-        <button class="filter-chip" data-filter="allowed" onclick="setFilter('allowed')">Allowed</button>
-        <button class="filter-chip" data-filter="blocked" onclick="setFilter('blocked')">Blocked</button>
-        <button class="filter-chip" data-filter="pending" onclick="setFilter('pending')">Pending</button>
+    <!-- Suspend Reason Modal -->
+    <div class="modal-backdrop" id="reasonModal">
+      <div class="modal-box">
+        <h2 style="font-size: 18px; font-weight: 700;">Revoke Device Access</h2>
+        <p style="font-size: 12px; color: var(--text-muted);" id="modalDeviceTitle">Set the reason why this device is being suspended.</p>
+        <input type="text" id="blockReasonInput" class="modal-input" value="Access suspended by administrator">
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeReasonModal()">Cancel</button>
+          <button class="btn btn-danger" onclick="confirmBlockDevice()">Block Device</button>
+        </div>
       </div>
     </div>
-
-    <!-- Table -->
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Device & Model</th>
-            <th>Platform / OS</th>
-            <th>Unique Device ID</th>
-            <th>Client IP</th>
-            <th>App Ver</th>
-            <th>Last Active</th>
-            <th>Access Control</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="deviceTableBody">
-          <tr>
-            <td colspan="8">
-              <div class="empty-state">
-                <div class="empty-icon">⏳</div>
-                <p>Connecting to Softify Command Center...</p>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
-
-  <!-- Edit Reason Modal -->
-  <div class="modal-backdrop" id="reasonModal">
-    <div class="modal-box">
-      <h2>Suspend Device Access</h2>
-      <p id="modalDeviceTitle">Set a custom message that will appear on this user's screen.</p>
-      <input type="text" id="blockReasonInput" class="modal-input" placeholder="e.g. Access suspended by administrator" value="Access suspended by administrator">
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeReasonModal()">Cancel</button>
-        <button class="btn btn-primary" style="background: var(--danger); color: white;" onclick="confirmBlockDevice()">Block Device</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings / Policy Modal -->
-  <div class="modal-backdrop" id="policyModal">
-    <div class="modal-box">
-      <h2>Server Fleet Policy</h2>
-      <p>Configure how new app installations are handled when they first connect.</p>
-
-      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
-        <label style="font-size: 13px; font-weight: 600;">Default Access Policy for New Devices:</label>
-        <select id="policySelect" class="modal-input">
-          <option value="auto_allow">Auto-Allow (New devices immediately work)</option>
-          <option value="require_approval">Require Approval (New devices are held pending until unlocked)</option>
-        </select>
-
-        <label style="font-size: 13px; font-weight: 600; margin-top: 8px;">Broadcast In-App Banner (Optional):</label>
-        <input type="text" id="bannerInput" class="modal-input" placeholder="e.g. Scheduled maintenance in 1 hour">
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closePolicyModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="savePolicySettings()">Save Policy</button>
-      </div>
-    </div>
-  </div>
 
   </div> <!-- Close #appView -->
 
-  <!-- Toast -->
   <div class="toast" id="toast"></div>
 
   <script>
@@ -1279,136 +1144,97 @@
     let refreshInterval = null;
 
     function getAdminKey() {
-      return localStorage.getItem('softify_admin_key') || '';
+      return sessionStorage.getItem('softify_admin_key') || localStorage.getItem('softify_admin_key') || '';
     }
 
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.innerText = msg;
       t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2600);
-    }
-
-    function togglePasswordVisibility() {
-      const inp = document.getElementById('loginPassInput');
-      const icon = document.getElementById('eyeIcon');
-      if (inp.type === 'password') {
-        inp.type = 'text';
-        icon.innerText = '🔒';
-      } else {
-        inp.type = 'password';
-        icon.innerText = '👁';
-      }
+      setTimeout(() => t.classList.remove('show'), 3200);
     }
 
     function showApp() {
       document.getElementById('loginView').classList.add('view-hidden');
       document.getElementById('appView').classList.remove('view-hidden');
       if (!refreshInterval) {
-        refreshInterval = setInterval(fetchDevices, 5000);
+        refreshInterval = setInterval(fetchDevices, 4000);
       }
     }
 
-    function showLogin(errorMsg) {
+    function showLogin(err) {
       if (refreshInterval) {
         clearInterval(refreshInterval);
         refreshInterval = null;
       }
-      document.getElementById('appView').classList.add('view-hidden');
       document.getElementById('loginView').classList.remove('view-hidden');
+      document.getElementById('appView').classList.add('view-hidden');
       const errEl = document.getElementById('loginError');
-      if (errorMsg) {
-        document.getElementById('loginErrorText').innerText = errorMsg;
-        errEl.classList.add('show');
+      if (err) {
+        errEl.innerText = err;
+        errEl.style.display = 'block';
       } else {
-        errEl.classList.remove('show');
+        errEl.style.display = 'none';
       }
-      setTimeout(() => {
-        const inp = document.getElementById('loginPassInput');
-        if (inp) inp.focus();
-      }, 100);
     }
 
     function signOut() {
+      sessionStorage.removeItem('softify_admin_key');
       localStorage.removeItem('softify_admin_key');
-      showLogin();
-      showToast('Signed out of Command Center');
+      showLogin('Signed out successfully.');
     }
 
     async function handleLogin(e) {
-      if (e) e.preventDefault();
-      const pass = document.getElementById('loginPassInput').value.trim();
-      const errEl = document.getElementById('loginError');
-      const errText = document.getElementById('loginErrorText');
-      const btn = document.getElementById('loginSubmitBtn');
-      const card = document.getElementById('loginCard');
-
-      errEl.classList.remove('show');
-
-      if (!pass) {
-        errText.innerText = 'Please enter your admin passcode';
-        errEl.classList.add('show');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.innerText = 'Verifying passcode...';
+      e.preventDefault();
+      const key = document.getElementById('passcodeInput').value.trim();
+      if (!key) return;
 
       try {
         const res = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pass })
+          body: JSON.stringify({ key })
         });
         const data = await res.json();
-        if (res.ok && data.success) {
-          localStorage.setItem('softify_admin_key', pass);
-          document.getElementById('loginPassInput').value = '';
+        if (data.success) {
+          sessionStorage.setItem('softify_admin_key', key);
           showApp();
           fetchDevices();
-          showToast('Dashboard Unlocked ✓');
         } else {
-          card.classList.add('shake');
-          setTimeout(() => card.classList.remove('shake'), 450);
-          errText.innerText = data.error || 'Incorrect passcode. Access denied.';
-          errEl.classList.add('show');
+          showLogin(data.error || 'Incorrect passcode');
         }
       } catch (err) {
-        errText.innerText = 'Connection error. Check server status.';
-        errEl.classList.add('show');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'Unlock Dashboard →';
+        showLogin('Network error contacting server');
       }
     }
 
     function formatTimeAgo(isoString) {
       if (!isoString) return 'Never';
-      const date = new Date(isoString);
-      const seconds = Math.floor((new Date() - date) / 1000);
-
-      if (seconds < 20) return 'Just now';
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      const days = Math.floor(hours / 24);
+      const sec = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+      if (sec < 5) return 'Just now';
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m ago`;
+      const hrs = Math.floor(min / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
       return `${days}d ago`;
     }
 
     function getPlatformIcon(platform) {
       const p = (platform || '').toLowerCase();
       if (p.includes('android')) return '🤖 Android';
-      if (p.includes('ios')) return '🍎 iOS';
       if (p.includes('linux')) return '🐧 Linux';
+      if (p.includes('ios')) return '🍎 iOS';
+      if (p.includes('mac')) return '🍏 macOS';
       if (p.includes('windows')) return '🪟 Windows';
-      if (p.includes('macos')) return '🍏 macOS';
-      return '💻 ' + (platform || 'Desktop');
+      return '📱 ' + (platform || 'Device');
     }
 
     async function fetchDevices() {
       const key = getAdminKey();
+      if (!key) return;
+
       try {
         const res = await fetch('/api/admin/devices', {
           headers: { 'Authorization': `Bearer ${key}` }
@@ -1420,15 +1246,59 @@
         }
 
         const data = await res.json();
+        if (data.success && Array.isArray(data.devices)) {
+          // Merge devices defensively into local state so devices never flash or disappear
+          const map = new Map();
+          for (const d of allDevices) map.set(d.id, d);
+          for (const d of data.devices) map.set(d.id, d);
+          allDevices = Array.from(map.values()).sort(
+            (a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()
+          );
+
+          renderTable();
+          fetchStats();
+          fetchNotice();
+          updateDeviceDropdown();
+        }
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
+    }
+
+    async function forceCloudSync() {
+      const key = getAdminKey();
+      try {
+        showToast('Refreshing from cloud Gist...');
+        const res = await fetch('/api/admin/sync-cloud', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
         if (data.success) {
           allDevices = data.devices || [];
           renderTable();
           fetchStats();
           fetchNotice();
+          updateDeviceDropdown();
+          showToast(`Synced ${allDevices.length} devices from cloud! ✓`);
         }
       } catch (e) {
-        console.error('Fetch error:', e);
+        showToast('Sync failed');
       }
+    }
+
+    function updateDeviceDropdown() {
+      const sel = document.getElementById('noticeTargetSelect');
+      const currentVal = sel.value;
+
+      let html = '<option value="all">🌐 All Devices (Broadcast to entire fleet)</option>';
+      for (const d of allDevices) {
+        const name = d.customAlias ? `${d.customAlias} (${d.deviceModel})` : d.deviceModel;
+        const status = d.isOnline ? '🟢 Online' : (d.isActiveToday ? '🟡 Active Today' : '⚪ Offline');
+        html += `<option value="${d.id}">📱 ${escapeHtml(name)} [${d.platform}] - ${status}</option>`;
+      }
+      sel.innerHTML = html;
+      sel.value = currentVal || 'all';
     }
 
     async function fetchNotice() {
@@ -1439,38 +1309,74 @@
         });
         if (res.ok) {
           const data = await res.json();
-          const activePill = document.getElementById('activeNoticePill');
-          const pillText = document.getElementById('activeNoticePillText');
-          if (data.notice && data.notice.message) {
-            activePill.classList.remove('hidden');
-            pillText.innerText = `Active Notice: "${data.notice.title || 'Announcement'}"`;
-          } else if (data.banner) {
-            activePill.classList.remove('hidden');
-            pillText.innerText = `Active Banner: "${data.banner}"`;
-          } else {
-            activePill.classList.add('hidden');
-          }
+          renderActiveNotices(data.broadcastNotice, data.targetedNotices || []);
         }
       } catch (e) {}
     }
 
+    function renderActiveNotices(broadcast, targeted) {
+      const container = document.getElementById('activeNoticesList');
+      const items = [];
+
+      if (broadcast && broadcast.message) {
+        items.push(`
+          <div class="notice-item-card">
+            <div>
+              <span style="font-size: 11px; font-weight: 800; color: var(--accent);">🌐 GLOBAL BROADCAST [${escapeHtml(broadcast.type || 'info').toUpperCase()}]</span>
+              <div style="font-weight: 700; color: #fff; font-size: 13px;">${escapeHtml(broadcast.title || 'Announcement')}</div>
+              <div style="font-size: 12px; color: #cbd5e1;">${escapeHtml(broadcast.message)}</div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;" onclick="clearNotice('all')">✕ Revoke</button>
+          </div>
+        `);
+      }
+
+      if (targeted && targeted.length > 0) {
+        for (const t of targeted) {
+          const n = t.notice;
+          items.push(`
+            <div class="notice-item-card">
+              <div>
+                <span style="font-size: 11px; font-weight: 800; color: var(--info);">🎯 TARGETED DEVICE: ${escapeHtml(t.customAlias || t.deviceModel)}</span>
+                <div style="font-weight: 700; color: #fff; font-size: 13px;">${escapeHtml(n.title || 'Message')}</div>
+                <div style="font-size: 12px; color: #cbd5e1;">${escapeHtml(n.message)}</div>
+              </div>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;" onclick="clearNotice('${t.deviceId}')">✕ Revoke</button>
+            </div>
+          `);
+        }
+      }
+
+      container.innerHTML = items.length > 0 ? items.join('') : '<div style="font-size: 12px; color: var(--text-muted);">No active notices deployed.</div>';
+    }
+
     function updateNoticePreview() {
       const title = document.getElementById('noticeTitleInput').value.trim() || 'Softify v3.0.3 Update Available';
-      const msg = document.getElementById('noticeMessageInput').value.trim() || 'Native lyrics search is now live! Type any lyric phrase to instantly find songs.';
+      const msg = document.getElementById('noticeMessageInput').value.trim() || 'Native lyrics search and Linux MPRIS 2 controls are now live! Enjoy enhanced streaming.';
       const type = document.getElementById('noticeTypeSelect').value;
+      const target = document.getElementById('noticeTargetSelect').value;
 
       document.getElementById('mockTitle').innerText = title;
       document.getElementById('mockMessage').innerText = msg;
       const typeBadge = document.getElementById('mockTypeBadge');
-      if (type === 'warning') {
+      const banner = document.getElementById('mockBanner');
+
+      banner.className = 'mock-device-banner';
+      if (type === 'warning' || type === 'critical') {
         typeBadge.innerText = '⚠️ URGENT ALERT';
         typeBadge.style.color = '#ef4444';
+        banner.classList.add('warning');
       } else if (type === 'info') {
         typeBadge.innerText = 'ℹ️ INFORMATIONAL NOTICE';
         typeBadge.style.color = '#60a5fa';
+        banner.classList.add('info');
       } else {
-        typeBadge.innerText = '📢 ADMINISTRATOR NOTICE';
+        typeBadge.innerText = '📢 ADMINISTRATOR ANNOUNCEMENT';
         typeBadge.style.color = '#2EE66B';
+      }
+
+      if (target !== 'all') {
+        typeBadge.innerText += ' (TARGETED TO THIS DEVICE)';
       }
     }
 
@@ -1478,6 +1384,7 @@
       const title = document.getElementById('noticeTitleInput').value.trim();
       const message = document.getElementById('noticeMessageInput').value.trim();
       const type = document.getElementById('noticeTypeSelect').value;
+      const targetDeviceId = document.getElementById('noticeTargetSelect').value;
       const key = getAdminKey();
 
       if (!message) {
@@ -1492,42 +1399,56 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${key}`
           },
-          body: JSON.stringify({ title, message, type })
+          body: JSON.stringify({ title, message, type, targetDeviceId })
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Notice broadcasted to all devices! ✓');
+          showToast(targetDeviceId === 'all' ? 'Notice broadcasted to all devices! ✓' : 'Notice dispatched to device! ✓');
           fetchNotice();
         } else {
-          showToast(data.error || 'Failed to broadcast notice');
+          showToast(data.error || 'Failed to dispatch notice');
         }
       } catch (e) {
-        showToast('Error broadcasting notice');
+        showToast('Error dispatching notice');
       }
     }
 
-    async function clearBroadcastNotice() {
+    async function clearNotice(targetDeviceId) {
       const key = getAdminKey();
       try {
         const res = await fetch('/api/admin/notice', {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${key}` }
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ targetDeviceId })
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Notice cleared ✓');
-          clearNoticeInputs();
+          showToast('Notice revoked ✓');
           fetchNotice();
         }
       } catch (e) {
-        showToast('Error clearing notice');
+        showToast('Error revoking notice');
       }
     }
 
     function clearNoticeInputs() {
       document.getElementById('noticeTitleInput').value = '';
       document.getElementById('noticeMessageInput').value = '';
+      document.getElementById('noticeTargetSelect').value = 'all';
       updateNoticePreview();
+    }
+
+    function directMessageDevice(deviceId, deviceName) {
+      const targetSel = document.getElementById('noticeTargetSelect');
+      targetSel.value = deviceId;
+      document.getElementById('noticeTitleInput').value = `Notice for ${deviceName}`;
+      updateNoticePreview();
+      document.getElementById('noticePanel').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('noticeMessageInput').focus();
+      showToast(`Notice target set to: ${deviceName}`);
     }
 
     async function fetchStats() {
@@ -1541,8 +1462,13 @@
           const s = data.stats;
           document.getElementById('statTotal').innerText = s.total;
           document.getElementById('statOnline').innerText = s.onlineNow;
-          document.getElementById('statAllowed').innerText = s.allowedCount;
+          document.getElementById('statActiveToday').innerText = s.activeToday;
+          document.getElementById('statOffline').innerText = s.offlineCount;
           document.getElementById('statBlocked').innerText = s.blockedCount;
+          document.getElementById('statVersion').innerText = `v${s.minAppVersion || '3.0.3'}`;
+          document.getElementById('statVersionSub').innerText = s.maintenanceMode ? '⚠️ Maintenance Active' : 'Target Release Channel';
+
+          document.getElementById('syncStatusText').innerText = `Cloud Live • ${s.total} Devices Synced`;
         }
       } catch (e) {}
     }
@@ -1551,8 +1477,35 @@
       const tbody = document.getElementById('deviceTableBody');
       const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
+      // Update Filter counts
+      let countOnline = 0, countActive = 0, countOffline = 0, countBlocked = 0, countAndroid = 0, countLinux = 0;
+      for (const d of allDevices) {
+        if (d.isOnline) countOnline++;
+        if (d.isActiveToday) countActive++;
+        if (d.isOffline) countOffline++;
+        if (d.status === 'blocked') countBlocked++;
+        const p = (d.platform || '').toLowerCase();
+        if (p.includes('android')) countAndroid++;
+        if (p.includes('linux')) countLinux++;
+      }
+
+      document.getElementById('filterCountAll').innerText = allDevices.length;
+      document.getElementById('filterCountOnline').innerText = countOnline;
+      document.getElementById('filterCountActive').innerText = countActive;
+      document.getElementById('filterCountOffline').innerText = countOffline;
+      document.getElementById('filterCountBlocked').innerText = countBlocked;
+      document.getElementById('filterCountAndroid').innerText = countAndroid;
+      document.getElementById('filterCountLinux').innerText = countLinux;
+
       const filtered = allDevices.filter(d => {
-        if (currentFilter !== 'all' && d.status !== currentFilter) return false;
+        if (currentFilter === 'online' && !d.isOnline) return false;
+        if (currentFilter === 'active-today' && !d.isActiveToday) return false;
+        if (currentFilter === 'offline' && !d.isOffline) return false;
+        if (currentFilter === 'blocked' && d.status !== 'blocked') return false;
+        if (currentFilter === 'allowed' && d.status !== 'allowed') return false;
+        if (currentFilter === 'android' && !(d.platform || '').toLowerCase().includes('android')) return false;
+        if (currentFilter === 'linux' && !(d.platform || '').toLowerCase().includes('linux')) return false;
+
         if (!search) return true;
 
         const matchId = (d.id || '').toLowerCase().includes(search);
@@ -1569,10 +1522,10 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="8">
-              <div class="empty-state">
-                <div class="empty-icon">📱</div>
-                <p>No devices found matching current filters.</p>
-                <p style="font-size: 11px; margin-top: 6px;">Once Softify opens on a device, it will automatically register and show up here.</p>
+              <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+                <div style="font-size: 28px; margin-bottom: 8px;">📱</div>
+                <div style="font-weight: 700; color: #fff;">No devices match current filter.</div>
+                <div style="font-size: 12px; margin-top: 4px;">Registered devices are permanently stored in cloud storage.</div>
               </div>
             </td>
           </tr>
@@ -1582,33 +1535,19 @@
 
       tbody.innerHTML = filtered.map(d => {
         const isAllowed = d.status === 'allowed';
-        const isPending = d.status === 'pending';
         const shortId = d.id.length > 16 ? d.id.substring(0, 8) + '...' + d.id.substring(d.id.length - 4) : d.id;
-
-        let modelName = (d.deviceModel || '').trim();
-        if (!modelName || modelName.toLowerCase() === 'localhost') {
-          const p = (d.platform || '').toLowerCase();
-          if (p === 'android') modelName = 'Android Device';
-          else if (p === 'linux') modelName = 'Linux Desktop';
-          else if (p === 'ios') modelName = 'Apple iPhone';
-          else if (p === 'windows') modelName = 'Windows PC';
-          else if (p === 'macos') modelName = 'Apple Mac';
-          else modelName = 'Mobile Device';
-        }
-
-        const lastSeenMs = new Date(d.lastSeen).getTime();
-        const diffMs = Date.now() - lastSeenMs;
-        const isOnlineNow = diffMs < (3 * 60 * 1000);
-        const isActiveToday = diffMs < (24 * 60 * 60 * 1000);
+        const modelName = d.deviceModel || 'Mobile Device';
 
         let activityPillHtml = '';
-        if (isOnlineNow) {
+        if (d.isOnline) {
           activityPillHtml = `<span class="activity-pill online"><span class="activity-dot"></span> Online Now</span>`;
-        } else if (isActiveToday) {
-          activityPillHtml = `<span class="activity-pill recent">Active Today</span>`;
+        } else if (d.isActiveToday) {
+          activityPillHtml = `<span class="activity-pill recent"><span class="activity-dot"></span> Active Today</span>`;
         } else {
-          activityPillHtml = `<span class="activity-pill installed">Installed</span>`;
+          activityPillHtml = `<span class="activity-pill offline"><span class="activity-dot"></span> Offline / Installed</span>`;
         }
+
+        const isOutdated = (d.appVersion || '') < '3.0.3';
 
         return `
           <tr>
@@ -1621,16 +1560,14 @@
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">${escapeHtml(d.osVersion || 'Native')}</div>
             </td>
             <td>
-              <div class="device-id-cell">
-                <span class="id-tag" title="${d.id}">${shortId}</span>
-                <button class="copy-btn" title="Copy Device UUID" onclick="copyToClipboard('${d.id}')">📋</button>
-              </div>
+              <span class="id-tag" title="${d.id}">${shortId}</span>
+              <button class="btn-icon" style="width:24px;height:24px;font-size:11px;margin-left:4px;" title="Copy UUID" onclick="copyToClipboard('${d.id}')">📋</button>
             </td>
             <td>
               <span style="font-family: var(--mono); font-size: 12px; color: #cbd5e1;">${escapeHtml(d.ipAddress || '127.0.0.1')}</span>
             </td>
             <td>
-              <span class="version-tag">v${escapeHtml(d.appVersion || '3.0.3')}</span>
+              <span class="version-tag ${isOutdated ? 'outdated' : ''}">v${escapeHtml(d.appVersion || '3.0.3')}</span>
             </td>
             <td>
               <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -1648,6 +1585,7 @@
             </td>
             <td>
               <div class="action-btns">
+                <button class="btn-icon" title="Send Notice to this Device" onclick="directMessageDevice('${d.id}', '${escapeHtml(d.customAlias || modelName)}')">💬</button>
                 <button class="btn-icon" title="Edit Alias" onclick="editAlias('${d.id}', '${escapeHtml(d.customAlias || '')}')">✏️</button>
                 <button class="btn-icon delete" title="Delete Device" onclick="deleteDevice('${d.id}')">🗑️</button>
               </div>
@@ -1678,33 +1616,33 @@
 
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text);
-      showToast('Device ID copied to clipboard');
+      showToast('Copied device UUID ✓');
     }
 
     async function onToggleSwitch(id, wantAllowed) {
-      if (!wantAllowed) {
-        // Prompt for optional custom reason
+      if (wantAllowed) {
+        await setDeviceStatus(id, 'allowed', '');
+      } else {
         pendingBlockId = id;
+        const d = allDevices.find(x => x.id === id);
+        document.getElementById('modalDeviceTitle').innerText = d
+          ? `Suspending ${d.customAlias || d.deviceModel}`
+          : 'Suspending device access';
         document.getElementById('reasonModal').classList.add('show');
-        return;
       }
-
-      // Unblocking directly
-      await setDeviceStatus(id, 'allowed', '');
     }
 
     async function confirmBlockDevice() {
       if (!pendingBlockId) return;
       const reason = document.getElementById('blockReasonInput').value.trim() || 'Access suspended by administrator';
-      const id = pendingBlockId;
+      await setDeviceStatus(pendingBlockId, 'blocked', reason);
       closeReasonModal();
-      await setDeviceStatus(id, 'blocked', reason);
     }
 
     function closeReasonModal() {
-      document.getElementById('reasonModal').classList.remove('show');
       pendingBlockId = null;
-      renderTable(); // reset switch state if cancelled
+      document.getElementById('reasonModal').classList.remove('show');
+      renderTable();
     }
 
     async function setDeviceStatus(id, status, reason) {
@@ -1720,19 +1658,20 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`Device ${status === 'allowed' ? 'Allowed ✓' : 'Blocked ✕'}`);
-          fetchDevices();
-        } else {
-          showToast(data.error || 'Failed to update device');
+          const idx = allDevices.findIndex(x => x.id === id);
+          if (idx !== -1) allDevices[idx] = data.device;
+          renderTable();
+          fetchStats();
+          showToast(`Device status: ${status.toUpperCase()} ✓`);
         }
       } catch (e) {
-        showToast('Network error');
+        showToast('Failed to update device status');
       }
     }
 
     async function editAlias(id, currentAlias) {
-      const newAlias = prompt('Enter a recognizable name/alias for this device:', currentAlias || '');
-      if (newAlias === null) return;
+      const alias = prompt('Enter friendly alias for this device:', currentAlias);
+      if (alias === null) return;
 
       const key = getAdminKey();
       try {
@@ -1742,12 +1681,14 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${key}`
           },
-          body: JSON.stringify({ customAlias: newAlias.trim() })
+          body: JSON.stringify({ customAlias: alias.trim() })
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Device alias updated');
-          fetchDevices();
+          const idx = allDevices.findIndex(x => x.id === id);
+          if (idx !== -1) allDevices[idx] = data.device;
+          renderTable();
+          showToast('Device alias updated ✓');
         }
       } catch (e) {
         showToast('Failed to update alias');
@@ -1755,7 +1696,8 @@
     }
 
     async function deleteDevice(id) {
-      if (!confirm('Are you sure you want to remove this device from the registry?')) return;
+      if (!confirm('Are you sure you want to permanently delete this device?')) return;
+
       const key = getAdminKey();
       try {
         const res = await fetch(`/api/admin/devices/${id}`, {
@@ -1764,42 +1706,80 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Device removed');
-          fetchDevices();
+          allDevices = allDevices.filter(x => x.id !== id);
+          renderTable();
+          fetchStats();
+          updateDeviceDropdown();
+          showToast('Device deregistered ✓');
         }
       } catch (e) {
         showToast('Failed to delete device');
       }
     }
 
-    // Policy settings modal
-    async function openPolicyModal() {
+    /* System Configuration Modal */
+    async function openConfigModal() {
       const key = getAdminKey();
       try {
         const res = await fetch('/api/admin/config', {
           headers: { 'Authorization': `Bearer ${key}` }
         });
-        if (res.status === 401) {
-          signOut();
-          return;
-        }
         const data = await res.json();
         if (data.success && data.config) {
-          document.getElementById('policySelect').value = data.config.defaultPolicy || 'auto_allow';
-          document.getElementById('bannerInput').value = data.config.broadcastBanner || '';
+          const c = data.config;
+          document.getElementById('cfgDefaultPolicy').value = c.defaultPolicy || 'auto_allow';
+          document.getElementById('cfgMaintenanceMode').checked = Boolean(c.maintenanceMode);
+          document.getElementById('cfgMaintenanceMessage').value = c.maintenanceMessage || '';
+          document.getElementById('cfgMinAppVersion').value = c.minAppVersion || '3.0.3';
+          document.getElementById('cfgHeartbeatInterval').value = String(c.heartbeatIntervalSeconds || 60);
+          document.getElementById('cfgBroadcastBanner').value = c.broadcastBanner || '';
+          document.getElementById('cfgNewAdminKey').value = '';
+
+          const f = c.features || {};
+          document.getElementById('cfgFeatLyrics').checked = f.spotifyLyrics !== false;
+          document.getElementById('cfgFeatPiped').checked = f.pipedFallback !== false;
+          document.getElementById('cfgFeatDiscord').checked = f.discordRpc !== false;
+          document.getElementById('cfgFeatHeartbeat').checked = f.autoHeartbeat !== false;
         }
       } catch (e) {}
-      document.getElementById('policyModal').classList.add('show');
+
+      document.getElementById('configModal').classList.add('show');
     }
 
-    function closePolicyModal() {
-      document.getElementById('policyModal').classList.remove('show');
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.remove('show');
     }
 
-    async function savePolicySettings() {
-      const defaultPolicy = document.getElementById('policySelect').value;
-      const broadcastBanner = document.getElementById('bannerInput').value.trim();
+    async function saveSystemConfig() {
       const key = getAdminKey();
+      const defaultPolicy = document.getElementById('cfgDefaultPolicy').value;
+      const maintenanceMode = document.getElementById('cfgMaintenanceMode').checked;
+      const maintenanceMessage = document.getElementById('cfgMaintenanceMessage').value.trim();
+      const minAppVersion = document.getElementById('cfgMinAppVersion').value.trim();
+      const heartbeatIntervalSeconds = document.getElementById('cfgHeartbeatInterval').value;
+      const broadcastBanner = document.getElementById('cfgBroadcastBanner').value.trim();
+      const newAdminKey = document.getElementById('cfgNewAdminKey').value.trim();
+
+      const features = {
+        spotifyLyrics: document.getElementById('cfgFeatLyrics').checked,
+        pipedFallback: document.getElementById('cfgFeatPiped').checked,
+        discordRpc: document.getElementById('cfgFeatDiscord').checked,
+        autoHeartbeat: document.getElementById('cfgFeatHeartbeat').checked
+      };
+
+      const payload = {
+        defaultPolicy,
+        maintenanceMode,
+        maintenanceMessage,
+        minAppVersion,
+        heartbeatIntervalSeconds,
+        broadcastBanner,
+        features
+      };
+
+      if (newAdminKey) {
+        payload.adminKey = newAdminKey;
+      }
 
       try {
         const res = await fetch('/api/admin/config', {
@@ -1808,23 +1788,24 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${key}`
           },
-          body: JSON.stringify({ defaultPolicy, broadcastBanner })
+          body: JSON.stringify(payload)
         });
-        if (res.status === 401) {
-          signOut();
-          return;
-        }
         const data = await res.json();
         if (data.success) {
-          showToast('Policy configuration saved ✓');
-          closePolicyModal();
+          if (newAdminKey) {
+            sessionStorage.setItem('softify_admin_key', newAdminKey);
+          }
+          showToast('System configuration saved & persisted! ✓');
+          closeConfigModal();
+          fetchStats();
+        } else {
+          showToast(data.error || 'Failed to save configuration');
         }
       } catch (e) {
-        showToast('Failed to save policy');
+        showToast('Error saving configuration');
       }
     }
 
-    // Initialize application authentication state
     async function init() {
       const key = getAdminKey();
       if (!key) {
@@ -1843,7 +1824,6 @@
           showLogin('Session expired. Please enter passcode.');
         }
       } catch (e) {
-        // Fallback to app if network glitch
         showApp();
         fetchDevices();
       }

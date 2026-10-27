@@ -63,6 +63,7 @@ class DeviceControlService {
   static const String _keyLastStatus = 'device_control_last_status';
   static const String _keyLastReason = 'device_control_last_reason';
   static const String _keyLastDismissedNoticeId = 'device_control_last_dismissed_notice_id';
+  static const String _keyCachedNotice = 'device_control_cached_notice';
 
   // Default server URL - deployed live fleet command center
   static const String defaultServerUrl = 'https://server-eight-gamma-81.vercel.app';
@@ -242,6 +243,25 @@ class DeviceControlService {
           );
         }
 
+        if (notice != null) {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                SettingsCompanion.insert(
+                  key: _keyCachedNotice,
+                  value: jsonEncode({
+                    'id': notice.id,
+                    'title': notice.title,
+                    'message': notice.message,
+                    'type': notice.type,
+                    'createdAt': notice.createdAt?.toIso8601String(),
+                  }),
+                ),
+              );
+        } else {
+          await (_db.delete(_db.settings)
+                ..where((tbl) => tbl.key.equals(_keyCachedNotice)))
+              .go();
+        }
+
         // Cache last confirmed status
         await _db.into(_db.settings).insertOnConflictUpdate(
               SettingsCompanion.insert(
@@ -272,7 +292,7 @@ class DeviceControlService {
       // Network timeout / connection error - fall back to cached policy
     }
 
-    // Offline fallback
+    // Offline fallback: load cached status, reason, and offline notice
     final cachedStatusRow = await (_db.select(_db.settings)
           ..where((tbl) => tbl.key.equals(_keyLastStatus)))
         .getSingleOrNull();
@@ -281,6 +301,18 @@ class DeviceControlService {
           ..where((tbl) => tbl.key.equals(_keyLastReason)))
         .getSingleOrNull();
 
+    final cachedNoticeRow = await (_db.select(_db.settings)
+          ..where((tbl) => tbl.key.equals(_keyCachedNotice)))
+        .getSingleOrNull();
+
+    AppNotice? cachedNotice;
+    if (cachedNoticeRow != null && cachedNoticeRow.value.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(cachedNoticeRow.value) as Map<String, dynamic>;
+        cachedNotice = AppNotice.fromJson(decoded);
+      } catch (_) {}
+    }
+
     final cachedStatus = cachedStatusRow?.value ?? 'allowed';
     final isAllowed = cachedStatus == 'allowed';
 
@@ -288,6 +320,7 @@ class DeviceControlService {
       isAllowed: isAllowed,
       status: cachedStatus,
       reason: isAllowed ? null : (cachedReasonRow?.value ?? 'Access suspended by administrator'),
+      notice: cachedNotice,
       isOffline: true,
     );
   }
