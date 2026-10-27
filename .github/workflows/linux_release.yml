@@ -25,14 +25,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Linux Build Dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            clang \
-            cmake \
-            ninja-build \
-            pkg-config \
+          sudo -E apt-get update -qq
+          sudo -E apt-get install -y -qq --no-install-recommends \
             libgtk-3-dev \
             liblzma-dev \
             libasound2-dev \
