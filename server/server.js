@@ -30,17 +30,272 @@ const DEFAULT_CONFIG = {
     spotifyLyrics: true,
     pipedFallback: true,
     discordRpc: true,
-    autoHeartbeat: true
+    autoHeartbeat: true,
+    losslessStream: false,
+    canvasVideo: true
   },
   heartbeatIntervalSeconds: 60,
   serverName: 'Softify Fleet Command Center'
 };
+
+// ============================================================================
+// Intelligent Phone Model Resolver & Commercial Hardware Marketing Dictionary
+// Resolves raw SKU / build numbers (e.g. BVL-N49, V2515, E076B) to genuine commercial names
+// ============================================================================
+function resolveExactDeviceModel(info = {}) {
+  const rawModel = (info.deviceModel || info.modelCode || '').trim();
+  const brand = (info.brand || '').trim();
+  const manufacturer = (info.manufacturer || '').trim();
+  const osVer = (info.osVersion || '').trim();
+  const fingerprint = (info.fingerprint || '').trim();
+  const product = (info.product || '').trim();
+  const hardware = (info.hardware || '').trim();
+  const platform = (info.platform || '').toLowerCase();
+
+  const searchStr = `${rawModel} ${info.modelCode || ''} ${brand} ${manufacturer} ${osVer} ${fingerprint} ${product} ${hardware}`.toUpperCase();
+
+  // 1. Honor Models
+  if (searchStr.includes('BVL-N49') || searchStr.includes('BVL-AN00') || searchStr.includes('BVL-AN16') || searchStr.includes('BVL-AN20')) {
+    return { commercialName: 'Honor Magic6 Pro', modelCode: 'BVL-N49', brand: 'Honor' };
+  }
+  if (searchStr.includes('BVG-AN00') || searchStr.includes('BVG-N49')) {
+    return { commercialName: 'Honor Magic6', modelCode: 'BVG-AN00', brand: 'Honor' };
+  }
+  if (searchStr.includes('VER-AN00') || searchStr.includes('VER-N49')) {
+    return { commercialName: 'Honor Magic V2', modelCode: 'VER-AN00', brand: 'Honor' };
+  }
+  if (searchStr.includes('PGT-AN00') || searchStr.includes('PGT-N19')) {
+    return { commercialName: 'Honor Magic5 Pro', modelCode: 'PGT-N19', brand: 'Honor' };
+  }
+  if (searchStr.includes('ALI-NX1')) {
+    return { commercialName: 'Honor Magic6 Lite', modelCode: 'ALI-NX1', brand: 'Honor' };
+  }
+  if (searchStr.includes('FNE-AN00') || searchStr.includes('FNE-NX9')) {
+    return { commercialName: 'Honor 70', modelCode: 'FNE-NX9', brand: 'Honor' };
+  }
+  if (searchStr.includes('REA-AN00') || searchStr.includes('REA-NX9')) {
+    return { commercialName: 'Honor 90', modelCode: 'REA-NX9', brand: 'Honor' };
+  }
+  if (searchStr.includes('ELI-AN00') || searchStr.includes('ELI-NX9')) {
+    return { commercialName: 'Honor 200', modelCode: 'ELI-NX9', brand: 'Honor' };
+  }
+  if (searchStr.includes('ELP-AN00') || searchStr.includes('ELP-NX9')) {
+    return { commercialName: 'Honor 200 Pro', modelCode: 'ELP-NX9', brand: 'Honor' };
+  }
+  if (searchStr.includes('ROD-AN00')) {
+    return { commercialName: 'Honor 400', modelCode: 'ROD-AN00', brand: 'Honor' };
+  }
+
+  // 2. Vivo & iQOO Models
+  if (searchStr.includes('V2515')) {
+    return { commercialName: 'Vivo V50 5G', modelCode: 'V2515', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2415') || searchStr.includes('V2403')) {
+    return { commercialName: 'Vivo V40 5G', modelCode: 'V2415', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2418')) {
+    return { commercialName: 'Vivo V40e 5G', modelCode: 'V2418', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2318')) {
+    return { commercialName: 'Vivo V30 5G', modelCode: 'V2318', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2327')) {
+    return { commercialName: 'Vivo V30e 5G', modelCode: 'V2327', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2319')) {
+    return { commercialName: 'Vivo V30 Pro', modelCode: 'V2319', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2405A') || searchStr.includes('V2413A')) {
+    return { commercialName: 'Vivo X200 Pro', modelCode: 'V2413A', brand: 'Vivo' };
+  }
+  if (searchStr.includes('V2303') || searchStr.includes('V2324A')) {
+    return { commercialName: 'Vivo X100 Pro', modelCode: 'V2303', brand: 'Vivo' };
+  }
+  if (searchStr.includes('I2208') || searchStr.includes('I2209')) {
+    return { commercialName: 'iQOO Neo 9 Pro', modelCode: 'I2208', brand: 'iQOO' };
+  }
+  if (searchStr.includes('I2220')) {
+    return { commercialName: 'iQOO 12', modelCode: 'I2220', brand: 'iQOO' };
+  }
+  if (searchStr.includes('I2301')) {
+    return { commercialName: 'iQOO 13', modelCode: 'I2301', brand: 'iQOO' };
+  }
+
+  // 3. Samsung Galaxy Models & Build fingerprints
+  if (searchStr.includes('E076B') || searchStr.includes('SM-E076B')) {
+    return { commercialName: 'Samsung Galaxy M07', modelCode: 'SM-E076B', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S928') || searchStr.includes('S928')) {
+    return { commercialName: 'Samsung Galaxy S24 Ultra', modelCode: 'SM-S928', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S926') || searchStr.includes('S926')) {
+    return { commercialName: 'Samsung Galaxy S24+', modelCode: 'SM-S926', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S921') || searchStr.includes('S921')) {
+    return { commercialName: 'Samsung Galaxy S24', modelCode: 'SM-S921', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S918') || searchStr.includes('S918')) {
+    return { commercialName: 'Samsung Galaxy S23 Ultra', modelCode: 'SM-S918', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S916')) {
+    return { commercialName: 'Samsung Galaxy S23+', modelCode: 'SM-S916', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S911')) {
+    return { commercialName: 'Samsung Galaxy S23', modelCode: 'SM-S911', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-S908')) {
+    return { commercialName: 'Samsung Galaxy S22 Ultra', modelCode: 'SM-S908', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-A556')) {
+    return { commercialName: 'Samsung Galaxy A55 5G', modelCode: 'SM-A556', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-A546')) {
+    return { commercialName: 'Samsung Galaxy A54 5G', modelCode: 'SM-A546', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-A356')) {
+    return { commercialName: 'Samsung Galaxy A35 5G', modelCode: 'SM-A356', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-A346')) {
+    return { commercialName: 'Samsung Galaxy A34 5G', modelCode: 'SM-A346', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-A155') || searchStr.includes('SM-A156')) {
+    return { commercialName: 'Samsung Galaxy A15', modelCode: 'SM-A156', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-M346')) {
+    return { commercialName: 'Samsung Galaxy M34 5G', modelCode: 'SM-M346', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-M146')) {
+    return { commercialName: 'Samsung Galaxy M14 5G', modelCode: 'SM-M146', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-F946') || searchStr.includes('SM-F956')) {
+    return { commercialName: 'Samsung Galaxy Z Fold', modelCode: rawModel || 'Galaxy Z Fold', brand: 'Samsung' };
+  }
+  if (searchStr.includes('SM-F731') || searchStr.includes('SM-F741')) {
+    return { commercialName: 'Samsung Galaxy Z Flip', modelCode: rawModel || 'Galaxy Z Flip', brand: 'Samsung' };
+  }
+
+  // 4. OnePlus Models
+  if (searchStr.includes('CPH2581') || searchStr.includes('CPH2583') || searchStr.includes('PJD110')) {
+    return { commercialName: 'OnePlus 12', modelCode: 'CPH2581', brand: 'OnePlus' };
+  }
+  if (searchStr.includes('CPH2609') || searchStr.includes('CPH2611') || searchStr.includes('PJE110')) {
+    return { commercialName: 'OnePlus 12R', modelCode: 'CPH2609', brand: 'OnePlus' };
+  }
+  if (searchStr.includes('CPH2449') || searchStr.includes('CPH2447') || searchStr.includes('PHB110')) {
+    return { commercialName: 'OnePlus 11', modelCode: 'CPH2449', brand: 'OnePlus' };
+  }
+  if (searchStr.includes('CPH2551') || searchStr.includes('PEB10')) {
+    return { commercialName: 'OnePlus Open', modelCode: 'CPH2551', brand: 'OnePlus' };
+  }
+  if (searchStr.includes('CPH2613')) {
+    return { commercialName: 'OnePlus Nord 4', modelCode: 'CPH2613', brand: 'OnePlus' };
+  }
+  if (searchStr.includes('CPH2513')) {
+    return { commercialName: 'OnePlus Nord 3 5G', modelCode: 'CPH2513', brand: 'OnePlus' };
+  }
+  if (searchStr.includes('CPH2493') || searchStr.includes('CPH2491')) {
+    return { commercialName: 'OnePlus Nord CE 3 Lite', modelCode: 'CPH2491', brand: 'OnePlus' };
+  }
+
+  // 5. Xiaomi, Redmi, Poco Models
+  if (searchStr.includes('23116PN5BC') || searchStr.includes('23117PN64G')) {
+    return { commercialName: 'Xiaomi 14', modelCode: '23117PN64G', brand: 'Xiaomi' };
+  }
+  if (searchStr.includes('24030PN60G')) {
+    return { commercialName: 'Xiaomi 14 Ultra', modelCode: '24030PN60G', brand: 'Xiaomi' };
+  }
+  if (searchStr.includes('2312DRA50G')) {
+    return { commercialName: 'Redmi Note 13 Pro 5G', modelCode: '2312DRA50G', brand: 'Redmi' };
+  }
+  if (searchStr.includes('2312DRAABG')) {
+    return { commercialName: 'Redmi Note 13 Pro+ 5G', modelCode: '2312DRAABG', brand: 'Redmi' };
+  }
+  if (searchStr.includes('2311DRK48G')) {
+    return { commercialName: 'Poco X6 Pro 5G', modelCode: '2311DRK48G', brand: 'Poco' };
+  }
+  if (searchStr.includes('24053PY09G')) {
+    return { commercialName: 'Poco F6', modelCode: '24053PY09G', brand: 'Poco' };
+  }
+
+  // 6. Google Pixel Models
+  if (searchStr.includes('PIXEL 9 PRO XL')) return { commercialName: 'Google Pixel 9 Pro XL', modelCode: 'Pixel 9 Pro XL', brand: 'Google' };
+  if (searchStr.includes('PIXEL 9 PRO')) return { commercialName: 'Google Pixel 9 Pro', modelCode: 'Pixel 9 Pro', brand: 'Google' };
+  if (searchStr.includes('PIXEL 9')) return { commercialName: 'Google Pixel 9', modelCode: 'Pixel 9', brand: 'Google' };
+  if (searchStr.includes('PIXEL 8 PRO')) return { commercialName: 'Google Pixel 8 Pro', modelCode: 'Pixel 8 Pro', brand: 'Google' };
+  if (searchStr.includes('PIXEL 8A')) return { commercialName: 'Google Pixel 8a', modelCode: 'Pixel 8a', brand: 'Google' };
+  if (searchStr.includes('PIXEL 8')) return { commercialName: 'Google Pixel 8', modelCode: 'Pixel 8', brand: 'Google' };
+  if (searchStr.includes('PIXEL 7 PRO')) return { commercialName: 'Google Pixel 7 Pro', modelCode: 'Pixel 7 Pro', brand: 'Google' };
+  if (searchStr.includes('PIXEL 7A')) return { commercialName: 'Google Pixel 7a', modelCode: 'Pixel 7a', brand: 'Google' };
+  if (searchStr.includes('PIXEL 7')) return { commercialName: 'Google Pixel 7', modelCode: 'Pixel 7', brand: 'Google' };
+  if (searchStr.includes('PIXEL 6')) return { commercialName: 'Google Pixel 6 Series', modelCode: 'Pixel 6', brand: 'Google' };
+  if (searchStr.includes('PIXEL FOLD')) return { commercialName: 'Google Pixel Fold', modelCode: 'Pixel Fold', brand: 'Google' };
+
+  // 7. Nothing Models
+  if (searchStr.includes('A063')) return { commercialName: 'Nothing Phone (1)', modelCode: 'A063', brand: 'Nothing' };
+  if (searchStr.includes('A065')) return { commercialName: 'Nothing Phone (2)', modelCode: 'A065', brand: 'Nothing' };
+  if (searchStr.includes('A142P')) return { commercialName: 'Nothing Phone (2a) Plus', modelCode: 'A142P', brand: 'Nothing' };
+  if (searchStr.includes('A142')) return { commercialName: 'Nothing Phone (2a)', modelCode: 'A142', brand: 'Nothing' };
+
+  // 8. Motorola Models
+  if (searchStr.includes('XT2401')) return { commercialName: 'Motorola Edge 50 Ultra', modelCode: 'XT2401', brand: 'Motorola' };
+  if (searchStr.includes('XT2403')) return { commercialName: 'Motorola Edge 50 Pro', modelCode: 'XT2403', brand: 'Motorola' };
+  if (searchStr.includes('XT2407')) return { commercialName: 'Motorola Edge 50 Fusion', modelCode: 'XT2407', brand: 'Motorola' };
+  if (searchStr.includes('XT2343')) return { commercialName: 'Moto G84 5G', modelCode: 'XT2343', brand: 'Motorola' };
+
+  // 9. Apple Models
+  if (searchStr.includes('IPHONE17,2')) return { commercialName: 'iPhone 16 Pro Max', modelCode: 'iPhone17,2', brand: 'Apple' };
+  if (searchStr.includes('IPHONE17,1')) return { commercialName: 'iPhone 16 Pro', modelCode: 'iPhone17,1', brand: 'Apple' };
+  if (searchStr.includes('IPHONE16,2')) return { commercialName: 'iPhone 15 Pro Max', modelCode: 'iPhone16,2', brand: 'Apple' };
+  if (searchStr.includes('IPHONE16,1')) return { commercialName: 'iPhone 15 Pro', modelCode: 'iPhone16,1', brand: 'Apple' };
+  if (searchStr.includes('IPHONE15,4')) return { commercialName: 'iPhone 15', modelCode: 'iPhone15,4', brand: 'Apple' };
+  if (searchStr.includes('IPHONE15,2')) return { commercialName: 'iPhone 14 Pro', modelCode: 'iPhone15,2', brand: 'Apple' };
+
+  // 10. Linux Desktop
+  if (platform === 'linux' || searchStr.includes('LINUX MINT') || searchStr.includes('UBUNTU') || searchStr.includes('ARCH') || searchStr.includes('FEDORA') || searchStr.includes('DEBIAN')) {
+    let desktopName = (info.deviceModel && info.deviceModel !== 'PC-x86_64' && info.deviceModel !== 'localhost' && info.deviceModel !== 'Linux Desktop')
+      ? info.deviceModel
+      : '';
+    if (!desktopName) {
+      if (searchStr.includes('MINT') || osVer === '22.3' || osVer.startsWith('22.') || osVer.startsWith('21.')) {
+        desktopName = 'Linux Mint ' + (osVer || '');
+      } else if (searchStr.includes('UBUNTU') || osVer.startsWith('24.04') || osVer.startsWith('22.04')) {
+        desktopName = 'Ubuntu ' + (osVer || '');
+      } else {
+        desktopName = 'Linux Desktop';
+      }
+    }
+    return { commercialName: desktopName.trim(), modelCode: 'PC-x86_64', brand: 'Linux' };
+  }
+  if (platform === 'windows') {
+    return { commercialName: rawModel || 'Windows PC', modelCode: 'PC-Windows', brand: 'Microsoft' };
+  }
+  if (platform === 'macos') {
+    return { commercialName: rawModel || 'Apple Mac', modelCode: 'Mac', brand: 'Apple' };
+  }
+
+  // 11. Generic clean fallback
+  let clean = rawModel.replace(/localhost/gi, '').trim();
+  const cBrand = brand || manufacturer || '';
+  if (clean && cBrand && !clean.toLowerCase().includes(cBrand.toLowerCase())) {
+    clean = `${cBrand} ${clean}`;
+  }
+  if (!clean) {
+    clean = platform === 'android' ? 'Android Device' : (platform || 'Mobile Device');
+  }
+
+  return {
+    commercialName: clean,
+    modelCode: rawModel || clean,
+    brand: cBrand || (platform === 'android' ? 'Android' : 'Unknown')
+  };
+}
 
 // State Store with atomic file & cloud Gist persistence and cross-container merging
 class Store {
   constructor() {
     this.devices = new Map();
     this.targetedNotices = new Map();
+    this.auditLogs = [];
     this.config = { ...DEFAULT_CONFIG };
     this.lastLoadedAt = 0;
     this._loadPromise = null;
@@ -48,6 +303,22 @@ class Store {
 
     // Load initial local backup
     this._loadLocalBackup();
+  }
+
+  logEvent(event, target, details, level = 'info') {
+    const entry = {
+      id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 4),
+      timestamp: new Date().toISOString(),
+      event,
+      target: target || 'system',
+      details: details || '',
+      level
+    };
+    this.auditLogs.unshift(entry);
+    if (this.auditLogs.length > 100) {
+      this.auditLogs.pop();
+    }
+    return entry;
   }
 
   _loadLocalBackup() {
@@ -113,6 +384,12 @@ class Store {
 
               for (const remoteDev of remoteList) {
                 if (!remoteDev || !remoteDev.id) continue;
+                const resolved = resolveExactDeviceModel(remoteDev);
+                remoteDev.deviceModel = resolved.commercialName;
+                remoteDev.modelCode = remoteDev.modelCode || resolved.modelCode;
+                remoteDev.brand = remoteDev.brand || resolved.brand;
+                remoteDev.pendingCommands = remoteDev.pendingCommands || [];
+
                 const localDev = this.devices.get(remoteDev.id);
                 if (!localDev) {
                   this.devices.set(remoteDev.id, remoteDev);
@@ -123,6 +400,10 @@ class Store {
                     this.devices.set(remoteDev.id, {
                       ...localDev,
                       ...remoteDev,
+                      deviceModel: resolved.commercialName,
+                      modelCode: remoteDev.modelCode || resolved.modelCode,
+                      brand: remoteDev.brand || resolved.brand,
+                      pendingCommands: remoteDev.pendingCommands || localDev.pendingCommands || [],
                       pingCount: Math.max(localDev.pingCount || 1, remoteDev.pingCount || 1)
                     });
                   }
@@ -280,16 +561,10 @@ class Store {
     const id = info.deviceId;
     const now = new Date().toISOString();
 
-    let cleanModel = (info.deviceModel || '').trim();
-    if (!cleanModel || cleanModel.toLowerCase() === 'localhost') {
-      const p = (info.platform || '').toLowerCase();
-      if (p === 'android') cleanModel = 'Android Device';
-      else if (p === 'linux') cleanModel = 'Linux Desktop';
-      else if (p === 'ios') cleanModel = 'Apple iPhone';
-      else if (p === 'windows') cleanModel = 'Windows PC';
-      else if (p === 'macos') cleanModel = 'Apple Mac';
-      else cleanModel = 'Mobile Device';
-    }
+    const resolved = resolveExactDeviceModel(info);
+    const commercialModel = resolved.commercialName;
+    const modelCode = info.modelCode || resolved.modelCode;
+    const brand = info.brand || resolved.brand;
 
     let device = this.devices.get(id);
 
@@ -300,25 +575,44 @@ class Store {
         customAlias: info.customAlias || '',
         platform: info.platform || 'unknown',
         osVersion: info.osVersion || '',
-        deviceModel: cleanModel,
+        deviceModel: commercialModel,
+        modelCode: modelCode,
+        brand: brand,
+        manufacturer: info.manufacturer || brand,
+        hardware: info.hardware || '',
+        board: info.board || '',
+        isPhysicalDevice: info.isPhysicalDevice !== 'false' && info.isPhysicalDevice !== false,
+        fingerprint: info.fingerprint || '',
         appVersion: info.appVersion || '3.0.3',
         ipAddress: clientIp,
         status: initialStatus,
         blockReason: initialStatus === 'pending' ? 'Device pending administrator approval' : '',
+        pendingCommands: [],
         firstSeen: now,
         lastSeen: now,
         pingCount: 1
       };
       this.devices.set(id, device);
+      this.logEvent('DEVICE_REGISTERED', commercialModel, `New ${brand} device registered (${id.substring(0, 8)}) from IP ${clientIp}`, 'success');
     } else {
       device.lastSeen = now;
       device.pingCount = (device.pingCount || 0) + 1;
       device.ipAddress = clientIp || device.ipAddress;
       if (info.platform) device.platform = info.platform;
       if (info.osVersion) device.osVersion = info.osVersion;
-      if (cleanModel && cleanModel !== 'localhost') device.deviceModel = cleanModel;
+      if (commercialModel) device.deviceModel = commercialModel;
+      if (modelCode) device.modelCode = modelCode;
+      if (brand) device.brand = brand;
+      if (info.manufacturer) device.manufacturer = info.manufacturer;
+      if (info.hardware) device.hardware = info.hardware;
+      if (info.board) device.board = info.board;
+      if (info.isPhysicalDevice !== undefined) {
+        device.isPhysicalDevice = info.isPhysicalDevice !== 'false' && info.isPhysicalDevice !== false;
+      }
+      if (info.fingerprint) device.fingerprint = info.fingerprint;
       if (info.appVersion) device.appVersion = info.appVersion;
       if (info.customAlias && !device.customAlias) device.customAlias = info.customAlias;
+      if (!device.pendingCommands) device.pendingCommands = [];
     }
 
     return device;
@@ -331,16 +625,10 @@ class Store {
 
     return Array.from(this.devices.values())
       .map(d => {
-        let model = (d.deviceModel || '').trim();
-        if (!model || model.toLowerCase() === 'localhost') {
-          const p = (d.platform || '').toLowerCase();
-          if (p === 'android') model = 'Android Device';
-          else if (p === 'linux') model = 'Linux Desktop';
-          else if (p === 'ios') model = 'Apple iPhone';
-          else if (p === 'windows') model = 'Windows PC';
-          else if (p === 'macos') model = 'Apple Mac';
-          else model = 'Mobile Device';
-        }
+        const resolved = resolveExactDeviceModel(d);
+        const model = resolved.commercialName || d.deviceModel || 'Mobile Device';
+        const modelCode = d.modelCode || resolved.modelCode;
+        const brand = d.brand || resolved.brand;
 
         const last = new Date(d.lastSeen || 0).getTime();
         const isOnline = last >= fiveMinutesAgo;
@@ -350,12 +638,25 @@ class Store {
         return {
           ...d,
           deviceModel: model,
+          modelCode,
+          brand,
           isOnline,
           isActiveToday,
           isOffline
         };
       })
       .sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
+  }
+
+  queueCommand(id, command) {
+    const device = this.devices.get(id);
+    if (!device) return null;
+    device.pendingCommands = device.pendingCommands || [];
+    if (!device.pendingCommands.includes(command)) {
+      device.pendingCommands.push(command);
+    }
+    this.logEvent('COMMAND_DISPATCHED', device.deviceModel, `Queued remote action '${command}' for device ${device.id.substring(0, 8)}`, 'info');
+    return device;
   }
 
   getDevice(id) {
@@ -370,6 +671,9 @@ class Store {
       device.status = updates.status;
       if (updates.status === 'allowed') {
         device.blockReason = '';
+        this.logEvent('DEVICE_ALLOWED', device.deviceModel, `Device unblocked by administrator`, 'success');
+      } else if (updates.status === 'blocked') {
+        this.logEvent('DEVICE_BLOCKED', device.deviceModel, `Device suspended: ${updates.blockReason || 'Manual block'}`, 'warning');
       }
     }
     if (updates.blockReason !== undefined) {
@@ -377,16 +681,20 @@ class Store {
     }
     if (updates.customAlias !== undefined) {
       device.customAlias = updates.customAlias;
+      this.logEvent('ALIAS_UPDATED', device.deviceModel, `Alias renamed to '${updates.customAlias}'`, 'info');
     }
 
     return device;
   }
 
   deleteDevice(id) {
+    const device = this.devices.get(id);
+    const name = device ? device.deviceModel : id;
     const exists = this.devices.delete(id);
     this.targetedNotices.delete(id);
     if (!this.deletedDeviceIds) this.deletedDeviceIds = new Set();
     this.deletedDeviceIds.add(id);
+    this.logEvent('DEVICE_DELETED', name, `Device ${id.substring(0, 8)} removed from fleet`, 'warning');
     return exists;
   }
 
@@ -551,7 +859,21 @@ function requireAdmin(req, res, next) {
 // 1. Client App Device Heartbeat & Registration
 // ==========================================
 app.post('/api/device/sync', async (req, res) => {
-  const { deviceId, platform, osVersion, deviceModel, appVersion, customAlias } = req.body || {};
+  const {
+    deviceId,
+    platform,
+    osVersion,
+    deviceModel,
+    modelCode,
+    brand,
+    manufacturer,
+    hardware,
+    board,
+    isPhysicalDevice,
+    fingerprint,
+    appVersion,
+    customAlias
+  } = req.body || {};
 
   if (!deviceId || typeof deviceId !== 'string' || deviceId.trim().length === 0) {
     return res.status(400).json({ error: 'Missing deviceId parameter' });
@@ -564,11 +886,22 @@ app.post('/api/device/sync', async (req, res) => {
       platform,
       osVersion,
       deviceModel,
+      modelCode,
+      brand,
+      manufacturer,
+      hardware,
+      board,
+      isPhysicalDevice,
+      fingerprint,
       appVersion,
       customAlias
     },
     clientIp
   );
+
+  // Deliver queued commands and clear
+  const commandsToDeliver = [...(device.pendingCommands || [])];
+  device.pendingCommands = [];
 
   // Synchronously persist merged fleet state
   await store.saveFleet(device);
@@ -596,7 +929,6 @@ app.post('/api/device/sync', async (req, res) => {
   // Version advisory if app is below minimum required version
   const minVer = store.config.minAppVersion;
   if (minVer && appVersion && appVersion !== minVer) {
-    // If notice is not already urgent, attach update recommendation
     if (!notice) {
       notice = {
         id: `update-req-${minVer}`,
@@ -614,6 +946,7 @@ app.post('/api/device/sync', async (req, res) => {
     reason: isAllowed ? undefined : blockReason,
     banner: store.config.broadcastBanner || null,
     notice,
+    commands: commandsToDeliver,
     config: {
       features: store.config.features,
       heartbeatIntervalSeconds: store.config.heartbeatIntervalSeconds || 60,
@@ -645,6 +978,7 @@ app.post('/api/admin/login', (req, res) => {
   const { key, password } = req.body || {};
   const pass = (key || password || '').toString().trim();
   if (pass === store.config.adminKey) {
+    store.logEvent('ADMIN_LOGIN', 'Dashboard', 'Admin logged in successfully', 'info');
     return res.json({ success: true, token: store.config.adminKey });
   }
   return res.status(401).json({ success: false, error: 'Incorrect Admin Password' });
@@ -684,6 +1018,22 @@ app.post('/api/admin/devices/:id/update', requireAdmin, async (req, res) => {
   return res.json({ success: true, device: updated });
 });
 
+// Remote device command dispatcher
+app.post('/api/admin/devices/:id/command', requireAdmin, async (req, res) => {
+  const { command } = req.body || {};
+  if (!command) {
+    return res.status(400).json({ error: 'Missing command parameter' });
+  }
+
+  const updated = store.queueCommand(req.params.id, command);
+  if (!updated) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+
+  await store.saveFleet(updated);
+  return res.json({ success: true, message: `Command '${command}' queued for device`, device: updated });
+});
+
 // Send direct message / push notice to a single device
 app.post('/api/admin/devices/:id/message', requireAdmin, async (req, res) => {
   const device = store.getDevice(req.params.id);
@@ -704,6 +1054,7 @@ app.post('/api/admin/devices/:id/message', requireAdmin, async (req, res) => {
     actionUrl
   });
 
+  store.logEvent('NOTICE_TARGETED', device.deviceModel, `Notice sent to device: "${title || message}"`, 'info');
   await store.saveFleet();
   return res.json({ success: true, notice, deviceId: req.params.id });
 });
@@ -755,6 +1106,9 @@ app.post('/api/admin/notice', requireAdmin, async (req, res) => {
     actionUrl: actionUrl || ''
   });
 
+  const targetLabel = targetDeviceId && targetDeviceId !== 'all' ? `Device ${targetDeviceId.substring(0, 8)}` : 'Fleet Broadcast';
+  store.logEvent('NOTICE_DISPATCHED', targetLabel, `Notice posted: "${cleanTitle}"`, 'info');
+
   await store.saveFleet();
   return res.json({
     success: true,
@@ -767,6 +1121,7 @@ app.delete('/api/admin/notice', requireAdmin, async (req, res) => {
   const targetDeviceId = req.query.targetDeviceId || (req.body && req.body.targetDeviceId);
   store.clearNotice(targetDeviceId);
 
+  store.logEvent('NOTICE_CLEARED', targetDeviceId || 'All', 'Notice dismissed by administrator', 'info');
   await store.saveFleet();
   return res.json({
     success: true,
@@ -774,6 +1129,59 @@ app.delete('/api/admin/notice', requireAdmin, async (req, res) => {
       ? `Notice for device ${targetDeviceId} cleared.`
       : 'Global broadcast notice cleared successfully.'
   });
+});
+
+// Activity / Audit Logs Endpoint
+app.get('/api/admin/logs', requireAdmin, (req, res) => {
+  return res.json({
+    success: true,
+    logs: store.auditLogs
+  });
+});
+
+// Fleet Data Export Endpoints
+app.get('/api/admin/export/json', requireAdmin, (req, res) => {
+  const devices = store.getAllDevices();
+  const dateStr = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="softify-fleet-${dateStr}.json"`);
+  return res.send(JSON.stringify({
+    exportDate: new Date().toISOString(),
+    totalDevices: devices.length,
+    config: store.config,
+    devices
+  }, null, 2));
+});
+
+app.get('/api/admin/export/csv', requireAdmin, (req, res) => {
+  const devices = store.getAllDevices();
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const headers = ['Device ID', 'Custom Alias', 'Commercial Model', 'SKU Code', 'Brand', 'Platform', 'OS Version', 'App Version', 'IP Address', 'Physical Device', 'Status', 'Ping Count', 'First Seen', 'Last Seen'];
+  const rows = [headers.join(',')];
+
+  for (const d of devices) {
+    const row = [
+      `"${d.id || ''}"`,
+      `"${(d.customAlias || '').replace(/"/g, '""')}"`,
+      `"${(d.deviceModel || '').replace(/"/g, '""')}"`,
+      `"${(d.modelCode || '').replace(/"/g, '""')}"`,
+      `"${(d.brand || '').replace(/"/g, '""')}"`,
+      `"${d.platform || ''}"`,
+      `"${(d.osVersion || '').replace(/"/g, '""')}"`,
+      `"${d.appVersion || ''}"`,
+      `"${d.ipAddress || ''}"`,
+      d.isPhysicalDevice !== false ? 'Yes' : 'No',
+      `"${d.status || ''}"`,
+      d.pingCount || 1,
+      `"${d.firstSeen || ''}"`,
+      `"${d.lastSeen || ''}"`
+    ];
+    rows.push(row.join(','));
+  }
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="softify-fleet-${dateStr}.csv"`);
+  return res.send(rows.join('\r\n'));
 });
 
 // Full Remote System Configuration
@@ -786,6 +1194,7 @@ app.get('/api/admin/config', requireAdmin, (req, res) => {
 
 app.post('/api/admin/config', requireAdmin, async (req, res) => {
   const updated = store.updateConfig(req.body || {});
+  store.logEvent('CONFIG_UPDATED', 'System', 'Fleet configuration and policy parameters updated', 'warning');
   await store.saveFleet();
 
   return res.json({
@@ -797,6 +1206,7 @@ app.post('/api/admin/config', requireAdmin, async (req, res) => {
 // Force Cloud Synchronization Endpoint
 app.post('/api/admin/sync-cloud', requireAdmin, async (req, res) => {
   await store.ensureLoaded(true);
+  store.logEvent('CLOUD_SYNC', 'GitHub Gist', 'Fleet re-hydrated from cloud backup', 'info');
   return res.json({
     success: true,
     devices: store.getAllDevices(),

@@ -790,6 +790,232 @@
       opacity: 1;
       transform: translateY(0);
     }
+
+    /* Fleet Analytics & Distribution */
+    .analytics-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 860px) {
+      .analytics-panel { grid-template-columns: 1fr; }
+    }
+    .analytics-section h4 {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stacked-bar-wrap {
+      height: 12px;
+      background: var(--surface-elevated);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      margin-bottom: 8px;
+    }
+    .bar-seg {
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+    .bar-seg.android { background: #3ddc84; }
+    .bar-seg.linux { background: #f59e0b; }
+    .bar-seg.ios { background: #a855f7; }
+    .bar-seg.windows { background: #3b82f6; }
+    .bar-seg.other { background: #64748b; }
+    .bar-seg.current-ver { background: var(--accent); }
+    .bar-seg.old-ver { background: var(--warning); }
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Live Audit & Event Stream */
+    .audit-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .audit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .audit-header h4 {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .audit-stream {
+      background: #08080a;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px 14px;
+      max-height: 160px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .audit-row {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      line-height: 1.4;
+    }
+    .audit-time {
+      color: #64748b;
+      white-space: nowrap;
+    }
+    .audit-tag {
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .audit-tag.success { background: rgba(46, 230, 107, 0.15); color: var(--accent); }
+    .audit-tag.warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .audit-tag.info { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+    .audit-text {
+      color: #cbd5e1;
+    }
+
+    /* Hardware Spec Inspection Grid */
+    .spec-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (max-width: 540px) {
+      .spec-grid { grid-template-columns: 1fr; }
+    }
+    .spec-item {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .spec-label {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+    .spec-value {
+      font-size: 12.5px;
+      color: #fff;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .chip-sku {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #94a3b8;
+      display: inline-block;
+      margin-left: 6px;
+    }
+    .badge-physical {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      background: rgba(46, 230, 107, 0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(46, 230, 107, 0.3);
+    }
+    .badge-emulator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Command Dispatch Cards */
+    .cmd-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .cmd-card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+    }
+    .cmd-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .cmd-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cmd-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -828,12 +1054,24 @@
           <span id="syncStatusText">Cloud Gist Live Sync</span>
         </div>
 
+        <button class="btn btn-secondary" onclick="exportJson()" title="Download full fleet backup as JSON">
+          <span>📥 JSON</span>
+        </button>
+
+        <button class="btn btn-secondary" onclick="exportCsv()" title="Download fleet inventory spreadsheet as CSV">
+          <span>📊 CSV</span>
+        </button>
+
+        <button class="btn btn-secondary" onclick="toggleAuditPanel()" title="Toggle live event and administrative stream">
+          <span>⚡ Logs</span>
+        </button>
+
         <button class="btn btn-secondary" onclick="forceCloudSync()">
-          <span>↻ Force Cloud Sync</span>
+          <span>↻ Force Sync</span>
         </button>
 
         <button class="btn btn-secondary" onclick="openConfigModal()">
-          <span>⚙ System Configuration</span>
+          <span>⚙ Config</span>
         </button>
 
         <button class="btn btn-secondary" onclick="signOut()">
@@ -898,6 +1136,57 @@
           </div>
           <div class="metric-value" id="statVersion">v3.0.3</div>
           <div class="metric-sub" id="statVersionSub">Active target channel</div>
+        </div>
+      </div>
+
+      <!-- Fleet Analytics & Platform Breakdown -->
+      <div class="analytics-panel" id="analyticsPanel">
+        <div class="analytics-section">
+          <h4>
+            <span>Platform Distribution</span>
+            <span id="platformStatsSummary" style="font-family: var(--mono); color: var(--accent); text-transform: none;">Calculating...</span>
+          </h4>
+          <div class="stacked-bar-wrap" id="platformBar">
+            <div class="bar-seg android" id="barAndroid" style="width: 75%;" title="Android"></div>
+            <div class="bar-seg linux" id="barLinux" style="width: 25%;" title="Linux"></div>
+            <div class="bar-seg ios" id="barIos" style="width: 0%;" title="iOS"></div>
+            <div class="bar-seg windows" id="barWindows" style="width: 0%;" title="Windows"></div>
+          </div>
+          <div class="legend-row">
+            <span class="legend-item"><span class="legend-dot" style="background: #3ddc84;"></span> Android: <b id="legAndroid">0</b></span>
+            <span class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span> Linux: <b id="legLinux">0</b></span>
+            <span class="legend-item"><span class="legend-dot" style="background: #a855f7;"></span> iOS: <b id="legIos">0</b></span>
+            <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span> Windows: <b id="legWindows">0</b></span>
+          </div>
+        </div>
+
+        <div class="analytics-section">
+          <h4>
+            <span>Release Adoption Health</span>
+            <span id="versionStatsSummary" style="font-family: var(--mono); color: var(--accent); text-transform: none;">Target: v3.0.3</span>
+          </h4>
+          <div class="stacked-bar-wrap" id="versionBar">
+            <div class="bar-seg current-ver" id="barCurrentVer" style="width: 75%;" title="v3.0.3"></div>
+            <div class="bar-seg old-ver" id="barOldVer" style="width: 25%;" title="Legacy"></div>
+          </div>
+          <div class="legend-row">
+            <span class="legend-item"><span class="legend-dot" style="background: var(--accent);"></span> Latest (v3.0.3+): <b id="legLatestVer">0</b></span>
+            <span class="legend-item"><span class="legend-dot" style="background: var(--warning);"></span> Outdated (< v3.0.3): <b id="legOutdatedVer">0</b></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Event & Audit Stream (Collapsible) -->
+      <div class="audit-panel" id="auditPanel" style="display: none;">
+        <div class="audit-header">
+          <h4><span>⚡ Live Fleet Activity & Audit Stream</span></h4>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="fetchLogs()">↻ Refresh</button>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="toggleAuditPanel()">✕ Close</button>
+          </div>
+        </div>
+        <div class="audit-stream" id="auditStream">
+          <div class="audit-row"><span class="audit-time">[Init]</span> <span class="audit-tag info">SYSTEM</span> <span class="audit-text">Awaiting administrative log events...</span></div>
         </div>
       </div>
 
@@ -1133,6 +1422,120 @@
       </div>
     </div>
 
+    <!-- Hardware Specification Drawer / Modal -->
+    <div class="modal-backdrop" id="inspectModal">
+      <div class="modal-box" style="max-width: 680px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="inspectBrandIcon" style="font-size: 20px;">📱</span>
+              <h2 style="font-size: 19px; font-weight: 800; color: #fff;" id="inspectModelTitle">Device Name</h2>
+              <span class="chip-sku" id="inspectSkuChip">SKU</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="inspectSubtitle">Physical Hardware Telemetry Profile</div>
+          </div>
+          <button class="btn-icon" onclick="closeInspectModal()">✕</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+          <span id="inspectPhysicalBadge" class="badge-physical">✔ Physical Device</span>
+          <span id="inspectStatusBadge" class="status-badge allowed">ALLOWED</span>
+          <span id="inspectVersionTag" class="version-tag">v3.0.3</span>
+        </div>
+
+        <div class="spec-grid">
+          <div class="spec-item">
+            <span class="spec-label">Commercial Phone Model</span>
+            <span class="spec-value" id="inspectSpecModel">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Hardware SKU / Model Code</span>
+            <span class="spec-value" id="inspectSpecSku">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Manufacturer & Brand</span>
+            <span class="spec-value" id="inspectSpecBrand">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Chipset & Board</span>
+            <span class="spec-value" id="inspectSpecHardware">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Operating System / Platform</span>
+            <span class="spec-value" id="inspectSpecOs">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Client IP Address</span>
+            <span class="spec-value" id="inspectSpecIp" style="font-family: var(--mono);">--</span>
+          </div>
+          <div class="spec-item" style="grid-column: 1 / -1;">
+            <span class="spec-label">OS Build Fingerprint</span>
+            <span class="spec-value" id="inspectSpecFingerprint" style="font-family: var(--mono); font-size: 11px;">--</span>
+          </div>
+          <div class="spec-item" style="grid-column: 1 / -1;">
+            <span class="spec-label">Device UUID</span>
+            <span class="spec-value" id="inspectSpecUuid" style="font-family: var(--mono); font-size: 11px;">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Total Heartbeat Pings</span>
+            <span class="spec-value" id="inspectSpecPings">--</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">First Seen / Registered</span>
+            <span class="spec-value" id="inspectSpecFirstSeen">--</span>
+          </div>
+          <div class="spec-item" style="grid-column: 1 / -1;">
+            <span class="spec-label">Last Seen Heartbeat</span>
+            <span class="spec-value" id="inspectSpecLastSeen">--</span>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="justify-content: space-between;">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="inspectDirectMsgBtn">💬 Direct Notice</button>
+            <button class="btn btn-secondary" id="inspectCommandBtn">⚡ Remote Command</button>
+          </div>
+          <button class="btn btn-primary" onclick="closeInspectModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remote Command Dispatch Modal -->
+    <div class="modal-backdrop" id="commandModal">
+      <div class="modal-box" style="max-width: 580px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+          <div>
+            <h2 style="font-size: 18px; font-weight: 700;">Execute Remote Command</h2>
+            <p style="font-size: 12px; color: var(--text-muted);" id="cmdModalDeviceSubtitle">Target device will execute the selected action upon its next heartbeat.</p>
+          </div>
+          <button class="btn-icon" onclick="closeCommandModal()">✕</button>
+        </div>
+
+        <div class="cmd-card-grid">
+          <div class="cmd-card" onclick="dispatchRemoteCommand('clear_cache')">
+            <div class="cmd-title">🧹 Purge App Cache</div>
+            <div class="cmd-desc">Clears SQLite temporary notice caches, search history, and stale media session state.</div>
+          </div>
+          <div class="cmd-card" onclick="dispatchRemoteCommand('force_sync')">
+            <div class="cmd-title">🔄 Force Telemetry Sync</div>
+            <div class="cmd-desc">Triggers immediate background heartbeat sync and metadata exchange.</div>
+          </div>
+          <div class="cmd-card" onclick="dispatchRemoteCommand('update_prompt')">
+            <div class="cmd-title">📢 Force Update Banner</div>
+            <div class="cmd-desc">Immediately triggers full-screen update advisory with download link.</div>
+          </div>
+          <div class="cmd-card" onclick="dispatchRemoteCommand('restart_audio')">
+            <div class="cmd-title">🔊 Reset Audio Pipeline</div>
+            <div class="cmd-desc">Restarts media player audio handler, MPRIS bridge, and audio session.</div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeCommandModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
   </div> <!-- Close #appView -->
 
   <div class="toast" id="toast"></div>
@@ -1141,6 +1544,7 @@
     let allDevices = [];
     let currentFilter = 'all';
     let pendingBlockId = null;
+    let pendingCommandDeviceId = null;
     let refreshInterval = null;
 
     function getAdminKey() {
@@ -1182,6 +1586,203 @@
       sessionStorage.removeItem('softify_admin_key');
       localStorage.removeItem('softify_admin_key');
       showLogin('Signed out successfully.');
+    }
+
+    function exportJson() {
+      const key = getAdminKey();
+      window.location.href = `/api/admin/export/json?key=${encodeURIComponent(key)}`;
+      showToast('Downloading JSON fleet backup... 📥');
+    }
+
+    function exportCsv() {
+      const key = getAdminKey();
+      window.location.href = `/api/admin/export/csv?key=${encodeURIComponent(key)}`;
+      showToast('Downloading fleet CSV spreadsheet... 📊');
+    }
+
+    function toggleAuditPanel() {
+      const panel = document.getElementById('auditPanel');
+      if (panel.style.display === 'none' || !panel.style.display) {
+        panel.style.display = 'flex';
+        fetchLogs();
+      } else {
+        panel.style.display = 'none';
+      }
+    }
+
+    async function fetchLogs() {
+      const key = getAdminKey();
+      try {
+        const res = await fetch('/api/admin/logs', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.logs)) {
+          renderLogs(data.logs);
+        }
+      } catch (e) {}
+    }
+
+    function renderLogs(logs) {
+      const stream = document.getElementById('auditStream');
+      if (!logs || logs.length === 0) {
+        stream.innerHTML = '<div class="audit-row"><span class="audit-time">[Ready]</span> <span class="audit-tag info">SYSTEM</span> <span class="audit-text">No administrative events recorded yet.</span></div>';
+        return;
+      }
+
+      stream.innerHTML = logs.map(l => {
+        const time = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : '';
+        const levelClass = l.level === 'warning' ? 'warning' : (l.level === 'success' ? 'success' : 'info');
+        return `
+          <div class="audit-row">
+            <span class="audit-time">[${escapeHtml(time)}]</span>
+            <span class="audit-tag ${levelClass}">${escapeHtml(l.event || 'EVENT')}</span>
+            <span class="audit-text"><b>${escapeHtml(l.target || '')}</b>: ${escapeHtml(l.details || '')}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateAnalytics(devices) {
+      const total = devices.length || 1;
+      let android = 0, linux = 0, ios = 0, windows = 0, other = 0;
+      let latestVer = 0, outdatedVer = 0;
+
+      for (const d of devices) {
+        const p = (d.platform || '').toLowerCase();
+        if (p.includes('android')) android++;
+        else if (p.includes('linux')) linux++;
+        else if (p.includes('ios')) ios++;
+        else if (p.includes('win')) windows++;
+        else other++;
+
+        const v = d.appVersion || '';
+        if (v >= '3.0.3') latestVer++;
+        else outdatedVer++;
+      }
+
+      const pAndroidPct = Math.round((android / total) * 100);
+      const pLinuxPct = Math.round((linux / total) * 100);
+      const pIosPct = Math.round((ios / total) * 100);
+      const pWinPct = Math.round((windows / total) * 100);
+
+      document.getElementById('barAndroid').style.width = `${pAndroidPct}%`;
+      document.getElementById('barLinux').style.width = `${pLinuxPct}%`;
+      document.getElementById('barIos').style.width = `${pIosPct}%`;
+      document.getElementById('barWindows').style.width = `${pWinPct}%`;
+
+      document.getElementById('legAndroid').innerText = `${android} (${pAndroidPct}%)`;
+      document.getElementById('legLinux').innerText = `${linux} (${pLinuxPct}%)`;
+      document.getElementById('legIos').innerText = `${ios} (${pIosPct}%)`;
+      document.getElementById('legWindows').innerText = `${windows} (${pWinPct}%)`;
+      document.getElementById('platformStatsSummary').innerText = `${devices.length} Total Registered Nodes`;
+
+      const latestPct = Math.round((latestVer / total) * 100);
+      const outdatedPct = 100 - latestPct;
+
+      document.getElementById('barCurrentVer').style.width = `${latestPct}%`;
+      document.getElementById('barOldVer').style.width = `${outdatedPct}%`;
+      document.getElementById('legLatestVer').innerText = `${latestVer} (${latestPct}%)`;
+      document.getElementById('legOutdatedVer').innerText = `${outdatedVer} (${outdatedPct}%)`;
+      document.getElementById('versionStatsSummary').innerText = `${latestPct}% Fleet Health`;
+    }
+
+    function openInspectModal(id) {
+      const d = allDevices.find(x => x.id === id);
+      if (!d) return;
+
+      const modelName = d.deviceModel || 'Mobile Device';
+      const isPhysical = d.isPhysicalDevice !== false;
+      const isAllowed = d.status === 'allowed';
+      const isOutdated = (d.appVersion || '') < '3.0.3';
+
+      let brandIcon = '📱';
+      const brandLower = (d.brand || d.platform || '').toLowerCase();
+      if (brandLower.includes('apple')) brandIcon = '🍏';
+      else if (brandLower.includes('linux')) brandIcon = '🐧';
+      else if (brandLower.includes('honor') || brandLower.includes('huawei')) brandIcon = '🛡️';
+      else if (brandLower.includes('vivo') || brandLower.includes('iqoo')) brandIcon = '⚡';
+      else if (brandLower.includes('samsung')) brandIcon = '🪐';
+
+      document.getElementById('inspectBrandIcon').innerText = brandIcon;
+      document.getElementById('inspectModelTitle').innerText = d.customAlias ? `${d.customAlias} (${modelName})` : modelName;
+      document.getElementById('inspectSkuChip').innerText = d.modelCode || 'N/A';
+      document.getElementById('inspectSubtitle').innerText = `${d.brand || 'Hardware'} Telemetry Profile • ${isPhysical ? 'Physical Phone' : 'Virtual Machine / Emulator'}`;
+
+      const physBadge = document.getElementById('inspectPhysicalBadge');
+      physBadge.className = isPhysical ? 'badge-physical' : 'badge-emulator';
+      physBadge.innerText = isPhysical ? '✔ Physical Device' : '⚠️ Emulator / VM';
+
+      const statBadge = document.getElementById('inspectStatusBadge');
+      statBadge.className = `status-badge ${d.status}`;
+      statBadge.innerText = d.status.toUpperCase();
+
+      const verTag = document.getElementById('inspectVersionTag');
+      verTag.className = `version-tag ${isOutdated ? 'outdated' : ''}`;
+      verTag.innerText = `v${d.appVersion || '3.0.3'}${isOutdated ? ' (Outdated)' : ' (Current)'}`;
+
+      document.getElementById('inspectSpecModel').innerText = modelName;
+      document.getElementById('inspectSpecSku').innerText = d.modelCode || 'N/A';
+      document.getElementById('inspectSpecBrand').innerText = `${d.brand || 'Generic'} ${d.manufacturer ? '(' + d.manufacturer + ')' : ''}`;
+      document.getElementById('inspectSpecHardware').innerText = (d.hardware || d.board) ? `${d.hardware || ''} ${d.board ? '[' + d.board + ']' : ''}` : 'Native SoC / Architecture';
+      document.getElementById('inspectSpecOs').innerText = `${d.platform ? d.platform.toUpperCase() : 'OS'} • ${d.osVersion || 'Native'}`;
+      document.getElementById('inspectSpecIp').innerText = d.ipAddress || '127.0.0.1';
+      document.getElementById('inspectSpecFingerprint').innerText = d.fingerprint || 'Standard Verified Production Build';
+      document.getElementById('inspectSpecUuid').innerText = d.id;
+      document.getElementById('inspectSpecPings').innerText = `${d.pingCount || 1} Heartbeats recorded`;
+      document.getElementById('inspectSpecFirstSeen').innerText = d.firstSeen ? `${new Date(d.firstSeen).toLocaleString()} (${formatTimeAgo(d.firstSeen)})` : 'Initial check-in';
+      document.getElementById('inspectSpecLastSeen').innerText = d.lastSeen ? `${new Date(d.lastSeen).toLocaleString()} (${formatTimeAgo(d.lastSeen)})` : 'Active session';
+
+      document.getElementById('inspectDirectMsgBtn').onclick = () => {
+        closeInspectModal();
+        directMessageDevice(d.id, d.customAlias || modelName);
+      };
+      document.getElementById('inspectCommandBtn').onclick = () => {
+        closeInspectModal();
+        openCommandModal(d.id, d.customAlias || modelName);
+      };
+
+      document.getElementById('inspectModal').classList.add('show');
+    }
+
+    function closeInspectModal() {
+      document.getElementById('inspectModal').classList.remove('show');
+    }
+
+    function openCommandModal(id, name) {
+      pendingCommandDeviceId = id;
+      document.getElementById('cmdModalDeviceSubtitle').innerText = `Target: ${name} (${id.substring(0, 8)}) • Action will execute on next client heartbeat.`;
+      document.getElementById('commandModal').classList.add('show');
+    }
+
+    function closeCommandModal() {
+      pendingCommandDeviceId = null;
+      document.getElementById('commandModal').classList.remove('show');
+    }
+
+    async function dispatchRemoteCommand(command) {
+      if (!pendingCommandDeviceId) return;
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/devices/${pendingCommandDeviceId}/command`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ command })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Remote command '${command}' queued for delivery! ⚡`);
+          closeCommandModal();
+          fetchLogs();
+        } else {
+          showToast(data.error || 'Failed to dispatch command');
+        }
+      } catch (e) {
+        showToast('Error dispatching remote command');
+      }
     }
 
     async function handleLogin(e) {
@@ -1259,6 +1860,7 @@
           fetchStats();
           fetchNotice();
           updateDeviceDropdown();
+          updateAnalytics(allDevices);
         }
       } catch (e) {
         console.error('Fetch error:', e);
@@ -1552,8 +2154,14 @@
         return `
           <tr>
             <td>
-              <div style="font-weight: 700; color: #fff;">${escapeHtml(d.customAlias || modelName)}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(modelName)}</div>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span style="font-weight: 700; color: #fff; font-size: 13.5px;">${escapeHtml(d.customAlias || modelName)}</span>
+                ${d.modelCode ? `<span class="chip-sku" title="Hardware SKU">${escapeHtml(d.modelCode)}</span>` : ''}
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+                ${escapeHtml(d.brand ? d.brand + ' • ' + modelName : modelName)}
+                ${d.isPhysicalDevice === false ? '<span style="color: var(--warning); margin-left: 6px;">[Emulator]</span>' : ''}
+              </div>
             </td>
             <td>
               <span class="platform-badge">${getPlatformIcon(d.platform)}</span>
@@ -1585,7 +2193,9 @@
             </td>
             <td>
               <div class="action-btns">
+                <button class="btn-icon" title="Inspect Hardware Profile" onclick="openInspectModal('${d.id}')">🔍</button>
                 <button class="btn-icon" title="Send Notice to this Device" onclick="directMessageDevice('${d.id}', '${escapeHtml(d.customAlias || modelName)}')">💬</button>
+                <button class="btn-icon" title="Remote Commands" onclick="openCommandModal('${d.id}', '${escapeHtml(d.customAlias || modelName)}')">⚡</button>
                 <button class="btn-icon" title="Edit Alias" onclick="editAlias('${d.id}', '${escapeHtml(d.customAlias || '')}')">✏️</button>
                 <button class="btn-icon delete" title="Delete Device" onclick="deleteDevice('${d.id}')">🗑️</button>
               </div>

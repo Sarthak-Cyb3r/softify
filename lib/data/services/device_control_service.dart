@@ -43,6 +43,7 @@ class DeviceControlStatus {
   final String? banner;
   final AppNotice? notice;
   final bool isOffline;
+  final List<String> commands;
 
   const DeviceControlStatus({
     required this.isAllowed,
@@ -51,6 +52,7 @@ class DeviceControlStatus {
     this.banner,
     this.notice,
     this.isOffline = false,
+    this.commands = const [],
   });
 }
 
@@ -138,45 +140,71 @@ class DeviceControlService {
         );
   }
 
-  /// Gathers system metadata for device registry, resolving genuine hardware model.
+  /// Gathers system metadata for device registry, resolving genuine hardware model and specifications.
   Future<Map<String, String>> _collectDeviceInfo() async {
     final platform = Platform.operatingSystem;
     var osVersion = Platform.operatingSystemVersion;
     var model = '';
+    var modelCode = '';
+    var brand = '';
+    var manufacturer = '';
+    var hardware = '';
+    var board = '';
+    var isPhysical = 'true';
+    var fingerprint = '';
     const appVersion = kAppVersion;
 
     try {
       final deviceInfo = DeviceInfoPlugin();
       if (Platform.isAndroid) {
         final android = await deviceInfo.androidInfo;
-        final brand = android.brand.trim();
-        final rawModel = android.model.trim();
+        brand = android.brand.trim();
+        manufacturer = android.manufacturer.trim();
+        modelCode = android.model.trim();
+        hardware = android.hardware.trim();
+        board = android.board.trim();
+        isPhysical = android.isPhysicalDevice ? 'true' : 'false';
+        fingerprint = android.fingerprint.trim();
+
         final cleanBrand = brand.isNotEmpty
             ? '${brand[0].toUpperCase()}${brand.substring(1)}'
             : '';
         if (cleanBrand.isNotEmpty &&
-            !rawModel.toLowerCase().startsWith(cleanBrand.toLowerCase())) {
-          model = '$cleanBrand $rawModel';
+            !modelCode.toLowerCase().startsWith(cleanBrand.toLowerCase())) {
+          model = '$cleanBrand $modelCode';
         } else {
-          model = rawModel.isNotEmpty ? rawModel : 'Android Device';
+          model = modelCode.isNotEmpty ? modelCode : 'Android Device';
         }
         osVersion = 'Android ${android.version.release} (SDK ${android.version.sdkInt})';
       } else if (Platform.isIOS) {
         final ios = await deviceInfo.iosInfo;
-        model = ios.utsname.machine.isNotEmpty ? ios.utsname.machine : ios.name;
+        modelCode = ios.utsname.machine.isNotEmpty ? ios.utsname.machine : ios.name;
+        brand = 'Apple';
+        manufacturer = 'Apple';
+        model = modelCode;
+        isPhysical = ios.isPhysicalDevice ? 'true' : 'false';
         osVersion = '${ios.systemName} ${ios.systemVersion}';
       } else if (Platform.isLinux) {
         final linux = await deviceInfo.linuxInfo;
+        brand = linux.name.isNotEmpty ? linux.name : 'Linux';
+        manufacturer = 'Linux';
+        modelCode = linux.id.isNotEmpty ? linux.id : 'linux';
         model = linux.prettyName.isNotEmpty
             ? linux.prettyName
             : (Platform.localHostname.isNotEmpty ? Platform.localHostname : 'Linux Desktop');
         osVersion = linux.versionId ?? Platform.operatingSystemVersion;
       } else if (Platform.isWindows) {
         final win = await deviceInfo.windowsInfo;
+        brand = 'Microsoft';
+        manufacturer = 'Microsoft';
+        modelCode = 'Windows-PC';
         model = win.productName.isNotEmpty ? win.productName : 'Windows PC';
         osVersion = 'Windows ${win.buildNumber}';
       } else if (Platform.isMacOS) {
         final mac = await deviceInfo.macOsInfo;
+        brand = 'Apple';
+        manufacturer = 'Apple';
+        modelCode = mac.model.isNotEmpty ? mac.model : 'Mac';
         model = mac.model.isNotEmpty ? mac.model : 'Apple Mac';
         osVersion = 'macOS ${mac.osRelease}';
       }
@@ -198,6 +226,13 @@ class DeviceControlService {
       'platform': platform,
       'osVersion': osVersion,
       'deviceModel': model,
+      'modelCode': modelCode,
+      'brand': brand,
+      'manufacturer': manufacturer,
+      'hardware': hardware,
+      'board': board,
+      'isPhysicalDevice': isPhysical,
+      'fingerprint': fingerprint,
       'appVersion': appVersion,
     };
   }
@@ -220,6 +255,13 @@ class DeviceControlService {
               'platform': info['platform'],
               'osVersion': info['osVersion'],
               'deviceModel': info['deviceModel'],
+              'modelCode': info['modelCode'],
+              'brand': info['brand'],
+              'manufacturer': info['manufacturer'],
+              'hardware': info['hardware'],
+              'board': info['board'],
+              'isPhysicalDevice': info['isPhysicalDevice'],
+              'fingerprint': info['fingerprint'],
               'appVersion': info['appVersion'],
             }),
           )
@@ -231,6 +273,16 @@ class DeviceControlService {
         final status = (data['status'] as String?) ?? (isAllowed ? 'allowed' : 'blocked');
         final reason = data['reason'] as String?;
         final banner = data['banner'] as String?;
+        final rawCommands = data['commands'];
+        final List<String> commands = rawCommands is List
+            ? rawCommands.map((e) => e.toString()).toList()
+            : const [];
+
+        if (commands.contains('clear_cache')) {
+          await (_db.delete(_db.settings)
+                ..where((tbl) => tbl.key.equals(_keyCachedNotice)))
+              .go();
+        }
 
         AppNotice? notice;
         if (data['notice'] != null && data['notice'] is Map<String, dynamic>) {
@@ -286,6 +338,7 @@ class DeviceControlService {
           banner: banner,
           notice: notice,
           isOffline: false,
+          commands: commands,
         );
       }
     } catch (_) {
