@@ -88,7 +88,7 @@ function resolveExactDeviceModel(info = {}) {
 
   // 2. Vivo & iQOO Models
   if (searchStr.includes('V2515')) {
-    return { commercialName: 'Vivo V50 5G', modelCode: 'V2515', brand: 'Vivo' };
+    return { commercialName: 'vivo X300', modelCode: 'V2515', brand: 'vivo' };
   }
   if (searchStr.includes('V2415') || searchStr.includes('V2403')) {
     return { commercialName: 'Vivo V40 5G', modelCode: 'V2415', brand: 'Vivo' };
@@ -123,7 +123,7 @@ function resolveExactDeviceModel(info = {}) {
 
   // 3. Samsung Galaxy Models & Build fingerprints
   if (searchStr.includes('E076B') || searchStr.includes('SM-E076B')) {
-    return { commercialName: 'Samsung Galaxy M07', modelCode: 'SM-E076B', brand: 'Samsung' };
+    return { commercialName: 'Samsung Galaxy F70e 5G', modelCode: 'SM-E076B', brand: 'Samsung' };
   }
   if (searchStr.includes('SM-S928') || searchStr.includes('S928')) {
     return { commercialName: 'Samsung Galaxy S24 Ultra', modelCode: 'SM-S928', brand: 'Samsung' };
@@ -198,6 +198,9 @@ function resolveExactDeviceModel(info = {}) {
   }
 
   // 5. Xiaomi, Redmi, Poco Models
+  if (searchStr.includes('23124RN87I') || searchStr.includes('23124RN87')) {
+    return { commercialName: 'Redmi 13C 5G', modelCode: '23124RN87I', brand: 'Xiaomi' };
+  }
   if (searchStr.includes('23116PN5BC') || searchStr.includes('23117PN64G')) {
     return { commercialName: 'Xiaomi 14', modelCode: '23117PN64G', brand: 'Xiaomi' };
   }
