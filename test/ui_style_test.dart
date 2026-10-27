@@ -66,15 +66,15 @@ void main() {
 
       expect(classic.style, equals(UiStyle.classic));
       expect(classic.isGlass, isFalse);
-      expect(classic.background, equals(const Color(0xFF121212)));
-      expect(classic.accent, equals(const Color(0xFF1DB954))); // Spotify green
+      expect(classic.background, equals(const Color(0xFF000000))); // Metrolist Pure Black
+      expect(classic.accent, equals(const Color(0xFFED5564))); // Metrolist Coral Red
 
       expect(aurora.style, equals(UiStyle.auroraGlass));
       expect(aurora.isGlass, isTrue);
       expect(aurora.background, equals(const Color(0xFF0E0E11))); // Warm obsidian
-      expect(aurora.accent, equals(const Color(0xFF34D399))); // Studio Sage Mint
-      expect(aurora.accentCyan, equals(const Color(0xFF34D399)));
-      expect(aurora.accentRose, equals(const Color(0xFFE57373)));
+      expect(aurora.accent, equals(const Color(0xFFED5564))); // Metrolist Coral Red
+      expect(aurora.accentCyan, equals(const Color(0xFF60A5FA)));
+      expect(aurora.accentRose, equals(const Color(0xFFED5564)));
       expect(aurora.radiusCard, equals(14.0)); // Architectural crisp card radius
     });
 
@@ -82,12 +82,12 @@ void main() {
       final classicTheme = AppTheme.themeFor(UiStyle.classic);
       final auroraTheme = AppTheme.themeFor(UiStyle.auroraGlass);
 
-      expect(classicTheme.colorScheme.primary, equals(const Color(0xFF1DB954)));
-      expect(classicTheme.scaffoldBackgroundColor, equals(const Color(0xFF121212)));
+      expect(classicTheme.colorScheme.primary, equals(const Color(0xFFED5564)));
+      expect(classicTheme.scaffoldBackgroundColor, equals(const Color(0xFF000000)));
 
-      expect(auroraTheme.colorScheme.primary, equals(const Color(0xFF34D399)));
-      expect(auroraTheme.colorScheme.secondary, equals(const Color(0xFF34D399)));
-      expect(auroraTheme.colorScheme.tertiary, equals(const Color(0xFFE57373)));
+      expect(auroraTheme.colorScheme.primary, equals(const Color(0xFFED5564)));
+      expect(auroraTheme.colorScheme.secondary, equals(const Color(0xFF60A5FA)));
+      expect(auroraTheme.colorScheme.tertiary, equals(const Color(0xFFED5564)));
       expect(auroraTheme.scaffoldBackgroundColor, equals(const Color(0xFF0E0E11)));
     });
 

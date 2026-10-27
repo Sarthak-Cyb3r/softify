@@ -335,7 +335,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 ),
                 const SizedBox(width: 8),
                 AppFilterChip(
-                  label: 'Liked Songs',
+                  label: 'Songs',
                   isSelected: _tabController.index == 1,
                   onTap: () => setState(() => _tabController.animateTo(1)),
                 ),

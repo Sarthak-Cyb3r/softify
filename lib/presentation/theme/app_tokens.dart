@@ -62,25 +62,25 @@ class AppTokens extends ThemeExtension<AppTokens> {
   const AppTokens({
     this.style = UiStyle.classic,
     this.isGlass = false,
-    this.background = const Color(0xFF121212),
+    this.background = const Color(0xFF000000),
     this.sidebar = const Color(0xFF000000),
-    this.surface = const Color(0xFF121212),
-    this.surfaceElevated = const Color(0xFF2A2A2A),
-    this.surfaceHighlight = const Color(0xFF282828),
-    this.card = const Color(0xFF181818),
-    this.cardHover = const Color(0xFF282828),
-    this.glass = const Color(0xCC181818),
+    this.surface = const Color(0xFF0B0C0E),
+    this.surfaceElevated = const Color(0xFF1E2025),
+    this.surfaceHighlight = const Color(0xFF25272E),
+    this.card = const Color(0xFF16171B),
+    this.cardHover = const Color(0xFF22242A),
+    this.glass = const Color(0xCC16171B),
     this.glassSurface = const Color(0x1AFFFFFF),
     this.glassBorder = const Color(0x1FFFFFFF),
-    this.accent = const Color(0xFF1DB954),
-    this.accentViolet = const Color(0xFFF4F4F6),
-    this.accentCyan = const Color(0xFF34D399),
-    this.accentRose = const Color(0xFFE57373),
-    this.textPrimary = const Color(0xFFFFFFFF),
-    this.textSecondary = const Color(0xFFB3B3B3),
-    this.textMuted = const Color(0xFF6A6A6A),
+    this.accent = const Color(0xFFED5564), // Metrolist Coral Red
+    this.accentViolet = const Color(0xFFB388FF),
+    this.accentCyan = const Color(0xFF60A5FA),
+    this.accentRose = const Color(0xFFED5564),
+    this.textPrimary = const Color(0xFFE6E1E5),
+    this.textSecondary = const Color(0xFF938F99),
+    this.textMuted = const Color(0xFF5F5D66),
     this.divider = const Color(0x1FFFFFFF),
-    this.error = const Color(0xFFF15E6C),
+    this.error = const Color(0xFFFF5449),
     this.spaceXs = 4.0,
     this.spaceSm = 8.0,
     this.spaceMd = 16.0,
@@ -120,10 +120,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     glass: Color(0x0DFFFFFF), // 5% translucent white
     glassSurface: Color(0x12FFFFFF), // 7% translucent white surface
     glassBorder: Color(0x1AFFFFFF), // 10% crisp hairline border
-    accent: Color(0xFF34D399), // Studio sage mint
-    accentViolet: Color(0xFFF4F4F6), // Warm titanium alabaster
-    accentCyan: Color(0xFF34D399), // Studio sage mint
-    accentRose: Color(0xFFE57373), // Muted terracotta / dusty rose
+    accent: Color(0xFFED5564), // Metrolist Coral Red
+    accentViolet: Color(0xFFB388FF),
+    accentCyan: Color(0xFF60A5FA),
+    accentRose: Color(0xFFED5564),
     textPrimary: Color(0xFFF4F4F6),
     textSecondary: Color(0xFFA1A1AA), // Neutral zinc, meets WCAG AA & AAA
     textMuted: Color(0xFF71717A),

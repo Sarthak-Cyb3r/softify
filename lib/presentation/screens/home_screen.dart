@@ -17,6 +17,8 @@ import 'artist_discography_screen.dart';
 import 'tracks_list_screen.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
 import '../providers/search_providers.dart';
+import '../widgets/track_options_bottom_sheet.dart';
+import '../widgets/wrapped_insights_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -211,6 +213,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 850;
 
+    final historyTracks = (historyAsync.value ?? [])
+        .map((h) => h.track)
+        .whereType<Track>()
+        .toList();
+    final fallbackTracks = (featuredAsync.value is List<Track>)
+        ? (featuredAsync.value as List<Track>)
+        : (shelvesAsync.value?.isNotEmpty == true
+            ? (shelvesAsync.value!.first.tracks)
+            : <Track>[]);
+    final quickPicksTracks =
+        historyTracks.isNotEmpty ? historyTracks : fallbackTracks;
+
     return Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       appBar: isDesktop
@@ -249,9 +263,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _getGreeting(userName, isDesktop: false),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontPageTitle,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               actions: [
+                BouncingScaleButton(
+                  scaleFactor: 0.9,
+                  onTap: () {
+                    final history = historyAsync.value ?? [];
+                    final tracks = history
+                        .map((h) => h.track)
+                        .whereType<Track>()
+                        .toList();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TracksListScreen(
+                          title: 'Recently Played',
+                          subtitle: '${tracks.length} tracks',
+                          icon: Icons.history_rounded,
+                          iconColor: tokens.accent,
+                          initialTracks: tracks,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    child: Icon(Icons.history_rounded, size: 22, color: tokens.textSecondary),
+                  ),
+                ),
+                BouncingScaleButton(
+                  scaleFactor: 0.9,
+                  onTap: () {
+                    WrappedInsightsDialog.show(context);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    child: Icon(Icons.bar_chart_rounded, size: 22, color: tokens.textSecondary),
+                  ),
+                ),
                 BouncingScaleButton(
                   scaleFactor: 0.9,
                   onTap: () {
@@ -261,22 +325,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     );
                   },
-                  child: tokens.isGlass
-                      ? AppSurface(
-                          withBlur: true,
-                          width: 36,
-                          height: 36,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: tokens.glassBorder, width: 1.0),
-                          child: const Center(
-                            child: Icon(Icons.tune_rounded, size: 20, color: Colors.white),
-                          ),
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          child: Icon(Icons.tune_rounded, size: 22, color: tokens.textSecondary),
-                        ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    child: Icon(Icons.tune_rounded, size: 22, color: tokens.textSecondary),
+                  ),
                 ),
                 BouncingScaleButton(
                   scaleFactor: 0.9,
@@ -287,22 +339,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     );
                   },
-                  child: tokens.isGlass
-                      ? AppSurface(
-                          withBlur: true,
-                          width: 36,
-                          height: 36,
-                          margin: const EdgeInsets.only(left: 4, right: 16),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: tokens.glassBorder, width: 1.0),
-                          child: const Center(
-                            child: Icon(Icons.settings_outlined, size: 20, color: Colors.white),
-                          ),
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-                          child: Icon(Icons.settings_outlined, size: 22, color: tokens.textSecondary),
-                        ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 14, top: 8, bottom: 8),
+                    child: Icon(Icons.settings_outlined, size: 22, color: tokens.textSecondary),
+                  ),
                 ),
               ],
             ),
@@ -361,6 +401,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         },
                         isDesktop: true,
                       ),
+                      const SizedBox(height: 24),
+
+                      // Metrolist 2-row Quick Picks Grid
+                      _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
                       const SizedBox(height: 32),
 
                       // 3. Continue Listening Shelf
@@ -409,10 +453,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                _buildGreetingHeader(tokens, userName, false),
-                const SizedBox(height: 12),
                 _buildFilterChips(tokens),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _buildBentoGrid(
                   tokens: tokens,
                   likedCount: likedCount,
@@ -451,9 +493,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   },
                   isDesktop: false,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
+                _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
+                const SizedBox(height: 28),
                 _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 _buildContinueListeningSection(
                   tokens,
                   historyAsync,
@@ -623,8 +667,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildFilterChips(AppTokens tokens) {
-    const filters = ['All', 'Music', 'Podcasts'];
-    return Padding(
+    const filters = ['All', 'Energize', 'Workout', 'Relax', 'Focus', 'Commute', 'Podcasts'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: filters.map((f) {
@@ -787,6 +833,196 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       isGradient: isGradient,
       tokens: tokens,
       onTap: onTap,
+    );
+  }
+
+  Widget _buildQuickPicksSection(
+    AppTokens tokens,
+    List<Track> tracks,
+    dynamic audioHandler,
+  ) {
+    if (tracks.isEmpty) return const SizedBox.shrink();
+    final displayTracks = tracks.take(12).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'START RADIO FROM A SONG',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Quick picks',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontPageTitle,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            OutlinedButton(
+              onPressed: () {
+                if (displayTracks.isNotEmpty) {
+                  audioHandler.setQueue(displayTracks);
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: tokens.accent.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                minimumSize: const Size(0, 28),
+              ),
+              child: Text(
+                'Play all',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  color: tokens.accent,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 126,
+          child: GridView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 260,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+            ),
+            itemCount: displayTracks.length,
+            itemBuilder: (context, index) {
+              final track = displayTracks[index];
+              return _buildQuickPickItem(tokens, track, audioHandler);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickPickItem(
+    AppTokens tokens,
+    Track track,
+    dynamic audioHandler,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => audioHandler.playTrack(track),
+        borderRadius: BorderRadius.circular(tokens.radiusMd),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: tokens.card,
+            borderRadius: BorderRadius.circular(tokens.radiusMd),
+            border: Border.all(
+              color: tokens.surfaceHighlight.withValues(alpha: 0.5),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      AppNetworkImage(
+                        imageUrl: track.coverUrl,
+                        fit: BoxFit.cover,
+                      ),
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        child: Center(
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            size: 18,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      track.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 11,
+                        color: tokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  size: 18,
+                  color: tokens.textSecondary,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                splashRadius: 18,
+                onPressed: () {
+                  TrackOptionsBottomSheet.show(context, track: track);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

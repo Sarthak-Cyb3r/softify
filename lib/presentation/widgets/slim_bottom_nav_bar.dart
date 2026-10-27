@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
-import 'shared/app_surface.dart';
 
 class SlimNavItem {
   final IconData icon;
@@ -16,9 +15,10 @@ class SlimNavItem {
   });
 }
 
-/// 6-Tab mobile bottom navigation bar adhering to Stitch mobile design:
-/// - Classic: Solid #121212 chrome with white active highlights
-/// - Aurora Glass: Frosted glassmorphism with cyan/violet aurora highlights
+/// Metrolist Material 3 Expressive Navigation Bar:
+/// - Pure Black AMOLED base with subtle top hairline
+/// - Animated active tonal pill capsule behind selected icon
+/// - Clean hierarchical typography
 class SlimBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -34,29 +34,25 @@ class SlimBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final isGlass = tokens.isGlass;
 
-    return AppSurface(
-      height: 60,
-      borderRadius: BorderRadius.zero,
-      withBlur: true,
-      blurSigma: 14.0,
-      color: isGlass ? tokens.glassSurface : const Color(0xFF121212),
-      border: Border(
-        top: BorderSide(
-          color: isGlass ? tokens.glassBorder : const Color(0x1AFFFFFF),
-          width: isGlass ? 1.0 : 0.5,
+    return Container(
+      height: 66,
+      decoration: BoxDecoration(
+        color: tokens.background,
+        border: Border(
+          top: BorderSide(
+            color: tokens.cardHover.withValues(alpha: 0.4),
+            width: 0.8,
+          ),
         ),
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: 520),
           child: Row(
             children: List.generate(items.length, (index) {
               final item = items[index];
               final isSelected = index == currentIndex;
-              final activeColor = isGlass ? tokens.accentCyan : Colors.white;
-              final inactiveColor = tokens.textSecondary;
 
               return Expanded(
                 child: Semantics(
@@ -73,10 +69,25 @@ class SlimBottomNavBar extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            isSelected ? item.activeIcon : item.icon,
-                            size: 24,
-                            color: isSelected ? activeColor : inactiveColor,
+                          // Metrolist M3 Active Tonal Pill Capsule
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            width: isSelected ? 58 : 42,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? tokens.accent.withValues(alpha: 0.22)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                isSelected ? item.activeIcon : item.icon,
+                                size: 22,
+                                color: isSelected ? tokens.accent : tokens.textSecondary,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Text(
@@ -86,10 +97,8 @@ class SlimBottomNavBar extends StatelessWidget {
                             style: TextStyle(
                               fontFamily: AppTheme.fontUi,
                               fontSize: 11,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isSelected ? activeColor : inactiveColor,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? tokens.textPrimary : tokens.textSecondary,
                               letterSpacing: -0.1,
                             ),
                           ),
@@ -106,4 +115,3 @@ class SlimBottomNavBar extends StatelessWidget {
     );
   }
 }
-

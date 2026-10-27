@@ -84,8 +84,6 @@ class MiniPlayer extends ConsumerWidget {
         );
 
     final isPlaying = (currentTrack != null) && (playbackState?.playing ?? false);
-    final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(displayTrack.id));
-    final isLiked = isLikedAsync?.value ?? displayTrack.isLiked;
 
     return Semantics(
       label: 'Now Playing: ${displayTrack.title} by ${displayTrack.artist}',
@@ -113,43 +111,38 @@ class MiniPlayer extends ConsumerWidget {
           }
         },
         child: AppSurface(
-          margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-          borderRadius: BorderRadius.circular(tokens.isGlass ? 20 : 10),
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          borderRadius: BorderRadius.circular(18),
           withBlur: true,
           blurSigma: 14.0,
-          color: tokens.isGlass ? tokens.glassSurface : const Color(0xF018181B),
-          border: tokens.isGlass
-              ? Border.all(color: tokens.glassBorder, width: 1.0)
-              : Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 0.8,
-                ),
-          boxShadow: tokens.isGlass
-              ? tokens.cardShadow
-              : const [
-                  BoxShadow(
-                    color: Color(0x99000000),
-                    blurRadius: 16,
-                    spreadRadius: 0,
-                    offset: Offset(0, 5),
-                  ),
-                ],
+          color: tokens.card,
+          border: Border.all(
+            color: tokens.cardHover.withValues(alpha: 0.6),
+            width: 1.0,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x99000000),
+              blurRadius: 18,
+              spreadRadius: 0,
+              offset: Offset(0, 6),
+            ),
+          ],
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 child: Row(
                   children: [
-                    // Artwork 42x42 with rounded radius
+                    // Artwork 46x46 with 12px Metrolist M3 rounded radius
                     ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(tokens.isGlass ? 10 : 6),
+                      borderRadius: BorderRadius.circular(12),
                       child: isPlaceholder
                           ? Container(
-                              width: 42,
-                              height: 42,
+                              width: 46,
+                              height: 46,
                               color: tokens.surfaceElevated,
                               child: Center(
                                 child: SizedBox(
@@ -166,14 +159,14 @@ class MiniPlayer extends ConsumerWidget {
                             )
                           : AppNetworkImage(
                               imageUrl: displayTrack.coverUrl,
-                              width: 42,
-                              height: 42,
+                              width: 46,
+                              height: 46,
                               fit: BoxFit.cover,
                               fallbackIcon: Icons.music_note_rounded,
                               backgroundColor: tokens.surfaceElevated,
                             ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
 
                     // Title & Artist
                     Expanded(
@@ -204,9 +197,7 @@ class MiniPlayer extends ConsumerWidget {
                                     isPlaying: true,
                                     size: 11,
                                     barCount: 3,
-                                    color: tokens.isGlass
-                                        ? tokens.accentCyan
-                                        : tokens.accent,
+                                    color: tokens.accent,
                                   ),
                                 ),
                               ],
@@ -215,11 +206,11 @@ class MiniPlayer extends ConsumerWidget {
                                   displayTrack.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: AppTheme.fontUi,
-                                    fontSize: 13,
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: tokens.textPrimary,
                                     letterSpacing: -0.2,
                                   ),
                                 ),
@@ -233,7 +224,7 @@ class MiniPlayer extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontFamily: AppTheme.fontUi,
-                              fontSize: 11.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: tokens.textSecondary,
                             ),
@@ -242,37 +233,26 @@ class MiniPlayer extends ConsumerWidget {
                       ),
                     ),
 
-                    // Like Action
+                    // Metrolist Previous Track Button
                     BouncingScaleButton(
                       scaleFactor: 0.88,
-                      onTap: isPlaceholder
-                          ? null
-                          : () {
-                              HapticFeedback.selectionClick();
-                              ref.read(libraryRepositoryProvider).setLiked(
-                                  displayTrack.id, !isLiked,
-                                  track: displayTrack);
-                            },
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        audioHandler.skipToPrevious();
+                      },
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 32,
+                        height: 32,
                         alignment: Alignment.center,
                         child: Icon(
-                          isLiked
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: isLiked
-                              ? (tokens.isGlass
-                                  ? tokens.accentRose
-                                  : tokens.accent)
-                              : tokens.textSecondary,
-                          size: 21,
+                          Icons.skip_previous_rounded,
+                          color: tokens.textSecondary,
+                          size: 22,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 2),
 
-                    // Borderless Play / Pause Icon Button with spinner when buffering
+                    // Metrolist Signature Circular Filled Play / Pause Button
                     BouncingScaleButton(
                       scaleFactor: 0.90,
                       onTap: () {
@@ -288,31 +268,21 @@ class MiniPlayer extends ConsumerWidget {
                         }
                       },
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: tokens.isGlass
-                              ? tokens.accentCyan.withValues(alpha: 0.22)
-                              : Colors.white.withValues(alpha: 0.10),
+                          color: tokens.accent,
                           shape: BoxShape.circle,
-                          border: tokens.isGlass
-                              ? Border.all(
-                                  color: tokens.accentCyan.withValues(alpha: 0.40),
-                                  width: 1,
-                                )
-                              : null,
                         ),
                         alignment: Alignment.center,
                         child: isBuffering
-                            ? SizedBox(
+                            ? const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    tokens.isGlass
-                                        ? tokens.accentCyan
-                                        : Colors.white,
+                                    Colors.black,
                                   ),
                                 ),
                               )
@@ -320,28 +290,28 @@ class MiniPlayer extends ConsumerWidget {
                                 isPlaying
                                     ? Icons.pause_rounded
                                     : Icons.play_arrow_rounded,
-                                color: Colors.white,
+                                color: Colors.black,
                                 size: 24,
                               ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
 
-                    // Skip Next Action
+                    // Metrolist Next Track Button
                     BouncingScaleButton(
-                      scaleFactor: 0.90,
+                      scaleFactor: 0.88,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         audioHandler.skipToNext();
                       },
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 32,
+                        height: 32,
                         alignment: Alignment.center,
-                        child: const Icon(
+                        child: Icon(
                           Icons.skip_next_rounded,
-                          color: Colors.white,
-                          size: 26,
+                          color: tokens.textSecondary,
+                          size: 22,
                         ),
                       ),
                     ),

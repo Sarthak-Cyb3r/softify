@@ -21,6 +21,7 @@ import '../../features/youtube/presentation/youtube_page.dart';
 import '../widgets/slim_bottom_nav_bar.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
+import 'listen_together_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'equalizer_screen.dart';
@@ -112,10 +113,11 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     return [
       const HomeScreen(),
       _loadedTabs.contains(1) ? const SearchScreen() : const SizedBox.shrink(),
-      _loadedTabs.contains(2) ? const YoutubePage() : const SizedBox.shrink(),
-      _loadedTabs.contains(3) ? const PodcastPage() : const SizedBox.shrink(),
-      _loadedTabs.contains(4) ? const LibraryScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(2) ? const ListenTogetherScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(3) ? const LibraryScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(4) ? const YoutubePage() : const SizedBox.shrink(),
       _loadedTabs.contains(5) ? const SettingsScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(6) ? const PodcastPage() : const SizedBox.shrink(),
     ];
   }
 
@@ -128,7 +130,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         if (parsedYt is! InvalidLink) {
           if (mounted) {
             setState(() {
-              _currentIndex = 2; // Switch to YouTube tab
+              _currentIndex = 4; // Switch to YouTube tab
             });
             ref.read(youtubeControllerProvider.notifier).submit(text);
           }
@@ -139,7 +141,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         if (parsedPodcast is! InvalidPodcastLink) {
           if (mounted) {
             setState(() {
-              _currentIndex = 3; // Switch to Podcasts tab
+              _currentIndex = 6; // Switch to Podcasts tab
             });
             ref.read(podcastControllerProvider.notifier).submit(text);
           }
@@ -714,7 +716,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 children: [
                   const MiniPlayer(),
                   SlimBottomNavBar(
-                    currentIndex: _currentIndex > 4 ? 0 : _currentIndex,
+                    currentIndex: _currentIndex > 3 ? 0 : _currentIndex,
                     onTap: (index) {
                       setState(() {
                         _currentIndex = index;
@@ -732,18 +734,13 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         label: 'Search',
                       ),
                       SlimNavItem(
-                        icon: AppTabIcons.youtube,
-                        activeIcon: AppTabIcons.youtubeActive,
-                        label: 'Paste Link',
+                        icon: Icons.groups_outlined,
+                        activeIcon: Icons.groups_rounded,
+                        label: 'Together',
                       ),
                       SlimNavItem(
-                        icon: AppTabIcons.podcasts,
-                        activeIcon: AppTabIcons.podcastsActive,
-                        label: 'Podcasts',
-                      ),
-                      SlimNavItem(
-                        icon: Icons.collections_bookmark_outlined,
-                        activeIcon: Icons.collections_bookmark_rounded,
+                        icon: Icons.library_music_outlined,
+                        activeIcon: Icons.library_music_rounded,
                         label: 'Library',
                       ),
                     ],

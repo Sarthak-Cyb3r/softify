@@ -5,27 +5,27 @@ import 'app_tokens.dart';
 export 'app_tokens.dart';
 
 class AppTheme {
-  // Canonical Content-First Token Palette
-  static const Color background = Color(0xFF121212);
+  // Canonical Metrolist Material 3 Expressive & AMOLED Token Palette
+  static const Color background = Color(0xFF000000);
   static const Color sidebar = Color(0xFF000000);
-  static const Color surface = Color(0xFF121212);
-  static const Color card = Color(0xFF181818);
-  static const Color cardHover = Color(0xFF282828);
-  static const Color surfaceElevated = Color(0xFF2A2A2A);
-  static const Color surfaceHighlight = Color(0xFF282828);
-  static const Color surfaceContainerHighest = Color(0xFF2A2A2A);
+  static const Color surface = Color(0xFF0B0C0E);
+  static const Color card = Color(0xFF16171B);
+  static const Color cardHover = Color(0xFF22242A);
+  static const Color surfaceElevated = Color(0xFF1E2025);
+  static const Color surfaceHighlight = Color(0xFF25272E);
+  static const Color surfaceContainerHighest = Color(0xFF2A2C34);
   
-  // Single Accent & Destructive
-  static const Color accent = Color(0xFF1DB954); // Spotify Green
-  static const Color primary = Color(0xFF1DB954);
-  static const Color primaryLight = Color(0xFF1ED760);
-  static const Color primaryContainer = Color(0xFF1DB954);
-  static const Color error = Color(0xFFF15E6C);
+  // Metrolist Signature Coral Red / Rose Accent
+  static const Color accent = Color(0xFFED5564); // Metrolist Primary Brand
+  static const Color primary = Color(0xFFED5564);
+  static const Color primaryLight = Color(0xFFFF8592);
+  static const Color primaryContainer = Color(0xFF3E181D);
+  static const Color error = Color(0xFFFF5449);
 
   // Typography Contrast
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB3B3B3);
-  static const Color textMuted = Color(0xFF6A6A6A);
+  static const Color textPrimary = Color(0xFFE6E1E5);
+  static const Color textSecondary = Color(0xFF938F99);
+  static const Color textMuted = Color(0xFF5F5D66);
 
   // Bundled OFL Font Families
   static const String fontUi = 'Manrope';

@@ -15,6 +15,7 @@ import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
 import '../../features/youtube/presentation/youtube_page.dart';
+import '../widgets/acoustic_recognition_sheet.dart';
 import 'artist_discography_screen.dart';
 
 enum SearchResultFilter {
@@ -138,6 +139,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: tokens.accent,
+        elevation: 4,
+        shape: const CircleBorder(),
+        tooltip: 'Identify Music',
+        onPressed: () => AcousticRecognitionSheet.show(context),
+        child: const Icon(
+          Icons.graphic_eq_rounded,
+          color: Colors.black,
+          size: 26,
+        ),
+      ),
       appBar: AppBar(
         backgroundColor:
             tokens.isGlass ? Colors.transparent : tokens.background,
@@ -184,7 +197,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       decoration: InputDecoration(
                         isDense: true,
                         filled: false,
-                        hintText: 'What do you want to listen to?',
+                        hintText: 'Search songs, albums, artists...',
                         hintStyle: TextStyle(
                           fontFamily: AppTheme.fontUi,
                           color: tokens.textMuted,
@@ -249,7 +262,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       isDense: true,
                       filled: true,
                       fillColor: tokens.surfaceElevated,
-                      hintText: 'What do you want to listen to?',
+                      hintText: 'Search songs, albums, artists...',
                       hintStyle: TextStyle(
                         fontFamily: AppTheme.fontUi,
                         color: tokens.textMuted,

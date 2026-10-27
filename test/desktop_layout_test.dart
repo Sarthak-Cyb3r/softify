@@ -71,9 +71,9 @@ void main() {
     // Verify primary navigation items
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Search'), findsNWidgets(2)); // Nav item & shortcut hint
-    expect(find.text('YouTube'), findsOneWidget);
-    expect(find.text('Podcasts'), findsNWidgets(2)); // Nav item & shortcut hint
+    expect(find.text('Together'), findsOneWidget);
     expect(find.text('Library'), findsOneWidget);
+    expect(find.text('YouTube'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
     // Verify quick access and shortcuts card
