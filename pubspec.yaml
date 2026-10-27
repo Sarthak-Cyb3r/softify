@@ -35,6 +35,7 @@ dependencies:
   audio_service_mpris: '>=0.2.1 <2.0.0'
   device_info_plus: ^13.3.0
   xml: ^6.5.0
+  protobuf: ^6.1.0
 
 dev_dependencies:
   flutter_test:

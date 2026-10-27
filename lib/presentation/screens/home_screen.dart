@@ -200,12 +200,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final tokens = context.tokens;
     final userName = ref.watch(userNameProvider);
     final historyAsync = ref.watch(playHistoryStreamProvider);
-    final likedCount = ref.watch(likedTracksStreamProvider.select((v) => v.value?.length ?? 0));
-    final completedDownloadsCount = ref.watch(
-      downloadsStreamProvider.select(
-        (v) => v.value?.where((d) => d.isCompleted).length ?? 0,
-      ),
-    );
     final featuredAsync = ref.watch(featuredMusicProvider);
     final shelvesAsync = ref.watch(homeShelvesProvider);
     final audioHandler = ref.watch(audioHandlerProvider);
@@ -362,46 +356,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildFilterChips(tokens),
                       const SizedBox(height: 16),
 
-                      // 2. 6-Card Quick-Access Bento Grid
-                      _buildBentoGrid(
-                        tokens: tokens,
-                        likedCount: likedCount,
-                        downloadsCount: completedDownloadsCount,
-                        onLikedTap: () {
-                          final liked = ref.read(likedTracksStreamProvider).value ?? [];
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => TracksListScreen(
-                                title: 'Liked Songs',
-                                subtitle: '${liked.length} saved tracks',
-                                icon: Icons.favorite_rounded,
-                                iconColor: tokens.accent,
-                                initialTracks: liked,
-                              ),
-                            ),
-                          );
-                        },
-                        onDownloadsTap: () {
-                          final dls = ref.read(downloadsStreamProvider).value
-                              ?.where((d) => d.isCompleted && d.track != null)
-                              .map((d) => d.track!)
-                              .toList() ?? [];
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => TracksListScreen(
-                                title: 'Downloaded Songs',
-                                subtitle: '${dls.length} offline tracks',
-                                icon: Icons.download_done_rounded,
-                                iconColor: tokens.accent,
-                                initialTracks: dls,
-                                isDownloads: true,
-                              ),
-                            ),
-                          );
-                        },
-                        isDesktop: true,
-                      ),
-                      const SizedBox(height: 24),
+                      // 2. Metrolist Speed Dial Section
+                      if (historyTracks.isNotEmpty) ...[
+                        _buildSpeedDialSection(tokens, historyTracks, audioHandler),
+                        const SizedBox(height: 24),
+                      ],
 
                       // Metrolist 2-row Quick Picks Grid
                       _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
@@ -455,45 +414,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 _buildFilterChips(tokens),
                 const SizedBox(height: 8),
-                _buildBentoGrid(
-                  tokens: tokens,
-                  likedCount: likedCount,
-                  downloadsCount: completedDownloadsCount,
-                  onLikedTap: () {
-                    final liked = ref.read(likedTracksStreamProvider).value ?? [];
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TracksListScreen(
-                          title: 'Liked Songs',
-                          subtitle: '${liked.length} saved tracks',
-                          icon: Icons.favorite_rounded,
-                          iconColor: tokens.accent,
-                          initialTracks: liked,
-                        ),
-                      ),
-                    );
-                  },
-                  onDownloadsTap: () {
-                    final dls = ref.read(downloadsStreamProvider).value
-                        ?.where((d) => d.isCompleted && d.track != null)
-                        .map((d) => d.track!)
-                        .toList() ?? [];
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TracksListScreen(
-                          title: 'Downloaded Songs',
-                          subtitle: '${dls.length} offline tracks',
-                          icon: Icons.download_done_rounded,
-                          iconColor: tokens.accent,
-                          initialTracks: dls,
-                          isDownloads: true,
-                        ),
-                      ),
-                    );
-                  },
-                  isDesktop: false,
-                ),
-                const SizedBox(height: 24),
+                if (historyTracks.isNotEmpty) ...[
+                  _buildSpeedDialSection(tokens, historyTracks, audioHandler),
+                  const SizedBox(height: 24),
+                ],
                 _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
                 const SizedBox(height: 28),
                 _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
@@ -777,62 +701,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBentoGrid({
-    required AppTokens tokens,
-    required int likedCount,
-    required int downloadsCount,
-    required VoidCallback onLikedTap,
-    required VoidCallback onDownloadsTap,
-    required bool isDesktop,
-  }) {
-    return SizedBox(
-      height: 52,
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildBentoItem(
-              tokens: tokens,
-              title: 'Liked Songs',
-              subtitle: isDesktop ? '$likedCount songs' : '',
-              isGradient: true,
-              icon: Icons.favorite_rounded,
-              iconColor: Colors.white,
-              onTap: onLikedTap,
+  Widget _buildSpeedDialSection(
+    AppTokens tokens,
+    List<Track> tracks,
+    dynamic audioHandler,
+  ) {
+    if (tracks.isEmpty) return const SizedBox.shrink();
+    final items = tracks.take(8).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            'Speed dial',
+            style: TextStyle(
+              fontFamily: AppTheme.fontPageTitle,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              color: tokens.textPrimary,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildBentoItem(
-              tokens: tokens,
-              title: 'Downloads',
-              subtitle: isDesktop ? '$downloadsCount tracks' : '',
-              icon: Icons.download_done_rounded,
-              iconColor: tokens.accent,
-              onTap: onDownloadsTap,
-            ),
+        ),
+        SizedBox(
+          height: 74,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, i) {
+              final track = items[i];
+              return BouncingScaleButton(
+                scaleFactor: 0.95,
+                onTap: () => audioHandler.playTrack(track),
+                child: Container(
+                  width: 200,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceElevated,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: AppNetworkImage(
+                          imageUrl: track.coverUrl,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          fallbackIcon: Icons.music_note_rounded,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              track.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontUi,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: tokens.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              track.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontUi,
+                                fontSize: 11,
+                                color: tokens.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBentoItem({
-    required AppTokens tokens,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    required VoidCallback onTap,
-    bool isGradient = false,
-  }) {
-    return _BentoHoverItem(
-      title: title,
-      subtitle: subtitle,
-      icon: icon,
-      iconColor: iconColor,
-      isGradient: isGradient,
-      tokens: tokens,
-      onTap: onTap,
+        ),
+      ],
     );
   }
 
@@ -1716,158 +1681,4 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _BentoHoverItem extends StatefulWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final bool isGradient;
-  final AppTokens tokens;
-  final VoidCallback onTap;
 
-  const _BentoHoverItem({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-    required this.tokens,
-    required this.onTap,
-    this.isGradient = false,
-  });
-
-  @override
-  State<_BentoHoverItem> createState() => _BentoHoverItemState();
-}
-
-class _BentoHoverItemState extends State<_BentoHoverItem> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = widget.tokens;
-
-    final itemContent = Row(
-      children: [
-        Container(
-          width: 52,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: widget.isGradient
-                ? const LinearGradient(
-                    colors: [Color(0xFF450AF5), Color(0xFFC4EFD9)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: widget.isGradient ? null : tokens.surfaceElevated,
-            borderRadius: BorderRadius.horizontal(
-              left: Radius.circular(tokens.isGlass ? 14 : tokens.radiusCard),
-            ),
-          ),
-          child: Center(
-            child: Icon(
-              widget.icon,
-              color: widget.iconColor,
-              size: 22,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                maxLines: widget.subtitle.isNotEmpty ? 1 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: AppTheme.fontUi,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              if (widget.subtitle.isNotEmpty) ...[
-                const SizedBox(height: 1),
-                Text(
-                  widget.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontUi,
-                    fontSize: 11,
-                    color: tokens.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(width: 4),
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 140),
-          opacity: _isHovered ? 1.0 : 0.0,
-          child: Container(
-            width: 28,
-            height: 28,
-            margin: const EdgeInsets.only(right: 6),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: tokens.isGlass ? tokens.accentCyan : AppTheme.accent,
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.play_arrow_rounded,
-                size: 18,
-                color: Colors.black,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: tokens.isGlass
-            ? AppSurface(
-                withBlur: true,
-                borderRadius: BorderRadius.circular(tokens.radiusCard),
-                border: Border.all(
-                  color: _isHovered
-                      ? tokens.accentCyan.withValues(alpha: 0.65)
-                      : tokens.glassBorder,
-                  width: 1.0,
-                ),
-                boxShadow: tokens.cardShadow,
-                color: _isHovered
-                    ? Colors.white.withValues(alpha: 0.20)
-                    : tokens.glassSurface,
-                child: itemContent,
-              )
-            : AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: _isHovered ? tokens.cardHover : tokens.card,
-                  borderRadius: BorderRadius.circular(tokens.radiusCard),
-                  border: Border.all(
-                    color: _isHovered
-                        ? const Color(0x33FFFFFF)
-                        : tokens.divider,
-                    width: 1.0,
-                  ),
-                ),
-                child: itemContent,
-              ),
-      ),
-    );
-  }
-}

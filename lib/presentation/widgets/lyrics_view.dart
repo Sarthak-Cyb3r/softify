@@ -1110,6 +1110,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         ? 1.0
         : (0.40 - (distanceFromActive * 0.04)).clamp(0.20, 0.40);
 
+    final Duration? nextLineTime =
+        (index < lines.length - 1) ? lines[index + 1].timestamp : null;
+    final List<LyricWord> effectiveWords =
+        _getEffectiveWords(line, nextLineTime);
+
     final lineWidget = Container(
       key: _getKeyForIndex(index),
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -1174,9 +1179,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               alignment: alignment,
               child: isMusicSymbol
                   ? _buildInstrumentalIndicator(isActive, accentColor)
-                  : ((line.words != null && line.words!.isNotEmpty)
+                  : (effectiveWords.isNotEmpty
                       ? _buildSyllableKaraokeLine(
                           line: line,
+                          words: effectiveWords,
                           isActive: isActive,
                           lineOpacity: lineOpacity,
                           tokens: tokens,
@@ -1231,8 +1237,43 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     return lineWidget;
   }
 
+  List<LyricWord> _getEffectiveWords(LyricLine line, Duration? nextLineTime) {
+    if (line.words != null && line.words!.isNotEmpty) {
+      return line.words!;
+    }
+    final rawTokens = line.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (rawTokens.isEmpty) return const [];
+
+    final totalChars = rawTokens.fold<int>(0, (sum, t) => sum + t.length);
+    final totalDuration = (nextLineTime != null && nextLineTime > line.timestamp)
+        ? nextLineTime - line.timestamp
+        : const Duration(seconds: 4);
+    final totalMs = totalDuration.inMilliseconds.clamp(1000, 9000);
+
+    var currentMs = line.timestamp.inMilliseconds;
+    final synth = <LyricWord>[];
+    for (int i = 0; i < rawTokens.length; i++) {
+      final token = rawTokens[i];
+      final frac =
+          totalChars > 0 ? (token.length / totalChars) : (1.0 / rawTokens.length);
+      final wordMs = (totalMs * frac).round().clamp(120, 2500);
+      synth.add(LyricWord(
+        timestamp: Duration(milliseconds: currentMs),
+        text: token,
+        duration: Duration(milliseconds: wordMs),
+      ));
+      currentMs += wordMs;
+    }
+    return synth;
+  }
+
   Widget _buildSyllableKaraokeLine({
     required LyricLine line,
+    required List<LyricWord> words,
     required bool isActive,
     required double lineOpacity,
     required AppTokens tokens,
@@ -1261,7 +1302,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       );
     }
 
-    final words = line.words!;
     return ValueListenableBuilder<Duration>(
       valueListenable: _positionNotifier,
       builder: (context, pos, _) {
@@ -1279,6 +1319,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       ? RomanizationService.romanize(word.text)
                       : word.text;
                   final isWordSung = w <= activeWordIdx;
+                  final isCurrentWord = w == activeWordIdx;
 
                   return TextSpan(
                     text: (w < words.length - 1 && !wordText.endsWith(' '))
@@ -1295,6 +1336,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           : (isDuetV2
                               ? const Color(0xFF93C5FD).withValues(alpha: 0.40)
                               : tokens.textPrimary.withValues(alpha: 0.35)),
+                      shadows: isCurrentWord
+                          ? [
+                              Shadow(
+                                color: Colors.white.withValues(alpha: 0.75),
+                                blurRadius: 10,
+                              ),
+                            ]
+                          : null,
                     ),
                   );
                 }(),

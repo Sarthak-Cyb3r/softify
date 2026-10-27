@@ -786,7 +786,7 @@ class _FullScreenPlayerScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Devices / Sound DSP (Spotify Signature bottom-left)
+                    // Equalizer & DSP (Metrolist bottom-left)
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () {
@@ -963,7 +963,7 @@ class _FullScreenPlayerScreenState
                         ),
                       ),
 
-                    // Queue Action (Spotify Signature bottom-right)
+                    // Queue Action (Metrolist bottom-right)
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () => _openQueueSheet(context),

@@ -46,6 +46,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
 
     try {
       await _service.createRoom(username: username);
+      if (mounted) setState(() {});
     } catch (e) {
       setState(() => _errorMessage = 'Failed to create session: $e');
     } finally {
@@ -66,6 +67,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
 
     try {
       await _service.joinRoom(roomCode: roomCode, username: username);
+      if (mounted) setState(() {});
     } catch (e) {
       setState(() => _errorMessage = 'Failed to join session: $e');
     } finally {

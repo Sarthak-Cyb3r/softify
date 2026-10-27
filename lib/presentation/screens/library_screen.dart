@@ -1453,7 +1453,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 title: 'On Repeat',
                 subtitle: 'Past 14 Days',
                 icon: Icons.repeat_rounded,
-                color: const Color(0xFF1DB954),
+                color: tokens.accent,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -1461,7 +1461,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                         title: 'On Repeat',
                         subtitle: 'Past 14 Days',
                         icon: Icons.repeat_rounded,
-                        iconColor: const Color(0xFF1DB954),
+                        iconColor: tokens.accent,
                         tracksFuture: () => ref.read(onRepeatTracksProvider.future),
                       ),
                     ),

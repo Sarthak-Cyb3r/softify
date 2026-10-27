@@ -25,6 +25,7 @@ import 'data/player/linux_audio_backend.dart';
 import 'package:audio_service_mpris/audio_service_mpris.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
+import 'services/lyrics/better_lyrics_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,6 +86,7 @@ void main() async {
   );
 
   final lyricsProvider = CompositeLyricsProvider(
+    betterLyrics: BetterLyricsProvider(),
     spotify: SpotifyLyricsProvider(
       spotifyApi: spotifyApi,
       authService: authService,
@@ -109,7 +111,7 @@ void main() async {
       androidNotificationChannelName: 'Softify',
       androidNotificationChannelDescription: 'Softify Background Media Playback',
       androidNotificationIcon: 'drawable/ic_notification',
-      notificationColor: Color(0xFF2EE66B),
+      notificationColor: Color(0xFFED5564),
       androidNotificationOngoing: false,
       androidStopForegroundOnPause: false,
     ),

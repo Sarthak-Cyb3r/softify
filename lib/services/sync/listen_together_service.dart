@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import '../../data/player/softify_audio_handler.dart';
 import '../automix_service.dart';
 import 'listen_together_protocol.dart';
+import 'listen_together_proto.dart';
 
 /// Abstract socket connection for Listen Together real-time synchronization.
 abstract class IListenTogetherSocket {
@@ -255,7 +257,7 @@ class ListenTogetherService {
 
   /// Connects to the Listen Together server WebSocket.
   Future<void> connect({
-    String url = 'wss://listen.softify.app/ws',
+    String url = 'wss://metroserverx.meowery.eu/ws',
     ListenTogetherSocketConnector? connector,
   }) async {
     if (_connectionState == SyncConnectionState.connected ||
@@ -276,7 +278,9 @@ class ListenTogetherService {
 
       _socketSubscription = socket.stream.listen(
         (data) {
-          if (data is String) {
+          if (data is List<int>) {
+            _handleBinaryMessage(Uint8List.fromList(data));
+          } else if (data is String) {
             handleIncomingMessage(data);
           }
         },
@@ -386,31 +390,146 @@ class ListenTogetherService {
     sendMessage(MessageTypes.ping, payload.toJson());
   }
 
-  /// Sends a raw ListenTogetherMessage envelope.
+  /// Sends a ListenTogetherMessage envelope (binary Protobuf for Io sockets, JSON for mocks).
   void sendMessage(String type, Map<String, dynamic> payload) {
     if (_socket == null) return;
+    if (_socket is IoListenTogetherSocket) {
+      try {
+        List<int> bytes;
+        switch (type) {
+          case MessageTypes.createRoom:
+            bytes = ListenTogetherProtoCodec.encodeCreateRoom(payload['username']?.toString() ?? 'User');
+            break;
+          case MessageTypes.joinRoom:
+            bytes = ListenTogetherProtoCodec.encodeJoinRoom(
+                payload['room_code']?.toString() ?? '', payload['username']?.toString() ?? 'User');
+            break;
+          case MessageTypes.leaveRoom:
+            bytes = ListenTogetherProtoCodec.encodeLeaveRoom();
+            break;
+          case MessageTypes.ping:
+            bytes = ListenTogetherProtoCodec.encodePing(payload['client_time'] ?? 0, payload['sequence'] ?? 0);
+            break;
+          case MessageTypes.bufferReady:
+            bytes = ListenTogetherProtoCodec.encodeBufferReady(payload['track_id']?.toString() ?? '');
+            break;
+          case MessageTypes.reconnect:
+            bytes = ListenTogetherProtoCodec.encodeReconnect(payload['session_token']?.toString() ?? '');
+            break;
+          case MessageTypes.playbackAction:
+            bytes = ListenTogetherProtoCodec.encodePlaybackAction(
+              action: payload['action']?.toString() ?? 'play',
+              trackId: payload['track_id']?.toString(),
+              position: payload['position'] as int?,
+              trackInfo: payload['track_info'] is Map<String, dynamic>
+                  ? payload['track_info'] as Map<String, dynamic>
+                  : null,
+              serverTime: payload['server_time'] as int?,
+              revision: payload['revision'] as int?,
+            );
+            break;
+          default:
+            final message = ListenTogetherMessage(type: type, payload: payload);
+            _socket!.add(message.toJsonString());
+            return;
+        }
+        _socket!.add(bytes);
+        return;
+      } catch (_) {}
+    }
+
     final message = ListenTogetherMessage(type: type, payload: payload);
     _socket!.add(message.toJsonString());
   }
 
   // --- Room Operations ---
 
-  /// Request room creation as host.
-  Future<void> createRoom({required String username}) async {
+  /// Request room creation as host and await confirmation.
+  Future<ListenTogetherRoom> createRoom({required String username}) async {
+    if (_connectionState != SyncConnectionState.connected) {
+      await connect();
+    }
     _setRole(SyncRole.host);
+
+    final completer = Completer<ListenTogetherRoom>();
+    StreamSubscription? sub;
+    Timer? timeoutTimer;
+
+    sub = roomStream.listen((room) {
+      if (room != null && !completer.isCompleted) {
+        timeoutTimer?.cancel();
+        completer.complete(room);
+        sub?.cancel();
+      }
+    });
+
+    timeoutTimer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        sub?.cancel();
+        if (_currentRoom != null) {
+          completer.complete(_currentRoom!);
+        } else {
+          completer.completeError(TimeoutException('Room creation timed out'));
+        }
+      }
+    });
+
     sendMessage(MessageTypes.createRoom, {'username': username});
+    return completer.future;
   }
 
-  /// Request to join an existing room by room code.
-  Future<void> joinRoom({
+  /// Request to join an existing room by room code and await approval.
+  Future<ListenTogetherRoom> joinRoom({
     required String roomCode,
     required String username,
   }) async {
+    if (_connectionState != SyncConnectionState.connected) {
+      await connect();
+    }
     _setRole(SyncRole.guest);
+
+    final completer = Completer<ListenTogetherRoom>();
+    StreamSubscription? roomSub;
+    StreamSubscription? msgSub;
+    Timer? timeoutTimer;
+
+    roomSub = roomStream.listen((room) {
+      if (room != null && !completer.isCompleted) {
+        timeoutTimer?.cancel();
+        completer.complete(room);
+        roomSub?.cancel();
+        msgSub?.cancel();
+      }
+    });
+
+    msgSub = messageStream.listen((msg) {
+      if ((msg.type == MessageTypes.error || msg.type == 'join_rejected') &&
+          !completer.isCompleted) {
+        timeoutTimer?.cancel();
+        final err = msg.payload['message'] ?? msg.payload['reason'] ?? 'Failed to join room';
+        completer.completeError(Exception(err));
+        roomSub?.cancel();
+        msgSub?.cancel();
+      }
+    });
+
+    timeoutTimer = Timer(const Duration(seconds: 12), () {
+      if (!completer.isCompleted) {
+        roomSub?.cancel();
+        msgSub?.cancel();
+        if (_currentRoom != null) {
+          completer.complete(_currentRoom!);
+        } else {
+          completer.completeError(TimeoutException('Join room request timed out'));
+        }
+      }
+    });
+
     sendMessage(
       MessageTypes.joinRoom,
       {'room_code': roomCode.toUpperCase(), 'username': username},
     );
+    return completer.future;
   }
 
   /// Voluntarily leaves the current room.
@@ -711,6 +830,39 @@ class ListenTogetherService {
 
   // --- Wire Message Dispatcher ---
 
+  void _handleBinaryMessage(Uint8List data) {
+    final decoded = ListenTogetherProtoCodec.decodeEnvelope(data);
+    if (decoded == null) return;
+    final (type, payloadBytes) = decoded;
+
+    Map<String, dynamic> payload = {};
+    switch (type) {
+      case 'room_created':
+        payload = ListenTogetherProtoCodec.decodeRoomCreated(payloadBytes);
+        break;
+      case 'join_approved':
+        payload = ListenTogetherProtoCodec.decodeJoinApproved(payloadBytes);
+        break;
+      case 'user_joined':
+        payload = ListenTogetherProtoCodec.decodeUserJoined(payloadBytes);
+        break;
+      case 'user_left':
+        payload = ListenTogetherProtoCodec.decodeUserLeft(payloadBytes);
+        break;
+      case 'pong':
+        payload = ListenTogetherProtoCodec.decodePong(payloadBytes);
+        break;
+      case 'sync_playback':
+        payload = ListenTogetherProtoCodec.decodePlaybackAction(payloadBytes);
+        break;
+      default:
+        break;
+    }
+
+    final msg = ListenTogetherMessage(type: type, payload: payload);
+    _processMessage(msg);
+  }
+
   /// Handles incoming JSON envelope and updates synchronization models.
   void handleIncomingMessage(String rawJson) {
     ListenTogetherMessage msg;
@@ -719,7 +871,10 @@ class ListenTogetherService {
     } catch (_) {
       return;
     }
+    _processMessage(msg);
+  }
 
+  void _processMessage(ListenTogetherMessage msg) {
     _messageController.add(msg);
 
     switch (msg.type) {

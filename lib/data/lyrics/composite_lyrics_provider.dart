@@ -62,7 +62,20 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    // Tier 1 (Primary): Query Spotify official color-lyrics v2
+    // Tier 1 (Primary - Syllable/Word-by-Word Karaoke): Query BetterLyrics (BeautifulLyrics Apple Music TTML)
+    if (_betterLyrics != null) {
+      try {
+        final betterResult = await _betterLyrics.getLyrics(track);
+        if (betterResult != null &&
+            betterResult.isSynced &&
+            betterResult.lines.isNotEmpty) {
+          _addToCache(track.id, betterResult);
+          return betterResult;
+        }
+      } catch (_) {}
+    }
+
+    // Tier 1.5: Query Spotify official color-lyrics v2
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
@@ -72,19 +85,6 @@ class CompositeLyricsProvider implements ILyricsProvider {
             spotifyResult.lines.isNotEmpty) {
           _addToCache(track.id, spotifyResult);
           return spotifyResult;
-        }
-      } catch (_) {}
-    }
-
-    // Tier 1.5: Query BetterLyrics (Apple Music / TTML syllable-level karaoke)
-    if (_betterLyrics != null) {
-      try {
-        final betterResult = await _betterLyrics.getLyrics(track);
-        if (betterResult != null &&
-            betterResult.isSynced &&
-            betterResult.lines.isNotEmpty) {
-          _addToCache(track.id, betterResult);
-          return betterResult;
         }
       } catch (_) {}
     }

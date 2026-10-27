@@ -17,7 +17,7 @@ class VinylTurntableView extends StatefulWidget {
     super.key,
     required this.coverUrl,
     required this.isPlaying,
-    this.ambientColor = const Color(0xFF1DB954),
+    this.ambientColor = const Color(0xFFED5564),
     this.onTap,
     this.showTonearm = true,
     this.size,

@@ -247,7 +247,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
               color: const Color(0xFF16161E),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF2EE66B).withValues(alpha: 0.35),
+                color: tokens.accent.withValues(alpha: 0.35),
                 width: 1.2,
               ),
               boxShadow: [
@@ -267,12 +267,12 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2EE66B).withValues(alpha: 0.15),
+                        color: tokens.accent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.campaign_rounded,
-                        color: Color(0xFF2EE66B),
+                        color: tokens.accent,
                         size: 24,
                       ),
                     ),
@@ -281,10 +281,10 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'ADMINISTRATOR NOTICE',
                             style: TextStyle(
-                              color: Color(0xFF2EE66B),
+                              color: tokens.accent,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.0,
@@ -333,7 +333,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2EE66B),
+                      backgroundColor: tokens.accent,
                       foregroundColor: Colors.black,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 14),

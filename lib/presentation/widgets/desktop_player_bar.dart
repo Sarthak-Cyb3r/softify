@@ -241,7 +241,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     ),
                     const SizedBox(width: 6),
 
-                    // Play / Pause Circle (Vibrant #2EE66B)
+                    // Play / Pause Circle (Metrolist Accent #ED5564)
                     Container(
                       width: 36,
                       height: 36,

@@ -42,7 +42,7 @@ class AppTheme {
   static const Color stitchSurfaceContainerHighest = surfaceElevated;
   static const Color stitchAmber = accent;
   static const Color stitchAmberLight = primaryLight;
-  static const Color stitchAmberSubtle = Color(0x1F2EE66B);
+  static const Color stitchAmberSubtle = Color(0x1FED5564);
   static const Color stitchTextPrimary = textPrimary;
   static const Color stitchTextSecondary = textSecondary;
   static const Color stitchTextMuted = textMuted;
