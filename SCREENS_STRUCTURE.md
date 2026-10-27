@@ -497,7 +497,7 @@ Centralized configuration console for streaming quality, audio processing, local
 - **About & Legal Card**:
   - App Version badge (`v2.0.x`).
   - GitHub project repository link.
-  - MIT License view button.
+  - GPL-3.0 License view button.
   - **Mandatory Legal Disclaimer**: Explicit notice stating educational/personal use and non-affiliation with Spotify/YouTube/JioSaavn.
 
 ### Linux / Desktop Layout Structure

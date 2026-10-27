@@ -14,7 +14,8 @@
 [![Tests](https://img.shields.io/badge/Tests-All%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Release](https://img.shields.io/badge/Release-v2.9.1--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=for-the-badge)](CODE_OF_CONDUCT.md)
 
 </div>
 
@@ -410,6 +411,7 @@ flutter analyze
 
 ---
 
-## 📄 License
+## 📄 License & Code of Conduct
 
-Softify is distributed under the [MIT License](LICENSE).
+- Softify is distributed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
+- All community interactions, issues, and contributions are governed by the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
