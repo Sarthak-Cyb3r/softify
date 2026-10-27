@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dsp/parametric_eq.dart';
+
 /// Loudness normalization profile modes corresponding to Spotify's playback settings.
 enum LoudnessProfile {
   /// -14 LUFS: Standard audiophile target preserving full 320 kbps dynamics.
@@ -24,6 +26,7 @@ class LoudnessNormalizerService {
   LoudnessNormalizerService._internal();
 
   LoudnessProfile _activeProfile = LoudnessProfile.normal;
+  ParametricEqualizer? _attachedEqualizer;
 
   /// Target integrated loudness values in LUFS.
   static const Map<LoudnessProfile, double> targetLufsMap = {
@@ -43,6 +46,12 @@ class LoudnessNormalizerService {
     _activeProfile = profile;
   }
 
+  /// Attaches a [ParametricEqualizer] to dynamically guard against clipping
+  /// when EQ frequency bands are boosted.
+  void attachEqualizer(ParametricEqualizer? equalizer) {
+    _attachedEqualizer = equalizer;
+  }
+
   /// Calculates dynamic linear gain multiplier for a track given its measured LUFS and peak.
   ///
   /// Preserves 320 kbps bitstream integrity: all calculations execute in 32-bit float
@@ -52,9 +61,16 @@ class LoudnessNormalizerService {
     double trackPeakLinear = 1.0,
     double extraEqBoostDb = 0.0,
   }) {
+    final effectiveEqBoost = extraEqBoostDb != 0.0
+        ? extraEqBoostDb
+        : (_attachedEqualizer != null && _attachedEqualizer!.enabled
+            ? _attachedEqualizer!.computeMaxPotentialBoostDb()
+            : 0.0);
+
+    final totalEqLinear = math.pow(10.0, effectiveEqBoost / 20.0).toDouble();
+
     if (_activeProfile == LoudnessProfile.off) {
       // If normalization is off, only apply peak limiter if EQ boost exceeds ceiling
-      final totalEqLinear = math.pow(10.0, extraEqBoostDb / 20.0).toDouble();
       if (trackPeakLinear * totalEqLinear > truePeakCeilingLinear) {
         return truePeakCeilingLinear / (trackPeakLinear * totalEqLinear);
       }
@@ -63,22 +79,36 @@ class LoudnessNormalizerService {
 
     final targetLufs = targetLufsMap[_activeProfile] ?? -14.0;
 
-    // Gain difference in dB
-    final deltaDb = targetLufs - trackLufs + extraEqBoostDb;
+    // Gain difference in dB for loudness matching
+    final deltaDb = targetLufs - trackLufs;
 
     // Raw linear gain multiplier
     final rawMultiplier = math.pow(10.0, deltaDb / 20.0).toDouble();
 
     // Lookahead Peak Limiter:
-    // If the scaled audio peak would breach the true-peak ceiling, clamp gain
-    final projectedPeak = trackPeakLinear * rawMultiplier;
+    // If the scaled audio peak factoring in the equalizer boost would breach the true-peak ceiling, clamp gain
+    final projectedPeak = trackPeakLinear * rawMultiplier * totalEqLinear;
     if (projectedPeak > truePeakCeilingLinear) {
-      final limitedMultiplier = truePeakCeilingLinear / trackPeakLinear;
+      final limitedMultiplier = truePeakCeilingLinear / (trackPeakLinear * totalEqLinear);
       return limitedMultiplier.clamp(0.05, 4.0);
     }
 
     // Limit maximum positive boost to +6 dB to prevent noise floor amplification
     return rawMultiplier.clamp(0.05, 2.0);
+  }
+
+  /// Convenience calculation linking a specific [ParametricEqualizer] cascade.
+  double computeGainMultiplierWithEqualizer({
+    required double trackLufs,
+    double trackPeakLinear = 1.0,
+    required ParametricEqualizer equalizer,
+  }) {
+    final eqBoost = equalizer.enabled ? equalizer.computeMaxPotentialBoostDb() : 0.0;
+    return computeGainMultiplier(
+      trackLufs: trackLufs,
+      trackPeakLinear: trackPeakLinear,
+      extraEqBoostDb: eqBoost,
+    );
   }
 
   /// Convenience method for tracks without pre-calculated LUFS metadata.

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../domain/entities/track.dart';
+import 'dsp/parametric_eq.dart';
 
 /// Supported EQ transition curves modeled after Spotify's dap_aurora Automix recipes.
 enum EqStyleCurves {
@@ -189,6 +190,7 @@ class AutomixService {
   bool _isPrebufferReady = false;
   Track? _prebufferedTrack;
   int _targetBitrateBps = 320000; // 320 kbps strict standard
+  ParametricEqualizer? _equalizer;
 
   final StreamController<AutomixFrame> _transitionFrameController =
       StreamController<AutomixFrame>.broadcast();
@@ -202,12 +204,20 @@ class AutomixService {
     FilterFxStyle filterFx = FilterFxStyle.none,
     JogwheelStyle jogwheelStyle = JogwheelStyle.tempoSync,
     Duration prebufferLeadTime = const Duration(seconds: 20),
+    ParametricEqualizer? equalizer,
   })  : _curveType = curveType,
         _eqStyle = eqStyle,
         _filterFx = filterFx,
         _jogwheelStyle = jogwheelStyle,
-        _prebufferLeadTime = prebufferLeadTime {
+        _prebufferLeadTime = prebufferLeadTime,
+        _equalizer = equalizer {
     setCrossfadeDuration(initialCrossfade);
+  }
+
+  ParametricEqualizer? get equalizer => _equalizer;
+
+  void setEqualizer(ParametricEqualizer? eq) {
+    _equalizer = eq;
   }
 
   // Getters
@@ -651,7 +661,7 @@ class AutomixService {
     _prebufferedTrack = null;
   }
 
-  /// Pure 32-bit floating-point dual-deck summing bus.
+  /// Pure 32-bit floating-point dual-deck summing bus with optional Parametric EQ stage.
   /// Executes strictly in 32-bit float vector arithmetic with ZERO lossy re-encoding or downsampling.
   /// Operates on interleaved stereo PCM [L0, R0, L1, R1, ...] 32-bit float buffers.
   void mixDualDeck32BitFloat({
@@ -660,6 +670,7 @@ class AutomixService {
     required Float32List outMasterBuffer,
     required double progress,
     AutomixTransitionRecipe? recipe,
+    ParametricEqualizer? masterEqualizer,
   }) {
     final sampleCount = math.min(
       outMasterBuffer.length,
@@ -675,6 +686,12 @@ class AutomixService {
       final sampleA = deckABuffer[i] * gainA;
       final sampleB = deckBBuffer[i] * gainB;
       outMasterBuffer[i] = sampleA + sampleB;
+    }
+
+    // Apply master 32-bit floating-point parametric equalizer cascade if present
+    final eq = masterEqualizer ?? _equalizer;
+    if (eq != null && eq.enabled) {
+      eq.processInterleaved(outMasterBuffer, 2);
     }
   }
 

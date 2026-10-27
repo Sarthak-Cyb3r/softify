@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
-import '../../data/lyrics/script_romanizer.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
+import '../../services/lyrics/romanization_service.dart';
 import '../../data/player/softify_audio_handler.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
@@ -739,7 +739,7 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
               _lineKeys.putIfAbsent(index, () => GlobalKey());
 
               final displayText = _romanize
-                  ? ScriptRomanizer.romanize(line.text)
+                  ? RomanizationService.romanize(line.text)
                   : line.text;
 
               return KeyedSubtree(

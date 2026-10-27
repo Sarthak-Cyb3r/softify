@@ -9,8 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import '../../data/database/app_database.dart';
-import '../../data/lyrics/script_romanizer.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
+import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
@@ -527,7 +527,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       // Unsynced plain lyrics sheet
                       if (!lyrics.isSynced) {
                         final rawLyrics = lyrics.plainLyrics ?? '';
-                        final displayLyrics = _romanizeLyrics ? ScriptRomanizer.romanize(rawLyrics) : rawLyrics;
+                        final displayLyrics = _romanizeLyrics ? RomanizationService.romanize(rawLyrics) : rawLyrics;
                         return NotificationListener<UserScrollNotification>(
                           onNotification: (_) {
                             _onUserInteractedWithScroll();
@@ -1082,7 +1082,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         line.text.trim().toLowerCase() == '[instrumental]';
 
     final displayText =
-        _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
+        _romanizeLyrics ? RomanizationService.romanize(line.text) : line.text;
 
     // Depth-of-field opacity gradient
     final double lineOpacity = isActive
@@ -1192,7 +1192,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     required Color accentColor,
   }) {
     final displayText =
-        _romanizeLyrics ? ScriptRomanizer.romanize(line.text) : line.text;
+        _romanizeLyrics ? RomanizationService.romanize(line.text) : line.text;
 
     if (!isActive) {
       return Text(
@@ -1222,7 +1222,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                 () {
                   final word = words[w];
                   final wordText = _romanizeLyrics
-                      ? ScriptRomanizer.romanize(word.text)
+                      ? RomanizationService.romanize(word.text)
                       : word.text;
                   final isWordSung = w <= activeWordIdx;
 

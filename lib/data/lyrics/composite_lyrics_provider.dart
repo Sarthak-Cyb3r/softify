@@ -16,6 +16,7 @@ import 'saavn_lyrics_provider.dart';
 class CompositeLyricsProvider implements ILyricsProvider {
   final ILyricsProvider _curated;
   final ILyricsProvider? _spotify;
+  final ILyricsProvider? _betterLyrics;
   final ILyricsProvider _lrclib;
   final ILyricsProvider _netease;
   final ILyricsProvider _kugou;
@@ -28,6 +29,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   CompositeLyricsProvider({
     ILyricsProvider? curated,
     ILyricsProvider? spotify,
+    ILyricsProvider? betterLyrics,
     ILyricsProvider? primary,
     ILyricsProvider? netease,
     ILyricsProvider? secondary,
@@ -36,6 +38,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     HttpClient? httpClient,
   })  : _curated = curated ?? CuratedLyricsProvider(),
         _spotify = spotify,
+        _betterLyrics = betterLyrics,
         _lrclib = primary ?? LrclibLyricsProvider(httpClient: httpClient),
         _netease = netease ?? NeteaseLyricsProvider(httpClient: httpClient),
         _kugou = secondary ?? KugouLyricsProvider(httpClient: httpClient),
@@ -69,6 +72,19 @@ class CompositeLyricsProvider implements ILyricsProvider {
             spotifyResult.lines.isNotEmpty) {
           _addToCache(track.id, spotifyResult);
           return spotifyResult;
+        }
+      } catch (_) {}
+    }
+
+    // Tier 1.5: Query BetterLyrics (Apple Music / TTML syllable-level karaoke)
+    if (_betterLyrics != null) {
+      try {
+        final betterResult = await _betterLyrics.getLyrics(track);
+        if (betterResult != null &&
+            betterResult.isSynced &&
+            betterResult.lines.isNotEmpty) {
+          _addToCache(track.id, betterResult);
+          return betterResult;
         }
       } catch (_) {}
     }

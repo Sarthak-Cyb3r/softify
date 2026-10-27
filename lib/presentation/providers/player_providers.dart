@@ -18,6 +18,8 @@ import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/lyrics/composite_lyrics_provider.dart';
 import '../../data/lyrics/lrclib_lyrics_provider.dart';
 import '../../data/lyrics/spotify_lyrics_provider.dart';
+import '../../services/lyrics/better_lyrics_provider.dart';
+import '../../services/lyrics/lyrics_provider_registry.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_download_repository.dart';
 import '../../domain/ports/i_event_logger.dart';
@@ -253,6 +255,20 @@ final lyricsProvider = Provider<ILyricsProvider>((ref) {
   final authService = ref.watch(spotifyAuthServiceProvider);
   final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return CompositeLyricsProvider(
+    spotify: SpotifyLyricsProvider(
+      db: db,
+      authService: authService,
+      spotifyApi: spotifyApi,
+    ),
+    betterLyrics: BetterLyricsProvider(),
+  );
+});
+
+final lyricsProviderRegistryProvider = Provider<LyricsProviderRegistry>((ref) {
+  final db = ref.watch(databaseProvider);
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return LyricsProviderRegistry(
     spotify: SpotifyLyricsProvider(
       db: db,
       authService: authService,
