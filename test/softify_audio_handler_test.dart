@@ -560,6 +560,42 @@ void main() {
 
       await handler.dispose();
     });
+
+    test('playFromSearch ranks cached tracks with VoiceSearchMatcher and starts playback', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+        enableAudioSession: false,
+        autoRestoreState: false,
+      );
+
+      // Seed local library with candidates
+      await libraryRepo.upsertTrack(track1); // Starboy - The Weeknd
+      await libraryRepo.upsertTrack(track2); // Blinding Lights - The Weeknd
+      await libraryRepo.upsertTrack(track3); // Save Your Tears - The Weeknd
+
+      // Test natural voice search with artist connector
+      await handler.playFromSearch('Starboy by The Weeknd');
+      expect(handler.currentTrack?.id, equals(track1.id));
+      expect(handler.currentTrack?.title, equals('Starboy'));
+      expect(fakePlayer.playing, isTrue);
+
+      // Test fuzzy search with typo
+      await handler.playFromSearch('Starboi Weeknd');
+      expect(handler.currentTrack?.id, equals(track1.id));
+
+      // Test voice search via extras
+      await handler.playFromSearch('', {
+        'android.intent.extra.title': 'Blinding Lights',
+        'android.intent.extra.artist': 'The Weeknd',
+      });
+      expect(handler.currentTrack?.id, equals(track2.id));
+      expect(handler.currentTrack?.title, equals('Blinding Lights'));
+
+      await handler.dispose();
+    });
   });
 }
 

@@ -6,15 +6,19 @@ import '../../data/lyrics/spotify_lyrics_provider.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import 'better_lyrics_provider.dart';
+import 'paxsenix_lyrics_provider.dart';
+import 'zemer_lyrics_provider.dart';
 
 /// Multi-provider fallback registry for synchronized and syllable-accurate lyrics.
 /// Inspired by Metrolist's lyrics registry, with runtime configurable priority
-/// ordering across BetterLyrics, LrcLib, KuGou, and Spotify.
+/// ordering across BetterLyrics, LrcLib, KuGou, Paxsenix, Zemer, and Spotify.
 class LyricsProviderRegistry implements ILyricsProvider {
   static const List<String> defaultPriorityOrder = [
     'BetterLyrics',
     'LrcLib',
     'KuGou',
+    'Paxsenix',
+    'Zemer',
     'Spotify',
   ];
 
@@ -28,6 +32,8 @@ class LyricsProviderRegistry implements ILyricsProvider {
     ILyricsProvider? betterLyrics,
     ILyricsProvider? lrclib,
     ILyricsProvider? kugou,
+    ILyricsProvider? paxsenix,
+    ILyricsProvider? zemer,
     ILyricsProvider? spotify,
     List<String>? initialPriorityOrder,
   }) {
@@ -43,6 +49,14 @@ class LyricsProviderRegistry implements ILyricsProvider {
     registerProvider(
       'KuGou',
       kugou ?? KugouLyricsProvider(httpClient: httpClient),
+    );
+    registerProvider(
+      'Paxsenix',
+      paxsenix ?? PaxsenixLyricsProvider(httpClient: httpClient),
+    );
+    registerProvider(
+      'Zemer',
+      zemer ?? ZemerLyricsProvider(httpClient: httpClient),
     );
     registerProvider(
       'Spotify',

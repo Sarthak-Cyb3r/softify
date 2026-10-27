@@ -466,12 +466,14 @@ void main() {
   });
 
   group('LyricsProviderRegistry Tests', () {
-    test('Default priority order includes BetterLyrics, LrcLib, KuGou, Spotify', () {
+    test('Default priority order includes BetterLyrics, LrcLib, KuGou, Paxsenix, Zemer, Spotify', () {
       final registry = LyricsProviderRegistry();
       expect(registry.priorityOrder, [
         'BetterLyrics',
         'LrcLib',
         'KuGou',
+        'Paxsenix',
+        'Zemer',
         'Spotify',
       ]);
     });
@@ -484,9 +486,11 @@ void main() {
         'BetterLyrics',
         'Spotify',
         'LrcLib',
+        'Paxsenix',
+        'Zemer',
       ]);
       expect(
-        registry.serializeProviderOrder(),
+        registry.serializeProviderOrder(['KuGou', 'BetterLyrics', 'Spotify', 'LrcLib']),
         'KuGou,BetterLyrics,Spotify,LrcLib',
       );
     });
@@ -494,7 +498,7 @@ void main() {
     test('Deserializes priority order string with fallback for missing providers', () {
       final registry = LyricsProviderRegistry();
       final order = registry.deserializeProviderOrder('Spotify,BetterLyrics');
-      expect(order, ['Spotify', 'BetterLyrics', 'LrcLib', 'KuGou']);
+      expect(order, ['Spotify', 'BetterLyrics', 'LrcLib', 'KuGou', 'Paxsenix', 'Zemer']);
     });
 
     test('Enables and disables providers dynamically', () {
@@ -529,6 +533,10 @@ void main() {
       final registry = LyricsProviderRegistry(
         betterLyrics: mockBetter,
         lrclib: mockLrcLib,
+        kugou: _MockLyricsProvider(null),
+        paxsenix: _MockLyricsProvider(null),
+        zemer: _MockLyricsProvider(null),
+        spotify: _MockLyricsProvider(null),
       );
 
       final result = await registry.getLyrics(track);

@@ -20,6 +20,7 @@ import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_stream_resolver.dart';
 import '../../domain/ports/i_taste_profile_repository.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import '../../services/voice/voice_search_matcher.dart';
 
 import 'softify_audio_player.dart';
 
@@ -724,6 +725,141 @@ class SoftifyAudioHandler extends BaseAudioHandler
     unawaited(_prefetchNextTrackStream());
     await _playCurrentIndex();
     _checkAndPrefetchRecommendations();
+  }
+
+  @override
+  Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) async {
+    final effectiveQuery = query.trim().isNotEmpty
+        ? query.trim()
+        : (extras?['query'] as String? ??
+            extras?['android.intent.extra.title'] as String? ??
+            extras?['android.intent.extra.artist'] as String? ??
+            extras?['android.intent.extra.album'] as String? ??
+            '').trim();
+
+    if (effectiveQuery.isEmpty) return;
+
+    final intent = VoiceSearchMatcher.parseIntent(effectiveQuery);
+    final focus = extras?['android.intent.extra.focus'] as String?;
+    final isShuffleRequested = intent.isShuffle ||
+        extras?['shuffle'] == true ||
+        focus == 'vnd.android.cursor.item/playlist';
+
+    // 1. Album Intent
+    if (intent.type == VoiceIntentType.playAlbum || focus == 'vnd.android.cursor.item/album') {
+      final albumName = intent.albumName ?? effectiveQuery;
+      final artistName = intent.artistName ?? extras?['android.intent.extra.artist'] as String?;
+      List<Track> albumTracks = [];
+
+      if (_catalogRepo != null && artistName != null && artistName.isNotEmpty) {
+        try {
+          albumTracks = await _catalogRepo.getAlbumTracks(albumName, artistName);
+        } catch (_) {}
+      }
+
+      if (albumTracks.isEmpty) {
+        final localTracks = await _libraryRepo.searchLocalTracks(albumName, limit: 30);
+        albumTracks = localTracks
+            .where((t) => t.album?.trim().toLowerCase() == albumName.toLowerCase())
+            .toList();
+      }
+
+      if (albumTracks.isNotEmpty) {
+        if (isShuffleRequested) {
+          await setShuffleEnabled(true);
+        }
+        await setQueue(albumTracks, startIndex: 0);
+        return;
+      }
+    }
+
+    // 2. Shuffle / Play Artist Intent
+    if (intent.type == VoiceIntentType.shuffleArtist ||
+        intent.type == VoiceIntentType.playArtist ||
+        focus == 'vnd.android.cursor.item/artist') {
+      final artistName = intent.artistName ?? effectiveQuery;
+      List<Track> artistTracks = [];
+
+      if (_catalogRepo != null) {
+        try {
+          artistTracks = await _catalogRepo.getArtistTracks(artistName, limit: 30);
+        } catch (_) {}
+      }
+
+      final localTracks = await _libraryRepo.searchLocalTracks(artistName, limit: 30);
+      final combined = <Track>[];
+      final seenIds = <String>{};
+
+      for (final t in [...localTracks, ...artistTracks]) {
+        if (seenIds.add(t.id)) {
+          combined.add(t);
+        }
+      }
+
+      if (combined.isNotEmpty) {
+        if (isShuffleRequested) {
+          await setShuffleEnabled(true);
+        }
+        await setQueue(combined, startIndex: 0);
+        return;
+      }
+    }
+
+    // 3. Track / Natural Query Voice Search
+    final candidates = <Track>[];
+    final seenIds = <String>{};
+
+    try {
+      final local = await _libraryRepo.searchLocalTracks(effectiveQuery, limit: 30);
+      for (final t in local) {
+        if (seenIds.add(t.id)) candidates.add(t);
+      }
+    } catch (_) {}
+
+    if (_catalogRepo != null) {
+      try {
+        final online = await _catalogRepo.search(effectiveQuery, limit: 20);
+        for (final t in online) {
+          if (seenIds.add(t.id)) candidates.add(t);
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: If no candidate found and intent parsed a track title, search title
+    if (candidates.isEmpty && intent.trackTitle != null && intent.trackTitle!.isNotEmpty) {
+      final fallbackQuery = intent.trackTitle!;
+      try {
+        final local = await _libraryRepo.searchLocalTracks(fallbackQuery, limit: 30);
+        for (final t in local) {
+          if (seenIds.add(t.id)) candidates.add(t);
+        }
+      } catch (_) {}
+
+      if (_catalogRepo != null) {
+        try {
+          final online = await _catalogRepo.search(fallbackQuery, limit: 20);
+          for (final t in online) {
+            if (seenIds.add(t.id)) candidates.add(t);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (candidates.isEmpty) return;
+
+    // Rank candidates using VoiceSearchMatcher
+    final ranked = VoiceSearchMatcher.rankAll(effectiveQuery, candidates);
+    final best = VoiceSearchMatcher.findBest(effectiveQuery, candidates);
+
+    final targetTrack = best ?? (ranked.isNotEmpty ? ranked.first.track : candidates.first);
+    final queue = ranked.isNotEmpty ? ranked.map((s) => s.track).toList() : candidates;
+    final startIndex = queue.indexWhere((t) => t.id == targetTrack.id);
+
+    if (isShuffleRequested) {
+      await setShuffleEnabled(true);
+    }
+
+    await playTrack(targetTrack, queue: queue, startIndex: startIndex >= 0 ? startIndex : 0);
   }
 
   // ==========================================
