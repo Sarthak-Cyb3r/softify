@@ -635,6 +635,7 @@ class TTMLParser {
           timestamp: lineTimestamp,
           text: line.text,
           words: words.isNotEmpty ? words : null,
+          agent: line.agent,
         ),
       );
 
@@ -658,6 +659,7 @@ class TTMLParser {
             timestamp: bgTimestamp,
             text: bg.text,
             words: bgWords.isNotEmpty ? bgWords : null,
+            agent: bg.agent ?? line.agent,
           ),
         );
       }

@@ -16,11 +16,13 @@ class LyricLine {
   final Duration timestamp;
   final String text;
   final List<LyricWord>? words;
+  final String? agent; // Vocalist agent identifier: 'v1', 'v2', 'v1000' (chorus)
 
   const LyricLine({
     required this.timestamp,
     required this.text,
     this.words,
+    this.agent,
   });
 }
 

@@ -817,6 +817,7 @@ class RomanizationService {
         timestamp: line.timestamp,
         text: asMain ? romText : line.text,
         words: asMain ? romWords : line.words,
+        agent: line.agent,
       );
     }).toList();
 

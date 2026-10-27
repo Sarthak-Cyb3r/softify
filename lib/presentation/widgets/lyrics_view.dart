@@ -1084,12 +1084,33 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final displayText =
         _romanizeLyrics ? RomanizationService.romanize(line.text) : line.text;
 
+    // Metrolist Duet Vocalist Positioning (RespectAgentPositioning):
+    // v1: Left aligned, default singer
+    // v2: Right aligned with soft cyan-blue tint, second singer
+    // v1000 / chorus: Center aligned, collective chorus
+    final agent = line.agent?.toLowerCase();
+    final bool isDuetV2 = agent == 'v2';
+    final bool isChorus = agent == 'v1000' || agent == 'chorus' || agent == 'all';
+    final Alignment alignment = isChorus
+        ? Alignment.center
+        : (isDuetV2 ? Alignment.centerRight : Alignment.centerLeft);
+    final TextAlign textAlign = isChorus
+        ? TextAlign.center
+        : (isDuetV2 ? TextAlign.right : TextAlign.left);
+
+    // Metrolist / Apple Music Solo Countdown:
+    // When interlude gap before this line exceeds 5 seconds, show 3-dot countdown
+    final Duration prevTimestamp =
+        (index > 0) ? lines[index - 1].timestamp : Duration.zero;
+    final bool hasLongInterlude =
+        (line.timestamp - prevTimestamp).inMilliseconds >= 5000;
+
     // Depth-of-field opacity gradient
     final double lineOpacity = isActive
         ? 1.0
         : (0.40 - (distanceFromActive * 0.04)).clamp(0.20, 0.40);
 
-    return Container(
+    final lineWidget = Container(
       key: _getKeyForIndex(index),
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -1149,39 +1170,65 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: isMusicSymbol
-                ? _buildInstrumentalIndicator(isActive, accentColor)
-                : ((line.words != null && line.words!.isNotEmpty)
-                    ? _buildSyllableKaraokeLine(
-                        line: line,
-                        isActive: isActive,
-                        lineOpacity: lineOpacity,
-                        tokens: tokens,
-                        accentColor: accentColor,
-                      )
-                    : AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutCubic,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontEditorial,
-                          fontStyle: FontStyle.italic,
-                          fontSize: isActive
-                              ? _lyricFontSize.activeSize
-                              : _lyricFontSize.inactiveSize,
-                          fontWeight:
-                              isActive ? FontWeight.w700 : FontWeight.w400,
-                          color: isActive
-                              ? Colors.white
-                              : tokens.textPrimary.withValues(alpha: lineOpacity),
-                          height: 1.45,
-                          letterSpacing: isActive ? -0.3 : 0.0,
-                        ),
-                        child: Text(displayText),
-                      )),
+            child: Align(
+              alignment: alignment,
+              child: isMusicSymbol
+                  ? _buildInstrumentalIndicator(isActive, accentColor)
+                  : ((line.words != null && line.words!.isNotEmpty)
+                      ? _buildSyllableKaraokeLine(
+                          line: line,
+                          isActive: isActive,
+                          lineOpacity: lineOpacity,
+                          tokens: tokens,
+                          accentColor: accentColor,
+                          alignment: alignment,
+                          textAlign: textAlign,
+                          isDuetV2: isDuetV2,
+                        )
+                      : AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOutCubic,
+                          textAlign: textAlign,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontEditorial,
+                            fontStyle: FontStyle.italic,
+                            fontSize: isActive
+                                ? _lyricFontSize.activeSize
+                                : _lyricFontSize.inactiveSize,
+                            fontWeight:
+                                isActive ? FontWeight.w700 : FontWeight.w400,
+                            color: isActive
+                                ? Colors.white
+                                : (isDuetV2
+                                    ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity)
+                                    : tokens.textPrimary.withValues(alpha: lineOpacity)),
+                            height: 1.45,
+                            letterSpacing: isActive ? -0.3 : 0.0,
+                          ),
+                          child: Text(displayText, textAlign: textAlign),
+                        )),
+            ),
           ),
         ),
       ),
     );
+
+    if (hasLongInterlude) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SoloCountdownIndicator(
+            lineStart: line.timestamp,
+            positionNotifier: _positionNotifier,
+            accentColor: accentColor,
+          ),
+          lineWidget,
+        ],
+      );
+    }
+
+    return lineWidget;
   }
 
   Widget _buildSyllableKaraokeLine({
@@ -1190,6 +1237,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     required double lineOpacity,
     required AppTokens tokens,
     required Color accentColor,
+    required Alignment alignment,
+    required TextAlign textAlign,
+    required bool isDuetV2,
   }) {
     final displayText =
         _romanizeLyrics ? RomanizationService.romanize(line.text) : line.text;
@@ -1197,12 +1247,15 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     if (!isActive) {
       return Text(
         displayText,
+        textAlign: textAlign,
         style: TextStyle(
           fontFamily: AppTheme.fontEditorial,
           fontStyle: FontStyle.italic,
           fontSize: _lyricFontSize.inactiveSize,
           fontWeight: FontWeight.w400,
-          color: tokens.textPrimary.withValues(alpha: lineOpacity),
+          color: isDuetV2
+              ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity)
+              : tokens.textPrimary.withValues(alpha: lineOpacity),
           height: 1.45,
         ),
       );
@@ -1216,6 +1269,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             SpotifyLyricsSynchronizer.findActiveWordIndex(words, pos);
 
         return RichText(
+          textAlign: textAlign,
           text: TextSpan(
             children: [
               for (int w = 0; w < words.length; w++) ...[
@@ -1238,7 +1292,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           isWordSung ? FontWeight.w800 : FontWeight.w400,
                       color: isWordSung
                           ? Colors.white
-                          : tokens.textPrimary.withValues(alpha: 0.35),
+                          : (isDuetV2
+                              ? const Color(0xFF93C5FD).withValues(alpha: 0.40)
+                              : tokens.textPrimary.withValues(alpha: 0.35)),
                     ),
                   );
                 }(),
@@ -1352,6 +1408,78 @@ class _EqualizerWaveState extends State<_EqualizerWave>
       decoration: BoxDecoration(
         color: widget.color,
         borderRadius: BorderRadius.circular(1.5),
+      ),
+    );
+  }
+}
+
+/// Metrolist & Apple Music signature 3-dot pulsing countdown indicator for solo instrumentals.
+class _SoloCountdownIndicator extends StatelessWidget {
+  final Duration lineStart;
+  final ValueNotifier<Duration> positionNotifier;
+  final Color accentColor;
+
+  const _SoloCountdownIndicator({
+    required this.lineStart,
+    required this.positionNotifier,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Duration>(
+      valueListenable: positionNotifier,
+      builder: (context, pos, _) {
+        final remainingMs = (lineStart - pos).inMilliseconds;
+        // Countdown activates within 3.5 seconds before vocal onset
+        if (remainingMs <= 0 || remainingMs > 3500) {
+          return const SizedBox.shrink();
+        }
+
+        // 3 sequential dots pulsing down:
+        // Dot 1: remaining <= 3000ms
+        // Dot 2: remaining <= 2000ms
+        // Dot 3: remaining <= 1000ms
+        final d1 = remainingMs <= 3000;
+        final d2 = remainingMs <= 2000;
+        final d3 = remainingMs <= 1000;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildDot(d1, accentColor),
+              const SizedBox(width: 8),
+              _buildDot(d2, accentColor),
+              const SizedBox(width: 8),
+              _buildDot(d3, accentColor),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDot(bool active, Color accent) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutBack,
+      width: active ? 10 : 6,
+      height: active ? 10 : 6,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: active ? Colors.white : Colors.white.withValues(alpha: 0.22),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.7),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ]
+            : null,
       ),
     );
   }

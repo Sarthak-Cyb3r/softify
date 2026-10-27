@@ -16,6 +16,8 @@ import '../widgets/queue_bottom_sheet.dart';
 import '../widgets/shared/app_network_image.dart';
 import '../widgets/sleep_timer_bottom_sheet.dart';
 import '../widgets/track_options_bottom_sheet.dart';
+import '../widgets/vinyl_turntable_view.dart';
+import '../widgets/wavy_slider.dart';
 import '../widgets/shared/app_surface.dart';
 import '../widgets/shared/aurora_background.dart';
 import 'equalizer_screen.dart';
@@ -33,6 +35,7 @@ class _FullScreenPlayerScreenState
   static final Map<String, Color> _paletteCache = {};
 
   bool _showLyrics = false;
+  bool _showTurntable = false;
   Color _ambientColor = const Color(0xFF141A16);
   String? _lastExtractedCoverUrl;
 
@@ -331,7 +334,7 @@ class _FullScreenPlayerScreenState
                   duration: tokens.motionStandard,
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  child: _showLyrics && !isPlaceholder
+                  child: (_showLyrics && !isPlaceholder)
                       ? Padding(
                           key: const ValueKey('lyrics_active'),
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -344,16 +347,37 @@ class _FullScreenPlayerScreenState
                             ),
                           ),
                         )
-                      : GestureDetector(
-                          key: const ValueKey('artwork_active'),
-                          onVerticalDragEnd: (details) {
-                            if (!isPlaceholder &&
-                                details.primaryVelocity != null &&
-                                details.primaryVelocity! < -180) {
-                              // Swipe up reveals synced lyrics
-                              setState(() => _showLyrics = true);
-                            }
-                          },
+                      : (_showTurntable && !isPlaceholder)
+                          ? Padding(
+                              key: const ValueKey('turntable_active'),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              child: VinylTurntableView(
+                                coverUrl: effectiveTrack.coverUrl,
+                                isPlaying: isPlaying,
+                                ambientColor: _ambientColor,
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _showTurntable = false);
+                                },
+                              ),
+                            )
+                          : GestureDetector(
+                              key: const ValueKey('artwork_active'),
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _showTurntable = true);
+                              },
+                              onVerticalDragEnd: (details) {
+                                if (!isPlaceholder &&
+                                    details.primaryVelocity != null &&
+                                    details.primaryVelocity! < -180) {
+                                  // Swipe up reveals synced lyrics
+                                  setState(() => _showLyrics = true);
+                                }
+                              },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 36,
@@ -782,12 +806,33 @@ class _FullScreenPlayerScreenState
                       ),
                     ),
 
+                    // Metrolist Vinyl Turntable Mode Toggle
+                    BouncingScaleButton(
+                      scaleFactor: 0.9,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _showTurntable = !_showTurntable;
+                          if (_showTurntable) _showLyrics = false;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.album_rounded,
+                          color: _showTurntable ? tokens.accent : const Color(0xFFB3B3B3),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+
                     // Lyrics Toggle Pill
                     BouncingScaleButton(
                       scaleFactor: 0.95,
                       onTap: () {
                         setState(() {
                           _showLyrics = !_showLyrics;
+                          if (_showLyrics) _showTurntable = false;
                         });
                       },
                       child: tokens.isGlass
@@ -1008,6 +1053,8 @@ class _FullScreenPlayerScrubberState
     final duration = ref.watch(durationStreamProvider).value ??
         widget.fallbackDuration ??
         Duration.zero;
+    final isPlaying =
+        ref.watch(playbackStateStreamProvider).value?.playing ?? false;
 
     final bool isPlaceholder = widget.trackId == 'placeholder_loading';
     final maxSeconds =
@@ -1019,50 +1066,42 @@ class _FullScreenPlayerScrubberState
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          // Authentic Spotify Seek Slider
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 3.5,
-              trackShape: const RectangularSliderTrackShape(),
-              thumbShape: RoundSliderThumbShape(
-                enabledThumbRadius: isPlaceholder ? 0 : 4.5,
-                elevation: 0,
-                pressedElevation: 0,
-              ),
-              overlayShape: RoundSliderOverlayShape(overlayRadius: isPlaceholder ? 0 : 10),
-              activeTrackColor: Colors.white,
-              inactiveTrackColor: const Color(0x33FFFFFF),
-              thumbColor: Colors.white,
-            ),
-            child: Slider(
-              value: isPlaceholder ? 0.0 : currentSeconds.clamp(0.0, maxSeconds),
-              max: maxSeconds,
-              onChangeStart: isPlaceholder
-                  ? null
-                  : (_) {
-                      HapticFeedback.lightImpact();
-                    },
-              onChanged: isPlaceholder
-                  ? null
-                  : (val) {
-                      if (_dragPositionSeconds != null &&
-                          (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
-                        HapticFeedback.selectionClick();
-                      }
-                      setState(() {
-                        _dragPositionSeconds = val;
-                      });
-                    },
-              onChangeEnd: isPlaceholder
-                  ? null
-                  : (val) {
-                      HapticFeedback.mediumImpact();
-                      audioHandler.seek(Duration(seconds: val.round()));
-                      setState(() {
-                        _dragPositionSeconds = null;
-                      });
-                    },
-            ),
+          // Metrolist Animated Wavy / Squiggly Waveform Seekbar with Softify studio glow
+          WavySlider(
+            value: isPlaceholder ? 0.0 : currentSeconds.clamp(0.0, maxSeconds),
+            max: maxSeconds,
+            isPlaying: isPlaying,
+            enabled: !isPlaceholder,
+            activeColor: Colors.white,
+            inactiveColor: const Color(0x33FFFFFF),
+            thumbColor: Colors.white,
+            trackHeight: 3.5,
+            thumbRadius: isPlaceholder ? 0 : 5.0,
+            onChangeStart: isPlaceholder
+                ? null
+                : (_) {
+                    HapticFeedback.lightImpact();
+                  },
+            onChanged: isPlaceholder
+                ? null
+                : (val) {
+                    if (_dragPositionSeconds != null &&
+                        (val ~/ 10) != (_dragPositionSeconds! ~/ 10)) {
+                      HapticFeedback.selectionClick();
+                    }
+                    setState(() {
+                      _dragPositionSeconds = val;
+                    });
+                  },
+            onChangeEnd: isPlaceholder
+                ? null
+                : (val) {
+                    HapticFeedback.mediumImpact();
+                    audioHandler.seek(Duration(seconds: val.round()));
+                    setState(() {
+                      _dragPositionSeconds = null;
+                    });
+                  },
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),

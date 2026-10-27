@@ -70,6 +70,21 @@
                 android:resource="@xml/widget_compact_info" />
         </receiver>
 
+        <!-- Softify Vinyl Turntable Home Screen App Widget -->
+        <receiver
+            android:name=".SoftifyTurntableWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.softify.softify.widget.turntable.PLAY_PAUSE" />
+                <action android:name="com.softify.softify.widget.turntable.NEXT" />
+                <action android:name="com.softify.softify.widget.turntable.PREVIOUS" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_turntable_info" />
+        </receiver>
+
         <!-- FileProvider for APK self-updating -->
         <provider
             android:name="androidx.core.content.FileProvider"

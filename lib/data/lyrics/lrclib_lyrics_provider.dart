@@ -268,7 +268,15 @@ class LrclibLyricsProvider implements ILyricsProvider {
       if (tagMatches.isEmpty) continue;
 
       final lastTagEnd = tagMatches.last.end;
-      final rawText = trimmed.substring(lastTagEnd).trim();
+      String rawText = trimmed.substring(lastTagEnd).trim();
+
+      // Check for duet vocalist agent tags: {agent:v1}, [agent:v2], {v1}, etc.
+      String? agent;
+      final agentMatch = RegExp(r'[\{\[]agent:?\s*([a-zA-Z0-9_-]+)[\}\]]', caseSensitive: false).firstMatch(rawText);
+      if (agentMatch != null) {
+        agent = agentMatch.group(1);
+        rawText = rawText.replaceFirst(agentMatch.group(0)!, '').trim();
+      }
 
       // Check for enhanced word-level LRC tags: <mm:ss.xx>word
       final wordRegex = RegExp(r'<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>([^<]*)');
@@ -341,6 +349,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
             timestamp: lineDuration,
             text: cleanText,
             words: words,
+            agent: agent,
           ),
         );
       }
