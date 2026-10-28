@@ -70,7 +70,24 @@ class MiniPlayer extends ConsumerWidget {
         (playbackState?.processingState == AudioProcessingState.loading) ||
         audioHandler.playbackState.value.processingState == AudioProcessingState.buffering;
 
-    final effectiveTrack = currentTrack ?? audioHandler.currentTrack ?? historyTrack ?? queueTrack;
+    final mediaItem = ref.watch(mediaItemStreamProvider).value ?? audioHandler.mediaItem.value;
+    final Track? mediaItemTrack = mediaItem != null
+        ? Track(
+            id: mediaItem.id,
+            sourceId: (mediaItem.extras?['sourceId'] as String?) ?? mediaItem.id,
+            title: mediaItem.title,
+            artist: mediaItem.artist ?? '',
+            album: mediaItem.album,
+            duration: mediaItem.duration ?? Duration.zero,
+            coverUrl: mediaItem.artUri?.toString(),
+            isLiked: (mediaItem.extras?['isLiked'] as bool?) ?? false,
+          )
+        : null;
+
+    final isPlaying = (playbackState?.playing ?? false) || audioHandler.playbackState.value.playing;
+    final activePlayingTrack = currentTrack ?? audioHandler.currentTrack ?? mediaItemTrack;
+    final fallbackTrack = (!isPlaying && !isBuffering) ? (historyTrack ?? queueTrack) : null;
+    final effectiveTrack = activePlayingTrack ?? fallbackTrack;
 
     if (effectiveTrack == null && !isBuffering) {
       return const SizedBox.shrink();
@@ -85,8 +102,6 @@ class MiniPlayer extends ConsumerWidget {
           duration: Duration(minutes: 3),
           sourceId: '',
         );
-
-    final isPlaying = (currentTrack != null) && (playbackState?.playing ?? false);
 
     // Watch liked status for the favorite heart button
     final isLiked = !isPlaceholder &&
@@ -166,6 +181,7 @@ class MiniPlayer extends ConsumerWidget {
                   // 2. Song Information (14sp SemiBold title & 12sp artist)
                   Expanded(
                     child: Column(
+                      key: ValueKey('mini_info_${displayTrack.id}'),
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

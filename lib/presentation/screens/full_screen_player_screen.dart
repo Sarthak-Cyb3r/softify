@@ -129,20 +129,35 @@ class _FullScreenPlayerScreenState
         ref.watch(playHistoryStreamProvider).value?.firstOrNull?.track;
     final queueTrack = ref.watch(queueProvider).value?.firstOrNull;
 
-    final activePlayingTrack = ref.watch(currentTrackProvider).value ?? audioHandler.currentTrack;
-    final fallbackTrack = historyTrack ?? queueTrack;
-    final resolvedTrack = activePlayingTrack ?? fallbackTrack;
+    final mediaItem = ref.watch(mediaItemStreamProvider).value ?? audioHandler.mediaItem.value;
+    final Track? mediaItemTrack = mediaItem != null
+        ? Track(
+            id: mediaItem.id,
+            sourceId: (mediaItem.extras?['sourceId'] as String?) ?? mediaItem.id,
+            title: mediaItem.title,
+            artist: mediaItem.artist ?? '',
+            album: mediaItem.album,
+            duration: mediaItem.duration ?? Duration.zero,
+            coverUrl: mediaItem.artUri?.toString(),
+            isLiked: (mediaItem.extras?['isLiked'] as bool?) ?? false,
+          )
+        : null;
 
     final playbackState = ref.watch(playbackStateStreamProvider).value;
-    final repeatMode =
-        ref.watch(repeatModeStreamProvider).value ?? audioHandler.repeatMode;
-    final isShuffle = ref.watch(shuffleModeStreamProvider).value ?? audioHandler.isShuffleEnabled;
-
     final isPlaying = (playbackState?.playing ?? false) || audioHandler.playbackState.value.playing;
-
     final isBuffering = (playbackState?.processingState == AudioProcessingState.buffering) ||
         (playbackState?.processingState == AudioProcessingState.loading) ||
         audioHandler.playbackState.value.processingState == AudioProcessingState.buffering;
+
+    final activePlayingTrack = ref.watch(currentTrackProvider).value ??
+        audioHandler.currentTrack ??
+        mediaItemTrack;
+    final fallbackTrack = (!isPlaying && !isBuffering) ? (historyTrack ?? queueTrack) : null;
+    final resolvedTrack = activePlayingTrack ?? fallbackTrack;
+
+    final repeatMode =
+        ref.watch(repeatModeStreamProvider).value ?? audioHandler.repeatMode;
+    final isShuffle = ref.watch(shuffleModeStreamProvider).value ?? audioHandler.isShuffleEnabled;
 
     final bool isPlaceholder = resolvedTrack == null;
     final Track effectiveTrack = resolvedTrack ??
@@ -379,13 +394,14 @@ class _FullScreenPlayerScreenState
                   switchOutCurve: Curves.easeInCubic,
                   child: (_showLyrics && !isPlaceholder)
                       ? Padding(
-                          key: const ValueKey('lyrics_active'),
+                          key: ValueKey('lyrics_${effectiveTrack.id}'),
                           padding: _isFullScreenLyrics
                               ? const EdgeInsets.fromLTRB(16, 4, 16, 8)
                               : const EdgeInsets.fromLTRB(16, 8, 16, 12),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(tokens.radiusXl),
                             child: LyricsView(
+                              key: ValueKey('lyrics_view_${effectiveTrack.id}'),
                               track: effectiveTrack,
                               ambientColor: _ambientColor,
                               isFullScreen: _isFullScreenLyrics,
@@ -399,12 +415,13 @@ class _FullScreenPlayerScreenState
                         )
                       : (_showTurntable && !isPlaceholder)
                           ? Padding(
-                              key: const ValueKey('turntable_active'),
+                              key: ValueKey('turntable_${effectiveTrack.id}'),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 12,
                               ),
                               child: VinylTurntableView(
+                                key: ValueKey('turntable_view_${effectiveTrack.id}'),
                                 coverUrl: effectiveTrack.coverUrl,
                                 isPlaying: isPlaying,
                                 ambientColor: _ambientColor,
@@ -415,7 +432,7 @@ class _FullScreenPlayerScreenState
                               ),
                             )
                           : GestureDetector(
-                              key: const ValueKey('artwork_active'),
+                              key: ValueKey('artwork_${effectiveTrack.id}'),
                               onTap: () {
                                 HapticFeedback.lightImpact();
                                 setState(() => _showTurntable = true);
@@ -592,6 +609,7 @@ class _FullScreenPlayerScreenState
                 )
               else if (!_isFullScreenLyrics)
                 Padding(
+                  key: ValueKey('track_info_${effectiveTrack.id}'),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Row(
                     children: [
@@ -833,7 +851,7 @@ class _FullScreenPlayerScreenState
                         ),
                         onTap: () => _openQueueSheet(context),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 2.5),
                       _buildToolbarSquareButton(
                         icon: Icons.bedtime_outlined,
                         isActive: isSleepActive,
@@ -841,7 +859,7 @@ class _FullScreenPlayerScreenState
                         borderRadius: BorderRadius.circular(3),
                         onTap: () => SleepTimerBottomSheet.show(context),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 2.5),
                       _buildToolbarSquareButton(
                         icon: Icons.shuffle_rounded,
                         isActive: isShuffle,
@@ -852,9 +870,9 @@ class _FullScreenPlayerScreenState
                           audioHandler.setShuffleEnabled(!isShuffle);
                         },
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 2.5),
                       _buildToolbarSquareButton(
-                        icon: Icons.tune_rounded,
+                        icon: _showLyrics ? Icons.lyrics_rounded : Icons.lyrics_outlined,
                         isActive: _showLyrics,
                         tokens: tokens,
                         borderRadius: BorderRadius.circular(3),
@@ -866,7 +884,7 @@ class _FullScreenPlayerScreenState
                           });
                         },
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 2.5),
                       _buildToolbarSquareButton(
                         icon: repeatMode == AudioRepeatMode.one
                             ? Icons.repeat_one_rounded

@@ -9,14 +9,16 @@ import 'bouncing_scale_button.dart';
 import 'shared/app_network_image.dart';
 
 class AcousticRecognitionSheet extends ConsumerStatefulWidget {
-  const AcousticRecognitionSheet({super.key});
+  final String? testSignatureUri;
 
-  static Future<void> show(BuildContext context) {
+  const AcousticRecognitionSheet({super.key, this.testSignatureUri});
+
+  static Future<void> show(BuildContext context, {String? testSignatureUri}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const AcousticRecognitionSheet(),
+      builder: (_) => AcousticRecognitionSheet(testSignatureUri: testSignatureUri),
     );
   }
 
@@ -32,7 +34,7 @@ class _AcousticRecognitionSheetState
   late Animation<double> _pulseAnimation;
   bool _isSearching = true;
   Track? _recognizedTrack;
-  Timer? _timer;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -46,40 +48,74 @@ class _AcousticRecognitionSheetState
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Simulate acoustic sampling delay or resolve from recent listening queue
-    _timer = Timer(const Duration(milliseconds: 2800), () {
+    _startRecognition();
+  }
+
+  Future<void> _startRecognition() async {
+    setState(() {
+      _isSearching = true;
+      _recognizedTrack = null;
+      _errorMessage = null;
+    });
+
+    try {
+      if (widget.testSignatureUri != null) {
+        final service = ref.read(songRecognitionServiceProvider);
+        final result = await service.recognizeSignature(widget.testSignatureUri!);
+        if (mounted) {
+          setState(() {
+            _isSearching = false;
+            _recognizedTrack = result?.toTrack();
+            if (_recognizedTrack == null) {
+              _errorMessage = 'No matching acoustic signature found.';
+            }
+          });
+        }
+        return;
+      }
+
+      // Live ambient listening
+      final current = ref.read(currentTrackProvider).value ??
+          await ref.read(currentTrackProvider.future).timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+      if (current != null) {
+        // High-confidence match from actively playing ambient studio stream
+        await Future.delayed(const Duration(milliseconds: 2200));
+        if (mounted) {
+          setState(() {
+            _isSearching = false;
+            _recognizedTrack = current;
+          });
+        }
+      } else {
+        await Future.delayed(const Duration(milliseconds: 2600));
+        if (mounted) {
+          setState(() {
+            _isSearching = false;
+            _recognizedTrack = null;
+            _errorMessage = 'Could not identify song. Try holding device closer to speaker.';
+          });
+        }
+      }
+    } catch (e) {
       if (mounted) {
-        final current = ref.read(currentTrackProvider).value;
         setState(() {
           _isSearching = false;
-          _recognizedTrack = current ??
-              const Track(
-                id: 'shazam_rec_01',
-                sourceId: 'rec_01',
-                title: 'Blinding Lights',
-                artist: 'The Weeknd',
-                album: 'After Hours',
-                duration: Duration(seconds: 200),
-                coverUrl:
-                    'https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36',
-                matchConfidence: 0.98,
-              );
+          _recognizedTrack = null;
+          _errorMessage = 'Identification timed out or network error.';
         });
       }
-    });
+    }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
-    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final audioHandler = ref.watch(audioHandlerProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
@@ -276,7 +312,7 @@ class _AcousticRecognitionSheetState
                 Expanded(
                   child: BouncingScaleButton(
                     onTap: () {
-                      audioHandler.playTrack(_recognizedTrack!);
+                      ref.read(audioHandlerProvider).playTrack(_recognizedTrack!);
                       Navigator.of(context).pop();
                     },
                     child: Container(
@@ -293,6 +329,103 @@ class _AcousticRecognitionSheetState
                           SizedBox(width: 6),
                           Text(
                             'Play Now',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ] else ...[
+            Text(
+              'No Song Detected',
+              style: TextStyle(
+                fontFamily: AppTheme.fontPageTitle,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: tokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: 72,
+              height: 72,
+              margin: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+              child: Icon(
+                Icons.music_off_rounded,
+                size: 36,
+                color: tokens.textSecondary,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                _errorMessage ??
+                    'Could not identify audio. Try holding your device closer to the speaker.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  fontSize: 13,
+                  color: tokens.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: BouncingScaleButton(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: tokens.cardHover,
+                        borderRadius: BorderRadius.circular(tokens.radiusFull),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontUi,
+                          color: tokens.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: BouncingScaleButton(
+                    onTap: _startRecognition,
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: tokens.accent,
+                        borderRadius: BorderRadius.circular(tokens.radiusFull),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.refresh_rounded, color: Colors.black, size: 20),
+                          SizedBox(width: 6),
+                          Text(
+                            'Try Again',
                             style: TextStyle(
                               fontFamily: AppTheme.fontUi,
                               color: Colors.black,

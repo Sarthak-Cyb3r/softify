@@ -35,6 +35,7 @@ import '../../data/search/drift_fts_repository.dart';
 import '../../data/search/linear_search_reranker.dart';
 import '../../data/services/discord_rpc_service.dart';
 import '../../data/services/spotify_api_service.dart';
+import '../../services/recognition/song_recognition_service.dart';
 import 'spotify_import_providers.dart';
 
 // ==========================================
@@ -103,6 +104,15 @@ final discordRpcServiceProvider = Provider<DiscordRpcService>((ref) {
 final currentTrackProvider = StreamProvider<Track?>((ref) {
   final handler = ref.watch(audioHandlerProvider);
   return handler.currentTrackStream;
+});
+
+final mediaItemStreamProvider = StreamProvider<MediaItem?>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.mediaItem;
+});
+
+final songRecognitionServiceProvider = Provider<SongRecognitionService>((ref) {
+  return SongRecognitionService();
 });
 
 final queueProvider = StreamProvider<List<Track>>((ref) {
