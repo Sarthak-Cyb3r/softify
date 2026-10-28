@@ -130,7 +130,7 @@ void main() {
     expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
     expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
     expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.lyrics_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
     expect(find.byIcon(Icons.queue_music_rounded), findsOneWidget);
 
     // Verify timestamp formatting
