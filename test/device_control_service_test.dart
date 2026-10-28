@@ -75,5 +75,39 @@ void main() {
       expect(status.isAllowed, isTrue);
       expect(status.isOffline, isTrue);
     });
+
+    test('handles maintenance mode with targeted vs exempt device statuses', () async {
+      final mockClient = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        if (body['deviceId'] == 'exempt-device-id') {
+          return http.Response(
+            jsonEncode({
+              'allowed': true,
+              'status': 'allowed',
+              'maintenanceExempt': true,
+              'config': {'maintenanceMode': true, 'maintenanceExempt': true},
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'allowed': false,
+            'status': 'maintenance',
+            'reason': 'Softify is currently undergoing scheduled maintenance.',
+            'maintenanceExempt': false,
+            'config': {'maintenanceMode': true, 'maintenanceExempt': false},
+          }),
+          200,
+        );
+      });
+
+      final service = DeviceControlService(db: db, client: mockClient);
+      final normalStatus = await service.syncDevice();
+      expect(normalStatus.isAllowed, isFalse);
+      expect(normalStatus.isMaintenance, isTrue);
+      expect(normalStatus.isMaintenanceExempt, isFalse);
+      expect(normalStatus.reason, contains('scheduled maintenance'));
+    });
   });
 }

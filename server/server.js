@@ -601,6 +601,7 @@ class Store {
         ipAddress: clientIp,
         status: initialStatus,
         blockReason: initialStatus === 'pending' ? 'Device pending administrator approval' : '',
+        maintenanceAffected: true,
         pendingCommands: [],
         firstSeen: now,
         lastSeen: now,
@@ -626,6 +627,7 @@ class Store {
       if (info.fingerprint) device.fingerprint = info.fingerprint;
       if (info.appVersion) device.appVersion = info.appVersion;
       if (info.customAlias && !device.customAlias) device.customAlias = info.customAlias;
+      if (device.maintenanceAffected === undefined) device.maintenanceAffected = true;
       if (!device.pendingCommands) device.pendingCommands = [];
     }
 
@@ -654,6 +656,7 @@ class Store {
           deviceModel: model,
           modelCode,
           brand,
+          maintenanceAffected: d.maintenanceAffected !== false,
           isOnline,
           isActiveToday,
           isOffline
@@ -689,6 +692,15 @@ class Store {
       } else if (updates.status === 'blocked') {
         this.logEvent('DEVICE_BLOCKED', device.deviceModel, `Device suspended: ${updates.blockReason || 'Manual block'}`, 'warning');
       }
+    }
+    if (updates.maintenanceAffected !== undefined) {
+      device.maintenanceAffected = Boolean(updates.maintenanceAffected);
+      this.logEvent(
+        'MAINTENANCE_TARGET',
+        device.deviceModel,
+        `Device ${device.id.substring(0, 8)} ${device.maintenanceAffected ? 'marked as affected by' : 'exempted from'} maintenance mode`,
+        'info'
+      );
     }
     if (updates.blockReason !== undefined) {
       device.blockReason = updates.blockReason;
@@ -801,6 +813,8 @@ class Store {
     let allowedCount = 0;
     let blockedCount = 0;
     let pendingCount = 0;
+    let maintenanceAffectedCount = 0;
+    let maintenanceExemptCount = 0;
     const platforms = {};
     const versions = {};
 
@@ -813,6 +827,12 @@ class Store {
       if (d.status === 'allowed') allowedCount++;
       else if (d.status === 'blocked') blockedCount++;
       else if (d.status === 'pending') pendingCount++;
+
+      if (d.maintenanceAffected === false) {
+        maintenanceExemptCount++;
+      } else {
+        maintenanceAffectedCount++;
+      }
 
       const p = (d.platform || 'other').toLowerCase();
       platforms[p] = (platforms[p] || 0) + 1;
@@ -829,6 +849,8 @@ class Store {
       allowedCount,
       blockedCount,
       pendingCount,
+      maintenanceAffectedCount,
+      maintenanceExemptCount,
       platforms,
       versions,
       maintenanceMode: Boolean(this.config.maintenanceMode),
@@ -932,8 +954,11 @@ app.post('/api/device/sync', async (req, res) => {
   let isAllowed = device.status === 'allowed';
   let blockReason = device.blockReason || 'Access restricted by administrator';
 
-  // Check Maintenance Mode
-  if (store.config.maintenanceMode) {
+  // Check Maintenance Mode (respects per-device maintenance exemption)
+  const isMaintenanceAffected = device.maintenanceAffected !== false;
+  const inMaintenance = Boolean(store.config.maintenanceMode && isMaintenanceAffected);
+
+  if (inMaintenance) {
     isAllowed = false;
     blockReason = store.config.maintenanceMessage || 'Softify is currently undergoing maintenance.';
   }
@@ -965,15 +990,18 @@ app.post('/api/device/sync', async (req, res) => {
   return res.json({
     success: true,
     allowed: isAllowed,
-    status: isAllowed ? 'allowed' : (store.config.maintenanceMode ? 'maintenance' : device.status),
+    status: isAllowed ? 'allowed' : (inMaintenance ? 'maintenance' : device.status),
     reason: isAllowed ? undefined : blockReason,
+    maintenanceExempt: !isMaintenanceAffected,
     banner: store.config.broadcastBanner || null,
     notice,
     commands: commandsToDeliver,
     config: {
       features: store.config.features,
       heartbeatIntervalSeconds: store.config.heartbeatIntervalSeconds || 60,
-      minAppVersion: store.config.minAppVersion || '3.0.3'
+      minAppVersion: store.config.minAppVersion || '3.0.3',
+      maintenanceMode: Boolean(store.config.maintenanceMode),
+      maintenanceExempt: !isMaintenanceAffected
     },
     serverTime: new Date().toISOString()
   });
@@ -985,11 +1013,19 @@ app.get('/api/device/status/:id', (req, res) => {
   if (!device) {
     return res.status(404).json({ error: 'Device not found' });
   }
-  const isAllowed = device.status === 'allowed';
+  const isMaintenanceAffected = device.maintenanceAffected !== false;
+  const inMaintenance = Boolean(store.config.maintenanceMode && isMaintenanceAffected);
+  let isAllowed = device.status === 'allowed';
+  let reason = device.blockReason || 'Access restricted by administrator';
+  if (inMaintenance) {
+    isAllowed = false;
+    reason = store.config.maintenanceMessage || 'Softify is currently undergoing maintenance.';
+  }
   return res.json({
     allowed: isAllowed,
-    status: device.status,
-    reason: isAllowed ? undefined : (device.blockReason || 'Access restricted by administrator'),
+    status: isAllowed ? 'allowed' : (inMaintenance ? 'maintenance' : device.status),
+    reason: isAllowed ? undefined : reason,
+    maintenanceExempt: !isMaintenanceAffected,
     banner: store.config.broadcastBanner || null
   });
 });
@@ -1031,14 +1067,57 @@ app.post('/api/admin/devices/:id/toggle', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/devices/:id/update', requireAdmin, async (req, res) => {
-  const { status, blockReason, customAlias, ipAddress, lastSeen, pingCount } = req.body || {};
-  const updated = store.updateDevice(req.params.id, { status, blockReason, customAlias, ipAddress, lastSeen, pingCount });
+  const { status, blockReason, customAlias, ipAddress, lastSeen, pingCount, maintenanceAffected } = req.body || {};
+  const updated = store.updateDevice(req.params.id, { status, blockReason, customAlias, ipAddress, lastSeen, pingCount, maintenanceAffected });
   if (!updated) {
     return res.status(404).json({ error: 'Device not found' });
   }
 
   await store.saveFleet(updated);
   return res.json({ success: true, device: updated });
+});
+
+// Single device maintenance exemption toggle
+app.post('/api/admin/devices/:id/maintenance', requireAdmin, async (req, res) => {
+  const { affected } = req.body || {};
+  const device = store.getDevice(req.params.id);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+
+  const isAffected = Boolean(affected);
+  const updated = store.updateDevice(req.params.id, { maintenanceAffected: isAffected });
+  await store.saveFleet(updated);
+  return res.json({ success: true, device: updated });
+});
+
+// Batch maintenance exemption toggle across multiple or all devices
+app.post('/api/admin/devices/maintenance-batch', requireAdmin, async (req, res) => {
+  const { deviceIds, affected, all } = req.body || {};
+  const isAffected = Boolean(affected);
+  const targets = (all === true || deviceIds === 'all')
+    ? Array.from(store.devices.keys())
+    : (Array.isArray(deviceIds) ? deviceIds : []);
+
+  if (targets.length === 0) {
+    return res.status(400).json({ error: 'No target device IDs specified' });
+  }
+
+  const updatedDevices = [];
+  for (const id of targets) {
+    const dev = store.updateDevice(id, { maintenanceAffected: isAffected });
+    if (dev) updatedDevices.push(dev);
+  }
+
+  store.logEvent(
+    'MAINTENANCE_BATCH',
+    'Fleet',
+    `${updatedDevices.length} devices ${isAffected ? 'marked as affected by' : 'exempted from'} maintenance mode`,
+    'info'
+  );
+
+  await store.saveFleet();
+  return res.json({ success: true, count: updatedDevices.length, affected: isAffected });
 });
 
 // Remote device command dispatcher
@@ -1179,7 +1258,7 @@ app.get('/api/admin/export/json', requireAdmin, (req, res) => {
 app.get('/api/admin/export/csv', requireAdmin, (req, res) => {
   const devices = store.getAllDevices();
   const dateStr = new Date().toISOString().slice(0, 10);
-  const headers = ['Device ID', 'Custom Alias', 'Commercial Model', 'SKU Code', 'Brand', 'Platform', 'OS Version', 'App Version', 'IP Address', 'Physical Device', 'Status', 'Ping Count', 'First Seen', 'Last Seen'];
+  const headers = ['Device ID', 'Custom Alias', 'Commercial Model', 'SKU Code', 'Brand', 'Platform', 'OS Version', 'App Version', 'IP Address', 'Physical Device', 'Status', 'Maintenance Affected', 'Ping Count', 'First Seen', 'Last Seen'];
   const rows = [headers.join(',')];
 
   for (const d of devices) {
@@ -1195,6 +1274,7 @@ app.get('/api/admin/export/csv', requireAdmin, (req, res) => {
       `"${d.ipAddress || ''}"`,
       d.isPhysicalDevice !== false ? 'Yes' : 'No',
       `"${d.status || ''}"`,
+      d.maintenanceAffected !== false ? 'Affected (Yes)' : 'Exempt (No)',
       d.pingCount || 1,
       `"${d.firstSeen || ''}"`,
       `"${d.lastSeen || ''}"`

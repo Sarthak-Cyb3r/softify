@@ -13,6 +13,8 @@ class DeviceControlState {
   final bool isOffline;
   final String? bannerMessage;
   final AppNotice? pendingNotice;
+  final bool isMaintenance;
+  final bool isMaintenanceExempt;
 
   const DeviceControlState({
     this.isBlocked = false,
@@ -23,6 +25,8 @@ class DeviceControlState {
     this.isOffline = false,
     this.bannerMessage,
     this.pendingNotice,
+    this.isMaintenance = false,
+    this.isMaintenanceExempt = false,
   });
 
   DeviceControlState copyWith({
@@ -35,6 +39,8 @@ class DeviceControlState {
     String? bannerMessage,
     AppNotice? pendingNotice,
     bool clearPendingNotice = false,
+    bool? isMaintenance,
+    bool? isMaintenanceExempt,
   }) {
     return DeviceControlState(
       isBlocked: isBlocked ?? this.isBlocked,
@@ -45,6 +51,8 @@ class DeviceControlState {
       isOffline: isOffline ?? this.isOffline,
       bannerMessage: bannerMessage ?? this.bannerMessage,
       pendingNotice: clearPendingNotice ? null : (pendingNotice ?? this.pendingNotice),
+      isMaintenance: isMaintenance ?? this.isMaintenance,
+      isMaintenanceExempt: isMaintenanceExempt ?? this.isMaintenanceExempt,
     );
   }
 }
@@ -99,6 +107,8 @@ class DeviceControlNotifier extends StateNotifier<DeviceControlState> {
       isOffline: status.isOffline,
       bannerMessage: status.banner,
       pendingNotice: pendingNotice,
+      isMaintenance: status.isMaintenance,
+      isMaintenanceExempt: status.isMaintenanceExempt,
     );
 
     // If blocked, immediately stop any running audio

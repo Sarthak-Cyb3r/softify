@@ -1280,8 +1280,23 @@
           <button class="filter-chip" data-filter="active-today" onclick="setFilter('active-today')">🟡 Active Today (<span id="filterCountActive">0</span>)</button>
           <button class="filter-chip" data-filter="offline" onclick="setFilter('offline')">⚪ Offline (<span id="filterCountOffline">0</span>)</button>
           <button class="filter-chip" data-filter="blocked" onclick="setFilter('blocked')">🛑 Blocked (<span id="filterCountBlocked">0</span>)</button>
+          <button class="filter-chip" data-filter="maint-exempt" onclick="setFilter('maint-exempt')">🛡️ Exempt (<span id="filterCountExempt">0</span>)</button>
+          <button class="filter-chip" data-filter="maint-affected" onclick="setFilter('maint-affected')">⚠️ In Maint (<span id="filterCountAffected">0</span>)</button>
           <button class="filter-chip" data-filter="android" onclick="setFilter('android')">Android (<span id="filterCountAndroid">0</span>)</button>
           <button class="filter-chip" data-filter="linux" onclick="setFilter('linux')">Linux (<span id="filterCountLinux">0</span>)</button>
+        </div>
+      </div>
+
+      <!-- Bulk Device Maintenance Action Bar -->
+      <div id="bulkActionsBar" style="display: none; background: rgba(46, 230, 107, 0.08); border: 1px solid rgba(46, 230, 107, 0.25); border-radius: 8px; padding: 10px 16px; margin-bottom: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 13px; font-weight: 700; color: #fff;"><span id="selectedDevicesCount">0</span> device(s) selected</span>
+          <span style="font-size: 11px; color: var(--text-muted);">(Configure maintenance targeting for selected devices)</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; border-color: rgba(16, 185, 129, 0.4);" onclick="applyBatchMaintenance(false)">🛡️ Exempt Selected from Maintenance</button>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; border-color: rgba(239, 68, 68, 0.4);" onclick="applyBatchMaintenance(true)">⚠️ Mark Selected as Affected</button>
+          <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px;" onclick="clearDeviceSelection()">Deselect All</button>
         </div>
       </div>
 
@@ -1290,6 +1305,9 @@
         <table>
           <thead>
             <tr>
+              <th style="width: 38px; text-align: center;">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible devices">
+              </th>
               <th>Device & Hardware Model</th>
               <th>Platform / OS</th>
               <th>Device UUID</th>
@@ -1297,12 +1315,13 @@
               <th>Version</th>
               <th>Telemetry Activity</th>
               <th>Access Control</th>
+              <th>Maintenance Scope</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="deviceTableBody">
             <tr>
-              <td colspan="8">
+              <td colspan="10">
                 <div style="text-align: center; padding: 32px; color: var(--text-muted);">
                   Loading fleet registry...
                 </div>
@@ -1339,7 +1358,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <div style="font-size: 13px; font-weight: 700; color: #fff;">Global Maintenance Mode</div>
-                <div style="font-size: 11px; color: var(--text-muted);">Suspends playback on all clients with a maintenance banner</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Suspends playback on targeted devices with a maintenance banner</div>
               </div>
               <label class="switch">
                 <input type="checkbox" id="cfgMaintenanceMode">
@@ -1347,6 +1366,23 @@
               </label>
             </div>
             <input type="text" id="cfgMaintenanceMessage" class="modal-input" style="width: 100%; margin-top: 8px;" placeholder="Maintenance message displayed to users">
+
+            <!-- Per-device Maintenance Exemption Quick Scope Controls -->
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <div style="font-size: 11.5px; font-weight: 700; color: #cbd5e1;">Device Targeting Policy</div>
+                <div style="font-size: 11px; color: var(--text-muted);">
+                  Fleet Scope: <span id="cfgMaintenanceScopeSummary" style="font-weight: 700; color: #2EE66B;">Loading...</span>
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-secondary" style="padding: 5px 10px; font-size: 11.5px;" onclick="batchSetAllMaintenance(false)">🛡️ Exempt All</button>
+                <button type="button" class="btn btn-secondary" style="padding: 5px 10px; font-size: 11.5px;" onclick="batchSetAllMaintenance(true)">⚠️ Affect All</button>
+              </div>
+            </div>
+            <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 6px;">
+              💡 Exempted devices will bypass maintenance mode and continue normal streaming even when maintenance is active.
+            </div>
           </div>
 
           <!-- 3. Minimum App Version Governance -->
@@ -1485,6 +1521,13 @@
             <span class="spec-value" id="inspectSpecFirstSeen">--</span>
           </div>
           <div class="spec-item" style="grid-column: 1 / -1;">
+            <span class="spec-label">Maintenance Mode Policy</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px; flex-wrap: wrap; gap: 8px;">
+              <span id="inspectMaintenanceBadge" class="status-badge allowed">🛡️ Exempt</span>
+              <button class="btn btn-secondary" id="inspectMaintenanceToggleBtn" style="padding: 4px 10px; font-size: 11px;">Toggle Exemption</button>
+            </div>
+          </div>
+          <div class="spec-item" style="grid-column: 1 / -1;">
             <span class="spec-label">Last Seen Heartbeat</span>
             <span class="spec-value" id="inspectSpecLastSeen">--</span>
           </div>
@@ -1546,6 +1589,8 @@
     let pendingBlockId = null;
     let pendingCommandDeviceId = null;
     let refreshInterval = null;
+    let selectedDeviceIds = new Set();
+    let isGlobalMaintenanceActive = false;
 
     function getAdminKey() {
       return sessionStorage.getItem('softify_admin_key') || localStorage.getItem('softify_admin_key') || '';
@@ -1732,6 +1777,21 @@
       document.getElementById('inspectSpecPings').innerText = `${d.pingCount || 1} Heartbeats recorded`;
       document.getElementById('inspectSpecFirstSeen').innerText = d.firstSeen ? `${new Date(d.firstSeen).toLocaleString()} (${formatTimeAgo(d.firstSeen)})` : 'Initial check-in';
       document.getElementById('inspectSpecLastSeen').innerText = d.lastSeen ? `${new Date(d.lastSeen).toLocaleString()} (${formatTimeAgo(d.lastSeen)})` : 'Active session';
+
+      const isMaintAffected = d.maintenanceAffected !== false;
+      const maintBadge = document.getElementById('inspectMaintenanceBadge');
+      if (isMaintAffected) {
+        maintBadge.className = isGlobalMaintenanceActive ? 'status-badge blocked' : 'status-badge pending';
+        maintBadge.innerText = isGlobalMaintenanceActive ? '⚠️ In Maintenance (Blocked)' : '⚠️ Affected when Active';
+      } else {
+        maintBadge.className = 'status-badge allowed';
+        maintBadge.innerText = '🛡️ Exempt (Bypasses Maintenance)';
+      }
+
+      document.getElementById('inspectMaintenanceToggleBtn').onclick = () => {
+        onToggleMaintenanceSwitch(d.id, !isMaintAffected);
+        closeInspectModal();
+      };
 
       document.getElementById('inspectDirectMsgBtn').onclick = () => {
         closeInspectModal();
@@ -2062,6 +2122,7 @@
         const data = await res.json();
         if (data.success && data.stats) {
           const s = data.stats;
+          isGlobalMaintenanceActive = Boolean(s.maintenanceMode);
           document.getElementById('statTotal').innerText = s.total;
           document.getElementById('statOnline').innerText = s.onlineNow;
           document.getElementById('statActiveToday').innerText = s.activeToday;
@@ -2080,7 +2141,7 @@
       const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
       // Update Filter counts
-      let countOnline = 0, countActive = 0, countOffline = 0, countBlocked = 0, countAndroid = 0, countLinux = 0;
+      let countOnline = 0, countActive = 0, countOffline = 0, countBlocked = 0, countAndroid = 0, countLinux = 0, countExempt = 0, countAffected = 0;
       for (const d of allDevices) {
         if (d.isOnline) countOnline++;
         if (d.isActiveToday) countActive++;
@@ -2089,6 +2150,8 @@
         const p = (d.platform || '').toLowerCase();
         if (p.includes('android')) countAndroid++;
         if (p.includes('linux')) countLinux++;
+        if (d.maintenanceAffected === false) countExempt++;
+        else countAffected++;
       }
 
       document.getElementById('filterCountAll').innerText = allDevices.length;
@@ -2098,6 +2161,10 @@
       document.getElementById('filterCountBlocked').innerText = countBlocked;
       document.getElementById('filterCountAndroid').innerText = countAndroid;
       document.getElementById('filterCountLinux').innerText = countLinux;
+      const fEx = document.getElementById('filterCountExempt');
+      if (fEx) fEx.innerText = countExempt;
+      const fAff = document.getElementById('filterCountAffected');
+      if (fAff) fAff.innerText = countAffected;
 
       const filtered = allDevices.filter(d => {
         if (currentFilter === 'online' && !d.isOnline) return false;
@@ -2107,6 +2174,8 @@
         if (currentFilter === 'allowed' && d.status !== 'allowed') return false;
         if (currentFilter === 'android' && !(d.platform || '').toLowerCase().includes('android')) return false;
         if (currentFilter === 'linux' && !(d.platform || '').toLowerCase().includes('linux')) return false;
+        if (currentFilter === 'maint-exempt' && d.maintenanceAffected !== false) return false;
+        if (currentFilter === 'maint-affected' && d.maintenanceAffected === false) return false;
 
         if (!search) return true;
 
@@ -2120,10 +2189,15 @@
         return matchId || matchModel || matchAlias || matchIp || matchOs || matchPlatform;
       });
 
+      const selectAll = document.getElementById('selectAllCheckbox');
+      if (selectAll) {
+        selectAll.checked = filtered.length > 0 && filtered.every(d => selectedDeviceIds.has(d.id));
+      }
+
       if (filtered.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="8">
+            <td colspan="10">
               <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
                 <div style="font-size: 28px; margin-bottom: 8px;">📱</div>
                 <div style="font-weight: 700; color: #fff;">No devices match current filter.</div>
@@ -2150,9 +2224,28 @@
         }
 
         const isOutdated = (d.appVersion || '') < '3.0.3';
+        const isMaintAffected = d.maintenanceAffected !== false;
+
+        let maintBadgeHtml = '';
+        if (isGlobalMaintenanceActive) {
+          if (isMaintAffected) {
+            maintBadgeHtml = `<span class="status-badge" style="background: rgba(239, 68, 68, 0.18); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700;">⚠️ In Maint</span>`;
+          } else {
+            maintBadgeHtml = `<span class="status-badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700;">🛡️ Exempt</span>`;
+          }
+        } else {
+          if (isMaintAffected) {
+            maintBadgeHtml = `<span class="status-badge" style="background: rgba(255, 255, 255, 0.06); color: #94a3b8;">Targeted</span>`;
+          } else {
+            maintBadgeHtml = `<span class="status-badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);">🛡️ Exempt</span>`;
+          }
+        }
 
         return `
           <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" class="device-checkbox" data-id="${d.id}" ${selectedDeviceIds.has(d.id) ? 'checked' : ''} onchange="onDeviceSelectChange('${d.id}', this.checked)">
+            </td>
             <td>
               <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <span style="font-weight: 700; color: #fff; font-size: 13.5px;">${escapeHtml(d.customAlias || modelName)}</span>
@@ -2192,6 +2285,18 @@
               ${d.blockReason ? `<div style="font-size: 10.5px; color: var(--danger); margin-top: 4px;">${escapeHtml(d.blockReason)}</div>` : ''}
             </td>
             <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label class="switch" title="${isMaintAffected ? 'Currently affected by maintenance. Click to exempt this device' : 'Currently exempt. Click to make this device affected'}">
+                  <input type="checkbox" ${isMaintAffected ? 'checked' : ''} onchange="onToggleMaintenanceSwitch('${d.id}', this.checked)">
+                  <span class="slider"></span>
+                </label>
+                ${maintBadgeHtml}
+              </div>
+              <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 4px;">
+                ${isMaintAffected ? (isGlobalMaintenanceActive ? '⚠️ Blocked by maintenance' : 'Targeted when active') : '🛡️ Bypasses maintenance'}
+              </div>
+            </td>
+            <td>
               <div class="action-btns">
                 <button class="btn-icon" title="Inspect Hardware Profile" onclick="openInspectModal('${d.id}')">🔍</button>
                 <button class="btn-icon" title="Send Notice to this Device" onclick="directMessageDevice('${d.id}', '${escapeHtml(d.customAlias || modelName)}')">💬</button>
@@ -2227,6 +2332,150 @@
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text);
       showToast('Copied device UUID ✓');
+    }
+
+    function onDeviceSelectChange(id, checked) {
+      if (checked) selectedDeviceIds.add(id);
+      else selectedDeviceIds.delete(id);
+      updateBulkActionsBar();
+    }
+
+    function toggleSelectAll(checked) {
+      const checkboxes = document.querySelectorAll('.device-checkbox');
+      checkboxes.forEach(cb => {
+        const id = cb.getAttribute('data-id');
+        cb.checked = checked;
+        if (checked && id) selectedDeviceIds.add(id);
+        else if (id) selectedDeviceIds.delete(id);
+      });
+      updateBulkActionsBar();
+    }
+
+    function clearDeviceSelection() {
+      selectedDeviceIds.clear();
+      const selectAll = document.getElementById('selectAllCheckbox');
+      if (selectAll) selectAll.checked = false;
+      const checkboxes = document.querySelectorAll('.device-checkbox');
+      checkboxes.forEach(cb => { cb.checked = false; });
+      updateBulkActionsBar();
+    }
+
+    function updateBulkActionsBar() {
+      const bar = document.getElementById('bulkActionsBar');
+      const countEl = document.getElementById('selectedDevicesCount');
+      if (!bar || !countEl) return;
+      if (selectedDeviceIds.size > 0) {
+        bar.style.display = 'flex';
+        countEl.innerText = selectedDeviceIds.size;
+      } else {
+        bar.style.display = 'none';
+        const selectAll = document.getElementById('selectAllCheckbox');
+        if (selectAll) selectAll.checked = false;
+      }
+    }
+
+    async function onToggleMaintenanceSwitch(id, wantAffected) {
+      const d = allDevices.find(x => x.id === id);
+      if (d) {
+        d.maintenanceAffected = wantAffected;
+        renderTable();
+      }
+
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/devices/${id}/maintenance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ affected: wantAffected })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(wantAffected ? 'Device marked as affected by maintenance ⚠️' : 'Device exempted from maintenance 🛡️');
+          fetchStats();
+        } else {
+          showToast(data.error || 'Failed to update maintenance setting');
+          fetchDevices();
+        }
+      } catch (e) {
+        showToast('Network error updating maintenance setting');
+        fetchDevices();
+      }
+    }
+
+    async function applyBatchMaintenance(wantAffected) {
+      if (selectedDeviceIds.size === 0) return;
+      const ids = Array.from(selectedDeviceIds);
+      const key = getAdminKey();
+      showToast(`Updating ${ids.length} device(s)...`);
+
+      for (const id of ids) {
+        const dev = allDevices.find(x => x.id === id);
+        if (dev) dev.maintenanceAffected = wantAffected;
+      }
+      renderTable();
+
+      try {
+        const res = await fetch('/api/admin/devices/maintenance-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ deviceIds: ids, affected: wantAffected })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Updated ${data.count} devices: ${wantAffected ? 'affected by' : 'exempted from'} maintenance! ✓`);
+          clearDeviceSelection();
+          fetchStats();
+        } else {
+          showToast(data.error || 'Batch update failed');
+          fetchDevices();
+        }
+      } catch (e) {
+        showToast('Network error in batch update');
+        fetchDevices();
+      }
+    }
+
+    async function batchSetAllMaintenance(wantAffected) {
+      const key = getAdminKey();
+      const label = wantAffected ? 'mark ALL devices as affected by' : 'exempt ALL devices from';
+      if (!confirm(`Are you sure you want to ${label} maintenance mode?`)) return;
+
+      for (const dev of allDevices) {
+        dev.maintenanceAffected = wantAffected;
+      }
+      renderTable();
+
+      try {
+        const res = await fetch('/api/admin/devices/maintenance-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ all: true, affected: wantAffected })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Fleet scope updated: all devices are now ${wantAffected ? 'affected' : 'exempt'}! ✓`);
+          const exemptCount = allDevices.filter(d => d.maintenanceAffected === false).length;
+          const affectedCount = allDevices.length - exemptCount;
+          const summaryEl = document.getElementById('cfgMaintenanceScopeSummary');
+          if (summaryEl) summaryEl.innerText = `${affectedCount} affected, ${exemptCount} exempt`;
+          fetchStats();
+        } else {
+          showToast(data.error || 'Failed to update fleet');
+          fetchDevices();
+        }
+      } catch (e) {
+        showToast('Network error in fleet update');
+        fetchDevices();
+      }
     }
 
     async function onToggleSwitch(id, wantAllowed) {
@@ -2350,6 +2599,13 @@
           document.getElementById('cfgFeatPiped').checked = f.pipedFallback !== false;
           document.getElementById('cfgFeatDiscord').checked = f.discordRpc !== false;
           document.getElementById('cfgFeatHeartbeat').checked = f.autoHeartbeat !== false;
+
+          const exemptCount = allDevices.filter(d => d.maintenanceAffected === false).length;
+          const affectedCount = allDevices.length - exemptCount;
+          const scopeSummaryEl = document.getElementById('cfgMaintenanceScopeSummary');
+          if (scopeSummaryEl) {
+            scopeSummaryEl.innerText = `${affectedCount} affected, ${exemptCount} exempt`;
+          }
         }
       } catch (e) {}
 

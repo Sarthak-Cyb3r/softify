@@ -2,5 +2,6 @@
   "adminKey": "admin123",
   "defaultPolicy": "auto_allow",
   "broadcastBanner": "",
-  "serverName": "Softify Device Command Center"
+  "serverName": "Softify Device Command Center",
+  "maintenanceMode": false
 }

@@ -89,6 +89,10 @@ class DeviceBlockedScreen extends ConsumerWidget {
 
     final reason = state.blockReason ?? 'This device has been restricted by the administrator.';
     final deviceId = state.deviceId;
+    final isMaintenance = state.isMaintenance || reason.toLowerCase().contains('maintenance');
+    final accentColor = isMaintenance ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+    final iconData = isMaintenance ? Icons.construction_rounded : Icons.gpp_bad_rounded;
+    final titleText = isMaintenance ? 'System Maintenance' : 'Access Suspended';
 
     return PopScope(
       canPop: false,
@@ -102,20 +106,20 @@ class DeviceBlockedScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Shield Icon with Red Ambient Glow
+                  // Shield / Maintenance Icon with Ambient Glow
                   Container(
                     width: 88,
                     height: 88,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF1E1417),
+                      color: isMaintenance ? const Color(0xFF1E1A14) : const Color(0xFF1E1417),
                       border: Border.all(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                        color: accentColor.withValues(alpha: 0.35),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.22),
+                          color: accentColor.withValues(alpha: 0.22),
                           blurRadius: 36,
                           spreadRadius: 4,
                           offset: const Offset(0, 4),
@@ -123,18 +127,18 @@ class DeviceBlockedScreen extends ConsumerWidget {
                       ],
                     ),
                     alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.gpp_bad_rounded,
-                      color: Color(0xFFEF4444),
+                    child: Icon(
+                      iconData,
+                      color: accentColor,
                       size: 44,
                     ),
                   ),
                   const SizedBox(height: 28),
 
                   // Header
-                  const Text(
-                    'Access Suspended',
-                    style: TextStyle(
+                  Text(
+                    titleText,
+                    style: const TextStyle(
                       fontFamily: AppTheme.fontDisplay,
                       color: Colors.white,
                       fontSize: 24,
@@ -153,7 +157,7 @@ class DeviceBlockedScreen extends ConsumerWidget {
                       color: const Color(0xFF14141A),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                        color: accentColor.withValues(alpha: 0.25),
                         width: 1,
                       ),
                     ),

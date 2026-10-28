@@ -44,6 +44,8 @@ class DeviceControlStatus {
   final AppNotice? notice;
   final bool isOffline;
   final List<String> commands;
+  final bool isMaintenance;
+  final bool isMaintenanceExempt;
 
   const DeviceControlStatus({
     required this.isAllowed,
@@ -53,6 +55,8 @@ class DeviceControlStatus {
     this.notice,
     this.isOffline = false,
     this.commands = const [],
+    this.isMaintenance = false,
+    this.isMaintenanceExempt = false,
   });
 }
 
@@ -273,6 +277,9 @@ class DeviceControlService {
         final status = (data['status'] as String?) ?? (isAllowed ? 'allowed' : 'blocked');
         final reason = data['reason'] as String?;
         final banner = data['banner'] as String?;
+        final isMaintenance = status == 'maintenance';
+        final isMaintenanceExempt = data['maintenanceExempt'] == true ||
+            (data['config'] is Map && data['config']['maintenanceExempt'] == true);
         final rawCommands = data['commands'];
         final List<String> commands = rawCommands is List
             ? rawCommands.map((e) => e.toString()).toList()
@@ -339,6 +346,8 @@ class DeviceControlService {
           notice: notice,
           isOffline: false,
           commands: commands,
+          isMaintenance: isMaintenance,
+          isMaintenanceExempt: isMaintenanceExempt,
         );
       }
     } catch (_) {
