@@ -550,7 +550,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                 fontSize: _lyricFontSize.inactiveSize,
                                 height: 1.8,
                                 fontWeight: FontWeight.w500,
-                                color: tokens.textPrimary.withValues(alpha: 0.9),
+                                color: Colors.white.withValues(alpha: 0.95),
+                                shadows: const [
+                                  Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
                                 letterSpacing: -0.2,
                               ),
                             ),
@@ -1239,13 +1246,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                       fontStyle: FontStyle.normal,
                                       fontSize: _lyricFontSize.activeSize * 1.18,
                                       fontWeight: FontWeight.w800,
-                                      color: accentColor,
+                                      color: Colors.white,
                                       height: 1.45,
                                       letterSpacing: -0.5,
-                                      shadows: [
+                                      shadows: const [
                                         Shadow(
-                                          color: accentColor.withValues(alpha: 0.65),
-                                          blurRadius: 16,
+                                          color: Colors.black87,
+                                          blurRadius: 14,
+                                          offset: Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -1254,11 +1262,16 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                       fontStyle: FontStyle.normal,
                                       fontSize: _lyricFontSize.activeSize * 1.18,
                                       fontWeight: FontWeight.w700,
-                                      color: isDuetV2
-                                          ? const Color(0xFF93C5FD).withValues(alpha: 0.38)
-                                          : tokens.textSecondary.withValues(alpha: 0.35),
+                                      color: Colors.white.withValues(alpha: 0.38),
                                       height: 1.45,
                                       letterSpacing: -0.5,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Colors.black54,
+                                          blurRadius: 8,
+                                          offset: Offset(0, 1),
+                                        ),
+                                      ],
                                     ),
                                   )
                                 : AnimatedDefaultTextStyle(
@@ -1270,11 +1283,16 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                       fontStyle: FontStyle.normal,
                                       fontSize: _lyricFontSize.inactiveSize,
                                       fontWeight: FontWeight.w600,
-                                      color: isDuetV2
-                                          ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity.clamp(0.2, 0.45))
-                                          : tokens.textSecondary.withValues(alpha: lineOpacity.clamp(0.2, 0.45)),
+                                      color: Colors.white.withValues(alpha: lineOpacity.clamp(0.25, 0.45)),
                                       height: 1.45,
                                       letterSpacing: -0.4,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Colors.black45,
+                                          blurRadius: 6,
+                                          offset: Offset(0, 1),
+                                        ),
+                                      ],
                                     ),
                                     child: Text(displayText, textAlign: textAlign),
                                   ),
@@ -1327,11 +1345,16 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           fontStyle: FontStyle.normal,
           fontSize: _lyricFontSize.inactiveSize,
           fontWeight: FontWeight.w500,
-          color: isDuetV2
-              ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity.clamp(0.2, 0.45))
-              : tokens.textSecondary.withValues(alpha: lineOpacity.clamp(0.2, 0.45)),
+          color: Colors.white.withValues(alpha: lineOpacity.clamp(0.25, 0.45)),
           height: 1.45,
           letterSpacing: -0.3,
+          shadows: const [
+            Shadow(
+              color: Colors.black38,
+              blurRadius: 6,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
       );
     }
@@ -1376,15 +1399,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       fontSize: (_lyricFontSize.activeSize * 1.15) * wobbleScale,
                       fontWeight: FontWeight.w800,
                       color: isWordSung
-                          ? accentColor
-                          : (isDuetV2
-                              ? const Color(0xFF93C5FD).withValues(alpha: 0.35)
-                              : tokens.textSecondary.withValues(alpha: 0.30)),
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.35),
                       shadows: isCurrentWord
-                          ? [
+                          ? const [
                               Shadow(
-                                color: accentColor.withValues(alpha: 0.65),
+                                color: Colors.black87,
                                 blurRadius: 14,
+                                offset: Offset(0, 2),
                               ),
                             ]
                           : null,
