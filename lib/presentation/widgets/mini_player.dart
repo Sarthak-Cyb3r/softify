@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,16 +8,18 @@ import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../screens/full_screen_player_screen.dart';
 import '../theme/app_theme.dart';
-import 'animated_music_wave_indicator.dart';
+import '../theme/metrolist_dimensions.dart';
 import 'bouncing_scale_button.dart';
 import 'shared/app_network_image.dart';
 import 'shared/app_surface.dart';
 
-/// Floating mini player adhering to Content-First Stitch mobile design:
-/// - Surface: #181818 card surface with 8px radius
-/// - Progress: 2px bottom bar with #2EE66B green fill
-/// - Transport: Direct play/pause and like controls, swipe gestures
-/// - Zero audio quality labels, strict 12px floor
+/// Metrolist Canonical MiniPlayer (com.metrolist.music.ui.player.NewMiniPlayer):
+/// - Pill Container: Height 64.0, 32.0 radius, 12px horizontal padding, 8px bottom spacing
+/// - Left Play/Pause: 48x48 box with concentric circular progress arc (3px stroke)
+///   surrounding a 40x40 circular album thumbnail with play/pause overlay when paused
+/// - Middle Info: 14sp SemiBold title with 12sp artist name
+/// - Right Transport: Like toggle heart button and skip next
+/// - Gestures: Horizontal swipe to skip songs, vertical drag/tap to expand Full Player
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
 
@@ -47,8 +50,8 @@ class MiniPlayer extends ConsumerWidget {
             ),
           );
         },
-        transitionDuration: const Duration(milliseconds: 300),
-        reverseTransitionDuration: const Duration(milliseconds: 250),
+        transitionDuration: const Duration(milliseconds: 320),
+        reverseTransitionDuration: const Duration(milliseconds: 260),
       ),
     );
   }
@@ -78,20 +81,22 @@ class MiniPlayer extends ConsumerWidget {
         const Track(
           id: 'mini_loading',
           title: 'Loading audio...',
-          artist: 'Buffering studio master stream...',
+          artist: 'Buffering studio stream...',
           duration: Duration(minutes: 3),
           sourceId: '',
         );
 
     final isPlaying = (currentTrack != null) && (playbackState?.playing ?? false);
 
+    // Watch liked status for the favorite heart button
+    final isLiked = !isPlaceholder &&
+        (ref.watch(isTrackLikedProvider(displayTrack.id)).value ?? displayTrack.isLiked);
+
     return Semantics(
       label: 'Now Playing: ${displayTrack.title} by ${displayTrack.artist}',
       button: true,
       child: GestureDetector(
-        onTap: () {
-          _openFullPlayer(context);
-        },
+        onTap: () => _openFullPlayer(context),
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! < -150) {
@@ -101,262 +106,307 @@ class MiniPlayer extends ConsumerWidget {
         onHorizontalDragEnd: (details) {
           final v = details.primaryVelocity;
           if (v != null) {
-            if (v < -200) {
+            if (v < -180) {
               HapticFeedback.selectionClick();
               audioHandler.skipToNext();
-            } else if (v > 200) {
+            } else if (v > 180) {
               HapticFeedback.selectionClick();
               audioHandler.skipToPrevious();
             }
           }
         },
         child: AppSurface(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-          borderRadius: BorderRadius.circular(18),
+          margin: const EdgeInsets.fromLTRB(
+            12,
+            0,
+            12,
+            MetrolistDimensions.miniPlayerBottomSpacing,
+          ),
+          borderRadius: BorderRadius.circular(MetrolistDimensions.modernPillRadius),
           withBlur: true,
-          blurSigma: 14.0,
-          color: tokens.card,
+          blurSigma: 16.0,
+          color: tokens.card.withValues(alpha: 0.94),
           border: Border.all(
-            color: tokens.cardHover.withValues(alpha: 0.6),
+            color: Colors.white.withValues(alpha: 0.08),
             width: 1.0,
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x99000000),
+              color: Colors.black.withValues(alpha: 0.45),
               blurRadius: 18,
               spreadRadius: 0,
-              offset: Offset(0, 6),
+              offset: const Offset(0, 4),
             ),
           ],
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Row(
-                  children: [
-                    // Artwork 46x46 with 12px Metrolist M3 rounded radius
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: isPlaceholder
-                          ? Container(
-                              width: 46,
-                              height: 46,
-                              color: tokens.surfaceElevated,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.0,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      tokens.accent,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            )
-                          : AppNetworkImage(
-                              imageUrl: displayTrack.coverUrl,
-                              width: 46,
-                              height: 46,
-                              fit: BoxFit.cover,
-                              fallbackIcon: Icons.music_note_rounded,
-                              backgroundColor: tokens.surfaceElevated,
-                            ),
-                    ),
-                    const SizedBox(width: 12),
+          child: SizedBox(
+            height: MetrolistDimensions.miniPlayerHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  // 1. Concentric Play/Pause Button with Circular Progress Arc
+                  _MetrolistMiniPlayButton(
+                    track: displayTrack,
+                    isPlaying: isPlaying,
+                    isBuffering: isBuffering,
+                    isPlaceholder: isPlaceholder,
+                    accentColor: tokens.accent,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      if (isPlaceholder) return;
+                      if (isPlaying) {
+                        audioHandler.pause();
+                      } else {
+                        audioHandler.play();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 12),
 
-                    // Title & Artist
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              if (isBuffering) ...[
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: SizedBox(
-                                    width: 11,
-                                    height: 11,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.8,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        tokens.accent,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ] else if (isPlaying) ...[
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: AnimatedMusicWaveIndicator(
-                                    isPlaying: true,
-                                    size: 11,
-                                    barCount: 3,
-                                    color: tokens.accent,
-                                  ),
-                                ),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  displayTrack.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontUi,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: tokens.textPrimary,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                              ),
-                            ],
+                  // 2. Song Information (14sp SemiBold title & 12sp artist)
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayTrack.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontUi,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                            color: tokens.textPrimary,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            displayTrack.artist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontUi,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: tokens.textSecondary,
-                            ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          displayTrack.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontUi,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: tokens.textSecondary,
                           ),
-                        ],
-                      ),
-                    ),
-
-                    // Metrolist Previous Track Button
-                    BouncingScaleButton(
-                      scaleFactor: 0.88,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.skipToPrevious();
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.skip_previous_rounded,
-                          color: tokens.textSecondary,
-                          size: 22,
                         ),
-                      ),
+                      ],
                     ),
+                  ),
 
-                    // Metrolist Signature Circular Filled Play / Pause Button
-                    BouncingScaleButton(
-                      scaleFactor: 0.90,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        if (isPlaying) {
-                          audioHandler.pause();
-                        } else if (currentTrack != null) {
-                          audioHandler.play();
-                        } else if (effectiveTrack != null && !isPlaceholder) {
-                          audioHandler.playTrack(effectiveTrack);
-                        } else {
-                          audioHandler.play();
-                        }
-                      },
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: tokens.accent,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: isBuffering
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.black,
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                isPlaying
-                                    ? Icons.pause_rounded
-                                    : Icons.play_arrow_rounded,
-                                color: Colors.black,
-                                size: 24,
-                              ),
+                  // 3. Metrolist Favorite Heart Button
+                  BouncingScaleButton(
+                    scaleFactor: 0.88,
+                    onTap: isPlaceholder
+                        ? null
+                        : () {
+                            HapticFeedback.selectionClick();
+                            ref
+                                .read(libraryRepositoryProvider)
+                                .setLiked(displayTrack.id, !isLiked, track: displayTrack);
+                          },
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: isLiked ? tokens.accent : tokens.textSecondary,
+                        size: 22,
                       ),
                     ),
-                    const SizedBox(width: 2),
+                  ),
 
-                    // Metrolist Next Track Button
-                    BouncingScaleButton(
-                      scaleFactor: 0.88,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.skipToNext();
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.skip_next_rounded,
-                          color: tokens.textSecondary,
-                          size: 22,
-                        ),
+                  // 4. Skip Next Button
+                  BouncingScaleButton(
+                    scaleFactor: 0.88,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      audioHandler.skipToNext();
+                    },
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.skip_next_rounded,
+                        color: tokens.textSecondary,
+                        size: 24,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-
-              // 2.5px Isolated Hairline Progress Bar
-              Consumer(
-                builder: (context, ref, _) {
-                  final position =
-                      ref.watch(positionStreamProvider).value ?? Duration.zero;
-                  final duration =
-                      ref.watch(durationStreamProvider).value ??
-                          displayTrack.duration;
-                  final progress = (duration.inMilliseconds > 0)
-                      ? (position.inMilliseconds / duration.inMilliseconds)
-                          .clamp(0.0, 1.0)
-                      : (isBuffering ? 0.35 : 0.0);
-                  return Container(
-                    height: 2.5,
-                    color: const Color(0x22FFFFFF),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FractionallySizedBox(
-                        widthFactor: progress,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
-                            borderRadius: const BorderRadius.horizontal(
-                              right: Radius.circular(2),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
+/// Concentric Play/Pause button reverse-engineered from NewMiniPlayerPlayButton in Metrolist:
+/// Outer 48x48 box with custom-painted progress arc, enclosing a 40x40 circular artwork thumbnail.
+class _MetrolistMiniPlayButton extends ConsumerWidget {
+  final Track track;
+  final bool isPlaying;
+  final bool isBuffering;
+  final bool isPlaceholder;
+  final Color accentColor;
+  final VoidCallback onTap;
 
+  const _MetrolistMiniPlayButton({
+    required this.track,
+    required this.isPlaying,
+    required this.isBuffering,
+    required this.isPlaceholder,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final positionAsync = ref.watch(positionStreamProvider);
+    final durationAsync = ref.watch(durationStreamProvider);
+
+    final position = positionAsync.value ?? Duration.zero;
+    final duration = durationAsync.value ?? track.duration;
+
+    final progress = (duration.inMilliseconds > 0)
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+
+    return BouncingScaleButton(
+      scaleFactor: 0.92,
+      onTap: onTap,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: CustomPaint(
+          painter: _CircularProgressArcPainter(
+            progress: progress,
+            accentColor: accentColor,
+            trackColor: Colors.white.withValues(alpha: 0.15),
+            strokeWidth: 3.0,
+          ),
+          child: Center(
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1.0,
+                ),
+              ),
+              child: ClipOval(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Artwork Thumbnail
+                    if (isPlaceholder)
+                      Container(color: const Color(0xFF1F1F24))
+                    else
+                      AppNetworkImage(
+                        imageUrl: track.coverUrl,
+                        fit: BoxFit.cover,
+                        fallbackIcon: Icons.music_note_rounded,
+                        backgroundColor: const Color(0xFF1F1F24),
+                      ),
+
+                    // Overlay icon when paused or buffering
+                    if (isBuffering)
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (!isPlaying)
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        child: const Center(
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Canvas painter that draws the concentric 3px progress arc around the circular thumbnail.
+class _CircularProgressArcPainter extends CustomPainter {
+  final double progress;
+  final Color accentColor;
+  final Color trackColor;
+  final double strokeWidth;
+
+  _CircularProgressArcPainter({
+    required this.progress,
+    required this.accentColor,
+    required this.trackColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // Background Track (Full 360 circle)
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Active Progress Arc
+    if (progress > 0.0) {
+      final progressPaint = Paint()
+        ..color = accentColor
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = strokeWidth;
+
+      const startAngle = -math.pi / 2; // -90 degrees (Top center)
+      final sweepAngle = 2 * math.pi * progress;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CircularProgressArcPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.strokeWidth != strokeWidth;
+  }
 }

@@ -30,6 +30,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/device_control_providers.dart';
 import '../../data/services/device_control_service.dart';
+import '../widgets/acoustic_recognition_sheet.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
 import 'device_blocked_screen.dart';
 
@@ -721,6 +722,12 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                       setState(() {
                         _currentIndex = index;
                       });
+                    },
+                    onLongPress: (index) {
+                      if (index == 1) {
+                        HapticFeedback.heavyImpact();
+                        AcousticRecognitionSheet.show(context);
+                      }
                     },
                     items: const [
                       SlimNavItem(

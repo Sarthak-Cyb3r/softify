@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/shelf.dart';
@@ -8,6 +10,7 @@ import '../providers/settings_providers.dart';
 import '../providers/shelf_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/metrolist_speed_dial_item.dart';
 import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import 'equalizer_screen.dart';
@@ -707,97 +710,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     dynamic audioHandler,
   ) {
     if (tracks.isEmpty) return const SizedBox.shrink();
-    final items = tracks.take(8).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Text(
-            'Speed dial',
-            style: TextStyle(
-              fontFamily: AppTheme.fontPageTitle,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-              color: tokens.textPrimary,
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 74,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final track = items[i];
-              return BouncingScaleButton(
-                scaleFactor: 0.95,
-                onTap: () => audioHandler.playTrack(track),
-                child: Container(
-                  width: 200,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceElevated,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: AppNetworkImage(
-                          imageUrl: track.coverUrl,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          fallbackIcon: Icons.music_note_rounded,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              track.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontUi,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: tokens.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              track.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontUi,
-                                fontSize: 11,
-                                color: tokens.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        // Metrolist columns: 3 on mobile portrait, 4-6 on tablet/desktop
+        final columns = (availableWidth / 120).floor().clamp(3, 6);
+        final rows = columns >= 5 ? 1 : 2;
+        final totalSlots = columns * rows;
+        // Reserve the last slot for Lucky Pick (Surprise Me / Randomize)
+        final displayTracks = tracks.take(totalSlots - 1).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Speed dial',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontPageTitle,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: tokens.textPrimary,
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: displayTracks.length + 1,
+              itemBuilder: (context, i) {
+                if (i == displayTracks.length) {
+                  return MetrolistRandomizeGridItem(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      final list = tracks;
+                      if (list.isNotEmpty) {
+                        final lucky = list[math.Random().nextInt(list.length)];
+                        audioHandler.playTrack(lucky);
+                      }
+                    },
+                  );
+                }
+                final track = displayTracks[i];
+                return MetrolistSpeedDialItem(
+                  title: track.title,
+                  subtitle: track.artist,
+                  coverUrl: track.coverUrl,
+                  onTap: () => audioHandler.playTrack(track),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 

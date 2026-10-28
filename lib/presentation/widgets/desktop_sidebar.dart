@@ -12,7 +12,7 @@ import 'shared/app_surface.dart';
 /// Desktop Sidebar adhering to Content-First Spotify-inspired design:
 /// - Background: Sidebar #000000 (Chrome surface 0)
 /// - Navigation: Home, Search, Paste a Link, Podcasts, Equalizer, Library, Settings
-/// - Highlight: #2EE66B green active accent indicator, #282828 hover state
+/// - Highlight: #ED5564 coral red active accent indicator, #282828 hover state
 /// - Zero borders, zero outlines, zero neon glows
 class DesktopSidebar extends ConsumerStatefulWidget {
   final int currentIndex;
