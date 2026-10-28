@@ -1601,6 +1601,9 @@ class _SoloCountdownIndicator extends StatelessWidget {
 }
 
 /// Spicetify / Apple Music progressive left-to-right fade-in / wipe lyrics line.
+/// When a line wraps into 2 or 3 sub-lines on the user's screen, animation
+/// progresses line by line sequentially: subsequent lines stay completely inactive
+/// until the preceding line has finished wiping.
 class _SpicetifyProgressiveLyricsLine extends StatelessWidget {
   final String displayText;
   final Duration lineStart;
@@ -1622,61 +1625,192 @@ class _SpicetifyProgressiveLyricsLine extends StatelessWidget {
     this.alignment = Alignment.center,
   });
 
+  static List<String> _splitIntoLines(
+    String text,
+    TextStyle style,
+    double maxWidth,
+    TextAlign textAlign,
+  ) {
+    final cleanText = text.trim();
+    if (cleanText.isEmpty || maxWidth <= 0 || maxWidth.isInfinite) {
+      return [cleanText];
+    }
+
+    if (cleanText.contains('\n')) {
+      final rawLines = cleanText.split('\n');
+      final result = <String>[];
+      for (final raw in rawLines) {
+        final trimmed = raw.trim();
+        if (trimmed.isNotEmpty) {
+          result.addAll(_splitIntoLines(trimmed, style, maxWidth, textAlign));
+        }
+      }
+      return result.isEmpty ? [cleanText] : result;
+    }
+
+    final painter = TextPainter(
+      text: TextSpan(text: cleanText, style: style),
+      textAlign: textAlign,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+
+    final metrics = painter.computeLineMetrics();
+    if (metrics.length <= 1) {
+      return [cleanText];
+    }
+
+    final lines = <String>[];
+    int offset = 0;
+    while (offset < cleanText.length) {
+      final boundary = painter.getLineBoundary(TextPosition(offset: offset));
+      if (boundary.start >= boundary.end || boundary.end <= offset) {
+        final rem = cleanText.substring(offset).trim();
+        if (rem.isNotEmpty) lines.add(rem);
+        break;
+      }
+      final lineStr = cleanText.substring(boundary.start, boundary.end).trim();
+      if (lineStr.isNotEmpty) {
+        lines.add(lineStr);
+      }
+      offset = boundary.end;
+      while (offset < cleanText.length &&
+          (cleanText[offset] == ' ' || cleanText[offset] == '\n')) {
+        offset++;
+      }
+    }
+
+    return lines.isEmpty ? [cleanText] : lines;
+  }
+
+  Widget _buildSubLine(String text, double lineProgress) {
+    if (lineProgress <= 0.0) {
+      return Text(
+        text,
+        textAlign: textAlign,
+        style: inactiveStyle,
+      );
+    }
+
+    if (lineProgress >= 1.0) {
+      return Text(
+        text,
+        textAlign: textAlign,
+        style: activeStyle,
+      );
+    }
+
+    final activeColor = activeStyle.color ?? Colors.white;
+    final inactiveColor = inactiveStyle.color ?? Colors.white.withValues(alpha: 0.38);
+
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) {
+        final stopLeft = (lineProgress - 0.08).clamp(0.0, 1.0);
+        final stopRight = (lineProgress + 0.02).clamp(0.0, 1.0);
+        return LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            activeColor,
+            activeColor,
+            inactiveColor,
+            inactiveColor,
+          ],
+          stops: [
+            0.0,
+            stopLeft,
+            stopRight,
+            1.0,
+          ],
+        ).createShader(bounds);
+      },
+      child: Text(
+        text,
+        textAlign: textAlign,
+        style: activeStyle.copyWith(color: Colors.white),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Duration>(
-      valueListenable: positionNotifier,
-      builder: (context, pos, _) {
-        final elapsed = (pos - lineStart).inMilliseconds;
-        final total = lineDuration.inMilliseconds.clamp(500, 16000);
-        final double progress = (elapsed / total).clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final subLines = _splitIntoLines(displayText, activeStyle, maxWidth, textAlign);
 
-        if (progress <= 0.0) {
-          return Text(
-            displayText,
-            textAlign: textAlign,
-            style: inactiveStyle,
+        if (subLines.length <= 1) {
+          return ValueListenableBuilder<Duration>(
+            valueListenable: positionNotifier,
+            builder: (context, pos, _) {
+              final elapsed = (pos - lineStart).inMilliseconds;
+              final total = lineDuration.inMilliseconds.clamp(500, 16000);
+              final double progress = (elapsed / total).clamp(0.0, 1.0);
+              return _buildSubLine(displayText, progress);
+            },
           );
         }
 
-        if (progress >= 1.0) {
-          return Text(
-            displayText,
-            textAlign: textAlign,
-            style: activeStyle,
-          );
+        final totalChars = subLines.fold<int>(0, (sum, l) => sum + l.length);
+        final thresholds = <double>[];
+        double accumulated = 0;
+        for (int i = 0; i < subLines.length; i++) {
+          accumulated += subLines[i].length / totalChars;
+          thresholds.add(accumulated);
         }
 
-        final activeColor = activeStyle.color ?? Colors.white;
-        final inactiveColor = inactiveStyle.color ?? Colors.white38;
+        return ValueListenableBuilder<Duration>(
+          valueListenable: positionNotifier,
+          builder: (context, pos, _) {
+            final elapsed = (pos - lineStart).inMilliseconds;
+            final total = lineDuration.inMilliseconds.clamp(500, 16000);
+            final double progress = (elapsed / total).clamp(0.0, 1.0);
 
-        return ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) {
-            final stopLeft = (progress - 0.08).clamp(0.0, 1.0);
-            final stopRight = (progress + 0.02).clamp(0.0, 1.0);
-            return LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                activeColor,
-                activeColor,
-                inactiveColor,
-                inactiveColor,
+            return Stack(
+              alignment: alignment,
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.0,
+                      child: Text(
+                        displayText,
+                        style: const TextStyle(fontSize: 0.01),
+                      ),
+                    ),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: textAlign == TextAlign.center
+                      ? CrossAxisAlignment.center
+                      : (textAlign == TextAlign.right
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start),
+                  children: [
+                    for (int i = 0; i < subLines.length; i++) ...[
+                      () {
+                        final tPrev = i == 0 ? 0.0 : thresholds[i - 1];
+                        final tCurr = thresholds[i];
+                        final double lineProgress;
+                        if (progress <= tPrev) {
+                          lineProgress = 0.0;
+                        } else if (progress >= tCurr) {
+                          lineProgress = 1.0;
+                        } else {
+                          lineProgress =
+                              ((progress - tPrev) / (tCurr - tPrev)).clamp(0.0, 1.0);
+                        }
+                        return _buildSubLine(subLines[i], lineProgress);
+                      }(),
+                    ],
+                  ],
+                ),
               ],
-              stops: [
-                0.0,
-                stopLeft,
-                stopRight,
-                1.0,
-              ],
-            ).createShader(bounds);
+            );
           },
-          child: Text(
-            displayText,
-            textAlign: textAlign,
-            style: activeStyle.copyWith(color: Colors.white),
-          ),
         );
       },
     );

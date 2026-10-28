@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -332,6 +333,74 @@ void main() {
       final result = await composite.getLyrics(testTrack);
       expect(result, isNotNull);
       expect(result!.lines.first.text, 'Fallback line');
+    });
+
+    testWidgets('wrapped lyric lines animate sequentially sub-line by sub-line', (tester) async {
+      const longLineTrack = Track(
+        id: 'track_wrapped',
+        sourceId: 'src_wrapped',
+        title: 'Wrapped Test',
+        artist: 'Tester',
+        duration: Duration(seconds: 20),
+      );
+
+      final positionController = StreamController<Duration>.broadcast();
+      addTearDown(positionController.close);
+
+      final longLyrics = SyncedLyrics(
+        trackId: longLineTrack.id,
+        lines: const [
+          LyricLine(
+            timestamp: Duration(seconds: 1),
+            text: 'This is a very long line of lyrics that will wrap into multiple lines on device screen',
+          ),
+          LyricLine(
+            timestamp: Duration(seconds: 10),
+            text: 'Next line after long',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            trackLyricsProvider(longLineTrack).overrideWith((ref) => longLyrics),
+            playbackStateStreamProvider.overrideWith((ref) => Stream.value(PlaybackState(playing: true))),
+            positionStreamProvider.overrideWith((ref) => positionController.stream),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 300,
+                height: 600,
+                child: LyricsView(
+                  track: longLineTrack,
+                  ambientColor: Color(0xFF1DB954),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Early progress: line starts at 1s, duration is 9s (until 10s).
+      // At 2s, progress is (2000 - 1000) / 9000 = ~11%.
+      // Sub-line 1 is animating (ShaderMask exists). Sub-line 2 is not yet started (0%).
+      positionController.add(const Duration(milliseconds: 1800));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Exactly 1 ShaderMask should exist across the sublines because only sub-line 1 has started animating
+      expect(find.byType(ShaderMask), findsOneWidget);
+
+      // Mid-to-late progress: position at 6.5s -> progress ~61%.
+      // Sub-line 1 is 100% finished (rendered as plain Text with activeStyle, no ShaderMask),
+      // while subsequent sub-line is now actively animating (ShaderMask exists).
+      positionController.add(const Duration(milliseconds: 6500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(ShaderMask), findsOneWidget);
     });
 
     test('CuratedLyricsProvider returns verified lyrics for Maine Khud Ko', () async {
