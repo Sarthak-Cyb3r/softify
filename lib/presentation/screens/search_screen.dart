@@ -790,7 +790,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.lyrics_outlined,
+                                  Icons.mic_none_rounded,
                                   size: 11,
                                   color: tokens.isGlass ? tokens.accentCyan : tokens.accent,
                                 ),

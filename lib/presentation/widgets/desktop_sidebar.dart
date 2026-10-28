@@ -218,7 +218,7 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                     },
                   ),
                   _buildFeatureItem(
-                    icon: Icons.lyrics_outlined,
+                    icon: Icons.mic_none_rounded,
                     label: 'Synced Lyrics View',
                     onTap: () {
                       final currentTrack =

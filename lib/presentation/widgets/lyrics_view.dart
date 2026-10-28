@@ -1212,15 +1212,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               child: isMusicSymbol
                   ? _buildInstrumentalIndicator(isActive, accentColor)
                   : (() {
-                      final effectiveWords = (line.words != null && line.words!.isNotEmpty)
-                          ? line.words!
-                          : SpotifyLyricsSynchronizer.synthesizeWordTimings(
-                              text: displayText,
-                              lineStart: line.timestamp,
-                              lineDuration: (index + 1 < lines.length)
-                                  ? (lines[index + 1].timestamp - line.timestamp)
-                                  : const Duration(seconds: 4),
-                            );
+                      final hasWordLevelTiming =
+                          line.words != null && line.words!.isNotEmpty;
+                      final rawDuration = (index + 1 < lines.length)
+                          ? (lines[index + 1].timestamp - line.timestamp)
+                          : const Duration(seconds: 4);
+                      final effectiveDuration = rawDuration.inMilliseconds < 500
+                          ? const Duration(milliseconds: 3000)
+                          : rawDuration;
 
                       return AnimatedSlide(
                         offset: isActive ? Offset.zero : const Offset(-0.02, 0),
@@ -1230,17 +1229,58 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           scale: isActive ? 1.05 : 1.0,
                           duration: const Duration(milliseconds: 260),
                           curve: Curves.easeOutBack,
-                          child: _buildSyllableKaraokeLine(
-                            line: line,
-                            words: effectiveWords,
-                            isActive: isActive,
-                            lineOpacity: lineOpacity,
-                            tokens: tokens,
-                            accentColor: accentColor,
-                            alignment: alignment,
-                            textAlign: textAlign,
-                            isDuetV2: isDuetV2,
-                          ),
+                          child: hasWordLevelTiming
+                              ? _buildSyllableKaraokeLine(
+                                  line: line,
+                                  words: line.words!,
+                                  isActive: isActive,
+                                  lineOpacity: lineOpacity,
+                                  tokens: tokens,
+                                  accentColor: accentColor,
+                                  alignment: alignment,
+                                  textAlign: textAlign,
+                                  isDuetV2: isDuetV2,
+                                )
+                              : _SpicetifyProgressiveLyricsLine(
+                                  displayText: displayText,
+                                  lineStart: line.timestamp,
+                                  lineDuration: effectiveDuration,
+                                  positionNotifier: _positionNotifier,
+                                  textAlign: textAlign,
+                                  alignment: alignment,
+                                  activeStyle: TextStyle(
+                                    fontFamily: AppTheme.fontUi,
+                                    fontSize: _lyricFontSize.activeSize * 1.15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    height: 1.45,
+                                    letterSpacing: -0.4,
+                                    shadows: const [
+                                      Shadow(
+                                        color: Colors.black87,
+                                        blurRadius: 14,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  inactiveStyle: TextStyle(
+                                    fontFamily: AppTheme.fontUi,
+                                    fontSize: _lyricFontSize.inactiveSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white.withValues(
+                                      alpha: lineOpacity.clamp(0.25, 0.45),
+                                    ),
+                                    height: 1.45,
+                                    letterSpacing: -0.4,
+                                    shadows: const [
+                                      Shadow(
+                                        color: Colors.black45,
+                                        blurRadius: 6,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                         ),
                       );
                     }()),
@@ -1796,11 +1836,15 @@ class _SpicetifyProgressiveLyricsLine extends StatelessWidget {
         }
 
         final totalChars = subLines.fold<int>(0, (sum, l) => sum + l.length);
+        final safeTotalChars = totalChars > 0 ? totalChars : 1;
         final thresholds = <double>[];
         double accumulated = 0;
         for (int i = 0; i < subLines.length; i++) {
-          accumulated += subLines[i].length / totalChars;
+          accumulated += subLines[i].length / safeTotalChars;
           thresholds.add(accumulated);
+        }
+        if (thresholds.isNotEmpty) {
+          thresholds[thresholds.length - 1] = 1.0;
         }
 
         return ValueListenableBuilder<Duration>(

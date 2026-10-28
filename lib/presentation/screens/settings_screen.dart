@@ -40,7 +40,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _versionTapCount = 0;
   DateTime? _lastVersionTap;
 
-  bool _isPingingInstances = false;
 
   Future<void> _checkForUpdate() async {
     setState(() {
@@ -190,30 +189,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _pingAllInstances() async {
-    setState(() {
-      _isPingingInstances = true;
-    });
-
-    final repo = ref.read(remoteConfigRepositoryProvider);
-    final instances = repo.getFallbackPipedInstances();
-
-    for (final inst in instances) {
-      await repo.checkInstanceLatency(inst);
-    }
-
-    if (mounted) {
-      setState(() {
-        _isPingingInstances = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Instance latency checks completed'),
-          backgroundColor: AppTheme.primary,
-        ),
-      );
-    }
-  }
 
   void _onVersionTap() {
     final now = DateTime.now();
@@ -248,7 +223,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final userName = ref.watch(userNameProvider);
     final currentQuality = ref.watch(audioQualityPresetProvider);
     final currentVersion = ref.watch(currentAppVersionProvider);
-    final instancesAsync = ref.watch(pipedInstancesStreamProvider);
     final autoPlayAsync = ref.watch(autoPlayStreamProvider);
     final autoPlayEnabled = autoPlayAsync.value ?? true;
     final learningPausedAsync = ref.watch(learningPausedProvider);
@@ -531,71 +505,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 2: Lyrics & Synchronization
           _buildSectionHeader('Lyrics & Synchronization'),
           _buildCard(
-            child: Consumer(
-              builder: (context, ref, _) {
-                final lyricsConfig = ref.watch(spotifyLyricsConfigProvider);
-                final hasToken = lyricsConfig.token != null && lyricsConfig.token!.isNotEmpty;
-                final hasEndpoint = lyricsConfig.endpoint != null && lyricsConfig.endpoint!.isNotEmpty;
-
-                return Column(
-                  children: [
-                    ListTile(
-                      leading: Icon(
-                        Icons.sync,
-                        color: (hasToken || hasEndpoint) ? tokens.accent : tokens.textSecondary,
-                      ),
-                      title: const Text('Primary Lyrics Engine',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        hasToken || hasEndpoint
-                            ? 'Spotify Color-Lyrics API (Active)'
-                            : 'LRCLIB & Kugou Synced Catalogs (Active - Millisecond Calibrated)',
-                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
-                      ),
-                    ),
-                    const Divider(color: Colors.black26, height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.key, color: Colors.white70),
-                      title: const Text('Spotify Web Token / sp_dc',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        hasToken
-                            ? 'Configured • ${lyricsConfig.token!.substring(0, lyricsConfig.token!.length.clamp(0, 10))}...'
-                            : 'Optional: Spotify Web Player Bearer token for native Color-Lyrics',
-                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
-                      ),
-                      trailing: hasToken
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.redAccent),
-                              tooltip: 'Remove Token',
-                              onPressed: () => ref.read(spotifyLyricsConfigProvider.notifier).setToken(null),
-                            )
-                          : Icon(Icons.chevron_right, color: tokens.textSecondary),
-                      onTap: () => _showTokenInputDialog(context, ref, lyricsConfig.token),
-                    ),
-                    const Divider(color: Colors.black26, height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.dns, color: Colors.white70),
-                      title: const Text('Custom Lyrics Proxy Endpoint',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        hasEndpoint
-                            ? lyricsConfig.endpoint!
-                            : 'Optional: Self-hosted reverse-engineered Spotify lyrics proxy URL',
-                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
-                      ),
-                      trailing: hasEndpoint
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.redAccent),
-                              tooltip: 'Remove Endpoint',
-                              onPressed: () => ref.read(spotifyLyricsConfigProvider.notifier).setEndpoint(null),
-                            )
-                          : Icon(Icons.chevron_right, color: tokens.textSecondary),
-                      onTap: () => _showEndpointInputDialog(context, ref, lyricsConfig.endpoint),
-                    ),
-                  ],
-                );
-              },
+            child: ListTile(
+              leading: Icon(
+                Icons.mic_rounded,
+                color: tokens.accent,
+              ),
+              title: const Text(
+                'Synchronized Lyrics Engine',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'LRCLIB & Synchronized Catalogs (Active - Millisecond Calibrated)',
+                style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+              ),
             ),
           ),
 
@@ -839,88 +761,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // Section 3: Fallback Instances & Health
-          _buildSectionHeader('Fallback Instances (Piped)'),
-          _buildCard(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Decentralized Failover',
-                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
-                      ),
-                      TextButton.icon(
-                        onPressed: _isPingingInstances ? null : _pingAllInstances,
-                        icon: _isPingingInstances
-                            ? SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: tokens.accent),
-                              )
-                            : Icon(Icons.refresh, size: 16, color: tokens.accent),
-                        label: Text('Test Health', style: TextStyle(color: tokens.accent, fontSize: 13)),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: Colors.black26, height: 1),
-                instancesAsync.when(
-                  data: (instances) {
-                    if (instances.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text('No instances cached yet. Tap Test Health to probe defaults.',
-                            style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
-                      );
-                    }
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: instances.length,
-                      separatorBuilder: (_, __) => const Divider(color: Colors.black12, height: 1),
-                      itemBuilder: (context, index) {
-                        final inst = instances[index];
-                        final latency = inst.latencyMs;
-                        final color = latency == null
-                            ? Colors.redAccent
-                            : latency < 500
-                                ? tokens.accent
-                                : Colors.orangeAccent;
-                        return ListTile(
-                          dense: true,
-                          title: Text(inst.url,
-                              style: const TextStyle(color: Colors.white, fontSize: 13)),
-                          subtitle: Text(
-                            latency != null ? '$latency ms latency' : 'Offline / Unreachable',
-                            style: TextStyle(color: color, fontSize: 12),
-                          ),
-                          trailing: Icon(
-                            inst.isHealthy ? Icons.check_circle : Icons.error,
-                            color: color,
-                            size: 16,
-                          ),
-                        );
-                      },
-                    );
-                  },
-                  loading: () => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator(color: tokens.accent)),
-                  ),
-                  error: (e, _) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Error: $e', style: const TextStyle(color: Colors.redAccent)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
 
           // Section 4: Storage & Cache
           _buildSectionHeader('Storage & Cache'),
@@ -1693,56 +1533,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showTokenInputDialog(BuildContext context, WidgetRef ref, String? currentToken) {
-    final controller = TextEditingController(text: currentToken ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceElevated,
-        title: const Text('Spotify Web Token', style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your Spotify Web Player access token or sp_dc token to pull synchronized color-lyrics directly from spclient.wg.spotify.com.',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Paste Bearer token here...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                filled: true,
-                fillColor: const Color(0xFF1B1B1F),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF292A2D)),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-            onPressed: () {
-              ref.read(spotifyLyricsConfigProvider.notifier).setToken(controller.text.trim());
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showDeviceServerDialog(BuildContext context, String currentUrl) {
     final controller = TextEditingController(text: currentUrl);
@@ -1814,55 +1604,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showEndpointInputDialog(BuildContext context, WidgetRef ref, String? currentEndpoint) {
-    final controller = TextEditingController(text: currentEndpoint ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceElevated,
-        title: const Text('Custom Lyrics Endpoint', style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter a custom reverse-engineered Spotify lyrics proxy URL (e.g. https://lyrics.myserver.com).',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'https://...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                filled: true,
-                fillColor: const Color(0xFF1B1B1F),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF292A2D)),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-            onPressed: () {
-              ref.read(spotifyLyricsConfigProvider.notifier).setEndpoint(controller.text.trim());
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showChangelogDialog(BuildContext context, AppReleaseInfo release) {
     showDialog(

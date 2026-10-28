@@ -261,3 +261,100 @@ final spotifyImportNotifierProvider =
   final libraryRepo = ref.watch(libraryRepositoryProvider);
   return SpotifyImportNotifier(importer: importer, libraryRepo: libraryRepo);
 });
+
+class SpotifyPlaylistSyncService {
+  final ISpotifyImporter _importer;
+  final ILibraryRepository _libraryRepo;
+
+  SpotifyPlaylistSyncService({
+    required ISpotifyImporter importer,
+    required ILibraryRepository libraryRepo,
+  })  : _importer = importer,
+        _libraryRepo = libraryRepo;
+
+  /// Compares local imported playlist with the remote Spotify playlist.
+  /// Finds any newly added tracks, matches them, and adds them to the playlist.
+  /// Returns the number of newly added tracks (0 if up to date).
+  Future<int> syncPlaylist(String playlistId) async {
+    try {
+      final playlistData = await _libraryRepo.getPlaylistWithTracks(playlistId);
+      if (playlistData == null || !playlistData.playlist.isImported) {
+        return 0;
+      }
+
+      final sourceUrl = playlistData.playlist.sourceUrl;
+      if (sourceUrl == null || sourceUrl.isEmpty) {
+        return 0;
+      }
+
+      final spotifyId = _importer.extractPlaylistId(sourceUrl);
+      if (spotifyId == null || spotifyId.isEmpty) {
+        return 0;
+      }
+
+      // 1. Fetch remote tracks from Spotify
+      final remotePlaylist = await _importer.fetchPlaylist(spotifyId);
+      if (remotePlaylist.tracks.isEmpty) {
+        return 0;
+      }
+
+      // 2. Build set of existing track identifiers
+      final existingSignatures = <String>{};
+      for (final entry in playlistData.entries) {
+        if (entry.track != null) {
+          existingSignatures.add(entry.track!.sourceId.toLowerCase());
+        }
+        final sig =
+            '${entry.originalTitle.toLowerCase().trim()}___${entry.originalArtist.toLowerCase().trim()}';
+        existingSignatures.add(sig);
+      }
+
+      // 3. Find newly added tracks from Spotify
+      final newItems = <SpotifyTrackItem>[];
+      for (final remoteTrack in remotePlaylist.tracks) {
+        final sig =
+            '${remoteTrack.title.toLowerCase().trim()}___${remoteTrack.artist.toLowerCase().trim()}';
+        final uri = remoteTrack.spotifyUri.toLowerCase().trim();
+        if (!existingSignatures.contains(sig) &&
+            !existingSignatures.contains(uri)) {
+          newItems.add(remoteTrack);
+        }
+      }
+
+      if (newItems.isEmpty) {
+        return 0;
+      }
+
+      // 4. Match new tracks
+      final matchedTracks = <Track>[];
+      for (final item in newItems) {
+        try {
+          final matched = await _importer.matchTrack(item);
+          if (matched != null) {
+            matchedTracks.add(matched);
+          }
+        } catch (_) {}
+      }
+
+      if (matchedTracks.isEmpty) {
+        return 0;
+      }
+
+      // 5. Append to playlist
+      await _libraryRepo.addTracksToPlaylist(playlistId, matchedTracks);
+      return matchedTracks.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+}
+
+final spotifyPlaylistSyncServiceProvider =
+    Provider<SpotifyPlaylistSyncService>((ref) {
+  final importer = ref.watch(spotifyImporterProvider);
+  final libraryRepo = ref.watch(libraryRepositoryProvider);
+  return SpotifyPlaylistSyncService(
+    importer: importer,
+    libraryRepo: libraryRepo,
+  );
+});

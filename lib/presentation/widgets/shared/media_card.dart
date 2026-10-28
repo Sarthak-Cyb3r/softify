@@ -16,6 +16,7 @@ class MediaCard extends StatefulWidget {
   final IconData placeholderIcon;
   final double width;
   final bool isPlaying;
+  final Widget? badgeWidget;
 
   const MediaCard({
     super.key,
@@ -27,6 +28,7 @@ class MediaCard extends StatefulWidget {
     this.placeholderIcon = Icons.album_rounded,
     this.width = MetrolistDimensions.gridThumbnailHeight,
     this.isPlaying = false,
+    this.badgeWidget,
   });
 
   @override
@@ -61,6 +63,13 @@ class _MediaCardState extends State<MediaCard> {
                   fallbackIcon: widget.placeholderIcon,
                 ),
               ),
+
+              if (widget.badgeWidget != null)
+                Positioned(
+                  top: 8.0,
+                  left: 8.0,
+                  child: widget.badgeWidget!,
+                ),
 
               // Play Pill Button on hover or playing
               Positioned(

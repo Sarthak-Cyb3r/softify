@@ -15,6 +15,7 @@ import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../widgets/wrapped_insights_dialog.dart';
+import '../widgets/spotify_logo_badge.dart';
 import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
@@ -28,6 +29,19 @@ enum LibrarySortOrder {
   final String label;
   const LibrarySortOrder(this.label);
 }
+
+final playlistFirstTrackCoverProvider =
+    FutureProvider.family<String?, String>((ref, playlistId) async {
+  final playlist = await ref
+      .watch(libraryRepositoryProvider)
+      .getPlaylistWithTracks(playlistId);
+  for (final entry in playlist?.entries ?? []) {
+    if (entry.track?.coverUrl != null && entry.track!.coverUrl!.isNotEmpty) {
+      return entry.track!.coverUrl;
+    }
+  }
+  return null;
+});
 
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
@@ -589,44 +603,55 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       itemCount: playlists.length,
                       itemBuilder: (context, index) {
                         final pl = playlists[index];
-                        return MediaCard(
-                          title: pl.name,
-                          subtitle: '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
-                          imageUrl: null,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    PlaylistDetailScreen(playlistId: pl.id),
-                              ),
-                            );
-                          },
-                          onPlayTap: () async {
-                            final data = await ref
-                                .read(libraryRepositoryProvider)
-                                .getPlaylistWithTracks(pl.id);
-                            final tracks = data?.entries
-                                    .map((e) => e.track)
-                                    .whereType<Track>()
-                                    .toList() ??
-                                [];
-                            if (tracks.isNotEmpty) {
-                              ref
-                                  .read(audioHandlerProvider)
-                                  .setQueue(tracks);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                        'Playing "${pl.name}" (${tracks.length} tracks)'),
-                                    duration: const Duration(seconds: 2),
-                                    backgroundColor:
-                                        tokens.surfaceElevated,
+                        return Consumer(
+                          builder: (context, ref, _) {
+                            final coverUrl = ref
+                                .watch(playlistFirstTrackCoverProvider(pl.id))
+                                .value;
+                            return MediaCard(
+                              title: pl.name,
+                              subtitle:
+                                  '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
+                              imageUrl: coverUrl,
+                              badgeWidget: pl.isImported
+                                  ? const SpotifyLogoBadge(size: 22)
+                                  : null,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PlaylistDetailScreen(playlistId: pl.id),
                                   ),
                                 );
-                              }
-                            }
+                              },
+                              onPlayTap: () async {
+                                final data = await ref
+                                    .read(libraryRepositoryProvider)
+                                    .getPlaylistWithTracks(pl.id);
+                                final tracks = data?.entries
+                                        .map((e) => e.track)
+                                        .whereType<Track>()
+                                        .toList() ??
+                                    [];
+                                if (tracks.isNotEmpty) {
+                                  ref
+                                      .read(audioHandlerProvider)
+                                      .setQueue(tracks);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Playing "${pl.name}" (${tracks.length} tracks)'),
+                                        duration: const Duration(seconds: 2),
+                                        backgroundColor:
+                                            tokens.surfaceElevated,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            );
                           },
                         );
                       },
@@ -667,23 +692,57 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                               withBlur: true,
                               child: Row(
                                 children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: tokens.surfaceElevated,
-                                      borderRadius:
-                                          BorderRadius.circular(tokens.radiusSm),
-                                    ),
-                                    child: Icon(
-                                      pl.isImported
-                                          ? Icons.cloud_download_rounded
-                                          : Icons.music_note_rounded,
-                                      color: pl.isImported
-                                          ? tokens.accent
-                                          : tokens.textSecondary,
-                                      size: 24,
-                                    ),
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      final coverUrl = ref
+                                          .watch(playlistFirstTrackCoverProvider(pl.id))
+                                          .value;
+                                      return Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: pl.isImported
+                                                  ? const Color(0xFF181818)
+                                                  : tokens.surfaceElevated,
+                                              borderRadius:
+                                                  BorderRadius.circular(tokens.radiusSm),
+                                            ),
+                                            clipBehavior: Clip.antiAlias,
+                                            child: coverUrl != null
+                                                ? AppNetworkImage(
+                                                    imageUrl: coverUrl,
+                                                    width: 48,
+                                                    height: 48,
+                                                    fit: BoxFit.cover,
+                                                    fallbackIcon: pl.isImported
+                                                        ? Icons.music_note_rounded
+                                                        : Icons.music_note_rounded,
+                                                  )
+                                                : Center(
+                                                    child: pl.isImported
+                                                        ? const SpotifyLogoBadge(
+                                                            size: 26,
+                                                            hasShadow: false,
+                                                          )
+                                                        : Icon(
+                                                            Icons.music_note_rounded,
+                                                            color: tokens.textSecondary,
+                                                            size: 24,
+                                                          ),
+                                                  ),
+                                          ),
+                                          if (pl.isImported && coverUrl != null)
+                                            const Positioned(
+                                              right: -3,
+                                              bottom: -3,
+                                              child: SpotifyLogoBadge(size: 16),
+                                            ),
+                                        ],
+                                      );
+                                    },
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -703,13 +762,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                           ),
                                         ),
                                         const SizedBox(height: 3),
-                                        Text(
-                                          '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.fontUi,
-                                            color: tokens.textSecondary,
-                                            fontSize: 12,
-                                          ),
+                                        Row(
+                                          children: [
+                                            if (pl.isImported) ...[
+                                              const SpotifyLogoBadge(
+                                                size: 12,
+                                                hasShadow: false,
+                                              ),
+                                              const SizedBox(width: 5),
+                                            ],
+                                            Text(
+                                              '${pl.trackCount} tracks${pl.isImported ? ' • Spotify' : ''}',
+                                              style: TextStyle(
+                                                fontFamily: AppTheme.fontUi,
+                                                color: tokens.textSecondary,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),

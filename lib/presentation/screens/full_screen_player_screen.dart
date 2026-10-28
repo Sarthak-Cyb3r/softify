@@ -872,7 +872,7 @@ class _FullScreenPlayerScreenState
                       ),
                       const SizedBox(width: 2.5),
                       _buildToolbarSquareButton(
-                        icon: _showLyrics ? Icons.lyrics_rounded : Icons.lyrics_outlined,
+                        icon: _showLyrics ? Icons.mic_rounded : Icons.mic_none_rounded,
                         isActive: _showLyrics,
                         tokens: tokens,
                         borderRadius: BorderRadius.circular(3),

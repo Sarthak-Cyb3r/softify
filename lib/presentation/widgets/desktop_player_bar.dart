@@ -420,7 +420,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   iconSize: 18,
                   tooltip: 'Lyrics',
                   icon: const Icon(
-                    Icons.lyrics_rounded,
+                    Icons.mic_none_rounded,
                     color: AppTheme.textSecondary,
                   ),
                   onPressed: () => _openLyricsDialog(context, currentTrack),

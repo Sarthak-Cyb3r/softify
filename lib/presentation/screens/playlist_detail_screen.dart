@@ -12,6 +12,8 @@ import '../widgets/shared/app_network_image.dart';
 import '../widgets/shared/aurora_background.dart';
 import '../widgets/shared/track_row.dart';
 import '../widgets/track_options_bottom_sheet.dart';
+import '../providers/spotify_import_providers.dart';
+import '../widgets/spotify_logo_badge.dart';
 
 class PlaylistDetailScreen extends ConsumerStatefulWidget {
   final String playlistId;
@@ -26,6 +28,70 @@ class PlaylistDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndAutoSync(showNoUpdatesToast: false);
+    });
+  }
+
+  Future<void> _checkAndAutoSync({bool showNoUpdatesToast = false}) async {
+    if (_isSyncing) return;
+    final playlistData = await ref
+        .read(libraryRepositoryProvider)
+        .getPlaylistWithTracks(widget.playlistId);
+    if (playlistData == null || !playlistData.playlist.isImported) return;
+
+    setState(() => _isSyncing = true);
+    try {
+      final addedCount = await ref
+          .read(spotifyPlaylistSyncServiceProvider)
+          .syncPlaylist(widget.playlistId);
+
+      if (mounted) {
+        if (addedCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const SpotifyLogoBadge(size: 16, hasShadow: false),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Spotify playlist updated: added $addedCount new song${addedCount == 1 ? '' : 's'}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF1DB954),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } else if (showNoUpdatesToast) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  SpotifyLogoBadge(size: 16, hasShadow: false),
+                  SizedBox(width: 8),
+                  Text('Spotify playlist is up to date'),
+                ],
+              ),
+              backgroundColor: Color(0xFF212529),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
   void _playAll(List<Track> tracks, {bool shuffle = false, int startIndex = 0}) {
     if (tracks.isEmpty) return;
     final audioHandler = ref.read(audioHandlerProvider);
@@ -141,6 +207,23 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
+                  if (playlist.isImported)
+                    IconButton(
+                      icon: _isSyncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF1DB954),
+                              ),
+                            )
+                          : const Icon(Icons.sync_rounded, color: Color(0xFF1DB954)),
+                      tooltip: 'Sync with Spotify',
+                      onPressed: _isSyncing
+                          ? null
+                          : () => _checkAndAutoSync(showNoUpdatesToast: true),
+                    ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.white70),
                     tooltip: 'Delete Playlist',
@@ -166,7 +249,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           playlist.isImported
-                              ? tokens.accent.withValues(alpha: 0.25)
+                              ? const Color(0xFF1DB954).withValues(alpha: 0.25)
                               : tokens.surfaceElevated.withValues(alpha: 0.6),
                           tokens.background,
                         ],
@@ -177,48 +260,78 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(height: 32),
-                          Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              color: tokens.card,
-                              borderRadius: BorderRadius.circular(tokens.radiusCard),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
+                          Stack(
+                            children: [
+                              Container(
+                                width: 140,
+                                height: 140,
+                                decoration: BoxDecoration(
+                                  color: tokens.card,
+                                  borderRadius: BorderRadius.circular(tokens.radiusCard),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.4),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: AppNetworkImage(
-                              imageUrl: coverUrl,
-                              width: 140,
-                              height: 140,
-                              borderRadius: BorderRadius.circular(tokens.radiusCard),
-                              fit: BoxFit.cover,
-                              fallbackIcon: playlist.isImported ? Icons.cloud_download : Icons.queue_music,
-                              backgroundColor: tokens.card,
-                            ),
+                                child: (coverUrl == null && playlist.isImported)
+                                    ? Container(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF121212),
+                                          borderRadius:
+                                              BorderRadius.circular(tokens.radiusCard),
+                                        ),
+                                        child: const Center(
+                                          child: SpotifyLogoBadge(
+                                            size: 64,
+                                            hasShadow: false,
+                                          ),
+                                        ),
+                                      )
+                                    : AppNetworkImage(
+                                        imageUrl: coverUrl,
+                                        width: 140,
+                                        height: 140,
+                                        borderRadius:
+                                            BorderRadius.circular(tokens.radiusCard),
+                                        fit: BoxFit.cover,
+                                        fallbackIcon: playlist.isImported
+                                            ? Icons.music_note_rounded
+                                            : Icons.queue_music,
+                                        backgroundColor: tokens.card,
+                                      ),
+                              ),
+                              if (playlist.isImported && coverUrl != null)
+                                const Positioned(
+                                  right: 8,
+                                  bottom: 8,
+                                  child: SpotifyLogoBadge(size: 26),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 10),
                           if (playlist.isImported)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: tokens.accent.withValues(alpha: 0.15),
+                                color: const Color(0xFF1DB954).withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(tokens.radiusPill),
-                                border: Border.all(color: tokens.accent.withValues(alpha: 0.35), width: 1),
+                                border: Border.all(
+                                  color: const Color(0xFF1DB954).withValues(alpha: 0.4),
+                                  width: 1,
+                                ),
                               ),
-                              child: Row(
+                              child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle_rounded, size: 14, color: tokens.accent),
-                                  const SizedBox(width: 4),
+                                  SpotifyLogoBadge(size: 14, hasShadow: false),
+                                  SizedBox(width: 6),
                                   Text(
-                                    'Spotify Imported',
+                                    'Spotify Playlist',
                                     style: TextStyle(
-                                      color: tokens.accent,
+                                      color: Color(0xFF1DB954),
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       fontFamily: AppTheme.fontUi,
@@ -267,6 +380,24 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                           ],
                         ),
                       ),
+
+                      if (playlist.isImported)
+                        IconButton(
+                          icon: _isSyncing
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF1DB954),
+                                  ),
+                                )
+                              : const Icon(Icons.sync_rounded, color: Color(0xFF1DB954)),
+                          tooltip: 'Sync with Spotify',
+                          onPressed: _isSyncing
+                              ? null
+                              : () => _checkAndAutoSync(showNoUpdatesToast: true),
+                        ),
 
                       // Download All Button
                       IconButton(

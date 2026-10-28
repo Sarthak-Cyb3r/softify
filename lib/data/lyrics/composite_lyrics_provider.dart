@@ -2,7 +2,6 @@ import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
-import '../../services/lyrics/paxsenix_lyrics_provider.dart';
 import 'curated_lyrics_provider.dart';
 import 'genius_lyrics_provider.dart';
 import 'kugou_lyrics_provider.dart';

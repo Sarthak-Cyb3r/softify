@@ -293,7 +293,7 @@ class _QuickPlaybackPanelState extends ConsumerState<QuickPlaybackPanel> {
                             ),
                             const SizedBox(width: 6),
                             Icon(
-                              Icons.lyrics_rounded,
+                              Icons.mic_rounded,
                               size: 14,
                               color: tokens.accent.withValues(alpha: 0.7),
                             ),
