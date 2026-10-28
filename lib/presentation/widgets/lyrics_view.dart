@@ -32,12 +32,16 @@ class LyricsView extends ConsumerStatefulWidget {
   final Track track;
   final VoidCallback? onClose;
   final Color? ambientColor;
+  final bool isFullScreen;
+  final VoidCallback? onToggleFullscreen;
 
   const LyricsView({
     super.key,
     required this.track,
     this.onClose,
     this.ambientColor,
+    this.isFullScreen = false,
+    this.onToggleFullscreen,
   });
 
   @override
@@ -445,12 +449,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                     ),
                     data: (lyrics) {
                       final isInstrumental = lyrics != null &&
+                          lyrics.lines.length <= 1 &&
                           ((lyrics.plainLyrics != null &&
-                              (lyrics.plainLyrics!.contains('♪ Instrumental ♪') ||
-                               lyrics.plainLyrics!.contains('[instrumental]'))) ||
+                              (lyrics.plainLyrics!.trim().toLowerCase() == '[instrumental]' ||
+                               lyrics.plainLyrics!.trim() == '♪ Instrumental ♪')) ||
                            (lyrics.lines.isNotEmpty &&
-                              (lyrics.lines.first.text.contains('♪ Instrumental ♪') ||
-                               lyrics.lines.first.text.contains('[instrumental]'))));
+                              (lyrics.lines.first.text.trim().toLowerCase() == '[instrumental]' ||
+                               lyrics.lines.first.text.trim() == '♪ Instrumental ♪')));
 
                       if (isInstrumental) {
                         return Center(
@@ -1043,6 +1048,27 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                   ],
                 ),
               ),
+              if (widget.onToggleFullscreen != null) ...[
+                BouncingScaleButton(
+                  scaleFactor: 0.9,
+                  onTap: widget.onToggleFullscreen!,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      widget.isFullScreen
+                          ? Icons.fullscreen_exit_rounded
+                          : Icons.fullscreen_rounded,
+                      color: tokens.textSecondary,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               if (widget.onClose != null)
                 BouncingScaleButton(
                   scaleFactor: 0.9,
@@ -1093,10 +1119,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final bool isChorus = agent == 'v1000' || agent == 'chorus' || agent == 'all';
     final Alignment alignment = isChorus
         ? Alignment.center
-        : (isDuetV2 ? Alignment.centerRight : Alignment.centerLeft);
+        : (isDuetV2
+            ? Alignment.centerRight
+            : (agent == 'v1' ? Alignment.centerLeft : Alignment.center));
     final TextAlign textAlign = isChorus
         ? TextAlign.center
-        : (isDuetV2 ? TextAlign.right : TextAlign.left);
+        : (isDuetV2
+            ? TextAlign.right
+            : (agent == 'v1' ? TextAlign.left : TextAlign.center));
 
     // Metrolist / Apple Music Solo Countdown:
     // When interlude gap before this line exceeds 5 seconds, show 3-dot countdown
@@ -1186,27 +1216,69 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           textAlign: textAlign,
                           isDuetV2: isDuetV2,
                         )
-                      : AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 180),
+                      : AnimatedSlide(
+                          offset: isActive ? Offset.zero : const Offset(-0.02, 0),
+                          duration: const Duration(milliseconds: 280),
                           curve: Curves.easeOutCubic,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontUi,
-                            fontStyle: FontStyle.normal,
-                            fontSize: isActive
-                                ? (_lyricFontSize.activeSize * 1.15)
-                                : _lyricFontSize.inactiveSize,
-                            fontWeight:
-                                isActive ? FontWeight.w800 : FontWeight.w500,
-                            color: isActive
-                                ? accentColor
-                                : (isDuetV2
-                                    ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity.clamp(0.2, 0.45))
-                                    : tokens.textSecondary.withValues(alpha: lineOpacity.clamp(0.2, 0.45))),
-                            height: 1.45,
-                            letterSpacing: -0.4,
+                          child: AnimatedScale(
+                            scale: isActive ? 1.05 : 1.0,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutBack,
+                            child: isActive
+                                ? _SpicetifyProgressiveLyricsLine(
+                                    displayText: displayText,
+                                    lineStart: line.timestamp,
+                                    lineDuration: (index + 1 < lines.length)
+                                        ? (lines[index + 1].timestamp - line.timestamp)
+                                        : const Duration(seconds: 4),
+                                    positionNotifier: _positionNotifier,
+                                    alignment: alignment,
+                                    textAlign: textAlign,
+                                    activeStyle: TextStyle(
+                                      fontFamily: AppTheme.fontUi,
+                                      fontStyle: FontStyle.normal,
+                                      fontSize: _lyricFontSize.activeSize * 1.18,
+                                      fontWeight: FontWeight.w800,
+                                      color: accentColor,
+                                      height: 1.45,
+                                      letterSpacing: -0.5,
+                                      shadows: [
+                                        Shadow(
+                                          color: accentColor.withValues(alpha: 0.65),
+                                          blurRadius: 16,
+                                        ),
+                                      ],
+                                    ),
+                                    inactiveStyle: TextStyle(
+                                      fontFamily: AppTheme.fontUi,
+                                      fontStyle: FontStyle.normal,
+                                      fontSize: _lyricFontSize.activeSize * 1.18,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDuetV2
+                                          ? const Color(0xFF93C5FD).withValues(alpha: 0.38)
+                                          : tokens.textSecondary.withValues(alpha: 0.35),
+                                      height: 1.45,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  )
+                                : AnimatedDefaultTextStyle(
+                                    duration: const Duration(milliseconds: 220),
+                                    curve: Curves.easeOutCubic,
+                                    textAlign: textAlign,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontUi,
+                                      fontStyle: FontStyle.normal,
+                                      fontSize: _lyricFontSize.inactiveSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDuetV2
+                                          ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity.clamp(0.2, 0.45))
+                                          : tokens.textSecondary.withValues(alpha: lineOpacity.clamp(0.2, 0.45)),
+                                      height: 1.45,
+                                      letterSpacing: -0.4,
+                                    ),
+                                    child: Text(displayText, textAlign: textAlign),
+                                  ),
                           ),
-                          child: Text(displayText, textAlign: TextAlign.center),
                         )),
             ),
           ),
@@ -1502,6 +1574,89 @@ class _SoloCountdownIndicator extends StatelessWidget {
               ]
             : null,
       ),
+    );
+  }
+}
+
+/// Spicetify / Apple Music progressive left-to-right fade-in / wipe lyrics line.
+class _SpicetifyProgressiveLyricsLine extends StatelessWidget {
+  final String displayText;
+  final Duration lineStart;
+  final Duration lineDuration;
+  final ValueNotifier<Duration> positionNotifier;
+  final TextStyle activeStyle;
+  final TextStyle inactiveStyle;
+  final TextAlign textAlign;
+  final Alignment alignment;
+
+  const _SpicetifyProgressiveLyricsLine({
+    required this.displayText,
+    required this.lineStart,
+    required this.lineDuration,
+    required this.positionNotifier,
+    required this.activeStyle,
+    required this.inactiveStyle,
+    this.textAlign = TextAlign.center,
+    this.alignment = Alignment.center,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Duration>(
+      valueListenable: positionNotifier,
+      builder: (context, pos, _) {
+        final elapsed = (pos - lineStart).inMilliseconds;
+        final total = lineDuration.inMilliseconds.clamp(500, 16000);
+        final double progress = (elapsed / total).clamp(0.0, 1.0);
+
+        if (progress <= 0.0) {
+          return Text(
+            displayText,
+            textAlign: textAlign,
+            style: inactiveStyle,
+          );
+        }
+
+        if (progress >= 1.0) {
+          return Text(
+            displayText,
+            textAlign: textAlign,
+            style: activeStyle,
+          );
+        }
+
+        final activeColor = activeStyle.color ?? Colors.white;
+        final inactiveColor = inactiveStyle.color ?? Colors.white38;
+
+        return ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (bounds) {
+            final stopLeft = (progress - 0.08).clamp(0.0, 1.0);
+            final stopRight = (progress + 0.02).clamp(0.0, 1.0);
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                activeColor,
+                activeColor,
+                inactiveColor,
+                inactiveColor,
+              ],
+              stops: [
+                0.0,
+                stopLeft,
+                stopRight,
+                1.0,
+              ],
+            ).createShader(bounds);
+          },
+          child: Text(
+            displayText,
+            textAlign: textAlign,
+            style: activeStyle.copyWith(color: Colors.white),
+          ),
+        );
+      },
     );
   }
 }

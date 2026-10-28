@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/track.dart';
@@ -290,6 +291,36 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                             ),
                           );
                         }
+                      },
+                    ),
+
+                    // 5b. Share Track
+                    ListTile(
+                      leading: const Icon(Icons.share_rounded, color: AppTheme.textPrimary),
+                      title: const Text('Share song', style: TextStyle(color: AppTheme.textPrimary)),
+                      onTap: () {
+                        final nav = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.maybeOf(context);
+                        final rawId = track.id.startsWith('yt_')
+                            ? track.id.replaceFirst('yt_', '')
+                            : (track.sourceId.startsWith('yt_')
+                                ? track.sourceId.replaceFirst('yt_', '')
+                                : (track.id.length == 11
+                                    ? track.id
+                                    : (track.sourceId.length == 11 ? track.sourceId : '')));
+
+                        final String shareUrl = rawId.isNotEmpty
+                            ? 'https://music.youtube.com/watch?v=$rawId'
+                            : 'https://music.youtube.com/search?q=${Uri.encodeComponent('${track.artist} - ${track.title}')}';
+
+                        Clipboard.setData(ClipboardData(text: shareUrl));
+                        nav.pop();
+                        messenger?.showSnackBar(
+                          SnackBar(
+                            content: Text('Link copied to clipboard: $shareUrl'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
                       },
                     ),
 

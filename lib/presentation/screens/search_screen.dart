@@ -16,6 +16,8 @@ import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
 import '../widgets/acoustic_recognition_sheet.dart';
 import 'artist_discography_screen.dart';
+import '../../features/youtube/presentation/youtube_page.dart';
+import '../../features/podcasts/presentation/podcast_page.dart';
 
 enum SearchResultFilter {
   all('All'),
@@ -38,22 +40,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   SearchResultFilter _activeFilter = SearchResultFilter.all;
-
-  static const List<String> _quickCategories = [
-    'Energize',
-    'Workout',
-    'Relax',
-    'Focus',
-    'Commute',
-    'Electronic',
-    'R&B',
-    'Synthwave',
-    'Pop',
-    'Rock',
-    'Lo-Fi',
-    'Hip-Hop',
-    'Jazz',
-  ];
 
   @override
   void dispose() {
@@ -304,9 +290,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
           ),
 
-          // Quick Category Chips when search bar is idle
-          if (_searchController.text.trim().isEmpty)
-            _buildQuickCategoryChips(tokens),
 
           // Autocomplete suggestion chips & Intent routing badge
           if (_searchController.text.trim().isNotEmpty)
@@ -577,119 +560,120 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildQuickCategoryChips(AppTokens tokens) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2, bottom: 8),
-      child: SizedBox(
-        height: 32,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: _quickCategories.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            final category = _quickCategories[index];
-            final isSelected =
-                _searchController.text.trim().toLowerCase() == category.toLowerCase();
-            return AppFilterChip(
-              label: category,
-              isSelected: isSelected,
-              onTap: () {
-                _searchController.text = category;
-                _searchController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: category.length),
-                );
-                ref
-                    .read(searchNotifierProvider.notifier)
-                    .executeSearch(category);
-                setState(() {});
-              },
-            );
-          },
-        ),
-      ),
-    );
-  }
 
   Widget _buildEmptySearchState(AppTokens tokens) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
       children: [
-        // Metrolist Genre / Mood Discovery
-        Text(
-          'Explore genres & moods',
-          style: TextStyle(
-            fontFamily: AppTheme.fontPageTitle,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
-            color: tokens.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _quickCategories.map((cat) {
-            return AppFilterChip(
-              label: cat,
-              isSelected: false,
-              onTap: () {
-                _searchController.text = cat;
-                _searchController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: cat.length),
-                );
-                ref
-                    .read(searchNotifierProvider.notifier)
-                    .executeSearch(cat);
-                setState(() {});
-              },
+        _buildBannerCard(
+          title: 'YouTube Player',
+          subtitle: 'Search & stream YouTube videos with picture-in-picture',
+          icon: Icons.smart_display_rounded,
+          iconColor: const Color(0xFFFF2E2E),
+          tokens: tokens,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const YoutubePage()),
             );
-          }).toList(),
+          },
         ),
-        const SizedBox(height: 36),
-        Center(
-          child: Column(
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: tokens.accent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.search_rounded,
-                    size: 36,
-                    color: tokens.accent,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Search YouTube Music',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontUi,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: tokens.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Find songs, albums, artists, podcasts, and playlists',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontUi,
-                  fontSize: 12.5,
-                  color: tokens.textSecondary,
-                ),
-              ),
-            ],
-          ),
+        const SizedBox(height: 14),
+        _buildBannerCard(
+          title: 'Podcasts',
+          subtitle: 'Explore audio shows, talks, and serialized episodes',
+          icon: Icons.podcasts_rounded,
+          iconColor: tokens.accent,
+          tokens: tokens,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PodcastPage()),
+            );
+          },
         ),
       ],
+    );
+  }
+
+  Widget _buildBannerCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required AppTokens tokens,
+    required VoidCallback onTap,
+  }) {
+    return BouncingScaleButton(
+      scaleFactor: 0.97,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        decoration: BoxDecoration(
+          color: tokens.card,
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1.0,
+          ),
+          boxShadow: tokens.cardShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                size: 28,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w400,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 15,
+              color: tokens.textSecondary.withValues(alpha: 0.45),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

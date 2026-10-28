@@ -419,14 +419,27 @@ class YoutubeInnertubeService {
       if (contents == null) return [];
 
       final str = jsonEncode(contents);
-      final matches = RegExp(r'"videoId":"([a-zA-Z0-9_-]{11})"').allMatches(str);
+      // Priority 1: Match playlistItemData (exclusive to actual song items in YouTube Music shelves)
+      final primaryMatches = RegExp(r'"playlistItemData":\s*\{\s*"videoId":\s*"([a-zA-Z0-9_-]{11})"').allMatches(str);
       final seen = <String>{};
       final ids = <String>[];
-      for (final m in matches) {
+      for (final m in primaryMatches) {
         final id = m.group(1);
         if (id != null && seen.add(id)) {
           ids.add(id);
           if (ids.length >= 6) break;
+        }
+      }
+
+      // Priority 2: Fallback to musicResponsiveListItemRenderer
+      if (ids.isEmpty) {
+        final fallbackMatches = RegExp(r'"musicResponsiveListItemRenderer":\{.*?"videoId":"([a-zA-Z0-9_-]{11})"').allMatches(str);
+        for (final m in fallbackMatches) {
+          final id = m.group(1);
+          if (id != null && seen.add(id)) {
+            ids.add(id);
+            if (ids.length >= 6) break;
+          }
         }
       }
       return ids;

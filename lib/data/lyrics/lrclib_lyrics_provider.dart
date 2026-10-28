@@ -104,18 +104,27 @@ class LrclibLyricsProvider implements ILyricsProvider {
         final plainLyrics = json['plainLyrics'] as String?;
 
         if (json['instrumental'] == true) {
-          return SyncedLyrics(
-            trackId: trackId,
-            lines: const [
-              LyricLine(
-                timestamp: Duration.zero,
-                text: '[instrumental]',
-              ),
-            ],
-            plainLyrics: '[instrumental]',
-            syncType: 'LINE_SYNCED',
-            providerName: 'LRCLIB (Instrumental)',
-          );
+          final trackName = queryParams['track_name'] ?? (json['trackName'] as String? ?? '');
+          final isExplicitInstrumental = RegExp(
+            r'\b(?:instrumental|karaoke|backing track|minus one)\b',
+            caseSensitive: false,
+          ).hasMatch(trackName);
+          if (isExplicitInstrumental) {
+            return SyncedLyrics(
+              trackId: trackId,
+              lines: const [
+                LyricLine(
+                  timestamp: Duration.zero,
+                  text: '[instrumental]',
+                ),
+              ],
+              plainLyrics: '[instrumental]',
+              syncType: 'LINE_SYNCED',
+              providerName: 'LRCLIB (Instrumental)',
+            );
+          }
+          // Do not mask vocal tracks as instrumental; allow fallbacks to resolve lyrics
+          return null;
         }
 
         if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {

@@ -34,8 +34,58 @@ class _FullScreenPlayerScreenState
 
   bool _showLyrics = false;
   bool _showTurntable = false;
+  bool _isFullScreenLyrics = false;
   Color _ambientColor = const Color(0xFF141A16);
   String? _lastExtractedCoverUrl;
+
+  void _shareTrack(BuildContext context, Track track) {
+    HapticFeedback.selectionClick();
+    final rawId = track.id.startsWith('yt_')
+        ? track.id.replaceFirst('yt_', '')
+        : (track.sourceId.startsWith('yt_')
+            ? track.sourceId.replaceFirst('yt_', '')
+            : (track.id.length == 11
+                ? track.id
+                : (track.sourceId.length == 11 ? track.sourceId : '')));
+
+    final String shareUrl = rawId.isNotEmpty
+        ? 'https://music.youtube.com/watch?v=$rawId'
+        : 'https://music.youtube.com/search?q=${Uri.encodeComponent('${track.artist} - ${track.title}')}';
+
+    Clipboard.setData(ClipboardData(text: shareUrl));
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.link_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Link copied to clipboard: $shareUrl',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontUi,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        backgroundColor: const Color(0xFF1E1E22),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Colors.white24, width: 0.8),
+        ),
+      ),
+    );
+  }
 
   void _extractArtworkPalette(String? coverUrl) {
     if (coverUrl == null || coverUrl.isEmpty || coverUrl == _lastExtractedCoverUrl) {
@@ -199,126 +249,127 @@ class _FullScreenPlayerScreenState
           child: Column(
             children: [
               // 1. Top Bar (Dismiss, Album title, Options)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () => Navigator.of(context).pop(),
-                      child: tokens.isGlass
-                          ? AppSurface(
-                              withBlur: true,
-                              width: 38,
-                              height: 38,
-                              borderRadius: BorderRadius.circular(19),
-                              border: Border.all(color: tokens.glassBorder, width: 1.0),
-                              child: const Center(
-                                child: Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
-                              ),
-                            )
-                          : const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Icon(Icons.keyboard_arrow_down_rounded, size: 30),
-                            ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            isPlaceholder ? 'SOFTIFY' : 'PLAYING FROM',
-                            style: TextStyle(
-                              fontSize: 12,
-                              letterSpacing: 1.5,
-                              color: tokens.textSecondary.withValues(alpha: 0.8),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isPlaceholder
-                                ? 'CONNECTING...'
-                                : (effectiveTrack.album ?? effectiveTrack.artist),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: tokens.textPrimary,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isSleepActive) ...[
+              if (!_isFullScreenLyrics)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       BouncingScaleButton(
                         scaleFactor: 0.9,
-                        onTap: () => SleepTimerBottomSheet.show(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: tokens.accent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(tokens.radiusFull),
-                            border: Border.all(
-                              color: tokens.accent.withValues(alpha: 0.4),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.bedtime_rounded, color: tokens.accent, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                isSleepEndOfTrack
-                                    ? 'End'
-                                    : '${sleepRemaining?.inMinutes ?? 0}m',
-                                style: TextStyle(
-                                  color: tokens.accent,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                        onTap: () => Navigator.of(context).pop(),
+                        child: tokens.isGlass
+                            ? AppSurface(
+                                withBlur: true,
+                                width: 38,
+                                height: 38,
+                                borderRadius: BorderRadius.circular(19),
+                                border: Border.all(color: tokens.glassBorder, width: 1.0),
+                                child: const Center(
+                                  child: Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
                                 ),
+                              )
+                            : const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Icon(Icons.keyboard_arrow_down_rounded, size: 30),
                               ),
-                            ],
-                          ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              isPlaceholder ? 'SOFTIFY' : 'PLAYING FROM',
+                              style: TextStyle(
+                                fontSize: 12,
+                                letterSpacing: 1.5,
+                                color: tokens.textSecondary.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isPlaceholder
+                                  ? 'CONNECTING...'
+                                  : (effectiveTrack.album ?? effectiveTrack.artist),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: tokens.textPrimary,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 4),
-                    ],
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: isPlaceholder
-                          ? null
-                          : () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
-                      child: tokens.isGlass
-                          ? AppSurface(
-                              withBlur: true,
-                              width: 38,
-                              height: 38,
-                              borderRadius: BorderRadius.circular(19),
-                              border: Border.all(color: tokens.glassBorder, width: 1.0),
-                              child: Center(
-                                child: Icon(
-                                  Icons.more_vert_rounded,
-                                  size: 22,
-                                  color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : Colors.white,
-                                ),
-                              ),
-                            )
-                          : Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Icon(
-                                Icons.more_vert_rounded,
-                                size: 24,
-                                color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : null,
+                      if (isSleepActive) ...[
+                        BouncingScaleButton(
+                          scaleFactor: 0.9,
+                          onTap: () => SleepTimerBottomSheet.show(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: tokens.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(tokens.radiusFull),
+                              border: Border.all(
+                                color: tokens.accent.withValues(alpha: 0.4),
+                                width: 0.8,
                               ),
                             ),
-                    ),
-                  ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bedtime_rounded, color: tokens.accent, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isSleepEndOfTrack
+                                      ? 'End'
+                                      : '${sleepRemaining?.inMinutes ?? 0}m',
+                                  style: TextStyle(
+                                    color: tokens.accent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      BouncingScaleButton(
+                        scaleFactor: 0.9,
+                        onTap: isPlaceholder
+                            ? null
+                            : () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
+                        child: tokens.isGlass
+                            ? AppSurface(
+                                withBlur: true,
+                                width: 38,
+                                height: 38,
+                                borderRadius: BorderRadius.circular(19),
+                                border: Border.all(color: tokens.glassBorder, width: 1.0),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.more_vert_rounded,
+                                    size: 22,
+                                    color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : Colors.white,
+                                  ),
+                                ),
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Icon(
+                                  Icons.more_vert_rounded,
+                                  size: 24,
+                                  color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : null,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
               // 2. Main Hero Artwork / Lyrics View with gesture
               Expanded(
@@ -329,13 +380,20 @@ class _FullScreenPlayerScreenState
                   child: (_showLyrics && !isPlaceholder)
                       ? Padding(
                           key: const ValueKey('lyrics_active'),
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          padding: _isFullScreenLyrics
+                              ? const EdgeInsets.fromLTRB(16, 4, 16, 8)
+                              : const EdgeInsets.fromLTRB(16, 8, 16, 12),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(tokens.radiusXl),
                             child: LyricsView(
                               track: effectiveTrack,
                               ambientColor: _ambientColor,
-                              onClose: () => setState(() => _showLyrics = false),
+                              isFullScreen: _isFullScreenLyrics,
+                              onToggleFullscreen: () => setState(() => _isFullScreenLyrics = !_isFullScreenLyrics),
+                              onClose: () => setState(() {
+                                _isFullScreenLyrics = false;
+                                _showLyrics = false;
+                              }),
                             ),
                           ),
                         )
@@ -442,7 +500,7 @@ class _FullScreenPlayerScreenState
               ),
 
               // 3. Track Metadata (Metrolist: Compact on lyrics, Full on artwork)
-              if (_showLyrics)
+              if (_showLyrics && !_isFullScreenLyrics)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Row(
@@ -489,7 +547,10 @@ class _FullScreenPlayerScreenState
                       ),
                       BouncingScaleButton(
                         scaleFactor: 0.9,
-                        onTap: () => setState(() => _showLyrics = false),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _isFullScreenLyrics = !_isFullScreenLyrics);
+                        },
                         child: Container(
                           width: 40,
                           height: 40,
@@ -498,8 +559,10 @@ class _FullScreenPlayerScreenState
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.fullscreen_rounded,
+                          child: Icon(
+                            _isFullScreenLyrics
+                                ? Icons.fullscreen_exit_rounded
+                                : Icons.fullscreen_rounded,
                             size: 22,
                             color: Colors.white,
                           ),
@@ -527,7 +590,7 @@ class _FullScreenPlayerScreenState
                     ],
                   ),
                 )
-              else
+              else if (!_isFullScreenLyrics)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Row(
@@ -579,10 +642,7 @@ class _FullScreenPlayerScreenState
                         scaleFactor: 0.88,
                         onTap: isPlaceholder
                             ? null
-                            : () {
-                                HapticFeedback.selectionClick();
-                                TrackOptionsBottomSheet.show(context, track: effectiveTrack);
-                              },
+                            : () => _shareTrack(context, effectiveTrack),
                         child: Container(
                           width: 44,
                           height: 44,
@@ -632,220 +692,226 @@ class _FullScreenPlayerScreenState
                 ),
 
               // 4. Scrubber Slider & Timestamps (Isolated RepaintBoundary)
-              RepaintBoundary(
-                child: _FullScreenPlayerScrubber(
-                  fallbackDuration: effectiveTrack.duration,
-                  trackId: effectiveTrack.id,
+              if (!_isFullScreenLyrics)
+                RepaintBoundary(
+                  child: _FullScreenPlayerScrubber(
+                    fallbackDuration: effectiveTrack.duration,
+                    trackId: effectiveTrack.id,
+                  ),
                 ),
-              ),
 
               // 5. Metrolist M3 Expressive Playback Controls (Prev 68dp, Wide Capsule Play/Pause 68dp, Next 68dp)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    // Skip Previous Button (68x68 Circle)
-                    BouncingScaleButton(
-                      scaleFactor: 0.92,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.skipToPrevious();
-                      },
-                      child: Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: tokens.surfaceElevated,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.skip_previous_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // Wide Capsule Play/Pause Pill (White Container, Black Icon + Text)
-                    Expanded(
-                      child: BouncingScaleButton(
-                        scaleFactor: 0.95,
+              if (!_isFullScreenLyrics)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      // Skip Previous Button (68x68 Circle)
+                      BouncingScaleButton(
+                        scaleFactor: 0.92,
                         onTap: () {
                           HapticFeedback.selectionClick();
-                          if (isPlaying) {
-                            audioHandler.pause();
-                          } else if (activePlayingTrack != null) {
-                            audioHandler.play();
-                          } else if (resolvedTrack != null && !isPlaceholder) {
-                            audioHandler.playTrack(resolvedTrack);
-                          } else {
-                            audioHandler.play();
-                          }
+                          audioHandler.skipToPrevious();
                         },
                         child: Container(
+                          width: 68,
                           height: 68,
                           decoration: BoxDecoration(
+                            color: tokens.surfaceElevated,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.skip_previous_rounded,
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(34),
+                            size: 32,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (isBuffering)
-                                const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.8,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // Wide Capsule Play/Pause Pill (White Container, Black Icon + Text)
+                      Expanded(
+                        child: BouncingScaleButton(
+                          scaleFactor: 0.95,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            if (isPlaying) {
+                              audioHandler.pause();
+                            } else if (activePlayingTrack != null) {
+                              audioHandler.play();
+                            } else if (resolvedTrack != null && !isPlaceholder) {
+                              audioHandler.playTrack(resolvedTrack);
+                            } else {
+                              audioHandler.play();
+                            }
+                          },
+                          child: Container(
+                            height: 68,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(34),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (isBuffering)
+                                  const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.8,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                    ),
+                                  )
+                                else
+                                  Icon(
+                                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                    color: Colors.black,
+                                    size: 32,
                                   ),
-                                )
-                              else
-                                Icon(
-                                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                  color: Colors.black,
-                                  size: 32,
+                                const SizedBox(width: 8),
+                                Text(
+                                  isPlaying ? 'Pause' : 'Play',
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.fontUi,
+                                    color: Colors.black,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              const SizedBox(width: 8),
-                              Text(
-                                isPlaying ? 'Pause' : 'Play',
-                                style: const TextStyle(
-                                  fontFamily: AppTheme.fontUi,
-                                  color: Colors.black,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
 
-                    // Skip Next Button (68x68 Circle)
-                    BouncingScaleButton(
-                      scaleFactor: 0.92,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.skipToNext();
-                      },
-                      child: Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: tokens.surfaceElevated,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.skip_next_rounded,
-                          color: Colors.white,
-                          size: 32,
+                      // Skip Next Button (68x68 Circle)
+                      BouncingScaleButton(
+                        scaleFactor: 0.92,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          audioHandler.skipToNext();
+                        },
+                        child: Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            color: tokens.surfaceElevated,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.skip_next_rounded,
+                            color: Colors.white,
+                            size: 32,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
               // 6. Metrolist Bottom Action Toolbar (Queue, Bedtime, Shuffle, Eq/Lyrics, Repeat | More Menu)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-                child: Row(
-                  children: [
-                    _buildToolbarSquareButton(
-                      icon: Icons.queue_music_rounded,
-                      isActive: false,
-                      tokens: tokens,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(21),
-                        bottomLeft: Radius.circular(21),
-                        topRight: Radius.circular(3),
-                        bottomRight: Radius.circular(3),
-                      ),
-                      onTap: () => _openQueueSheet(context),
-                    ),
-                    const SizedBox(width: 5),
-                    _buildToolbarSquareButton(
-                      icon: Icons.bedtime_outlined,
-                      isActive: isSleepActive,
-                      tokens: tokens,
-                      borderRadius: BorderRadius.circular(3),
-                      onTap: () => SleepTimerBottomSheet.show(context),
-                    ),
-                    const SizedBox(width: 5),
-                    _buildToolbarSquareButton(
-                      icon: Icons.shuffle_rounded,
-                      isActive: isShuffle,
-                      tokens: tokens,
-                      borderRadius: BorderRadius.circular(3),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.setShuffleEnabled(!isShuffle);
-                      },
-                    ),
-                    const SizedBox(width: 5),
-                    _buildToolbarSquareButton(
-                      icon: Icons.tune_rounded,
-                      isActive: _showLyrics,
-                      tokens: tokens,
-                      borderRadius: BorderRadius.circular(3),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _showLyrics = !_showLyrics);
-                      },
-                    ),
-                    const SizedBox(width: 5),
-                    _buildToolbarSquareButton(
-                      icon: repeatMode == AudioRepeatMode.one
-                          ? Icons.repeat_one_rounded
-                          : Icons.repeat_rounded,
-                      isActive: repeatMode != AudioRepeatMode.off,
-                      tokens: tokens,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(3),
-                        bottomLeft: Radius.circular(3),
-                        topRight: Radius.circular(21),
-                        bottomRight: Radius.circular(21),
-                      ),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.setAudioRepeatMode(repeatMode.next());
-                      },
-                    ),
-
-                    const Spacer(),
-
-                    // White Circle More Menu Button (42x42dp circle, solid white with black more_vert icon)
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        TrackOptionsBottomSheet.show(context, track: effectiveTrack);
-                      },
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+              if (!_isFullScreenLyrics)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                  child: Row(
+                    children: [
+                      _buildToolbarSquareButton(
+                        icon: Icons.queue_music_rounded,
+                        isActive: false,
+                        tokens: tokens,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(21),
+                          bottomLeft: Radius.circular(21),
+                          topRight: Radius.circular(3),
+                          bottomRight: Radius.circular(3),
                         ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.more_vert_rounded,
-                          color: Colors.black,
-                          size: 22,
+                        onTap: () => _openQueueSheet(context),
+                      ),
+                      const SizedBox(width: 5),
+                      _buildToolbarSquareButton(
+                        icon: Icons.bedtime_outlined,
+                        isActive: isSleepActive,
+                        tokens: tokens,
+                        borderRadius: BorderRadius.circular(3),
+                        onTap: () => SleepTimerBottomSheet.show(context),
+                      ),
+                      const SizedBox(width: 5),
+                      _buildToolbarSquareButton(
+                        icon: Icons.shuffle_rounded,
+                        isActive: isShuffle,
+                        tokens: tokens,
+                        borderRadius: BorderRadius.circular(3),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          audioHandler.setShuffleEnabled(!isShuffle);
+                        },
+                      ),
+                      const SizedBox(width: 5),
+                      _buildToolbarSquareButton(
+                        icon: Icons.tune_rounded,
+                        isActive: _showLyrics,
+                        tokens: tokens,
+                        borderRadius: BorderRadius.circular(3),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _showLyrics = !_showLyrics;
+                            if (!_showLyrics) _isFullScreenLyrics = false;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 5),
+                      _buildToolbarSquareButton(
+                        icon: repeatMode == AudioRepeatMode.one
+                            ? Icons.repeat_one_rounded
+                            : Icons.repeat_rounded,
+                        isActive: repeatMode != AudioRepeatMode.off,
+                        tokens: tokens,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(3),
+                          bottomLeft: Radius.circular(3),
+                          topRight: Radius.circular(21),
+                          bottomRight: Radius.circular(21),
+                        ),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          audioHandler.setAudioRepeatMode(repeatMode.next());
+                        },
+                      ),
+
+                      const Spacer(),
+
+                      // White Circle More Menu Button (42x42dp circle, solid white with black more_vert icon)
+                      BouncingScaleButton(
+                        scaleFactor: 0.9,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          TrackOptionsBottomSheet.show(context, track: effectiveTrack);
+                        },
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.more_vert_rounded,
+                            color: Colors.black,
+                            size: 22,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 8),
             ],
           ),

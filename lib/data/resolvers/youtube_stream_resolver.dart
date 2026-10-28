@@ -113,6 +113,44 @@ class YoutubeStreamResolver implements IStreamResolver {
         try {
           final data = await _innertubeService.queryPlayer(candId);
           if (data != null) {
+            // Guard against wrong track mismatch when candidate was resolved from search
+            if (candId != rawSourceId) {
+              final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
+              if (videoDetails != null) {
+                final candTitle = (videoDetails['title'] as String? ?? '').toLowerCase();
+                final candLengthSec = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
+                final candDuration = Duration(seconds: candLengthSec);
+
+                // Reject if candidate duration deviates widely from target (e.g. > 50s discrepancy, or < 30s teaser)
+                if (track.duration > const Duration(seconds: 30) && candDuration > Duration.zero) {
+                  final diff = (candDuration.inSeconds - track.duration.inSeconds).abs();
+                  if (diff > 50 || candDuration.inSeconds < 30) {
+                    continue;
+                  }
+                }
+
+                // Reject if promotional ads, trailers, movie scenes, or reaction videos
+                const junkKeywords = [
+                  'carvaan', 'teaser', 'trailer', 'reaction', 'review',
+                  'interview', 'full movie', 'making of', 'behind the scenes',
+                ];
+                if (junkKeywords.any((k) => candTitle.contains(k))) {
+                  continue;
+                }
+
+                // Reject if candidate title shares NO significant words (length >= 3) with target title
+                final targetWords = track.title
+                    .toLowerCase()
+                    .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+                    .split(' ')
+                    .where((w) => w.length >= 3)
+                    .toList();
+                if (targetWords.isNotEmpty && !targetWords.any((w) => candTitle.contains(w))) {
+                  continue;
+                }
+              }
+            }
+
             final stream = _innertubeService.extractStream(
               candId,
               data,
