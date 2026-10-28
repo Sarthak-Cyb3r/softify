@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../theme/metrolist_dimensions.dart';
 import '../bouncing_scale_button.dart';
 import 'app_surface.dart';
 
@@ -70,7 +71,7 @@ class AppFilterChip extends StatelessWidget {
                   horizontal: tokens.spaceMd,
                   vertical: 0.0,
                 ),
-                borderRadius: BorderRadius.circular(tokens.radiusPill),
+                borderRadius: BorderRadius.circular(MetrolistDimensions.chipCornerRadius),
                 color: isSelected
                     ? Colors.white
                     : Colors.white.withValues(alpha: 0.08),
@@ -90,11 +91,9 @@ class AppFilterChip extends StatelessWidget {
                   vertical: 0.0,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? tokens.accent : tokens.surfaceElevated,
-                  borderRadius: BorderRadius.circular(tokens.radiusPill),
-                  border: isSelected
-                      ? null
-                      : Border.all(color: tokens.divider, width: 1.0),
+                  color: isSelected ? tokens.accent : tokens.card,
+                  borderRadius: BorderRadius.circular(MetrolistDimensions.chipCornerRadius),
+                  border: null,
                 ),
                 child: chipContent,
               ),

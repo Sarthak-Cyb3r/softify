@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/track.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/metrolist_dimensions.dart';
 import '../animated_music_wave_indicator.dart';
 import 'app_network_image.dart';
 
@@ -77,7 +78,7 @@ class _TrackRowState extends State<TrackRow> {
           highlightColor: tokens.cardHover.withValues(alpha: 0.4),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 140),
-            height: 56.0,
+            height: MetrolistDimensions.listItemHeight,
             padding: EdgeInsets.symmetric(
               horizontal: tokens.spaceSm,
               vertical: tokens.spaceXs,
@@ -283,9 +284,11 @@ class _TrackRowState extends State<TrackRow> {
   Widget _buildArtwork(AppTokens tokens) {
     return AppNetworkImage(
       imageUrl: widget.track.coverUrl,
-      width: 40.0,
-      height: 40.0,
-      borderRadius: BorderRadius.circular(tokens.isGlass ? 8.0 : 4.0),
+      width: MetrolistDimensions.listThumbnailSize,
+      height: MetrolistDimensions.listThumbnailSize,
+      borderRadius: BorderRadius.circular(
+        tokens.isGlass ? 8.0 : MetrolistDimensions.thumbnailCornerRadius,
+      ),
       fit: BoxFit.cover,
       fallbackIcon: Icons.music_note_rounded,
       backgroundColor: tokens.card,

@@ -9,11 +9,13 @@ import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
 import '../providers/shelf_providers.dart';
 import '../theme/app_theme.dart';
+import '../theme/metrolist_dimensions.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/metrolist_navigation_title.dart';
 import '../widgets/metrolist_speed_dial_item.dart';
 import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
-import 'equalizer_screen.dart';
+import 'listen_together_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 import 'artist_discography_screen.dart';
@@ -231,51 +233,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   tokens.isGlass ? Colors.transparent : tokens.background,
               elevation: 0,
               titleSpacing: 16,
-              title: Row(
-                children: [
-                  BouncingScaleButton(
-                    scaleFactor: 0.9,
-                    onTap: () {
-                      _showNamePromptModal(context);
-                    },
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: tokens.accent,
-                      ),
-                      child: Center(
-                        child: Text(
-                          (userName != null && userName.trim().isNotEmpty)
-                              ? userName.trim()[0].toUpperCase()
-                              : 'S',
-                          style: const TextStyle(
-                            fontFamily: AppTheme.fontUi,
-                            color: Colors.black,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _getGreeting(userName, isDesktop: false),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontPageTitle,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                        color: tokens.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
+              title: Text(
+                'Softify',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontPageTitle,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                  color: tokens.textPrimary,
+                ),
               ),
               actions: [
                 BouncingScaleButton(
@@ -310,7 +276,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Icon(Icons.bar_chart_rounded, size: 22, color: tokens.textSecondary),
+                    child: Icon(Icons.insights_rounded, size: 22, color: tokens.textSecondary),
                   ),
                 ),
                 BouncingScaleButton(
@@ -318,13 +284,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const EqualizerScreen(),
+                        builder: (_) => const ListenTogetherScreen(),
                       ),
                     );
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Icon(Icons.tune_rounded, size: 22, color: tokens.textSecondary),
+                    child: Icon(Icons.group_outlined, size: 22, color: tokens.textSecondary),
                   ),
                 ),
                 BouncingScaleButton(
@@ -337,8 +303,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
                   },
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 4, right: 14, top: 8, bottom: 8),
-                    child: Icon(Icons.settings_outlined, size: 22, color: tokens.textSecondary),
+                    padding: const EdgeInsets.only(left: 6, right: 16, top: 8, bottom: 8),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: tokens.accent,
+                      ),
+                      child: Center(
+                        child: Text(
+                          (userName != null && userName.trim().isNotEmpty)
+                              ? userName.trim()[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontUi,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -466,111 +452,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    shelf.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontPageTitle,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                  if (shelf.subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      shelf.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontSize: 12,
-                        color: tokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                ],
+        MetrolistNavigationTitle(
+          title: shelf.title,
+          label: shelf.subtitle,
+          padding: EdgeInsets.zero,
+          onPlayAllClick: () {
+            if (shelf.tracks.isNotEmpty) {
+              audioHandler.setQueue(shelf.tracks);
+            }
+          },
+          onClick: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TracksListScreen(
+                  title: shelf.title,
+                  subtitle: shelf.subtitle,
+                  icon: Icons.music_note_rounded,
+                  iconColor: tokens.accent,
+                  initialTracks: shelf.tracks,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                BouncingScaleButton(
-                  scaleFactor: 0.94,
-                  minTouchTarget: 0,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TracksListScreen(
-                          title: shelf.title,
-                          subtitle: shelf.subtitle,
-                          icon: Icons.music_note_rounded,
-                          iconColor: tokens.accent,
-                          initialTracks: shelf.tracks,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    'Show all',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontUi,
-                      color: tokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                BouncingScaleButton(
-                  scaleFactor: 0.94,
-                  onTap: () {
-                    if (shelf.tracks.isNotEmpty) {
-                      audioHandler.setQueue(shelf.tracks);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: tokens.accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(tokens.radiusFull),
-                    ),
-                    child: Text(
-                      'Play All',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        color: tokens.accent,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            );
+          },
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 215,
+          height: 195,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: shelf.tracks.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final track = shelf.tracks[index];
               return _buildRecentTrackCard(tokens, track, audioHandler);
@@ -587,14 +498,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       title: track.title,
       subtitle: track.artist,
       imageUrl: track.coverUrl,
-      width: 140,
+      width: MetrolistDimensions.gridThumbnailHeight,
       onTap: () => audioHandler.playTrack(track),
       onPlayTap: () => audioHandler.playTrack(track),
     );
   }
 
   Widget _buildFilterChips(AppTokens tokens) {
-    const filters = ['All', 'Energize', 'Workout', 'Relax', 'Focus', 'Commute', 'Podcasts'];
+    const filters = [
+      'All',
+      'Relax',
+      'Energize',
+      'Workout',
+      'Focus',
+      'Commute',
+      'Party',
+      'Romance',
+      'Podcasts',
+    ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
@@ -785,73 +706,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'START RADIO FROM A SONG',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontUi,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
-                      color: tokens.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Quick picks',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontPageTitle,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: () {
-                if (displayTracks.isNotEmpty) {
-                  audioHandler.setQueue(displayTracks);
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: tokens.accent.withValues(alpha: 0.5)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                minimumSize: const Size(0, 28),
-              ),
-              child: Text(
-                'Play all',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontUi,
-                  color: tokens.accent,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
+        MetrolistNavigationTitle(
+          label: 'START RADIO FROM A SONG',
+          title: 'Quick picks',
+          padding: EdgeInsets.zero,
+          onPlayAllClick: () {
+            if (displayTracks.isNotEmpty) {
+              audioHandler.setQueue(displayTracks);
+            }
+          },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         SizedBox(
-          height: 126,
+          height: 136,
           child: GridView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              mainAxisExtent: 260,
+              mainAxisExtent: 280,
               mainAxisSpacing: 8,
               crossAxisSpacing: 8,
             ),
@@ -875,46 +748,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => audioHandler.playTrack(track),
-        borderRadius: BorderRadius.circular(tokens.radiusMd),
+        borderRadius: BorderRadius.circular(tokens.radiusSm),
         child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: tokens.card,
-            borderRadius: BorderRadius.circular(tokens.radiusMd),
-            border: Border.all(
-              color: tokens.surfaceHighlight.withValues(alpha: 0.5),
-              width: 0.8,
-            ),
-          ),
+          height: MetrolistDimensions.listItemHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      AppNetworkImage(
-                        imageUrl: track.coverUrl,
-                        fit: BoxFit.cover,
-                      ),
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        child: Center(
-                          child: Icon(
-                            Icons.play_arrow_rounded,
-                            size: 18,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              AppNetworkImage(
+                imageUrl: track.coverUrl,
+                width: MetrolistDimensions.listThumbnailSize,
+                height: MetrolistDimensions.listThumbnailSize,
+                borderRadius: BorderRadius.circular(
+                  tokens.isGlass ? 8.0 : MetrolistDimensions.thumbnailCornerRadius,
                 ),
+                fit: BoxFit.cover,
+                fallbackIcon: Icons.music_note_rounded,
+                backgroundColor: tokens.card,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -926,7 +777,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: AppTheme.fontUi,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: tokens.textPrimary,
                       ),
@@ -938,7 +789,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: AppTheme.fontUi,
-                        fontSize: 11,
+                        fontSize: 12,
                         color: tokens.textSecondary,
                       ),
                     ),
@@ -948,11 +799,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               IconButton(
                 icon: Icon(
                   Icons.more_vert_rounded,
-                  size: 18,
+                  size: 20,
                   color: tokens.textSecondary,
                 ),
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 splashRadius: 18,
                 onPressed: () {
                   TrackOptionsBottomSheet.show(context, track: track);

@@ -9,6 +9,7 @@ import '../providers/search_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/artist_cd_artwork.dart';
 import '../widgets/bouncing_scale_button.dart';
+import '../widgets/metrolist_navigation_title.dart';
 import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
@@ -19,6 +20,8 @@ import 'artist_discography_screen.dart';
 enum SearchResultFilter {
   all('All'),
   tracks('Songs'),
+  artists('Artists'),
+  albums('Albums'),
   downloaded('Downloaded');
 
   final String label;
@@ -96,25 +99,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         .map((d) => d.trackId)
         .toSet();
 
+    final queryText = _searchController.text.trim();
     final filteredResults = results.where((track) {
       switch (_activeFilter) {
         case SearchResultFilter.all:
           return true;
         case SearchResultFilter.tracks:
           return true;
+        case SearchResultFilter.artists:
+          return track.artist.toLowerCase().contains(queryText.toLowerCase());
+        case SearchResultFilter.albums:
+          return track.album?.isNotEmpty == true;
         case SearchResultFilter.downloaded:
           return downloadedTrackIds.contains(track.id);
       }
     }).toList();
 
-    final queryText = _searchController.text.trim();
     final artistDiscoAsync = queryText.isNotEmpty
         ? ref.watch(artistDiscographySearchProvider(queryText))
         : const AsyncValue<ArtistDiscography?>.data(null);
     final artistDisco = artistDiscoAsync.valueOrNull;
     final hasArtistBanner = artistDisco != null && artistDisco.allTracks.isNotEmpty;
     final int bannerOffset = hasArtistBanner ? 1 : 0;
-    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
@@ -130,26 +136,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           size: 26,
         ),
       ),
-      appBar: AppBar(
-        backgroundColor:
-            tokens.isGlass ? Colors.transparent : tokens.background,
-        elevation: 0,
-        title: Text(
-          'Search',
-          style: TextStyle(
-            fontFamily: AppTheme.fontPageTitle,
-            fontSize: isDesktop ? 28 : 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            color: tokens.textPrimary,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Search Input Field
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      appBar: null,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Metrolist M3 Expressive Pill Search Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: tokens.isGlass
                 ? AppSurface(
                     withBlur: true,
@@ -257,12 +251,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         color: tokens.textSecondary,
                         size: 22,
                       ),
-                      suffixIconConstraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
-                      ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
                               icon: Icon(
                                 Icons.close_rounded,
                                 color: tokens.textSecondary,
@@ -274,22 +267,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ref.read(searchNotifierProvider.notifier).setQuery('');
                                 setState(() {});
                               },
-                            )
-                          : null,
+                            ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.graphic_eq_rounded,
+                              color: tokens.accent,
+                              size: 20,
+                            ),
+                            tooltip: 'Identify Music',
+                            splashRadius: 20,
+                            onPressed: () => AcousticRecognitionSheet.show(context),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                      ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 12,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusPill),
+                        borderRadius: BorderRadius.circular(28.0),
                         borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusPill),
+                        borderRadius: BorderRadius.circular(28.0),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(tokens.radiusPill),
+                        borderRadius: BorderRadius.circular(28.0),
                         borderSide: BorderSide(
                           color: tokens.accent,
                           width: 1.5,
@@ -528,17 +533,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       children: [
                                         _buildTopResultCard(tokens, track, audioHandler),
                                         if (effectiveList.length > 1) ...[
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 4, bottom: 8),
-                                            child: Text(
-                                              'Songs',
-                                              style: TextStyle(
-                                                fontFamily: AppTheme.fontPageTitle,
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w700,
-                                                color: tokens.textPrimary,
-                                              ),
-                                            ),
+                                          const MetrolistNavigationTitle(
+                                            title: 'Songs',
+                                            padding: EdgeInsets.only(top: 8, bottom: 4),
                                           ),
                                         ],
                                       ],
@@ -551,8 +548,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildFilterChips(AppTokens tokens) {
     return Padding(

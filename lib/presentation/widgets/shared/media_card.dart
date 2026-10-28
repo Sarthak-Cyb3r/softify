@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../theme/metrolist_dimensions.dart';
 import '../bouncing_scale_button.dart';
 import 'app_network_image.dart';
 import 'app_surface.dart';
@@ -24,7 +25,7 @@ class MediaCard extends StatefulWidget {
     this.onTap,
     this.onPlayTap,
     this.placeholderIcon = Icons.album_rounded,
-    this.width = 160.0,
+    this.width = MetrolistDimensions.gridThumbnailHeight,
     this.isPlaying = false,
   });
 
@@ -49,12 +50,12 @@ class _MediaCardState extends State<MediaCard> {
           aspectRatio: 1.0,
           child: Stack(
             children: [
-              // Image with rounded inner radius
+              // Image with rounded inner radius (Metrolist 3dp)
               Positioned.fill(
                 child: AppNetworkImage(
                   imageUrl: widget.imageUrl,
                   borderRadius: BorderRadius.circular(
-                    tokens.isGlass ? 14.0 : 6.0,
+                    tokens.isGlass ? 14.0 : MetrolistDimensions.thumbnailCornerRadius,
                   ),
                   fit: BoxFit.cover,
                   fallbackIcon: widget.placeholderIcon,
@@ -162,16 +163,10 @@ class _MediaCardState extends State<MediaCard> {
               : AnimatedContainer(
                   duration: const Duration(milliseconds: 140),
                   width: widget.width,
-                  padding: EdgeInsets.all(tokens.spaceSm + 2.0),
+                  padding: const EdgeInsets.all(6.0),
                   decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(tokens.radiusCard),
-                    border: Border.all(
-                      color: _isHovered
-                          ? const Color(0x33FFFFFF)
-                          : tokens.divider,
-                      width: 1.0,
-                    ),
+                    color: _isHovered ? cardBg : Colors.transparent,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
                   ),
                   child: cardContent,
                 ),
