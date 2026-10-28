@@ -11,7 +11,6 @@ import '../theme/app_theme.dart';
 import '../widgets/artist_chooser_bottom_sheet.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/lyrics_view.dart';
-import '../widgets/play_pause_morph_button.dart';
 import '../widgets/queue_bottom_sheet.dart';
 import '../widgets/shared/app_network_image.dart';
 import '../widgets/sleep_timer_bottom_sheet.dart';
@@ -20,7 +19,6 @@ import '../widgets/vinyl_turntable_view.dart';
 import '../widgets/wavy_slider.dart';
 import '../widgets/shared/app_surface.dart';
 import '../widgets/shared/aurora_background.dart';
-import 'equalizer_screen.dart';
 
 class FullScreenPlayerScreen extends ConsumerStatefulWidget {
   const FullScreenPlayerScreen({super.key});
@@ -91,8 +89,6 @@ class _FullScreenPlayerScreenState
     final isShuffle = ref.watch(shuffleModeStreamProvider).value ?? audioHandler.isShuffleEnabled;
 
     final isPlaying = (playbackState?.playing ?? false) || audioHandler.playbackState.value.playing;
-    final currentSpeed =
-        ref.watch(playbackSpeedStreamProvider).value ?? audioHandler.speed;
 
     final isBuffering = (playbackState?.processingState == AudioProcessingState.buffering) ||
         (playbackState?.processingState == AudioProcessingState.loading) ||
@@ -114,10 +110,6 @@ class _FullScreenPlayerScreenState
 
     final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(effectiveTrack.id));
     final isLiked = isLikedAsync?.value ?? effectiveTrack.isLiked;
-
-    final isDownloadedAsync =
-        isPlaceholder ? null : ref.watch(isTrackDownloadedProvider(effectiveTrack.id));
-    final isDownloaded = isDownloadedAsync?.value ?? false;
 
     final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
     final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);
@@ -449,114 +441,195 @@ class _FullScreenPlayerScreenState
                 ),
               ),
 
-              // 3. Track Metadata (Title, Artist, Like, Download)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            effectiveTrack.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.4,
-                              color: tokens.textPrimary,
-                            ),
+              // 3. Track Metadata (Metrolist: Compact on lyrics, Full on artwork)
+              if (_showLyrics)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: AppNetworkImage(
+                            imageUrl: effectiveTrack.coverUrl,
+                            fit: BoxFit.cover,
+                            placeholderIcon: Icons.music_note_rounded,
                           ),
-                          const SizedBox(height: 4),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: isPlaceholder
-                                ? null
-                                : () {
-                                    showArtistChooserOrDetail(
-                                      context,
-                                      rawArtist: effectiveTrack.artist,
-                                      coverUrl: effectiveTrack.coverUrl,
-                                    );
-                                  },
-                            child: Text(
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              effectiveTrack.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
                               effectiveTrack.artist,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
+                                fontSize: 13,
                                 color: tokens.textSecondary,
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                      BouncingScaleButton(
+                        scaleFactor: 0.9,
+                        onTap: () => setState(() => _showLyrics = false),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: tokens.card,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
-                      ),
-                    ),
-
-                    // Download Action
-                    BouncingScaleButton(
-                      scaleFactor: 0.88,
-                      onTap: (isDownloaded || isPlaceholder)
-                          ? null
-                          : () async {
-                              HapticFeedback.lightImpact();
-                              await ref
-                                  .read(downloadRepositoryProvider)
-                                  .queueDownload(effectiveTrack);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Downloading "${effectiveTrack.title}"...'),
-                                    duration: const Duration(seconds: 2),
-                                    backgroundColor: tokens.surfaceElevated,
-                                  ),
-                                );
-                              }
-                            },
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Icon(
-                          isDownloaded
-                              ? Icons.download_done_rounded
-                              : Icons.download_for_offline_outlined,
-                          color: isDownloaded
-                              ? tokens.accent
-                              : tokens.textSecondary.withValues(alpha: isPlaceholder ? 0.3 : 0.8),
-                          size: 26,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.fullscreen_rounded,
+                            size: 22,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-
-                    const SizedBox(width: 4),
-
-                    // Like Action
-                    BouncingScaleButton(
-                      scaleFactor: 0.88,
-                      onTap: isPlaceholder
-                          ? null
-                          : () {
-                              HapticFeedback.selectionClick();
-                              ref
-                                  .read(libraryRepositoryProvider)
-                                  .setLiked(effectiveTrack.id, !isLiked, track: effectiveTrack);
-                            },
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Icon(
-                          isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          color: isLiked
-                              ? tokens.accent
-                              : tokens.textSecondary.withValues(alpha: isPlaceholder ? 0.3 : 0.8),
-                          size: 28,
+                      const SizedBox(width: 8),
+                      BouncingScaleButton(
+                        scaleFactor: 0.9,
+                        onTap: () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: tokens.card,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.more_horiz_rounded,
+                            size: 20,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              effectiveTrack.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                                color: tokens.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: isPlaceholder
+                                  ? null
+                                  : () {
+                                      showArtistChooserOrDetail(
+                                        context,
+                                        rawArtist: effectiveTrack.artist,
+                                        coverUrl: effectiveTrack.coverUrl,
+                                      );
+                                    },
+                              child: Text(
+                                effectiveTrack.artist,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w400,
+                                  color: tokens.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Share Action in Metrolist Squircle
+                      BouncingScaleButton(
+                        scaleFactor: 0.88,
+                        onTap: isPlaceholder
+                            ? null
+                            : () {
+                                HapticFeedback.selectionClick();
+                                TrackOptionsBottomSheet.show(context, track: effectiveTrack);
+                              },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: tokens.card,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.share_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // Like Action in Metrolist Squircle
+                      BouncingScaleButton(
+                        scaleFactor: 0.88,
+                        onTap: isPlaceholder
+                            ? null
+                            : () {
+                                HapticFeedback.selectionClick();
+                                ref
+                                    .read(libraryRepositoryProvider)
+                                    .setLiked(effectiveTrack.id, !isLiked, track: effectiveTrack);
+                              },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: tokens.card,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: isLiked ? tokens.accent : Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
               // 4. Scrubber Slider & Timestamps (Isolated RepaintBoundary)
               RepaintBoundary(
@@ -566,213 +639,113 @@ class _FullScreenPlayerScreenState
                 ),
               ),
 
-              // 5. Playback Controls (Shuffle, Prev, Morph Play/Pause, Next, Repeat)
+              // 5. Metrolist M3 Expressive Playback Controls (Prev 68dp, Wide Capsule Play/Pause 68dp, Next 68dp)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Shuffle Button with signature emerald active dot
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        audioHandler.setShuffleEnabled(!isShuffle);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.shuffle_rounded,
-                              color: isShuffle
-                                  ? tokens.accent
-                                  : const Color(0xFFB3B3B3),
-                              size: 24,
-                            ),
-                            const SizedBox(height: 3),
-                            Container(
-                              width: 4,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: isShuffle ? tokens.accent : Colors.transparent,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Skip Previous Button with frosted glass touch target
+                    // Skip Previous Button (68x68 Circle)
                     BouncingScaleButton(
                       scaleFactor: 0.92,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         audioHandler.skipToPrevious();
                       },
-                      child: tokens.isGlass
-                          ? AppSurface(
-                              withBlur: true,
-                              width: 48,
-                              height: 48,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: tokens.glassBorder, width: 1.0),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.skip_previous_rounded,
-                                  color: Colors.white,
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: tokens.surfaceElevated,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.skip_previous_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    // Wide Capsule Play/Pause Pill (White Container, Black Icon + Text)
+                    Expanded(
+                      child: BouncingScaleButton(
+                        scaleFactor: 0.95,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          if (isPlaying) {
+                            audioHandler.pause();
+                          } else if (activePlayingTrack != null) {
+                            audioHandler.play();
+                          } else if (resolvedTrack != null && !isPlaceholder) {
+                            audioHandler.playTrack(resolvedTrack);
+                          } else {
+                            audioHandler.play();
+                          }
+                        },
+                        child: Container(
+                          height: 68,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(34),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isBuffering)
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.8,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  color: Colors.black,
                                   size: 32,
                                 ),
+                              const SizedBox(width: 8),
+                              Text(
+                                isPlaying ? 'Pause' : 'Play',
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontUi,
+                                  color: Colors.black,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            )
-                          : Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.06),
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.skip_previous_rounded,
-                                color: Colors.white,
-                                size: 34,
-                              ),
-                            ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
 
-                    // Center Play/Pause Morphing Button (Glow + Smooth Loading Spinner when Buffering)
-                    PlayPauseMorphButton(
-                      isPlaying: isPlaying,
-                      isLoading: isBuffering,
-                      size: 68,
-                      iconSize: 36,
-                      backgroundColor: tokens.isGlass ? tokens.accentViolet : Colors.white,
-                      iconColor: tokens.isGlass ? Colors.white : Colors.black,
-                      showGlow: true,
-                      onTap: () {
-                        if (isPlaying) {
-                          audioHandler.pause();
-                        } else if (activePlayingTrack != null) {
-                          audioHandler.play();
-                        } else if (resolvedTrack != null && !isPlaceholder) {
-                          audioHandler.playTrack(resolvedTrack);
-                        } else {
-                          audioHandler.play();
-                        }
-                      },
-                    ),
+                    const SizedBox(width: 12),
 
-                    // Skip Next Button with frosted glass touch target
+                    // Skip Next Button (68x68 Circle)
                     BouncingScaleButton(
                       scaleFactor: 0.92,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         audioHandler.skipToNext();
                       },
-                      child: tokens.isGlass
-                          ? AppSurface(
-                              withBlur: true,
-                              width: 48,
-                              height: 48,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: tokens.glassBorder, width: 1.0),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.skip_next_rounded,
-                                  color: Colors.white,
-                                  size: 32,
-                                ),
-                              ),
-                            )
-                          : Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.06),
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.skip_next_rounded,
-                                color: Colors.white,
-                                size: 34,
-                              ),
-                            ),
-                    ),
-
-                    // Repeat Button with signature emerald active dot
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        final next = repeatMode.next();
-                        audioHandler.setAudioRepeatMode(next);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    next == AudioRepeatMode.one
-                                        ? Icons.repeat_one_rounded
-                                        : Icons.repeat_rounded,
-                                    color: next != AudioRepeatMode.off
-                                        ? tokens.accent
-                                        : Colors.white70,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    next.label,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              duration: const Duration(milliseconds: 1400),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: const Color(0xFF1F1F23),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(tokens.radiusFull),
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              repeatMode == AudioRepeatMode.one
-                                  ? Icons.repeat_one_rounded
-                                  : Icons.repeat_rounded,
-                              color: repeatMode != AudioRepeatMode.off
-                                  ? tokens.accent
-                                  : const Color(0xFFB3B3B3),
-                              size: 24,
-                            ),
-                            const SizedBox(height: 3),
-                            Container(
-                              width: 4,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: repeatMode != AudioRepeatMode.off
-                                    ? tokens.accent
-                                    : Colors.transparent,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: tokens.surfaceElevated,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.skip_next_rounded,
+                          color: Colors.white,
+                          size: 32,
                         ),
                       ),
                     ),
@@ -780,199 +753,93 @@ class _FullScreenPlayerScreenState
                 ),
               ),
 
-              // 6. Bottom Bar: Devices, Synced Lyrics Toggle, Playback Speed, & Queue
+              // 6. Metrolist Bottom Action Toolbar (Queue, Bedtime, Shuffle, Eq/Lyrics, Repeat | More Menu)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Equalizer & DSP (Metrolist bottom-left)
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const EqualizerScreen(),
-                          ),
-                        );
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.devices_rounded,
-                          color: Color(0xFFB3B3B3),
-                          size: 22,
-                        ),
+                    _buildToolbarSquareButton(
+                      icon: Icons.queue_music_rounded,
+                      isActive: false,
+                      tokens: tokens,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(21),
+                        bottomLeft: Radius.circular(21),
+                        topRight: Radius.circular(3),
+                        bottomRight: Radius.circular(3),
                       ),
+                      onTap: () => _openQueueSheet(context),
+                    ),
+                    const SizedBox(width: 5),
+                    _buildToolbarSquareButton(
+                      icon: Icons.bedtime_outlined,
+                      isActive: isSleepActive,
+                      tokens: tokens,
+                      borderRadius: BorderRadius.circular(3),
+                      onTap: () => SleepTimerBottomSheet.show(context),
+                    ),
+                    const SizedBox(width: 5),
+                    _buildToolbarSquareButton(
+                      icon: Icons.shuffle_rounded,
+                      isActive: isShuffle,
+                      tokens: tokens,
+                      borderRadius: BorderRadius.circular(3),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        audioHandler.setShuffleEnabled(!isShuffle);
+                      },
+                    ),
+                    const SizedBox(width: 5),
+                    _buildToolbarSquareButton(
+                      icon: Icons.tune_rounded,
+                      isActive: _showLyrics,
+                      tokens: tokens,
+                      borderRadius: BorderRadius.circular(3),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _showLyrics = !_showLyrics);
+                      },
+                    ),
+                    const SizedBox(width: 5),
+                    _buildToolbarSquareButton(
+                      icon: repeatMode == AudioRepeatMode.one
+                          ? Icons.repeat_one_rounded
+                          : Icons.repeat_rounded,
+                      isActive: repeatMode != AudioRepeatMode.off,
+                      tokens: tokens,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(3),
+                        bottomLeft: Radius.circular(3),
+                        topRight: Radius.circular(21),
+                        bottomRight: Radius.circular(21),
+                      ),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        audioHandler.setAudioRepeatMode(repeatMode.next());
+                      },
                     ),
 
-                    // Metrolist Vinyl Turntable Mode Toggle
+                    const Spacer(),
+
+                    // White Circle More Menu Button (42x42dp circle, solid white with black more_vert icon)
                     BouncingScaleButton(
                       scaleFactor: 0.9,
                       onTap: () {
                         HapticFeedback.selectionClick();
-                        setState(() {
-                          _showTurntable = !_showTurntable;
-                          if (_showTurntable) _showLyrics = false;
-                        });
+                        TrackOptionsBottomSheet.show(context, track: effectiveTrack);
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.album_rounded,
-                          color: _showTurntable ? tokens.accent : const Color(0xFFB3B3B3),
-                          size: 24,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    ),
-
-                    // Lyrics Toggle Pill
-                    BouncingScaleButton(
-                      scaleFactor: 0.95,
-                      onTap: () {
-                        setState(() {
-                          _showLyrics = !_showLyrics;
-                          if (_showLyrics) _showTurntable = false;
-                        });
-                      },
-                      child: tokens.isGlass
-                          ? AppSurface(
-                              withBlur: true,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              borderRadius: BorderRadius.circular(tokens.radiusFull),
-                              color: _showLyrics
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.08),
-                              border: Border.all(
-                                color: _showLyrics
-                                    ? Colors.white
-                                    : tokens.glassBorder,
-                                width: 1.0,
-                              ),
-                              boxShadow: _showLyrics
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.25),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ]
-                                  : null,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.lyrics_rounded,
-                                    size: 18,
-                                    color: _showLyrics ? Colors.black : Colors.white,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Lyrics',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _showLyrics ? Colors.black : Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _showLyrics
-                                    ? tokens.accent.withValues(alpha: 0.2)
-                                    : Colors.white.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(tokens.radiusFull),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.lyrics_rounded,
-                                    size: 18,
-                                    color: _showLyrics ? tokens.accent : Colors.white,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Lyrics',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _showLyrics ? tokens.accent : Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-
-                    // Playback Speed Button (YouTube & Podcasts only)
-                    if (!isPlaceholder && effectiveTrack.supportsSpeedPlayback)
-                      BouncingScaleButton(
-                        scaleFactor: 0.9,
-                        onTap: _cycleSpeed,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: (currentSpeed > 1.05)
-                                ? tokens.accent.withValues(alpha: 0.2)
-                                : Colors.white.withValues(alpha: 0.08),
-                            borderRadius:
-                                BorderRadius.circular(tokens.radiusFull),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.speed_rounded,
-                                size: 16,
-                                color: (currentSpeed > 1.05)
-                                    ? tokens.accent
-                                    : Colors.white,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                currentSpeed == 1.0
-                                    ? '1x'
-                                    : (currentSpeed == 2.0
-                                        ? '2x'
-                                        : (currentSpeed == 3.0
-                                            ? '3x'
-                                            : '${currentSpeed}x')),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: (currentSpeed > 1.05)
-                                      ? tokens.accent
-                                      : Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                    // Queue Action (Metrolist bottom-right)
-                    BouncingScaleButton(
-                      scaleFactor: 0.9,
-                      onTap: () => _openQueueSheet(context),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.queue_music_rounded,
-                          color: Color(0xFFB3B3B3),
-                          size: 24,
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.more_vert_rounded,
+                          color: Colors.black,
+                          size: 22,
                         ),
                       ),
                     ),
@@ -992,19 +859,37 @@ class _FullScreenPlayerScreenState
     return playerScaffold;
   }
 
-  void _cycleSpeed() {
-    HapticFeedback.selectionClick();
-    const speeds = [1.0, 1.5, 2.0, 2.5, 3.0];
-    final current = ref.read(playbackSpeedStreamProvider).value ??
-        ref.read(audioHandlerProvider).speed;
-    int nextIdx = 0;
-    for (int i = 0; i < speeds.length; i++) {
-      if ((current - speeds[i]).abs() < 0.05) {
-        nextIdx = (i + 1) % speeds.length;
-        break;
-      }
-    }
-    ref.read(audioHandlerProvider).setSpeed(speeds[nextIdx]);
+  Widget _buildToolbarSquareButton({
+    required IconData icon,
+    required bool isActive,
+    required AppTokens tokens,
+    required VoidCallback onTap,
+    BorderRadius? borderRadius,
+  }) {
+    final shape = borderRadius ?? BorderRadius.circular(3);
+    return BouncingScaleButton(
+      scaleFactor: 0.92,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.08),
+          borderRadius: shape,
+          border: Border.all(
+            color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.22),
+            width: 1.0,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 22,
+          color: isActive ? Colors.black : Colors.white.withValues(alpha: 0.85),
+        ),
+      ),
+    );
   }
 
   void _openQueueSheet(BuildContext context) {
@@ -1066,7 +951,7 @@ class _FullScreenPlayerScrubberState
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          // Metrolist Animated Wavy / Squiggly Waveform Seekbar with Softify studio glow
+          // Metrolist M3 Clean Slider Track matching 1000096510.png
           WavySlider(
             value: isPlaceholder ? 0.0 : currentSeconds.clamp(0.0, maxSeconds),
             max: maxSeconds,
@@ -1075,8 +960,9 @@ class _FullScreenPlayerScrubberState
             activeColor: Colors.white,
             inactiveColor: const Color(0x33FFFFFF),
             thumbColor: Colors.white,
-            trackHeight: 3.5,
-            thumbRadius: isPlaceholder ? 0 : 5.0,
+            waveAmplitude: 0.0,
+            trackHeight: 4.5,
+            thumbRadius: isPlaceholder ? 0 : 6.0,
             onChangeStart: isPlaceholder
                 ? null
                 : (_) {

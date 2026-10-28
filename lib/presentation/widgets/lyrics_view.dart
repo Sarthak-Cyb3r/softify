@@ -1110,11 +1110,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         ? 1.0
         : (0.40 - (distanceFromActive * 0.04)).clamp(0.20, 0.40);
 
-    final Duration? nextLineTime =
-        (index < lines.length - 1) ? lines[index + 1].timestamp : null;
-    final List<LyricWord> effectiveWords =
-        _getEffectiveWords(line, nextLineTime);
-
     final lineWidget = Container(
       key: _getKeyForIndex(index),
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -1179,10 +1174,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               alignment: alignment,
               child: isMusicSymbol
                   ? _buildInstrumentalIndicator(isActive, accentColor)
-                  : (effectiveWords.isNotEmpty
+                  : ((line.words != null && line.words!.isNotEmpty)
                       ? _buildSyllableKaraokeLine(
                           line: line,
-                          words: effectiveWords,
+                          words: line.words!,
                           isActive: isActive,
                           lineOpacity: lineOpacity,
                           tokens: tokens,
@@ -1194,24 +1189,24 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       : AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 180),
                           curve: Curves.easeOutCubic,
-                          textAlign: textAlign,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: AppTheme.fontEditorial,
-                            fontStyle: FontStyle.italic,
+                            fontFamily: AppTheme.fontUi,
+                            fontStyle: FontStyle.normal,
                             fontSize: isActive
-                                ? _lyricFontSize.activeSize
+                                ? (_lyricFontSize.activeSize * 1.15)
                                 : _lyricFontSize.inactiveSize,
                             fontWeight:
-                                isActive ? FontWeight.w700 : FontWeight.w400,
+                                isActive ? FontWeight.w800 : FontWeight.w500,
                             color: isActive
-                                ? Colors.white
+                                ? accentColor
                                 : (isDuetV2
-                                    ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity)
-                                    : tokens.textPrimary.withValues(alpha: lineOpacity)),
+                                    ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity.clamp(0.2, 0.45))
+                                    : tokens.textSecondary.withValues(alpha: lineOpacity.clamp(0.2, 0.45))),
                             height: 1.45,
-                            letterSpacing: isActive ? -0.3 : 0.0,
+                            letterSpacing: -0.4,
                           ),
-                          child: Text(displayText, textAlign: textAlign),
+                          child: Text(displayText, textAlign: TextAlign.center),
                         )),
             ),
           ),
@@ -1237,40 +1232,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     return lineWidget;
   }
 
-  List<LyricWord> _getEffectiveWords(LyricLine line, Duration? nextLineTime) {
-    if (line.words != null && line.words!.isNotEmpty) {
-      return line.words!;
-    }
-    final rawTokens = line.text
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
-    if (rawTokens.isEmpty) return const [];
-
-    final totalChars = rawTokens.fold<int>(0, (sum, t) => sum + t.length);
-    final totalDuration = (nextLineTime != null && nextLineTime > line.timestamp)
-        ? nextLineTime - line.timestamp
-        : const Duration(seconds: 4);
-    final totalMs = totalDuration.inMilliseconds.clamp(1000, 9000);
-
-    var currentMs = line.timestamp.inMilliseconds;
-    final synth = <LyricWord>[];
-    for (int i = 0; i < rawTokens.length; i++) {
-      final token = rawTokens[i];
-      final frac =
-          totalChars > 0 ? (token.length / totalChars) : (1.0 / rawTokens.length);
-      final wordMs = (totalMs * frac).round().clamp(120, 2500);
-      synth.add(LyricWord(
-        timestamp: Duration(milliseconds: currentMs),
-        text: token,
-        duration: Duration(milliseconds: wordMs),
-      ));
-      currentMs += wordMs;
-    }
-    return synth;
-  }
-
   Widget _buildSyllableKaraokeLine({
     required LyricLine line,
     required List<LyricWord> words,
@@ -1288,16 +1249,17 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     if (!isActive) {
       return Text(
         displayText,
-        textAlign: textAlign,
+        textAlign: TextAlign.center,
         style: TextStyle(
-          fontFamily: AppTheme.fontEditorial,
-          fontStyle: FontStyle.italic,
+          fontFamily: AppTheme.fontUi,
+          fontStyle: FontStyle.normal,
           fontSize: _lyricFontSize.inactiveSize,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w500,
           color: isDuetV2
-              ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity)
-              : tokens.textPrimary.withValues(alpha: lineOpacity),
+              ? const Color(0xFF93C5FD).withValues(alpha: lineOpacity.clamp(0.2, 0.45))
+              : tokens.textSecondary.withValues(alpha: lineOpacity.clamp(0.2, 0.45)),
           height: 1.45,
+          letterSpacing: -0.3,
         ),
       );
     }
@@ -1309,7 +1271,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             SpotifyLyricsSynchronizer.findActiveWordIndex(words, pos);
 
         return RichText(
-          textAlign: textAlign,
+          textAlign: TextAlign.center,
           text: TextSpan(
             children: [
               for (int w = 0; w < words.length; w++) ...[
@@ -1321,26 +1283,36 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                   final isWordSung = w <= activeWordIdx;
                   final isCurrentWord = w == activeWordIdx;
 
+                  // Metrolist Word Wobble spring calculation
+                  double wobbleScale = 1.0;
+                  if (isCurrentWord) {
+                    final timeSinceStart = (pos.inMilliseconds - word.timestamp.inMilliseconds).clamp(0, 750);
+                    if (timeSinceStart < 125) {
+                      wobbleScale = 1.0 + (timeSinceStart / 125.0) * 0.04;
+                    } else {
+                      wobbleScale = 1.0 + (1.0 - (timeSinceStart - 125) / 625.0).clamp(0.0, 1.0) * 0.04;
+                    }
+                  }
+
                   return TextSpan(
                     text: (w < words.length - 1 && !wordText.endsWith(' '))
                         ? '$wordText '
                         : wordText,
                     style: TextStyle(
-                      fontFamily: AppTheme.fontEditorial,
-                      fontStyle: FontStyle.italic,
-                      fontSize: _lyricFontSize.activeSize,
-                      fontWeight:
-                          isWordSung ? FontWeight.w800 : FontWeight.w400,
+                      fontFamily: AppTheme.fontUi,
+                      fontStyle: FontStyle.normal,
+                      fontSize: (_lyricFontSize.activeSize * 1.15) * wobbleScale,
+                      fontWeight: FontWeight.w800,
                       color: isWordSung
-                          ? Colors.white
+                          ? accentColor
                           : (isDuetV2
-                              ? const Color(0xFF93C5FD).withValues(alpha: 0.40)
-                              : tokens.textPrimary.withValues(alpha: 0.35)),
+                              ? const Color(0xFF93C5FD).withValues(alpha: 0.35)
+                              : tokens.textSecondary.withValues(alpha: 0.30)),
                       shadows: isCurrentWord
                           ? [
                               Shadow(
-                                color: Colors.white.withValues(alpha: 0.75),
-                                blurRadius: 10,
+                                color: accentColor.withValues(alpha: 0.65),
+                                blurRadius: 14,
                               ),
                             ]
                           : null,

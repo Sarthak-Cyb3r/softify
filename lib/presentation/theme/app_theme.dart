@@ -62,6 +62,137 @@ class AppTheme {
   static ThemeData get linuxDarkTheme => unifiedDarkTheme;
   static ThemeData get mobileDarkTheme => unifiedDarkTheme;
 
+  /// Builds dynamic Metrolist ThemeData matching Material You Monet TonalSpot.
+  static ThemeData buildMetrolistTheme({
+    Color? seedColor,
+    bool pureBlack = false,
+  }) {
+    final effectiveSeed = seedColor ?? accent;
+    final scheme = ColorScheme.fromSeed(
+      seedColor: effectiveSeed,
+      brightness: Brightness.dark,
+      dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+    );
+
+    final finalScheme = pureBlack
+        ? scheme.copyWith(
+            surface: Colors.black,
+          )
+        : scheme;
+
+    final dynamicTokens = AppTokens.fromColorScheme(finalScheme, pureBlack: pureBlack);
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: pureBlack ? Colors.black : finalScheme.surface,
+      fontFamily: fontUi,
+      extensions: [dynamicTokens],
+      colorScheme: finalScheme,
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontFamily: fontPageTitle,
+          color: finalScheme.onSurface,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.4,
+        ),
+        iconTheme: IconThemeData(color: finalScheme.onSurface, size: 22),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: pureBlack ? Colors.black : finalScheme.surface,
+        indicatorColor: finalScheme.primaryContainer,
+        elevation: 0,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(color: finalScheme.onPrimaryContainer, size: 24);
+          }
+          return IconThemeData(color: finalScheme.onSurfaceVariant, size: 24);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: finalScheme.onSurface,
+            );
+          }
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: finalScheme.onSurfaceVariant,
+          );
+        }),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: pureBlack ? Colors.black : finalScheme.surface,
+        selectedItemColor: finalScheme.primary,
+        unselectedItemColor: finalScheme.onSurfaceVariant,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+        selectedLabelStyle: const TextStyle(
+          fontFamily: fontUi,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontFamily: fontUi,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: finalScheme.primary,
+        inactiveTrackColor: finalScheme.surfaceContainerHighest,
+        thumbColor: finalScheme.primary,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+        trackHeight: 6.0,
+      ),
+      cardTheme: CardThemeData(
+        color: finalScheme.surfaceContainer,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: finalScheme.surfaceContainerHigh,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28.0),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: finalScheme.surfaceContainerHigh,
+        modalBackgroundColor: finalScheme.surfaceContainerHigh,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return finalScheme.onPrimary;
+          }
+          return finalScheme.outline;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return finalScheme.primary;
+          }
+          return finalScheme.surfaceContainerHighest;
+        }),
+      ),
+    );
+  }
+
   static ThemeData get unifiedDarkTheme {
     const tokens = AppTokens.standardTokens;
 

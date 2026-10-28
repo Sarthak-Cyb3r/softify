@@ -197,7 +197,7 @@ void main() {
       await tester.pump();
 
       // Controls must be visible and NOT collapsed into an empty text screen
-      expect(find.byType(PlayPauseMorphButton), findsOneWidget);
+      expect(find.text('Play'), findsOneWidget);
       expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
       expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
       expect(find.byIcon(Icons.shuffle_rounded), findsOneWidget);

@@ -162,6 +162,46 @@ class AppTokens extends ThemeExtension<AppTokens> {
   static const AppTokens linuxTokens = standardTokens;
   static const AppTokens mobileStitchTokens = standardTokens;
 
+  /// Generates dynamic tokens from a Material 3 [ColorScheme] (artwork-derived Monet palette).
+  factory AppTokens.fromColorScheme(
+    ColorScheme scheme, {
+    UiStyle style = UiStyle.classic,
+    bool pureBlack = false,
+  }) {
+    final bg = pureBlack ? Colors.black : scheme.surface;
+    final surf = pureBlack ? Colors.black : scheme.surface;
+    return AppTokens(
+      style: style,
+      isGlass: false,
+      background: bg,
+      sidebar: bg,
+      surface: surf,
+      surfaceElevated: scheme.surfaceContainerHigh,
+      surfaceHighlight: scheme.surfaceContainerHighest,
+      card: scheme.surfaceContainer,
+      cardHover: scheme.surfaceContainerHigh,
+      glass: scheme.surfaceContainer.withValues(alpha: 0.85),
+      glassSurface: scheme.surfaceContainer.withValues(alpha: 0.5),
+      glassBorder: scheme.outlineVariant.withValues(alpha: 0.25),
+      accent: scheme.primary,
+      accentRose: scheme.primary,
+      accentCyan: scheme.tertiary,
+      accentViolet: scheme.secondary,
+      textPrimary: scheme.onSurface,
+      textSecondary: scheme.onSurfaceVariant,
+      textMuted: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+      divider: scheme.outlineVariant.withValues(alpha: 0.2),
+      error: scheme.error,
+      radiusSm: 8.0,
+      radiusCard: 12.0,
+      radiusMd: 16.0,
+      radiusLg: 20.0,
+      radiusXl: 28.0,
+      radiusFull: 999.0,
+      radiusPill: 999.0,
+    );
+  }
+
   @override
   AppTokens copyWith({
     UiStyle? style,

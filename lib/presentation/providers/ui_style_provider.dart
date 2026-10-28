@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../data/database/app_database.dart';
+import '../../domain/entities/track.dart';
 import '../theme/app_theme.dart';
 import 'player_providers.dart';
 
@@ -144,10 +145,78 @@ final shouldReduceEffectsProvider = Provider<bool>((ref) {
   }
 });
 
-/// Provides the active ThemeData corresponding to the active [UiStyle].
+/// Global LRU-bounded cache of extracted artwork seed colors for dynamic theming.
+final Map<String, Color> _artworkSeedCache = {};
+
+/// Dynamic theme seed color notifier driven by currently playing song artwork.
+class DynamicThemeNotifier extends StateNotifier<Color> {
+  final Ref ref;
+  String? _lastCoverUrl;
+
+  DynamicThemeNotifier(this.ref) : super(const Color(0xFFED5564)) {
+    ref.listen<AsyncValue<Track?>>(currentTrackProvider, (prev, next) {
+      final isDynamicEnabled = ref.read(dynamicArtworkThemingEnabledProvider);
+      if (!isDynamicEnabled) return;
+      final track = next.value;
+      if (track != null && track.coverUrl != null && track.coverUrl!.isNotEmpty) {
+        extractFromArtwork(track.coverUrl!);
+      }
+    });
+  }
+
+  Future<void> extractFromArtwork(String coverUrl) async {
+    if (coverUrl == _lastCoverUrl) return;
+    _lastCoverUrl = coverUrl;
+
+    if (_artworkSeedCache.containsKey(coverUrl)) {
+      state = _artworkSeedCache[coverUrl]!;
+      return;
+    }
+
+    try {
+      final generator = await PaletteGenerator.fromImageProvider(
+        NetworkImage(coverUrl),
+        size: const Size(64, 64),
+        maximumColorCount: 8,
+      );
+
+      final color = generator.vibrantColor?.color ??
+          generator.dominantColor?.color ??
+          generator.lightVibrantColor?.color ??
+          generator.mutedColor?.color ??
+          const Color(0xFFED5564);
+
+      if (_artworkSeedCache.length >= 100) {
+        _artworkSeedCache.remove(_artworkSeedCache.keys.first);
+      }
+      _artworkSeedCache[coverUrl] = color;
+      state = color;
+    } catch (_) {
+      // Keep previous seed on network or image decoding failure
+    }
+  }
+
+  void setManualSeed(Color color) {
+    state = color;
+  }
+}
+
+final dynamicThemeColorProvider =
+    StateNotifierProvider<DynamicThemeNotifier, Color>((ref) {
+  return DynamicThemeNotifier(ref);
+});
+
+final pureBlackThemeEnabledProvider = StateProvider<bool>((ref) => false);
+final dynamicArtworkThemingEnabledProvider = StateProvider<bool>((ref) => true);
+
+/// Provides the active ThemeData corresponding to the active [UiStyle] and dynamic seed.
 final uiThemeDataProvider = Provider<ThemeData>((ref) {
-  final style = ref.watch(uiStyleProvider);
-  return AppTheme.themeFor(style);
+  final dynamicSeed = ref.watch(dynamicThemeColorProvider);
+  final pureBlack = ref.watch(pureBlackThemeEnabledProvider);
+  return AppTheme.buildMetrolistTheme(
+    seedColor: dynamicSeed,
+    pureBlack: pureBlack,
+  );
 });
 
 /// Global LRU-bounded cache of extracted artwork colors for Aurora background gradients.
