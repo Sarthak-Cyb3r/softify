@@ -403,6 +403,75 @@ void main() {
       expect(find.byType(ShaderMask), findsOneWidget);
     });
 
+    testWidgets('word-to-word synchronization progressively illuminates active word', (tester) async {
+      const wordTrack = Track(
+        id: 'track_word_sync',
+        sourceId: 'src_word_sync',
+        title: 'Word Sync',
+        artist: 'Tester',
+        duration: Duration(seconds: 20),
+      );
+
+      final positionController = StreamController<Duration>.broadcast();
+      addTearDown(positionController.close);
+
+      final wordLyrics = SyncedLyrics(
+        trackId: wordTrack.id,
+        lines: const [
+          LyricLine(
+            timestamp: Duration(seconds: 1),
+            text: 'One Two Three Four',
+            words: [
+              LyricWord(timestamp: Duration(milliseconds: 1000), text: 'One', duration: Duration(milliseconds: 1000)),
+              LyricWord(timestamp: Duration(milliseconds: 2000), text: 'Two', duration: Duration(milliseconds: 1000)),
+              LyricWord(timestamp: Duration(milliseconds: 3000), text: 'Three', duration: Duration(milliseconds: 1000)),
+              LyricWord(timestamp: Duration(milliseconds: 4000), text: 'Four', duration: Duration(milliseconds: 1000)),
+            ],
+          ),
+          LyricLine(
+            timestamp: Duration(seconds: 6),
+            text: 'Next line',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            trackLyricsProvider(wordTrack).overrideWith((ref) => wordLyrics),
+            playbackStateStreamProvider.overrideWith((ref) => Stream.value(PlaybackState(playing: true))),
+            positionStreamProvider.overrideWith((ref) => positionController.stream),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                height: 600,
+                child: LyricsView(
+                  track: wordTrack,
+                  ambientColor: Color(0xFF1DB954),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // At 1.5s, word "One" is actively being sung (50% progress) -> exactly 1 ShaderMask on "One"
+      positionController.add(const Duration(milliseconds: 1500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(ShaderMask), findsOneWidget);
+
+      // At 2.5s, word "One" is 100% complete (plain Text), word "Two" is actively being sung -> exactly 1 ShaderMask on "Two"
+      positionController.add(const Duration(milliseconds: 2500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(ShaderMask), findsOneWidget);
+    });
+
     test('CuratedLyricsProvider returns verified lyrics for Maine Khud Ko', () async {
       const maineTrack = Track(
         id: 'spotify_05REArTDZQd59A9Y4XC0Aq',

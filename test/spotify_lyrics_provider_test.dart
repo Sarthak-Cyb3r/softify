@@ -191,6 +191,27 @@ void main() {
       expect(progress, closeTo(0.5, 0.01));
     });
 
+    test('synthesizeWordTimings generates phonetic and vowel weighted word timings', () {
+      final words = SpotifyLyricsSynchronizer.synthesizeWordTimings(
+        text: 'I wanna dance with somebody',
+        lineStart: const Duration(seconds: 10),
+        lineDuration: const Duration(seconds: 4),
+      );
+
+      expect(words.length, equals(5));
+      expect(words[0].text, equals('I'));
+      expect(words[1].text, equals('wanna'));
+      expect(words[2].text, equals('dance'));
+      expect(words[3].text, equals('with'));
+      expect(words[4].text, equals('somebody'));
+
+      expect(words[0].timestamp, equals(const Duration(seconds: 10)));
+      for (int i = 1; i < words.length; i++) {
+        expect(words[i].timestamp, greaterThan(words[i - 1].timestamp));
+        expect(words[i].duration, isNotNull);
+      }
+    });
+
     test('safe auto-scroll deadzone prevents jitter (Module 52427)', () {
       // In center of safe zone
       final inZone = SpotifyLyricsSynchronizer.isInAutoScrollZone(
@@ -261,9 +282,13 @@ void main() {
       );
 
       final composite = CompositeLyricsProvider(
+        curated: _MockLyricsProvider(null),
         spotify: _MockLyricsProvider(spotifyLyrics),
         primary: _MockLyricsProvider(lrclibLyrics),
         secondary: _MockLyricsProvider(null),
+        saavn: _MockLyricsProvider(null),
+        netease: _MockLyricsProvider(null),
+        fallback: _MockLyricsProvider(null),
       );
 
       final result = await composite.getLyrics(dummyTrack);
@@ -282,9 +307,13 @@ void main() {
       );
 
       final composite = CompositeLyricsProvider(
+        curated: _MockLyricsProvider(null),
         spotify: _MockLyricsProvider(null),
         primary: _MockLyricsProvider(lrclibLyrics),
         secondary: _MockLyricsProvider(null),
+        saavn: _MockLyricsProvider(null),
+        netease: _MockLyricsProvider(null),
+        fallback: _MockLyricsProvider(null),
       );
 
       final result = await composite.getLyrics(dummyTrack);
@@ -302,9 +331,13 @@ void main() {
       );
 
       final composite = CompositeLyricsProvider(
+        curated: _MockLyricsProvider(null),
         spotify: _MockLyricsProvider(null),
         primary: _MockLyricsProvider(null),
         secondary: _MockLyricsProvider(kugouLyrics),
+        saavn: _MockLyricsProvider(null),
+        netease: _MockLyricsProvider(null),
+        fallback: _MockLyricsProvider(null),
       );
 
       final result = await composite.getLyrics(dummyTrack);
@@ -322,9 +355,13 @@ void main() {
       );
 
       final composite = CompositeLyricsProvider(
+        curated: _MockLyricsProvider(null),
         spotify: _MockLyricsProvider(null),
         primary: _MockLyricsProvider(null),
         secondary: _MockLyricsProvider(null),
+        saavn: _MockLyricsProvider(null),
+        netease: _MockLyricsProvider(null),
+        fallback: _MockLyricsProvider(null),
       );
 
       final result = await composite.getLyrics(instrumentalTrack);

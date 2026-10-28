@@ -2,6 +2,7 @@ import 'dart:io';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import '../../services/lyrics/paxsenix_lyrics_provider.dart';
 import 'curated_lyrics_provider.dart';
 import 'genius_lyrics_provider.dart';
 import 'kugou_lyrics_provider.dart';
@@ -17,6 +18,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   final ILyricsProvider _curated;
   final ILyricsProvider? _spotify;
   final ILyricsProvider? _betterLyrics;
+  final ILyricsProvider? _paxsenix;
   final ILyricsProvider _lrclib;
   final ILyricsProvider _netease;
   final ILyricsProvider _kugou;
@@ -30,6 +32,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     ILyricsProvider? curated,
     ILyricsProvider? spotify,
     ILyricsProvider? betterLyrics,
+    ILyricsProvider? paxsenix,
     ILyricsProvider? primary,
     ILyricsProvider? netease,
     ILyricsProvider? secondary,
@@ -39,6 +42,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   })  : _curated = curated ?? CuratedLyricsProvider(),
         _spotify = spotify,
         _betterLyrics = betterLyrics,
+        _paxsenix = paxsenix,
         _lrclib = primary ?? LrclibLyricsProvider(httpClient: httpClient),
         _netease = netease ?? NeteaseLyricsProvider(httpClient: httpClient),
         _kugou = secondary ?? KugouLyricsProvider(httpClient: httpClient),
@@ -71,6 +75,20 @@ class CompositeLyricsProvider implements ILyricsProvider {
             betterResult.lines.isNotEmpty) {
           _addToCache(track.id, betterResult);
           return betterResult;
+        }
+      } catch (_) {}
+    }
+
+    // Tier 1.2: Query Paxsenix for Musixmatch / Apple Music rich syllable / word-by-word sync
+    if (_paxsenix != null) {
+      try {
+        final paxResult = await _paxsenix.getLyrics(track);
+        if (paxResult != null &&
+            paxResult.isSynced &&
+            paxResult.lines.isNotEmpty &&
+            paxResult.isSyllableSynced) {
+          _addToCache(track.id, paxResult);
+          return paxResult;
         }
       } catch (_) {}
     }

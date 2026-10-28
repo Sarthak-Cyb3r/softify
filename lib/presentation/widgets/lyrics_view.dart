@@ -1211,93 +1211,39 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               alignment: alignment,
               child: isMusicSymbol
                   ? _buildInstrumentalIndicator(isActive, accentColor)
-                  : ((line.words != null && line.words!.isNotEmpty)
-                      ? _buildSyllableKaraokeLine(
-                          line: line,
-                          words: line.words!,
-                          isActive: isActive,
-                          lineOpacity: lineOpacity,
-                          tokens: tokens,
-                          accentColor: accentColor,
-                          alignment: alignment,
-                          textAlign: textAlign,
-                          isDuetV2: isDuetV2,
-                        )
-                      : AnimatedSlide(
-                          offset: isActive ? Offset.zero : const Offset(-0.02, 0),
-                          duration: const Duration(milliseconds: 280),
-                          curve: Curves.easeOutCubic,
-                          child: AnimatedScale(
-                            scale: isActive ? 1.05 : 1.0,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeOutBack,
-                            child: isActive
-                                ? _SpicetifyProgressiveLyricsLine(
-                                    displayText: displayText,
-                                    lineStart: line.timestamp,
-                                    lineDuration: (index + 1 < lines.length)
-                                        ? (lines[index + 1].timestamp - line.timestamp)
-                                        : const Duration(seconds: 4),
-                                    positionNotifier: _positionNotifier,
-                                    alignment: alignment,
-                                    textAlign: textAlign,
-                                    activeStyle: TextStyle(
-                                      fontFamily: AppTheme.fontUi,
-                                      fontStyle: FontStyle.normal,
-                                      fontSize: _lyricFontSize.activeSize * 1.18,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.white,
-                                      height: 1.45,
-                                      letterSpacing: -0.5,
-                                      shadows: const [
-                                        Shadow(
-                                          color: Colors.black87,
-                                          blurRadius: 14,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    inactiveStyle: TextStyle(
-                                      fontFamily: AppTheme.fontUi,
-                                      fontStyle: FontStyle.normal,
-                                      fontSize: _lyricFontSize.activeSize * 1.18,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: 0.38),
-                                      height: 1.45,
-                                      letterSpacing: -0.5,
-                                      shadows: const [
-                                        Shadow(
-                                          color: Colors.black54,
-                                          blurRadius: 8,
-                                          offset: Offset(0, 1),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : AnimatedDefaultTextStyle(
-                                    duration: const Duration(milliseconds: 220),
-                                    curve: Curves.easeOutCubic,
-                                    textAlign: textAlign,
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontUi,
-                                      fontStyle: FontStyle.normal,
-                                      fontSize: _lyricFontSize.inactiveSize,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white.withValues(alpha: lineOpacity.clamp(0.25, 0.45)),
-                                      height: 1.45,
-                                      letterSpacing: -0.4,
-                                      shadows: const [
-                                        Shadow(
-                                          color: Colors.black45,
-                                          blurRadius: 6,
-                                          offset: Offset(0, 1),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(displayText, textAlign: textAlign),
-                                  ),
+                  : (() {
+                      final effectiveWords = (line.words != null && line.words!.isNotEmpty)
+                          ? line.words!
+                          : SpotifyLyricsSynchronizer.synthesizeWordTimings(
+                              text: displayText,
+                              lineStart: line.timestamp,
+                              lineDuration: (index + 1 < lines.length)
+                                  ? (lines[index + 1].timestamp - line.timestamp)
+                                  : const Duration(seconds: 4),
+                            );
+
+                      return AnimatedSlide(
+                        offset: isActive ? Offset.zero : const Offset(-0.02, 0),
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOutCubic,
+                        child: AnimatedScale(
+                          scale: isActive ? 1.05 : 1.0,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutBack,
+                          child: _buildSyllableKaraokeLine(
+                            line: line,
+                            words: effectiveWords,
+                            isActive: isActive,
+                            lineOpacity: lineOpacity,
+                            tokens: tokens,
+                            accentColor: accentColor,
+                            alignment: alignment,
+                            textAlign: textAlign,
+                            isDuetV2: isDuetV2,
                           ),
-                        )),
+                        ),
+                      );
+                    }()),
             ),
           ),
         ),
@@ -1339,18 +1285,18 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     if (!isActive) {
       return Text(
         displayText,
-        textAlign: TextAlign.center,
+        textAlign: textAlign,
         style: TextStyle(
           fontFamily: AppTheme.fontUi,
           fontStyle: FontStyle.normal,
           fontSize: _lyricFontSize.inactiveSize,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: Colors.white.withValues(alpha: lineOpacity.clamp(0.25, 0.45)),
           height: 1.45,
-          letterSpacing: -0.3,
+          letterSpacing: -0.4,
           shadows: const [
             Shadow(
-              color: Colors.black38,
+              color: Colors.black45,
               blurRadius: 6,
               offset: Offset(0, 1),
             ),
@@ -1362,60 +1308,93 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     return ValueListenableBuilder<Duration>(
       valueListenable: _positionNotifier,
       builder: (context, pos, _) {
-        final activeWordIdx =
-            SpotifyLyricsSynchronizer.findActiveWordIndex(words, pos);
-
-        return RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            children: [
-              for (int w = 0; w < words.length; w++) ...[
-                () {
-                  final word = words[w];
-                  final wordText = _romanizeLyrics
-                      ? RomanizationService.romanize(word.text)
-                      : word.text;
-                  final isWordSung = w <= activeWordIdx;
-                  final isCurrentWord = w == activeWordIdx;
-
-                  // Metrolist Word Wobble spring calculation
-                  double wobbleScale = 1.0;
-                  if (isCurrentWord) {
-                    final timeSinceStart = (pos.inMilliseconds - word.timestamp.inMilliseconds).clamp(0, 750);
-                    if (timeSinceStart < 125) {
-                      wobbleScale = 1.0 + (timeSinceStart / 125.0) * 0.04;
-                    } else {
-                      wobbleScale = 1.0 + (1.0 - (timeSinceStart - 125) / 625.0).clamp(0.0, 1.0) * 0.04;
-                    }
-                  }
-
-                  return TextSpan(
-                    text: (w < words.length - 1 && !wordText.endsWith(' '))
+        return Stack(
+          alignment: alignment,
+          children: [
+            Positioned(
+              top: 0,
+              left: 0,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0.0,
+                  child: Text(
+                    displayText,
+                    style: const TextStyle(fontSize: 0.01),
+                  ),
+                ),
+              ),
+            ),
+            Wrap(
+              alignment: textAlign == TextAlign.center
+                  ? WrapAlignment.center
+                  : (textAlign == TextAlign.right
+                      ? WrapAlignment.end
+                      : WrapAlignment.start),
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (int w = 0; w < words.length; w++) ...[
+                  () {
+                    final word = words[w];
+                    final wordText = _romanizeLyrics
+                        ? RomanizationService.romanize(word.text)
+                        : word.text;
+                    final paddedText = (w < words.length - 1 && !wordText.endsWith(' '))
                         ? '$wordText '
-                        : wordText,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontUi,
-                      fontStyle: FontStyle.normal,
-                      fontSize: (_lyricFontSize.activeSize * 1.15) * wobbleScale,
-                      fontWeight: FontWeight.w800,
-                      color: isWordSung
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.35),
-                      shadows: isCurrentWord
-                          ? const [
-                              Shadow(
-                                color: Colors.black87,
-                                blurRadius: 14,
-                                offset: Offset(0, 2),
-                              ),
-                            ]
-                          : null,
-                    ),
-                  );
-                }(),
+                        : wordText;
+
+                    final wordDuration = word.duration ??
+                        (w + 1 < words.length
+                            ? (words[w + 1].timestamp - word.timestamp)
+                            : const Duration(milliseconds: 350));
+
+                    final wordProgress = SpotifyLyricsSynchronizer.calculateWordProgress(
+                      wordStart: word.timestamp,
+                      wordDuration: wordDuration,
+                      currentPosition: pos,
+                    );
+
+                    return _WordKaraokeSpanWidget(
+                      text: paddedText,
+                      progress: wordProgress,
+                      isCurrentWord: wordProgress > 0.0 && wordProgress < 1.0,
+                      activeStyle: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontStyle: FontStyle.normal,
+                        fontSize: _lyricFontSize.activeSize * 1.18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1.45,
+                        letterSpacing: -0.4,
+                        shadows: const [
+                          Shadow(
+                            color: Colors.black87,
+                            blurRadius: 14,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      inactiveStyle: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontStyle: FontStyle.normal,
+                        fontSize: _lyricFontSize.activeSize * 1.18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.38),
+                        height: 1.45,
+                        letterSpacing: -0.4,
+                        shadows: const [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 8,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    );
+                  }(),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -1595,6 +1574,71 @@ class _SoloCountdownIndicator extends StatelessWidget {
                 ),
               ]
             : null,
+      ),
+    );
+  }
+}
+
+/// Individual Word-to-Word progressive karaoke word widget with left-to-right wipe
+/// and gentle spring scale while being actively sung.
+class _WordKaraokeSpanWidget extends StatelessWidget {
+  final String text;
+  final double progress;
+  final bool isCurrentWord;
+  final TextStyle activeStyle;
+  final TextStyle inactiveStyle;
+
+  const _WordKaraokeSpanWidget({
+    required this.text,
+    required this.progress,
+    required this.isCurrentWord,
+    required this.activeStyle,
+    required this.inactiveStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (progress <= 0.0) {
+      return Text(text, style: inactiveStyle);
+    }
+    if (progress >= 1.0) {
+      return Text(text, style: activeStyle);
+    }
+
+    final activeColor = activeStyle.color ?? Colors.white;
+    final inactiveColor = inactiveStyle.color ?? Colors.white.withValues(alpha: 0.38);
+
+    final wobbleScale = 1.0 + (math.sin(progress * math.pi) * 0.05);
+
+    return Transform.scale(
+      scale: wobbleScale,
+      alignment: Alignment.centerLeft,
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) {
+          final stopLeft = (progress - 0.06).clamp(0.0, 1.0);
+          final stopRight = (progress + 0.02).clamp(0.0, 1.0);
+          return LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              activeColor,
+              activeColor,
+              inactiveColor,
+              inactiveColor,
+            ],
+            stops: [
+              0.0,
+              stopLeft,
+              stopRight,
+              1.0,
+            ],
+          ).createShader(bounds);
+        },
+        child: Text(
+          text,
+          style: activeStyle.copyWith(color: Colors.white),
+        ),
       ),
     );
   }

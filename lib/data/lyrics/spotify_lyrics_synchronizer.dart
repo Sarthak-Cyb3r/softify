@@ -127,6 +127,85 @@ class SpotifyLyricsSynchronizer {
     return (elapsed / durationMs).clamp(0.0, 1.0);
   }
 
+  /// Synthesizes syllable/character-weighted word-to-word timings for lines that lack
+  /// explicit syllable tags. Enables full word-to-word progressive karaoke on any song.
+  static List<LyricWord> synthesizeWordTimings({
+    required String text,
+    required Duration lineStart,
+    required Duration lineDuration,
+  }) {
+    final cleanText = text.trim();
+    if (cleanText.isEmpty) return const [];
+
+    final rawTokens = cleanText.split(RegExp(r'\s+'));
+    final tokens = rawTokens.where((t) => t.isNotEmpty).toList();
+    if (tokens.isEmpty) return const [];
+
+    final totalMs = lineDuration.inMilliseconds.clamp(400, 16000);
+
+    if (tokens.length == 1) {
+      return [
+        LyricWord(
+          timestamp: lineStart,
+          text: tokens.first,
+          duration: Duration(milliseconds: totalMs),
+        ),
+      ];
+    }
+
+    // Compute phonetic weights based on character length, vowels, and punctuation
+    final weights = <double>[];
+    for (int i = 0; i < tokens.length; i++) {
+      final token = tokens[i];
+      final alphaOnly = token.replaceAll(RegExp(r'[^\w]'), '');
+      final charLen = math.max(1, alphaOnly.length);
+      final vowelCount = RegExp(r'[aeiouyAEIOUY]').allMatches(alphaOnly).length;
+
+      double weight = charLen * 1.0 + vowelCount * 1.4;
+
+      // Final word in a line is typically sustained by vocalists
+      if (i == tokens.length - 1) {
+        weight *= 1.35;
+      }
+      // Punctuation pause weight
+      if (token.endsWith(',') ||
+          token.endsWith(';') ||
+          token.endsWith('-') ||
+          token.endsWith('...')) {
+        weight += 0.8;
+      }
+      weights.add(math.max(1.0, weight));
+    }
+
+    final totalWeight = weights.fold<double>(0.0, (sum, w) => sum + w);
+
+    // Reserve breath pause before next line (10-15% of duration, min 100ms, max 500ms)
+    final breathPauseMs = (totalMs * 0.12).round().clamp(100, 500);
+    final singingMs = math.max(totalMs - breathPauseMs, 300);
+
+    final words = <LyricWord>[];
+    int accumulatedMs = 0;
+
+    for (int i = 0; i < tokens.length; i++) {
+      final isLast = i == tokens.length - 1;
+      final wordMs = isLast
+          ? (singingMs - accumulatedMs)
+          : ((weights[i] / totalWeight) * singingMs).round().clamp(80, singingMs);
+      final wordStart = lineStart + Duration(milliseconds: accumulatedMs);
+      final wordDuration = Duration(milliseconds: math.max(80, wordMs));
+
+      words.add(LyricWord(
+        timestamp: wordStart,
+        text: tokens[i],
+        duration: wordDuration,
+      ));
+
+      accumulatedMs += wordMs;
+    }
+
+    return words;
+  }
+
   /// Safe Auto-Scroll Deadzone Calculation (Module 52427).
   ///
   /// Prevents viewport scroll jitter by maintaining an adaptive deadzone
