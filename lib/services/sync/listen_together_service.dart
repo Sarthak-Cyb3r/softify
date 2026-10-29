@@ -855,7 +855,7 @@ class ListenTogetherService {
           'artist': track.artist,
           'album': track.album,
           'durationMs': track.durationMs,
-          'thumbnailUrl': track.artworkUrl,
+          'thumbnailUrl': track.thumbnailUrl,
         },
       });
     }
@@ -1208,7 +1208,7 @@ class ListenTogetherService {
                 'artist': action.trackInfo!.artist,
                 'album': action.trackInfo!.album,
                 'durationMs': action.trackInfo!.durationMs,
-                'thumbnailUrl': action.trackInfo!.artworkUrl,
+                'thumbnailUrl': action.trackInfo!.thumbnailUrl,
               },
             });
           }

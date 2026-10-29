@@ -121,7 +121,7 @@ class _FullScreenPlayerScreenState
     }
 
     if (provider == null) {
-      final color = DynamicThemeNotifier._generateConsistentHashColor(raw);
+      final color = DynamicThemeNotifier.generateConsistentHashColor(raw);
       _paletteCache[raw] = color;
       if (mounted) {
         setState(() => _ambientColor = color);
@@ -138,7 +138,7 @@ class _FullScreenPlayerScreenState
       final color = generator.dominantColor?.color ??
           generator.vibrantColor?.color ??
           generator.mutedColor?.color ??
-          DynamicThemeNotifier._generateConsistentHashColor(raw);
+          DynamicThemeNotifier.generateConsistentHashColor(raw);
 
       _paletteCache[raw] = color;
       if (mounted) {
@@ -148,7 +148,7 @@ class _FullScreenPlayerScreenState
         ref.read(dynamicThemeColorProvider.notifier).setManualSeed(color);
       }
     }).catchError((_) {
-      final color = DynamicThemeNotifier._generateConsistentHashColor(raw);
+      final color = DynamicThemeNotifier.generateConsistentHashColor(raw);
       _paletteCache[raw] = color;
       if (mounted) {
         setState(() => _ambientColor = color);

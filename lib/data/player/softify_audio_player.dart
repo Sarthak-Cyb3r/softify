@@ -33,6 +33,7 @@ abstract class ISoftifyAudioPlayer {
 
   Duration get position;
   Duration get bufferedPosition;
+  Duration? get duration => null;
   double get speed;
   Stream<double> get speedStream;
   Future<void> setSpeed(double speed);
@@ -392,6 +393,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Duration get position => _activePlayer.position;
+
+  @override
+  Duration? get duration => _activePlayer.duration;
 
   @override
   Duration get bufferedPosition => _activePlayer.bufferedPosition;

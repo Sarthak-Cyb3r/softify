@@ -338,13 +338,13 @@ class SpotifyPlaylistSyncService {
 
           final tTitle = entry.track!.title.toLowerCase().trim();
           final tArtist = entry.track!.artist.toLowerCase().trim();
-          exactSignatures.add('$tTitle___$tArtist');
+          exactSignatures.add('${tTitle}___${tArtist}');
           cleanSignatures.add('${_cleanString(tTitle)}___${_cleanString(tArtist)}');
         }
 
         final oTitle = entry.originalTitle.toLowerCase().trim();
         final oArtist = entry.originalArtist.toLowerCase().trim();
-        exactSignatures.add('$oTitle___$oArtist');
+        exactSignatures.add('${oTitle}___${oArtist}');
         cleanSignatures.add('${_cleanString(oTitle)}___${_cleanString(oArtist)}');
 
         final combined = _cleanString(
@@ -359,10 +359,10 @@ class SpotifyPlaylistSyncService {
       for (final remoteTrack in remotePlaylist.tracks) {
         final rTitle = remoteTrack.title.toLowerCase().trim();
         final rArtist = remoteTrack.artist.toLowerCase().trim();
-        final rawSig = '$rTitle___$rArtist';
+        final rawSig = '${rTitle}___${rArtist}';
         final cleanTitle = _cleanString(rTitle);
         final cleanArtist = _cleanString(rArtist);
-        final cleanSig = '$cleanTitle___$cleanArtist';
+        final cleanSig = '${cleanTitle}___${cleanArtist}';
 
         // Check exact match on raw title/artist
         if (exactSignatures.contains(rawSig)) continue;

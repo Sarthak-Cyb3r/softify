@@ -266,6 +266,8 @@ class DynamicThemeNotifier extends StateNotifier<Color> {
     }
   }
 
+  static Color generateConsistentHashColor(String seed) => _generateConsistentHashColor(seed);
+
   static Color _generateConsistentHashColor(String seed) {
     int hash = 0;
     for (int i = 0; i < seed.length; i++) {
