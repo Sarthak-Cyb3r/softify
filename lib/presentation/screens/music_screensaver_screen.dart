@@ -36,6 +36,7 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
   Timer? _hudTimer;
   bool _hudVisible = true;
   bool _romanize = false;
+  double? _dragPositionSeconds;
   DateTime _currentTime = DateTime.now();
   Timer? _clockTimer;
 
@@ -198,8 +199,9 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
                         builder: (context, constraints) {
                           final isWide = constraints.maxWidth >= 640 &&
                               constraints.maxWidth > constraints.maxHeight;
-                          final posSeconds = position.inSeconds.toDouble();
-                          final totalSeconds = max(1.0, duration.inSeconds.toDouble());
+                          final posSeconds = _dragPositionSeconds ?? position.inSeconds.toDouble();
+                          final totalSeconds =
+                              duration.inSeconds <= 0 ? 1.0 : duration.inSeconds.toDouble();
 
                           return Padding(
                             padding: EdgeInsets.fromLTRB(
