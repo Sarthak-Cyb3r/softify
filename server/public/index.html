@@ -486,6 +486,122 @@
       border-color: rgba(46, 230, 107, 0.4);
     }
 
+    /* Main Navigation Tabs Bar */
+    .main-tabs-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 24px;
+      background: rgba(18, 18, 23, 0.75);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 61px;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .main-tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .main-tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .main-tab-btn.active {
+      color: #fff;
+      background: var(--surface-elevated);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .tab-pill {
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+    }
+
+    .tab-pill.live {
+      background: rgba(46, 230, 107, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(46, 230, 107, 0.3);
+    }
+
+    .room-code-tag {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: rgba(46, 230, 107, 0.1);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(46, 230, 107, 0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .room-code-tag:hover {
+      background: rgba(46, 230, 107, 0.2);
+    }
+
+    .track-cell-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 260px;
+    }
+
+    .track-thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: var(--surface-elevated);
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .track-meta {
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .track-title {
+      font-weight: 600;
+      color: #fff;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-artist {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* Table */
     .table-container {
       background: var(--surface);
@@ -1080,8 +1196,23 @@
       </div>
     </header>
 
+    <!-- Main Navigation Tabs Bar -->
+    <div class="main-tabs-bar">
+      <button class="main-tab-btn active" id="tabDevicesBtn" onclick="switchMainTab('devices')">
+        <span class="tab-icon">📱</span>
+        <span>Fleet Devices</span>
+        <span class="tab-pill" id="tabDevicesBadge">0</span>
+      </button>
+      <button class="main-tab-btn" id="tabRoomsBtn" onclick="switchMainTab('rooms')">
+        <span class="tab-icon">🎧</span>
+        <span>Listen Together Rooms</span>
+        <span class="tab-pill live" id="tabRoomsBadge">0 LIVE</span>
+      </button>
+    </div>
+
     <!-- Main Content -->
     <main>
+      <div id="devicesView">
       <!-- Metrics Grid -->
       <div class="metrics-grid">
         <div class="metric-card">
@@ -1330,6 +1461,105 @@
           </tbody>
         </table>
       </div>
+      </div> <!-- Close #devicesView -->
+
+      <!-- Listen Together Rooms Dashboard View -->
+      <div id="roomsView" style="display: none;">
+        <!-- Rooms Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">
+              <span>Total Rooms Hosted</span>
+              <span>🎧</span>
+            </div>
+            <div class="metric-value" id="roomStatTotal">0</div>
+            <div class="metric-sub">Durable room database</div>
+          </div>
+
+          <div class="metric-card online">
+            <div class="metric-label">
+              <span>Active Rooms Now</span>
+              <span>🟢</span>
+            </div>
+            <div class="metric-value" id="roomStatActive">0</div>
+            <div class="metric-sub">Live synchronized sessions</div>
+          </div>
+
+          <div class="metric-card active-today">
+            <div class="metric-label">
+              <span>Songs Listened</span>
+              <span>🎵</span>
+            </div>
+            <div class="metric-value" id="roomStatSongs">0</div>
+            <div class="metric-sub">Accumulated playlist history</div>
+          </div>
+
+          <div class="metric-card version">
+            <div class="metric-label">
+              <span>Group Duration</span>
+              <span>⏱️</span>
+            </div>
+            <div class="metric-value" id="roomStatHours">0.0h</div>
+            <div class="metric-sub">Cumulative listening time</div>
+          </div>
+
+          <div class="metric-card blocked">
+            <div class="metric-label">
+              <span>Peak Listeners</span>
+              <span>👥</span>
+            </div>
+            <div class="metric-value" id="roomStatPeak">0</div>
+            <div class="metric-sub">Highest concurrent session</div>
+          </div>
+        </div>
+
+        <!-- Rooms Search, Filter & Quick Actions -->
+        <div class="toolbar" style="margin-top: 18px;">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="roomSearchInput" placeholder="Search by Room Code (e.g. 8RCV26DE), Host, or Song..." oninput="handleRoomSearch(this.value)">
+          </div>
+
+          <div class="filter-chips">
+            <button class="filter-chip active" id="rfAll" onclick="setRoomFilter('all')">All Rooms (<span id="roomFilterCountAll">0</span>)</button>
+            <button class="filter-chip" id="rfActive" onclick="setRoomFilter('active')">🟢 Live Only (<span id="roomFilterCountActive">0</span>)</button>
+            <button class="filter-chip" id="rfClosed" onclick="setRoomFilter('closed')">⚪ Closed (<span id="roomFilterCountClosed">0</span>)</button>
+          </div>
+
+          <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="fetchRooms(true)">
+              <span>↻ Refresh Rooms</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Rooms Table -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 120px;">Room Code</th>
+                <th>Host & Device</th>
+                <th>Session Status</th>
+                <th>Listeners</th>
+                <th>Current / Last Played Track</th>
+                <th>Session Duration</th>
+                <th>Songs Played</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="roomsTableBody">
+              <tr>
+                <td colspan="8">
+                  <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+                    Loading Listen Together rooms...
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div> <!-- Close #roomsView -->
     </main>
 
     <!-- Comprehensive System Configuration Modal -->
@@ -1579,18 +1809,114 @@
       </div>
     </div>
 
+    <!-- Listen Together Room Full Ledger & Inspection Modal -->
+    <div class="modal-backdrop" id="roomDetailModal">
+      <div class="modal-box" style="max-width: 860px; width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="room-code-tag" id="modalRoomCode">--------</span>
+              <span class="status-badge allowed" id="modalRoomStatusBadge">🟢 LIVE</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="modalRoomSubtitle">Host: -- • Created: --</p>
+          </div>
+          <button class="btn-icon" onclick="closeRoomDetailModal()">✕</button>
+        </div>
+
+        <!-- Room Quick Metrics -->
+        <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 0;">
+          <div class="metric-card" style="padding: 12px;">
+            <div class="metric-label" style="font-size: 10.5px;"><span>Active Listeners</span><span>👥</span></div>
+            <div class="metric-value" id="modalActiveUsers" style="font-size: 18px;">0</div>
+          </div>
+          <div class="metric-card" style="padding: 12px;">
+            <div class="metric-label" style="font-size: 10.5px;"><span>Peak Listeners</span><span>⚡</span></div>
+            <div class="metric-value" id="modalPeakUsers" style="font-size: 18px;">0</div>
+          </div>
+          <div class="metric-card" style="padding: 12px;">
+            <div class="metric-label" style="font-size: 10.5px;"><span>Songs Played</span><span>🎵</span></div>
+            <div class="metric-value" id="modalSongsCount" style="font-size: 18px;">0</div>
+          </div>
+          <div class="metric-card" style="padding: 12px;">
+            <div class="metric-label" style="font-size: 10.5px;"><span>Total Duration</span><span>⏱️</span></div>
+            <div class="metric-value" id="modalRoomDuration" style="font-size: 18px;">0s</div>
+          </div>
+        </div>
+
+        <!-- Sub Tabs in Modal -->
+        <div class="sub-tab-bar" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 8px;">
+          <button class="filter-chip active" id="modalSubTabUsers" onclick="switchModalSubTab('users')">👥 Participants Ledger (<span id="modalUsersCount">0</span>)</button>
+          <button class="filter-chip" id="modalSubTabSongs" onclick="switchModalSubTab('songs')">🎵 Songs Listened History (<span id="modalSongsListCount">0</span>)</button>
+        </div>
+
+        <!-- Panel 1: Participants Ledger -->
+        <div id="modalUsersPanel" class="table-container" style="max-height: 320px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Device / OS</th>
+                <th>Client IP</th>
+                <th>Joined</th>
+                <th>Time in Room</th>
+              </tr>
+            </thead>
+            <tbody id="modalUsersTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Panel 2: Songs Listened Playlist -->
+        <div id="modalSongsPanel" class="table-container" style="max-height: 320px; overflow-y: auto; display: none;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 44px;">#</th>
+                <th>Track Title & Artist</th>
+                <th>Album</th>
+                <th>Duration</th>
+                <th>Played At</th>
+              </tr>
+            </thead>
+            <tbody id="modalSongsTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="modal-footer" style="justify-content: space-between;">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="modalTerminateRoomBtn" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.4);" onclick="terminateCurrentModalRoom()">🛑 Terminate Room</button>
+            <button class="btn btn-secondary" id="modalDeleteRoomBtn" style="color: var(--text-muted);" onclick="deleteCurrentModalRoom()">🗑️ Purge Record</button>
+          </div>
+          <button class="btn btn-primary" onclick="closeRoomDetailModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
   </div> <!-- Close #appView -->
 
   <div class="toast" id="toast"></div>
 
   <script>
     let allDevices = [];
+    let allRooms = [];
     let currentFilter = 'all';
+    let currentRoomFilter = 'all';
+    let currentMainTab = 'devices';
+    let activeModalRoom = null;
     let pendingBlockId = null;
     let pendingCommandDeviceId = null;
     let refreshInterval = null;
     let selectedDeviceIds = new Set();
     let isGlobalMaintenanceActive = false;
+    let isPollingBusy = false;
+    let lastDevicesSig = '';
+    let lastRoomsSig = '';
+    let pollCounter = 0;
 
     function getAdminKey() {
       return sessionStorage.getItem('softify_admin_key') || localStorage.getItem('softify_admin_key') || '';
@@ -1607,7 +1933,8 @@
       document.getElementById('loginView').classList.add('view-hidden');
       document.getElementById('appView').classList.remove('view-hidden');
       if (!refreshInterval) {
-        refreshInterval = setInterval(fetchDevices, 4000);
+        pollData();
+        refreshInterval = setInterval(pollData, 8000);
       }
     }
 
@@ -1632,6 +1959,66 @@
       localStorage.removeItem('softify_admin_key');
       showLogin('Signed out successfully.');
     }
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      const devView = document.getElementById('devicesView');
+      const roomsView = document.getElementById('roomsView');
+      const btnDev = document.getElementById('tabDevicesBtn');
+      const btnRooms = document.getElementById('tabRoomsBtn');
+
+      if (tab === 'devices') {
+        devView.style.display = 'block';
+        roomsView.style.display = 'none';
+        btnDev.classList.add('active');
+        btnRooms.classList.remove('active');
+      } else {
+        devView.style.display = 'none';
+        roomsView.style.display = 'block';
+        btnDev.classList.remove('active');
+        btnRooms.classList.add('active');
+        fetchRooms(true);
+      }
+    }
+
+    async function pollData() {
+      if (isPollingBusy) return;
+      isPollingBusy = true;
+      pollCounter++;
+
+      try {
+        if (currentMainTab === 'devices') {
+          await fetchDevices();
+        } else {
+          await fetchRooms();
+        }
+
+        // Secondary polling: refresh global stats every 8s, notices every 40s
+        fetchStats();
+        if (pollCounter % 5 === 0) {
+          fetchNotice();
+        }
+      } catch (err) {
+        console.error('Fast poll error:', err);
+      } finally {
+        isPollingBusy = false;
+      }
+    }
+
+    // Automatically pause polling when dashboard tab is hidden to save client CPU & bandwidth
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+          refreshInterval = null;
+        }
+      } else {
+        if (!refreshInterval && getAdminKey()) {
+          pollData();
+          refreshInterval = setInterval(pollData, 8000);
+        }
+      }
+    });
 
     function exportJson() {
       const key = getAdminKey();
@@ -1860,7 +2247,6 @@
         if (data.success) {
           sessionStorage.setItem('softify_admin_key', key);
           showApp();
-          fetchDevices();
         } else {
           showLogin(data.error || 'Incorrect passcode');
         }
@@ -1892,7 +2278,7 @@
       return '📱 ' + (platform || 'Device');
     }
 
-    async function fetchDevices() {
+    async function fetchDevices(forceRerender = false) {
       const key = getAdminKey();
       if (!key) return;
 
@@ -1916,15 +2302,358 @@
             (a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()
           );
 
-          renderTable();
-          fetchStats();
-          fetchNotice();
+          renderTable(forceRerender);
           updateDeviceDropdown();
           updateAnalytics(allDevices);
         }
       } catch (e) {
         console.error('Fetch error:', e);
       }
+    }
+
+    // ========================================================================
+    // Listen Together Rooms Controller & Full Ledger Subsystem
+    // ========================================================================
+
+    async function fetchRooms(forceRerender = false) {
+      const key = getAdminKey();
+      if (!key) return;
+
+      try {
+        const res = await fetch('/api/admin/rooms', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+
+        if (res.status === 401) {
+          signOut();
+          return;
+        }
+
+        const data = await res.json();
+        if (data.success && Array.isArray(data.rooms)) {
+          allRooms = data.rooms;
+          const s = data.stats || {};
+          document.getElementById('roomStatTotal').innerText = s.totalRooms || allRooms.length;
+          document.getElementById('roomStatActive').innerText = s.activeRooms || 0;
+          document.getElementById('roomStatSongs').innerText = s.totalSongsListened || 0;
+          document.getElementById('roomStatHours').innerText = `${s.totalListeningHours || '0.0'}h`;
+          document.getElementById('roomStatPeak').innerText = s.peakListeners || 0;
+
+          const roomBadge = document.getElementById('tabRoomsBadge');
+          if (roomBadge) {
+            roomBadge.innerText = `${s.activeRooms || 0} LIVE`;
+          }
+
+          renderRoomsTable(forceRerender);
+        }
+      } catch (e) {
+        console.error('Fetch rooms error:', e);
+      }
+    }
+
+    function renderRoomsTable(force = false) {
+      const tbody = document.getElementById('roomsTableBody');
+      const search = (document.getElementById('roomSearchInput')?.value || '').toLowerCase().trim();
+
+      let countActive = 0;
+      let countClosed = 0;
+      for (const r of allRooms) {
+        if (r.status === 'active') countActive++;
+        else countClosed++;
+      }
+
+      const fAll = document.getElementById('roomFilterCountAll');
+      if (fAll) fAll.innerText = allRooms.length;
+      const fAct = document.getElementById('roomFilterCountActive');
+      if (fAct) fAct.innerText = countActive;
+      const fClo = document.getElementById('roomFilterCountClosed');
+      if (fClo) fClo.innerText = countClosed;
+
+      const filtered = allRooms.filter(r => {
+        if (currentRoomFilter === 'active' && r.status !== 'active') return false;
+        if (currentRoomFilter === 'closed' && r.status !== 'closed') return false;
+
+        if (!search) return true;
+        const matchCode = (r.roomCode || '').toLowerCase().includes(search);
+        const matchHost = (r.host?.username || '').toLowerCase().includes(search);
+        const matchTrack = (r.currentTrack?.title || '').toLowerCase().includes(search);
+        const matchUsers = r.users && r.users.some(u => (u.username || '').toLowerCase().includes(search));
+        return matchCode || matchHost || matchTrack || matchUsers;
+      });
+
+      const sig = filtered.map(r => `${r.roomCode}:${r.status}:${r.activeUserCount}:${r.durationSeconds}:${r.currentTrack?.id || ''}`).join(';') + `|${filtered.length}|${currentRoomFilter}|${search}`;
+      if (!force && sig === lastRoomsSig && tbody.children.length > 0 && tbody.children[0].tagName === 'TR') {
+        return;
+      }
+      lastRoomsSig = sig;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8">
+              <div style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+                <div style="font-size: 28px; margin-bottom: 8px;">🎧</div>
+                <div style="font-weight: 700; color: #fff;">No Listen Together rooms found.</div>
+                <div style="font-size: 12px; margin-top: 4px;">Host or join a room in Softify to view real-time synchronization telemetry.</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(r => {
+        const isLive = r.status === 'active';
+        const statusBadge = isLive
+          ? `<span class="activity-pill online"><span class="activity-dot"></span> LIVE</span>`
+          : `<span class="activity-pill offline"><span class="activity-dot"></span> CLOSED</span>`;
+
+        const trackHtml = r.currentTrack
+          ? `
+            <div class="track-cell-wrap">
+              <img src="${escapeHtml(r.currentTrack.thumbnailUrl || '/icons/Icon-192.png')}" class="track-thumb" onerror="this.src='/icons/Icon-192.png'" alt="art">
+              <div class="track-meta">
+                <div class="track-title">${escapeHtml(r.currentTrack.title || 'Unknown Title')}</div>
+                <div class="track-artist">${escapeHtml(r.currentTrack.artist || 'Unknown Artist')}</div>
+              </div>
+            </div>
+          `
+          : `<span style="color: var(--text-muted); font-size: 12px;">-- No Track Played --</span>`;
+
+        const hostName = r.host ? escapeHtml(r.host.username || 'Host') : 'Host';
+        const hostDevice = r.host ? escapeHtml(r.host.deviceModel || 'Mobile') : '';
+
+        return `
+          <tr>
+            <td>
+              <span class="room-code-tag" onclick="copyText('${r.roomCode}')" title="Click to copy room code">
+                ${escapeHtml(r.roomCode)}
+                <span style="font-size: 10px; opacity: 0.7;">📋</span>
+              </span>
+            </td>
+            <td>
+              <div style="font-weight: 600; color: #fff;">${hostName}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${hostDevice}</div>
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+              <span class="id-tag" style="background: rgba(255, 255, 255, 0.05); font-weight: 700;">
+                👥 ${r.activeUserCount || 0} online / ${r.totalUserCount || (r.users ? r.users.length : 1)} total
+              </span>
+            </td>
+            <td>${trackHtml}</td>
+            <td>
+              <span style="font-family: var(--mono); font-size: 12px; font-weight: 600; color: ${isLive ? 'var(--accent)' : 'var(--text-muted)'};">
+                ⏱️ ${r.durationFormatted || '0s'}
+              </span>
+            </td>
+            <td>
+              <span style="font-family: var(--mono); font-size: 12px; font-weight: 600;">
+                🎵 ${r.totalSongsPlayed || (r.songsListened ? r.songsListened.length : 0)}
+              </span>
+            </td>
+            <td style="text-align: right;">
+              <div style="display: inline-flex; gap: 6px;">
+                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11.5px;" onclick="openRoomDetail('${r.roomCode}')" title="View Full Room Ledger">
+                  🔍 Inspect
+                </button>
+                ${isLive ? `
+                  <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11.5px; color: var(--danger); border-color: rgba(239, 68, 68, 0.3);" onclick="terminateRoom('${r.roomCode}')" title="Force Remote Terminate">
+                    🛑
+                  </button>
+                ` : ''}
+                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11.5px; color: var(--text-muted);" onclick="deleteRoom('${r.roomCode}')" title="Purge Record">
+                  🗑️
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setRoomFilter(filter) {
+      currentRoomFilter = filter;
+      document.getElementById('rfAll').classList.toggle('active', filter === 'all');
+      document.getElementById('rfActive').classList.toggle('active', filter === 'active');
+      document.getElementById('rfClosed').classList.toggle('active', filter === 'closed');
+      renderRoomsTable(true);
+    }
+
+    function handleRoomSearch() {
+      renderRoomsTable(true);
+    }
+
+    async function openRoomDetail(roomCode) {
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/rooms/${encodeURIComponent(roomCode)}`, {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (!data.success || !data.room) {
+          showToast('Room not found');
+          return;
+        }
+
+        const room = data.room;
+        activeModalRoom = room;
+
+        document.getElementById('modalRoomCode').innerText = room.roomCode;
+        const isLive = room.status === 'active';
+        const badge = document.getElementById('modalRoomStatusBadge');
+        badge.className = 'status-badge ' + (isLive ? 'allowed' : 'blocked');
+        badge.innerText = isLive ? '🟢 LIVE' : '⚪ CLOSED';
+
+        document.getElementById('modalRoomSubtitle').innerText =
+          `Host: ${room.host?.username || 'Host'} • Started: ${new Date(room.createdAt).toLocaleString()}` +
+          (room.endedAt ? ` • Ended: ${new Date(room.endedAt).toLocaleTimeString()}` : '');
+
+        const activeUsers = room.users ? room.users.filter(u => u.isOnline).length : 0;
+        document.getElementById('modalActiveUsers').innerText = activeUsers;
+        document.getElementById('modalPeakUsers').innerText = room.peakUsers || 1;
+        document.getElementById('modalSongsCount').innerText = room.totalSongsPlayed || (room.songsListened ? room.songsListened.length : 0);
+        document.getElementById('modalRoomDuration').innerText = room.durationFormatted || '0s';
+
+        document.getElementById('modalUsersCount').innerText = room.users ? room.users.length : 0;
+        document.getElementById('modalSongsListCount').innerText = room.songsListened ? room.songsListened.length : 0;
+
+        // Render participants ledger
+        const usersTbody = document.getElementById('modalUsersTableBody');
+        if (!room.users || room.users.length === 0) {
+          usersTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 18px;">No participants recorded.</td></tr>';
+        } else {
+          usersTbody.innerHTML = room.users.map(u => `
+            <tr>
+              <td>
+                <div style="font-weight: 700; color: #fff;">${escapeHtml(u.username || 'User')}</div>
+                <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted);">${escapeHtml(u.userId)}</div>
+              </td>
+              <td>
+                ${u.isHost ? '<span class="status-badge allowed" style="font-size: 10px;">👑 Host</span>' : '<span class="status-badge" style="background: rgba(255,255,255,0.06); font-size: 10px;">🎧 Guest</span>'}
+              </td>
+              <td>
+                ${u.isOnline ? '<span class="activity-pill online">Online</span>' : '<span class="activity-pill offline">Left</span>'}
+              </td>
+              <td>
+                <div style="font-size: 12px; font-weight: 600;">${escapeHtml(u.deviceModel || 'Device')}</div>
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: capitalize;">${escapeHtml(u.platform || 'unknown')}</div>
+              </td>
+              <td style="font-family: var(--mono); font-size: 11px; color: #94a3b8;">${escapeHtml(u.ipAddress || '--')}</td>
+              <td style="font-size: 11px; color: var(--text-muted);">${u.joinedAt ? new Date(u.joinedAt).toLocaleTimeString() : '--'}</td>
+              <td style="font-family: var(--mono); font-size: 11.5px; font-weight: 600;">${u.activeDurationSeconds ? u.activeDurationSeconds + 's' : (u.isOnline ? 'Active' : '--')}</td>
+            </tr>
+          `).join('');
+        }
+
+        // Render songs listened playlist
+        const songsTbody = document.getElementById('modalSongsTableBody');
+        if (!room.songsListened || room.songsListened.length === 0) {
+          songsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 18px;">No songs played yet in this room.</td></tr>';
+        } else {
+          songsTbody.innerHTML = room.songsListened.map((s, idx) => `
+            <tr>
+              <td style="font-family: var(--mono); color: var(--text-muted); font-size: 11px;">#${idx + 1}</td>
+              <td>
+                <div class="track-cell-wrap">
+                  <img src="${escapeHtml(s.thumbnailUrl || '/icons/Icon-192.png')}" class="track-thumb" onerror="this.src='/icons/Icon-192.png'" alt="art">
+                  <div class="track-meta">
+                    <div class="track-title">${escapeHtml(s.title || 'Unknown Track')}</div>
+                    <div class="track-artist">${escapeHtml(s.artist || 'Unknown Artist')}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(s.album || '--')}</td>
+              <td style="font-family: var(--mono); font-size: 11.5px;">${Math.round((s.durationMs || 180000) / 1000)}s</td>
+              <td style="font-size: 11px; color: var(--text-muted);">${s.playedAt ? new Date(s.playedAt).toLocaleTimeString() : '--'}</td>
+            </tr>
+          `).reverse().join('');
+        }
+
+        const termBtn = document.getElementById('modalTerminateRoomBtn');
+        if (termBtn) {
+          termBtn.style.display = isLive ? 'inline-flex' : 'none';
+        }
+
+        document.getElementById('roomDetailModal').classList.add('show');
+      } catch (e) {
+        showToast('Error opening room details');
+      }
+    }
+
+    function closeRoomDetailModal() {
+      document.getElementById('roomDetailModal').classList.remove('show');
+      activeModalRoom = null;
+    }
+
+    function switchModalSubTab(subTab) {
+      const isUsers = subTab === 'users';
+      document.getElementById('modalSubTabUsers').classList.toggle('active', isUsers);
+      document.getElementById('modalSubTabSongs').classList.toggle('active', !isUsers);
+      document.getElementById('modalUsersPanel').style.display = isUsers ? 'block' : 'none';
+      document.getElementById('modalSongsPanel').style.display = isUsers ? 'none' : 'block';
+    }
+
+    async function terminateRoom(roomCode) {
+      if (!confirm(`Are you sure you want to forcibly terminate Listen Together room ${roomCode}? All connected listeners will be disconnected.`)) {
+        return;
+      }
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/rooms/${encodeURIComponent(roomCode)}/close`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Room ${roomCode} successfully terminated! 🛑`);
+          fetchRooms(true);
+        } else {
+          showToast(data.error || 'Failed to terminate room');
+        }
+      } catch (e) {
+        showToast('Error terminating room');
+      }
+    }
+
+    async function terminateCurrentModalRoom() {
+      if (!activeModalRoom) return;
+      await terminateRoom(activeModalRoom.roomCode);
+      closeRoomDetailModal();
+    }
+
+    async function deleteRoom(roomCode) {
+      if (!confirm(`Permanently purge room ${roomCode} and all its listening history from the database?`)) {
+        return;
+      }
+      const key = getAdminKey();
+      try {
+        const res = await fetch(`/api/admin/rooms/${encodeURIComponent(roomCode)}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Room ${roomCode} record purged from database! 🗑️`);
+          fetchRooms(true);
+        } else {
+          showToast(data.error || 'Failed to delete room');
+        }
+      } catch (e) {
+        showToast('Error deleting room');
+      }
+    }
+
+    async function deleteCurrentModalRoom() {
+      if (!activeModalRoom) return;
+      await deleteRoom(activeModalRoom.roomCode);
+      closeRoomDetailModal();
+    }
+
+    function copyText(txt) {
+      navigator.clipboard.writeText(txt).then(() => {
+        showToast(`Copied "${txt}" to clipboard! 📋`);
+      });
     }
 
     async function forceCloudSync() {
@@ -2132,11 +2861,30 @@
           document.getElementById('statVersionSub').innerText = s.maintenanceMode ? '⚠️ Maintenance Active' : 'Target Release Channel';
 
           document.getElementById('syncStatusText').innerText = `Cloud Live • ${s.total} Devices Synced`;
+
+          const devBadge = document.getElementById('tabDevicesBadge');
+          if (devBadge) devBadge.innerText = s.total || 0;
+
+          if (s.roomStats) {
+            const rs = s.roomStats;
+            const rBadge = document.getElementById('tabRoomsBadge');
+            if (rBadge) rBadge.innerText = `${rs.activeRooms || 0} LIVE`;
+            const rActive = document.getElementById('roomStatActive');
+            if (rActive) rActive.innerText = rs.activeRooms || 0;
+            const rTotal = document.getElementById('roomStatTotal');
+            if (rTotal) rTotal.innerText = rs.totalRooms || 0;
+            const rSongs = document.getElementById('roomStatSongs');
+            if (rSongs) rSongs.innerText = rs.totalSongsListened || 0;
+            const rHours = document.getElementById('roomStatHours');
+            if (rHours) rHours.innerText = `${rs.totalListeningHours || '0.0'}h`;
+            const rPeak = document.getElementById('roomStatPeak');
+            if (rPeak) rPeak.innerText = rs.peakListeners || 0;
+          }
         }
       } catch (e) {}
     }
 
-    function renderTable() {
+    function renderTable(force = false) {
       const tbody = document.getElementById('deviceTableBody');
       const search = document.getElementById('searchInput').value.toLowerCase().trim();
 
@@ -2193,6 +2941,12 @@
       if (selectAll) {
         selectAll.checked = filtered.length > 0 && filtered.every(d => selectedDeviceIds.has(d.id));
       }
+
+      const sig = filtered.map(d => `${d.id}:${d.isOnline}:${d.status}:${d.maintenanceAffected}:${d.customAlias || ''}`).join(';') + `|${filtered.length}|${currentFilter}|${search}`;
+      if (!force && sig === lastDevicesSig && tbody.children.length > 0 && tbody.children[0].tagName === 'TR') {
+        return;
+      }
+      lastDevicesSig = sig;
 
       if (filtered.length === 0) {
         tbody.innerHTML = `
@@ -2319,14 +3073,14 @@
 
     function setFilter(filter) {
       currentFilter = filter;
-      document.querySelectorAll('.filter-chip').forEach(c => {
+      document.querySelectorAll('#devicesView .filter-chip').forEach(c => {
         c.classList.toggle('active', c.getAttribute('data-filter') === filter);
       });
-      renderTable();
+      renderTable(true);
     }
 
     function filterDevices() {
-      renderTable();
+      renderTable(true);
     }
 
     function copyToClipboard(text) {
@@ -2685,13 +3439,11 @@
         });
         if (res.ok) {
           showApp();
-          fetchDevices();
         } else {
           showLogin('Session expired. Please enter passcode.');
         }
       } catch (e) {
         showApp();
-        fetchDevices();
       }
     }
 

@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
 
 import '../../data/player/softify_audio_handler.dart';
 import '../automix_service.dart';
@@ -172,6 +175,35 @@ class ListenTogetherService {
   String? _serverUrl;
   int _pingSequence = 0;
   int _lastRevision = 0;
+
+  // Telemetry backend integration for durable room storage & admin analytics
+  static const String defaultTelemetryBackendUrl =
+      'https://server-eight-gamma-81.vercel.app';
+  String _telemetryBackendUrl = defaultTelemetryBackendUrl;
+  String? _localUsername;
+
+  void setTelemetryBackendUrl(String url) {
+    if (url.trim().isNotEmpty) {
+      _telemetryBackendUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+    }
+  }
+
+  void _postRoomTelemetry(String path, Map<String, dynamic> data) {
+    Future.microtask(() async {
+      try {
+        final uri = Uri.parse('$_telemetryBackendUrl$path');
+        await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(data),
+            )
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {
+        // Fire-and-forget telemetry; fail silently so playback sync is never impaired
+      }
+    });
+  }
 
   // Buffer barrier coordination
   String? _bufferingTrackId;
@@ -388,6 +420,15 @@ class ListenTogetherService {
       sequence: _pingSequence,
     );
     sendMessage(MessageTypes.ping, payload.toJson());
+
+    // Asynchronously report heartbeat to Softify server for live dashboard accuracy
+    if (_currentRoom != null && _pingSequence % 3 == 0) {
+      _postRoomTelemetry('/api/rooms/heartbeat', {
+        'roomCode': _currentRoom!.roomCode,
+        'activeUsers': _currentRoom!.users.map((u) => u.userId).toList(),
+        'positionMs': _currentRoom!.positionMs,
+      });
+    }
   }
 
   /// Sends a ListenTogetherMessage envelope (binary Protobuf for Io sockets, JSON for mocks).
@@ -406,6 +447,13 @@ class ListenTogetherService {
             break;
           case MessageTypes.leaveRoom:
             bytes = ListenTogetherProtoCodec.encodeLeaveRoom();
+            break;
+          case MessageTypes.approveJoin:
+            bytes = ListenTogetherProtoCodec.encodeApproveJoin(payload['user_id']?.toString() ?? '');
+            break;
+          case MessageTypes.rejectJoin:
+            bytes = ListenTogetherProtoCodec.encodeRejectJoin(
+                payload['user_id']?.toString() ?? '', payload['reason']?.toString() ?? '');
             break;
           case MessageTypes.ping:
             bytes = ListenTogetherProtoCodec.encodePing(payload['client_time'] ?? 0, payload['sequence'] ?? 0);
@@ -446,6 +494,7 @@ class ListenTogetherService {
 
   /// Request room creation as host and await confirmation.
   Future<ListenTogetherRoom> createRoom({required String username}) async {
+    _localUsername = username;
     if (_connectionState != SyncConnectionState.connected) {
       await connect();
     }
@@ -483,6 +532,7 @@ class ListenTogetherService {
     required String roomCode,
     required String username,
   }) async {
+    _localUsername = username;
     if (_connectionState != SyncConnectionState.connected) {
       await connect();
     }
@@ -506,7 +556,7 @@ class ListenTogetherService {
       if ((msg.type == MessageTypes.error || msg.type == 'join_rejected') &&
           !completer.isCompleted) {
         timeoutTimer?.cancel();
-        final err = msg.payload['message'] ?? msg.payload['reason'] ?? 'Failed to join room';
+        final err = msg.payload['message'] ?? msg.payload['code'] ?? msg.payload['reason'] ?? 'Failed to join room';
         completer.completeError(Exception(err));
         roomSub?.cancel();
         msgSub?.cancel();
@@ -535,6 +585,19 @@ class ListenTogetherService {
   /// Voluntarily leaves the current room.
   Future<void> leaveRoom() async {
     if (isInRoom) {
+      final code = _currentRoom?.roomCode;
+      if (code != null && _userId != null) {
+        _postRoomTelemetry('/api/rooms/leave', {
+          'roomCode': code,
+          'userId': _userId,
+        });
+        if (isHost) {
+          _postRoomTelemetry('/api/rooms/close', {
+            'roomCode': code,
+            'reason': 'host_closed',
+          });
+        }
+      }
       sendMessage(MessageTypes.leaveRoom, {});
     }
     _setRoom(null);
@@ -783,6 +846,18 @@ class ListenTogetherService {
         lastUpdateEpochMs: now,
         revision: _lastRevision,
       ));
+
+      _postRoomTelemetry('/api/rooms/song-played', {
+        'roomCode': _currentRoom!.roomCode,
+        'track': {
+          'id': track.id,
+          'title': track.title,
+          'artist': track.artist,
+          'album': track.album,
+          'durationMs': track.durationMs,
+          'thumbnailUrl': track.artworkUrl,
+        },
+      });
     }
 
     triggerBufferBarrier(track.id);
@@ -837,6 +912,15 @@ class ListenTogetherService {
 
     Map<String, dynamic> payload = {};
     switch (type) {
+      case 'error':
+        payload = ListenTogetherProtoCodec.decodeError(payloadBytes);
+        break;
+      case 'join_request':
+        payload = ListenTogetherProtoCodec.decodeJoinRequest(payloadBytes);
+        break;
+      case 'join_rejected':
+        payload = ListenTogetherProtoCodec.decodeJoinRejected(payloadBytes);
+        break;
       case 'room_created':
         payload = ListenTogetherProtoCodec.decodeRoomCreated(payloadBytes);
         break;
@@ -901,23 +985,63 @@ class ListenTogetherService {
             users: [
               ListenTogetherUser(
                 userId: _userId ?? '',
-                username: 'Host',
+                username: _localUsername ?? 'Host',
                 isHost: true,
                 joinedAt: DateTime.now().millisecondsSinceEpoch,
               )
             ],
           ));
         }
+        _postRoomTelemetry('/api/rooms/create', {
+          'roomCode': roomCode.toUpperCase(),
+          'hostUserId': _userId,
+          'hostUsername': _localUsername ?? 'Host',
+          'hostDeviceModel': Platform.isAndroid
+              ? 'Android Device'
+              : (Platform.isLinux ? 'Linux Desktop' : Platform.operatingSystem),
+          'hostPlatform': Platform.operatingSystem,
+          'isPublic': true,
+        });
+        break;
+
+      case MessageTypes.joinRequest:
+        final guestId = msg.payload['user_id']?.toString();
+        if (isHost && guestId != null && guestId.isNotEmpty) {
+          approveJoin(guestId);
+        }
         break;
 
       case MessageTypes.joinApproved:
         _userId = msg.payload['user_id']?.toString();
         _sessionToken = msg.payload['session_token']?.toString();
+        final roomCode = (msg.payload['room_code'] ?? '').toString();
         if (msg.payload['state'] != null) {
           _setRoom(ListenTogetherRoom.fromJson(
               msg.payload['state'] as Map<String, dynamic>));
+        } else {
+          _setRoom(ListenTogetherRoom(
+            roomCode: roomCode,
+            hostId: '',
+            users: [
+              ListenTogetherUser(
+                userId: _userId ?? '',
+                username: _localUsername ?? 'Guest',
+                isHost: false,
+                joinedAt: DateTime.now().millisecondsSinceEpoch,
+              ),
+            ],
+          ));
         }
         _setRole(SyncRole.guest);
+        _postRoomTelemetry('/api/rooms/join', {
+          'roomCode': roomCode.toUpperCase(),
+          'userId': _userId,
+          'username': _localUsername ?? 'Guest',
+          'deviceModel': Platform.isAndroid
+              ? 'Android Device'
+              : (Platform.isLinux ? 'Linux Desktop' : Platform.operatingSystem),
+          'platform': Platform.operatingSystem,
+        });
         break;
 
       case MessageTypes.userJoined:
@@ -927,6 +1051,13 @@ class ListenTogetherService {
             ..removeWhere((u) => u.userId == user.userId)
             ..add(user);
           _setRoom(_currentRoom!.copyWith(users: updated));
+          _postRoomTelemetry('/api/rooms/join', {
+            'roomCode': _currentRoom!.roomCode,
+            'userId': user.userId,
+            'username': user.username,
+            'deviceModel': 'Connected Member',
+            'platform': 'unknown',
+          });
         }
         break;
 
@@ -937,6 +1068,10 @@ class ListenTogetherService {
               .where((u) => u.userId != leftId)
               .toList();
           _setRoom(_currentRoom!.copyWith(users: updated));
+          _postRoomTelemetry('/api/rooms/leave', {
+            'roomCode': _currentRoom!.roomCode,
+            'userId': leftId,
+          });
         }
         break;
 
@@ -1064,6 +1199,18 @@ class ListenTogetherService {
               positionMs: action.positionMs ?? 0,
               lastUpdateEpochMs: action.serverTime ?? 0,
             ));
+
+            _postRoomTelemetry('/api/rooms/song-played', {
+              'roomCode': _currentRoom!.roomCode,
+              'track': {
+                'id': action.trackInfo!.id,
+                'title': action.trackInfo!.title,
+                'artist': action.trackInfo!.artist,
+                'album': action.trackInfo!.album,
+                'durationMs': action.trackInfo!.durationMs,
+                'thumbnailUrl': action.trackInfo!.artworkUrl,
+              },
+            });
           }
           _simulateLocalPrebuffer(action.trackInfo!.id);
         }

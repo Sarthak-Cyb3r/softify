@@ -36,7 +36,11 @@ abstract class ILibraryRepository {
   Stream<PlaylistWithTracks?> watchPlaylistWithTracks(String playlistId);
   Future<PlaylistWithTracks?> getPlaylistWithTracks(String playlistId);
   Future<void> addTrackToPlaylist(String playlistId, Track track);
-  Future<void> addTracksToPlaylist(String playlistId, List<Track> tracks);
+  Future<void> addTracksToPlaylist(
+    String playlistId,
+    List<Track> tracks, {
+    List<({String title, String artist})>? originalMetadata,
+  });
   Future<void> removeTrackFromPlaylist(String playlistId, int position);
   Future<void> reorderPlaylistTrack(String playlistId, int oldPosition, int newPosition);
 

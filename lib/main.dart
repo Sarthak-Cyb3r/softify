@@ -119,6 +119,17 @@ void main() async {
     ),
   );
 
+  // Restore persisted DJ Crossfade duration into audio handler
+  try {
+    final crossfadeRow = await (db.select(db.settings)
+          ..where((t) => t.key.equals('crossfade_duration')))
+        .getSingleOrNull();
+    if (crossfadeRow != null) {
+      final sec = int.tryParse(crossfadeRow.value) ?? 0;
+      audioHandler.setCrossfadeSeconds(sec);
+    }
+  } catch (_) {}
+
   runApp(
     ProviderScope(
       overrides: [

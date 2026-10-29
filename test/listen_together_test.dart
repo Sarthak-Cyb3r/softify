@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:softify/services/sync/listen_together_proto.dart';
 import 'package:softify/services/sync/listen_together_protocol.dart';
 import 'package:softify/services/sync/listen_together_service.dart';
 
@@ -732,6 +734,37 @@ void main() {
       expect(me.isHost, isTrue);
 
       await service.disconnect();
+    });
+
+    test('ListenTogetherProtoCodec encodes and decodes approve_join, error, and join_request', () {
+      final approveBytes = ListenTogetherProtoCodec.encodeApproveJoin('user_guest_123');
+      final decodedApprove = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(approveBytes));
+      expect(decodedApprove, isNotNull);
+      expect(decodedApprove!.$1, equals('approve_join'));
+
+      // Error wire decode
+      final errWriter = ProtoWriter()
+        ..writeString(1, 'room_not_found')
+        ..writeString(2, 'Room not found');
+      final errBytes = ListenTogetherProtoCodec.encodeEnvelope('error', errWriter.takeBytes());
+      final decodedErrEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(errBytes));
+      expect(decodedErrEnv, isNotNull);
+      expect(decodedErrEnv!.$1, equals('error'));
+      final errPayload = ListenTogetherProtoCodec.decodeError(decodedErrEnv!.$2);
+      expect(errPayload['code'], equals('room_not_found'));
+      expect(errPayload['message'], equals('Room not found'));
+
+      // Join request wire decode
+      final reqWriter = ProtoWriter()
+        ..writeString(1, 'user_guest_456')
+        ..writeString(2, 'GuestGuy');
+      final reqBytes = ListenTogetherProtoCodec.encodeEnvelope('join_request', reqWriter.takeBytes());
+      final decodedReqEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(reqBytes));
+      expect(decodedReqEnv, isNotNull);
+      expect(decodedReqEnv!.$1, equals('join_request'));
+      final reqPayload = ListenTogetherProtoCodec.decodeJoinRequest(decodedReqEnv!.$2);
+      expect(reqPayload['user_id'], equals('user_guest_456'));
+      expect(reqPayload['username'], equals('GuestGuy'));
     });
   });
 }

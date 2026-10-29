@@ -14,7 +14,6 @@ import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
-import '../widgets/acoustic_recognition_sheet.dart';
 import 'artist_discography_screen.dart';
 import '../../features/youtube/presentation/youtube_page.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
@@ -110,18 +109,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: tokens.accent,
-        elevation: 4,
-        shape: const CircleBorder(),
-        tooltip: 'Identify Music',
-        onPressed: () => AcousticRecognitionSheet.show(context),
-        child: const Icon(
-          Icons.graphic_eq_rounded,
-          color: Colors.black,
-          size: 26,
-        ),
-      ),
       appBar: null,
       body: SafeArea(
         bottom: false,
@@ -237,11 +224,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         color: tokens.textSecondary,
                         size: 22,
                       ),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_searchController.text.isNotEmpty)
-                            IconButton(
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
                               icon: Icon(
                                 Icons.close_rounded,
                                 color: tokens.textSecondary,
@@ -253,20 +237,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ref.read(searchNotifierProvider.notifier).setQuery('');
                                 setState(() {});
                               },
-                            ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.graphic_eq_rounded,
-                              color: tokens.accent,
-                              size: 20,
-                            ),
-                            tooltip: 'Identify Music',
-                            splashRadius: 20,
-                            onPressed: () => AcousticRecognitionSheet.show(context),
-                          ),
-                          const SizedBox(width: 4),
-                        ],
-                      ),
+                            )
+                          : null,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 12,

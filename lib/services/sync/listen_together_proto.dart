@@ -197,6 +197,18 @@ class ListenTogetherProtoCodec {
     return encodeEnvelope('join_room', w.takeBytes());
   }
 
+  static List<int> encodeApproveJoin(String userId) {
+    final w = ProtoWriter()..writeString(1, userId);
+    return encodeEnvelope('approve_join', w.takeBytes());
+  }
+
+  static List<int> encodeRejectJoin(String userId, [String reason = '']) {
+    final w = ProtoWriter()
+      ..writeString(1, userId)
+      ..writeString(2, reason);
+    return encodeEnvelope('reject_join', w.takeBytes());
+  }
+
   static List<int> encodeLeaveRoom() {
     return encodeEnvelope('leave_room', Uint8List(0));
   }
@@ -246,6 +258,57 @@ class ListenTogetherProtoCodec {
   }
 
   // --- Decoders ---
+
+  static Map<String, dynamic> decodeError(Uint8List payload) {
+    final r = ProtoReader(payload);
+    String code = 'error';
+    String message = 'An error occurred';
+    while (r.hasMore) {
+      final t = r.readTag();
+      if (t == null) break;
+      if (t.$1 == 1) {
+        code = r.readString();
+      } else if (t.$1 == 2) {
+        message = r.readString();
+      } else {
+        r.skipField(t.$2);
+      }
+    }
+    return {'code': code, 'message': message};
+  }
+
+  static Map<String, dynamic> decodeJoinRequest(Uint8List payload) {
+    final r = ProtoReader(payload);
+    String userId = '';
+    String username = '';
+    while (r.hasMore) {
+      final t = r.readTag();
+      if (t == null) break;
+      if (t.$1 == 1) {
+        userId = r.readString();
+      } else if (t.$1 == 2) {
+        username = r.readString();
+      } else {
+        r.skipField(t.$2);
+      }
+    }
+    return {'user_id': userId, 'username': username};
+  }
+
+  static Map<String, dynamic> decodeJoinRejected(Uint8List payload) {
+    final r = ProtoReader(payload);
+    String reason = 'Join rejected by host';
+    while (r.hasMore) {
+      final t = r.readTag();
+      if (t == null) break;
+      if (t.$1 == 1) {
+        reason = r.readString();
+      } else {
+        r.skipField(t.$2);
+      }
+    }
+    return {'reason': reason};
+  }
 
   static Map<String, dynamic> decodeRoomCreated(Uint8List payload) {
     final r = ProtoReader(payload);

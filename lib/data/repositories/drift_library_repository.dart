@@ -398,7 +398,11 @@ class DriftLibraryRepository implements ILibraryRepository {
   }
 
   @override
-  Future<void> addTracksToPlaylist(String playlistId, List<Track> tracks) async {
+  Future<void> addTracksToPlaylist(
+    String playlistId,
+    List<Track> tracks, {
+    List<({String title, String artist})>? originalMetadata,
+  }) async {
     if (tracks.isEmpty) return;
 
     await _db.transaction(() async {
@@ -428,14 +432,22 @@ class DriftLibraryRepository implements ILibraryRepository {
       final maxPos = await query.map((row) => row.read(maxPosExp)).getSingleOrNull();
       int currentPos = (maxPos ?? -1) + 1;
 
-      for (final track in tracks) {
+      for (int i = 0; i < tracks.length; i++) {
+        final track = tracks[i];
+        final origTitle = (originalMetadata != null && i < originalMetadata.length)
+            ? originalMetadata[i].title
+            : track.title;
+        final origArtist = (originalMetadata != null && i < originalMetadata.length)
+            ? originalMetadata[i].artist
+            : track.artist;
+
         await _db.into(_db.playlistTracks).insert(
               PlaylistTracksCompanion.insert(
                 playlistId: playlistId,
                 position: currentPos++,
                 trackId: Value(track.id),
-                originalTitle: track.title,
-                originalArtist: track.artist,
+                originalTitle: origTitle,
+                originalArtist: origArtist,
                 matchStatus: MatchStatus.matched.toDbString(),
               ),
             );

@@ -207,23 +207,6 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
-                  if (playlist.isImported)
-                    IconButton(
-                      icon: _isSyncing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF1DB954),
-                              ),
-                            )
-                          : const Icon(Icons.sync_rounded, color: Color(0xFF1DB954)),
-                      tooltip: 'Sync with Spotify',
-                      onPressed: _isSyncing
-                          ? null
-                          : () => _checkAndAutoSync(showNoUpdatesToast: true),
-                    ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.white70),
                     tooltip: 'Delete Playlist',

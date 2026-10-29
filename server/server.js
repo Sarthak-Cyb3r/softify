@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'softify-data') : path.join(__dirname, 'data');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json');
 
 const GITHUB_GIST_ID = process.env.GITHUB_GIST_ID || 'a8e25d128307d38d875a138da38a7ddd';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -306,12 +307,14 @@ function resolveExactDeviceModel(info = {}) {
 class Store {
   constructor() {
     this.devices = new Map();
+    this.rooms = new Map();
     this.targetedNotices = new Map();
     this.auditLogs = [];
     this.config = { ...DEFAULT_CONFIG };
     this.lastLoadedAt = 0;
     this._loadPromise = null;
     this._savePromise = null;
+    this._gistSyncTimeout = null;
 
     // Load initial local backup
     this._loadLocalBackup();
@@ -354,11 +357,25 @@ class Store {
         }
       }
     } catch (_) {}
+
+    try {
+      if (fs.existsSync(ROOMS_FILE)) {
+        const raw = fs.readFileSync(ROOMS_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        const list = Array.isArray(parsed) ? parsed : Object.values(parsed);
+        for (const item of list) {
+          if (item && item.roomCode) {
+            this.rooms.set(item.roomCode.toUpperCase(), item);
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   async ensureLoaded(force = false) {
     const now = Date.now();
-    if (!force && this.lastLoadedAt > 0 && now - this.lastLoadedAt < 3500) {
+    // In-memory cache TTL: 60 seconds (unless explicitly forced) for ultra-fast <5ms response
+    if (!force && this.lastLoadedAt > 0 && now - this.lastLoadedAt < 60000) {
       return;
     }
 
@@ -423,6 +440,28 @@ class Store {
               }
             }
 
+            // Merge Listen Together Rooms
+            if (parsed.rooms) {
+              const remoteRooms = Array.isArray(parsed.rooms)
+                ? parsed.rooms
+                : Object.values(parsed.rooms);
+
+              for (const r of remoteRooms) {
+                if (!r || !r.roomCode) continue;
+                const code = r.roomCode.toUpperCase();
+                const localRoom = this.rooms.get(code);
+                if (!localRoom) {
+                  this.rooms.set(code, r);
+                } else {
+                  const rTime = new Date(r.lastActivityAt || r.createdAt || 0).getTime();
+                  const lTime = new Date(localRoom.lastActivityAt || localRoom.createdAt || 0).getTime();
+                  if (rTime >= lTime) {
+                    this.rooms.set(code, { ...localRoom, ...r });
+                  }
+                }
+              }
+            }
+
             // Merge targeted notices
             if (parsed.targetedNotices) {
               for (const [devId, notice] of Object.entries(parsed.targetedNotices)) {
@@ -465,9 +504,25 @@ class Store {
   _writeLocalBackup() {
     try {
       const devList = Array.from(this.devices.values());
+      const roomList = Array.from(this.rooms.values());
       fs.writeFileSync(DEVICES_FILE, JSON.stringify(devList, null, 2), 'utf8');
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2), 'utf8');
+      fs.writeFileSync(ROOMS_FILE, JSON.stringify(roomList, null, 2), 'utf8');
     } catch (_) {}
+  }
+
+  scheduleCloudSync() {
+    if (!GITHUB_TOKEN || !GITHUB_GIST_ID) return;
+    if (this._gistSyncTimeout) return;
+
+    this._gistSyncTimeout = setTimeout(async () => {
+      this._gistSyncTimeout = null;
+      try {
+        await this.saveFleet();
+      } catch (err) {
+        console.error('Debounced Gist sync error:', err.message);
+      }
+    }, 5000);
   }
 
   async saveFleet(targetDevice = null) {
@@ -482,6 +537,7 @@ class Store {
       // 1. Fetch current remote Gist to merge any concurrent devices from other containers
       let remoteDevices = {};
       let remoteTargeted = {};
+      let remoteRooms = {};
       try {
         const res = await fetch(`https://api.github.com/gists/${GITHUB_GIST_ID}`, {
           headers: {
@@ -497,6 +553,7 @@ class Store {
             const parsed = JSON.parse(file.content);
             remoteDevices = parsed.devices || {};
             remoteTargeted = parsed.targetedNotices || {};
+            remoteRooms = parsed.rooms || {};
           }
         }
       } catch (_) {}
@@ -537,6 +594,12 @@ class Store {
         finalTargeted[id] = n;
       }
 
+      // Merge rooms
+      const finalRooms = { ...remoteRooms };
+      for (const [code, r] of this.rooms.entries()) {
+        finalRooms[code] = r;
+      }
+
       // 3. Atomically patch GitHub Gist
       const payload = {
         files: {
@@ -546,6 +609,7 @@ class Store {
                 config: this.config,
                 targetedNotices: finalTargeted,
                 devices: finalDevices,
+                rooms: finalRooms,
                 updatedAt: new Date().toISOString()
               },
               null,
@@ -801,6 +865,345 @@ class Store {
     return this.config;
   }
 
+  // ==========================================================================
+  // Listen Together Room Management & Session History Subsystem
+  // ==========================================================================
+
+  createOrUpdateRoom({ roomCode, hostUserId, hostUsername, hostDeviceModel, hostPlatform, clientIp, isPublic = true }) {
+    if (!roomCode) return null;
+    const code = roomCode.trim().toUpperCase();
+    const now = new Date().toISOString();
+
+    let room = this.rooms.get(code);
+    if (!room) {
+      room = {
+        roomCode: code,
+        id: code,
+        status: 'active',
+        createdAt: now,
+        endedAt: null,
+        durationSeconds: 0,
+        lastActivityAt: now,
+        host: {
+          userId: hostUserId || 'host_' + Math.random().toString(36).substring(2, 8),
+          username: hostUsername || 'Host',
+          deviceModel: hostDeviceModel || 'Mobile Device',
+          platform: hostPlatform || 'unknown',
+          ipAddress: clientIp || '',
+          joinedAt: now
+        },
+        users: [
+          {
+            userId: hostUserId || 'host_' + Math.random().toString(36).substring(2, 8),
+            username: hostUsername || 'Host',
+            isHost: true,
+            isOnline: true,
+            deviceModel: hostDeviceModel || 'Mobile Device',
+            platform: hostPlatform || 'unknown',
+            ipAddress: clientIp || '',
+            joinedAt: now,
+            leftAt: null,
+            activeDurationSeconds: 0
+          }
+        ],
+        peakUsers: 1,
+        currentTrack: null,
+        songsListened: [],
+        totalSongsPlayed: 0,
+        totalListeningSeconds: 0,
+        settings: {
+          isPublic: isPublic !== false,
+          allowChat: true,
+          autoApprove: true
+        }
+      };
+      this.rooms.set(code, room);
+      this.logEvent('ROOM_CREATED', code, `New Listen Together room created by ${hostUsername || 'Host'} (${code})`, 'success');
+    } else {
+      room.lastActivityAt = now;
+      if (room.status === 'closed') {
+        room.status = 'active';
+        room.endedAt = null;
+      }
+      if (hostUserId && hostUsername) {
+        room.host = {
+          userId: hostUserId,
+          username: hostUsername,
+          deviceModel: hostDeviceModel || room.host?.deviceModel || 'Mobile Device',
+          platform: hostPlatform || room.host?.platform || 'unknown',
+          ipAddress: clientIp || room.host?.ipAddress || '',
+          joinedAt: room.host?.joinedAt || now
+        };
+      }
+    }
+
+    this._writeLocalBackup();
+    this.scheduleCloudSync();
+    return room;
+  }
+
+  recordRoomUserJoin(roomCode, { userId, username, deviceModel, platform, clientIp }) {
+    if (!roomCode || !userId) return null;
+    const code = roomCode.trim().toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const now = new Date().toISOString();
+    room.lastActivityAt = now;
+
+    let user = room.users.find(u => u.userId === userId);
+    if (!user) {
+      user = {
+        userId,
+        username: username || 'Guest',
+        isHost: false,
+        isOnline: true,
+        deviceModel: deviceModel || 'Mobile Device',
+        platform: platform || 'unknown',
+        ipAddress: clientIp || '',
+        joinedAt: now,
+        leftAt: null,
+        activeDurationSeconds: 0
+      };
+      room.users.push(user);
+    } else {
+      user.isOnline = true;
+      user.leftAt = null;
+      if (username) user.username = username;
+      if (deviceModel) user.deviceModel = deviceModel;
+      if (platform) user.platform = platform;
+      if (clientIp) user.ipAddress = clientIp;
+    }
+
+    const currentOnlineCount = room.users.filter(u => u.isOnline).length;
+    if (currentOnlineCount > (room.peakUsers || 1)) {
+      room.peakUsers = currentOnlineCount;
+    }
+
+    this.logEvent('ROOM_USER_JOINED', code, `${username || 'User'} joined room ${code}`, 'info');
+    this._writeLocalBackup();
+    this.scheduleCloudSync();
+    return room;
+  }
+
+  recordRoomUserLeave(roomCode, userId) {
+    if (!roomCode || !userId) return null;
+    const code = roomCode.trim().toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const now = new Date().toISOString();
+    room.lastActivityAt = now;
+
+    const user = room.users.find(u => u.userId === userId);
+    if (user) {
+      user.isOnline = false;
+      user.leftAt = now;
+      const joinedTime = new Date(user.joinedAt || now).getTime();
+      const leftTime = new Date(now).getTime();
+      user.activeDurationSeconds = Math.max(0, Math.round((leftTime - joinedTime) / 1000));
+      this.logEvent('ROOM_USER_LEFT', code, `${user.username} left room ${code}`, 'info');
+    }
+
+    const onlineUsers = room.users.filter(u => u.isOnline);
+    if (onlineUsers.length === 0) {
+      this.closeRoom(code, 'all_users_left');
+    } else {
+      this._writeLocalBackup();
+      this.scheduleCloudSync();
+    }
+
+    return room;
+  }
+
+  recordRoomSongPlayed(roomCode, track) {
+    if (!roomCode || !track || !track.title) return null;
+    const code = roomCode.trim().toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const now = new Date().toISOString();
+    room.lastActivityAt = now;
+
+    const lastSong = room.songsListened[room.songsListened.length - 1];
+    if (lastSong && lastSong.id === track.id && (Date.now() - new Date(lastSong.playedAt).getTime() < 5000)) {
+      return room;
+    }
+
+    const songEntry = {
+      id: track.id || 'track_' + Math.random().toString(36).substring(2, 8),
+      title: (track.title || 'Unknown Title').trim(),
+      artist: (track.artist || 'Unknown Artist').trim(),
+      album: (track.album || '').trim(),
+      durationMs: track.durationMs || (track.duration ? track.duration * 1000 : 180000),
+      thumbnailUrl: track.thumbnailUrl || track.coverUrl || '',
+      playedAt: now,
+      playedDurationSeconds: Math.round((track.durationMs || 180000) / 1000)
+    };
+
+    room.currentTrack = songEntry;
+    room.songsListened.push(songEntry);
+    room.totalSongsPlayed = room.songsListened.length;
+    room.totalListeningSeconds = (room.totalListeningSeconds || 0) + songEntry.playedDurationSeconds;
+
+    this.logEvent('ROOM_TRACK_PLAYED', code, `Played "${songEntry.title}" by ${songEntry.artist} in room ${code}`, 'info');
+    this._writeLocalBackup();
+    this.scheduleCloudSync();
+    return room;
+  }
+
+  recordRoomHeartbeat(roomCode, { activeUsers, currentTrack, positionMs }) {
+    if (!roomCode) return null;
+    const code = roomCode.trim().toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const now = new Date().toISOString();
+    room.lastActivityAt = now;
+
+    if (activeUsers && Array.isArray(activeUsers)) {
+      const activeIds = new Set(activeUsers.map(u => typeof u === 'string' ? u : u.userId));
+      for (const u of room.users) {
+        if (activeIds.has(u.userId)) {
+          u.isOnline = true;
+        }
+      }
+      if (activeUsers.length > (room.peakUsers || 1)) {
+        room.peakUsers = activeUsers.length;
+      }
+    }
+
+    if (currentTrack && currentTrack.title) {
+      if (!room.currentTrack || room.currentTrack.id !== currentTrack.id) {
+        this.recordRoomSongPlayed(code, currentTrack);
+      }
+    }
+
+    this._writeLocalBackup();
+    return room;
+  }
+
+  closeRoom(roomCode, reason = 'manual_close') {
+    if (!roomCode) return null;
+    const code = roomCode.trim().toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return null;
+
+    const now = new Date().toISOString();
+    room.status = 'closed';
+    room.endedAt = now;
+    room.lastActivityAt = now;
+
+    const start = new Date(room.createdAt).getTime();
+    const end = new Date(now).getTime();
+    room.durationSeconds = Math.max(0, Math.round((end - start) / 1000));
+
+    for (const u of room.users) {
+      if (u.isOnline) {
+        u.isOnline = false;
+        u.leftAt = now;
+        const uStart = new Date(u.joinedAt || room.createdAt).getTime();
+        u.activeDurationSeconds = Math.max(0, Math.round((end - uStart) / 1000));
+      }
+    }
+
+    this.logEvent('ROOM_CLOSED', code, `Listen Together room ${code} closed (${reason}, duration: ${this._formatDuration(room.durationSeconds)})`, 'warning');
+    this._writeLocalBackup();
+    this.scheduleCloudSync();
+    return room;
+  }
+
+  deleteRoom(roomCode) {
+    if (!roomCode) return false;
+    const code = roomCode.trim().toUpperCase();
+    const deleted = this.rooms.delete(code);
+    if (deleted) {
+      this.logEvent('ROOM_DELETED', code, `Room ${code} purged from database`, 'warning');
+      this._writeLocalBackup();
+      this.scheduleCloudSync();
+    }
+    return deleted;
+  }
+
+  getAllRooms({ status, search = '' } = {}) {
+    const now = Date.now();
+    let list = Array.from(this.rooms.values()).map(r => {
+      let duration = r.durationSeconds || 0;
+      if (r.status === 'active') {
+        const start = new Date(r.createdAt).getTime();
+        duration = Math.max(0, Math.round((now - start) / 1000));
+      }
+
+      const lastAct = new Date(r.lastActivityAt || r.createdAt).getTime();
+      if (r.status === 'active' && (now - lastAct > 60 * 60 * 1000)) {
+        r.status = 'closed';
+        r.endedAt = new Date(lastAct).toISOString();
+        r.durationSeconds = Math.max(0, Math.round((lastAct - new Date(r.createdAt).getTime()) / 1000));
+        duration = r.durationSeconds;
+      }
+
+      const activeUserCount = r.users ? r.users.filter(u => u.isOnline).length : 0;
+      const totalUserCount = r.users ? r.users.length : 0;
+
+      return {
+        ...r,
+        durationSeconds: duration,
+        durationFormatted: this._formatDuration(duration),
+        activeUserCount,
+        totalUserCount
+      };
+    });
+
+    if (status && status !== 'all') {
+      list = list.filter(r => r.status === status);
+    }
+
+    if (search && search.trim().length > 0) {
+      const q = search.trim().toUpperCase();
+      list = list.filter(r =>
+        r.roomCode.includes(q) ||
+        (r.host && r.host.username && r.host.username.toUpperCase().includes(q)) ||
+        (r.currentTrack && r.currentTrack.title && r.currentTrack.title.toUpperCase().includes(q)) ||
+        (r.users && r.users.some(u => u.username && u.username.toUpperCase().includes(q)))
+      );
+    }
+
+    list.sort((a, b) => {
+      if (a.status === 'active' && b.status !== 'active') return -1;
+      if (b.status === 'active' && a.status !== 'active') return 1;
+      return new Date(b.lastActivityAt || b.createdAt).getTime() - new Date(a.lastActivityAt || a.createdAt).getTime();
+    });
+
+    return list;
+  }
+
+  getRoomStats() {
+    const all = Array.from(this.rooms.values());
+    const active = all.filter(r => r.status === 'active');
+    const totalSongs = all.reduce((sum, r) => sum + (r.totalSongsPlayed || (r.songsListened ? r.songsListened.length : 0)), 0);
+    const totalSeconds = all.reduce((sum, r) => sum + (r.totalListeningSeconds || 0), 0);
+    const peakListeners = all.reduce((max, r) => Math.max(max, r.peakUsers || 0), 0);
+
+    return {
+      totalRooms: all.length,
+      activeRooms: active.length,
+      closedRooms: all.length - active.length,
+      totalSongsListened: totalSongs,
+      totalListeningHours: (totalSeconds / 3600).toFixed(1),
+      peakListeners
+    };
+  }
+
+  _formatDuration(seconds) {
+    if (!seconds || seconds <= 0) return '0s';
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  }
+
   getStats() {
     const devices = Array.from(this.devices.values());
     const now = Date.now();
@@ -853,6 +1256,7 @@ class Store {
       maintenanceExemptCount,
       platforms,
       versions,
+      roomStats: this.getRoomStats(),
       maintenanceMode: Boolean(this.config.maintenanceMode),
       minAppVersion: this.config.minAppVersion || '3.0.3',
       broadcastActive: Boolean(this.config.broadcastNotice || this.config.broadcastBanner)
@@ -867,10 +1271,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware: Always ensure store is hydrated before handling requests
+// Middleware: Fast non-blocking store hydration with in-memory cache TTL
 app.use(async (req, res, next) => {
   try {
-    const forceFresh = req.path.startsWith('/api/admin');
+    const forceFresh = req.query.force === 'true';
     await store.ensureLoaded(forceFresh);
   } catch (e) {
     console.error('Store hydration middleware error:', e.message);
@@ -1316,6 +1720,164 @@ app.post('/api/admin/sync-cloud', requireAdmin, async (req, res) => {
     stats: store.getStats(),
     config: store.config
   });
+});
+
+// ============================================================================
+// 3. Listen Together Room Lifecycle & Session Database API
+// ============================================================================
+
+// Client Endpoint: Register / Create Room
+app.post('/api/rooms/create', (req, res) => {
+  const { roomCode, hostUserId, hostUsername, hostDeviceModel, hostPlatform, isPublic } = req.body || {};
+  if (!roomCode) {
+    return res.status(400).json({ error: 'roomCode is required' });
+  }
+
+  const clientIp = getClientIp(req);
+  const room = store.createOrUpdateRoom({
+    roomCode,
+    hostUserId,
+    hostUsername,
+    hostDeviceModel,
+    hostPlatform,
+    clientIp,
+    isPublic
+  });
+
+  return res.json({ success: true, room });
+});
+
+// Client Endpoint: User Join Room
+app.post('/api/rooms/join', (req, res) => {
+  const { roomCode, userId, username, deviceModel, platform } = req.body || {};
+  if (!roomCode || !userId) {
+    return res.status(400).json({ error: 'roomCode and userId are required' });
+  }
+
+  const clientIp = getClientIp(req);
+  const room = store.recordRoomUserJoin(roomCode, {
+    userId,
+    username,
+    deviceModel,
+    platform,
+    clientIp
+  });
+
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  return res.json({ success: true, room });
+});
+
+// Client Endpoint: User Leave Room
+app.post('/api/rooms/leave', (req, res) => {
+  const { roomCode, userId } = req.body || {};
+  if (!roomCode || !userId) {
+    return res.status(400).json({ error: 'roomCode and userId are required' });
+  }
+
+  const room = store.recordRoomUserLeave(roomCode, userId);
+  return res.json({ success: true, room });
+});
+
+// Client Endpoint: Song Played in Room
+app.post('/api/rooms/song-played', (req, res) => {
+  const { roomCode, track } = req.body || {};
+  if (!roomCode || !track) {
+    return res.status(400).json({ error: 'roomCode and track are required' });
+  }
+
+  const room = store.recordRoomSongPlayed(roomCode, track);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  return res.json({ success: true, room });
+});
+
+// Client Endpoint: Room Heartbeat / State Sync
+app.post('/api/rooms/heartbeat', (req, res) => {
+  const { roomCode, activeUsers, currentTrack, positionMs } = req.body || {};
+  if (!roomCode) {
+    return res.status(400).json({ error: 'roomCode is required' });
+  }
+
+  const room = store.recordRoomHeartbeat(roomCode, { activeUsers, currentTrack, positionMs });
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  return res.json({ success: true, room });
+});
+
+// Client Endpoint: Close Room
+app.post('/api/rooms/close', (req, res) => {
+  const { roomCode, reason } = req.body || {};
+  if (!roomCode) {
+    return res.status(400).json({ error: 'roomCode is required' });
+  }
+
+  const room = store.closeRoom(roomCode, reason || 'host_closed');
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  return res.json({ success: true, room });
+});
+
+// Public / Client Endpoint: Get Active Rooms
+app.get('/api/rooms/active', (req, res) => {
+  const activeRooms = store.getAllRooms({ status: 'active' });
+  return res.json({ success: true, rooms: activeRooms });
+});
+
+// Public / Client Endpoint: Get Specific Room Details
+app.get('/api/rooms/:roomCode', (req, res) => {
+  const room = store.rooms.get(req.params.roomCode.trim().toUpperCase());
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  return res.json({ success: true, room });
+});
+
+// ==========================================
+// 4. Admin Listen Together Room Database API
+// ==========================================
+
+// Get All Rooms with Statistics & Filters
+app.get('/api/admin/rooms', requireAdmin, (req, res) => {
+  const { status, search } = req.query;
+  const rooms = store.getAllRooms({ status, search });
+  const stats = store.getRoomStats();
+  return res.json({ success: true, stats, rooms });
+});
+
+// Get Deep Room Ledger (All users, full song history, audit)
+app.get('/api/admin/rooms/:roomCode', requireAdmin, (req, res) => {
+  const room = store.rooms.get(req.params.roomCode.trim().toUpperCase());
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  return res.json({ success: true, room });
+});
+
+// Admin Remotely Closes Active Room
+app.post('/api/admin/rooms/:roomCode/close', requireAdmin, (req, res) => {
+  const room = store.closeRoom(req.params.roomCode.trim().toUpperCase(), 'admin_terminated');
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  return res.json({ success: true, room });
+});
+
+// Admin Purges Room Record from Database
+app.delete('/api/admin/rooms/:roomCode', requireAdmin, (req, res) => {
+  const deleted = store.deleteRoom(req.params.roomCode.trim().toUpperCase());
+  if (!deleted) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  return res.json({ success: true, message: 'Room successfully deleted' });
 });
 
 // Health check endpoint

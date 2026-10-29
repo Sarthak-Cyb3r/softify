@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -154,6 +155,18 @@ class DynamicThemeNotifier extends StateNotifier<Color> {
   String? _lastCoverUrl;
 
   DynamicThemeNotifier(this.ref) : super(const Color(0xFFED5564)) {
+    // 1. Initial track extraction on startup / instantiation
+    try {
+      final initialTrack = ref.read(currentTrackProvider).value ??
+          ref.read(audioHandlerProvider).currentTrack;
+      if (initialTrack != null &&
+          initialTrack.coverUrl != null &&
+          initialTrack.coverUrl!.isNotEmpty) {
+        extractFromArtwork(initialTrack.coverUrl!);
+      }
+    } catch (_) {}
+
+    // 2. React to active track stream updates
     ref.listen<AsyncValue<Track?>>(currentTrackProvider, (prev, next) {
       final isDynamicEnabled = ref.read(dynamicArtworkThemingEnabledProvider);
       if (!isDynamicEnabled) return;
@@ -162,38 +175,104 @@ class DynamicThemeNotifier extends StateNotifier<Color> {
         extractFromArtwork(track.coverUrl!);
       }
     });
+
+    // 3. React to system mediaItem updates (covers background, lockscreen, local audio)
+    ref.listen<AsyncValue<MediaItem?>>(mediaItemStreamProvider, (prev, next) {
+      final isDynamicEnabled = ref.read(dynamicArtworkThemingEnabledProvider);
+      if (!isDynamicEnabled) return;
+      final item = next.value;
+      final artUri = item?.artUri?.toString();
+      if (artUri != null && artUri.isNotEmpty) {
+        extractFromArtwork(artUri);
+      }
+    });
   }
 
   Future<void> extractFromArtwork(String coverUrl) async {
-    if (coverUrl == _lastCoverUrl) return;
-    _lastCoverUrl = coverUrl;
+    final raw = coverUrl.trim();
+    if (raw.isEmpty || raw == _lastCoverUrl) return;
+    _lastCoverUrl = raw;
 
-    if (_artworkSeedCache.containsKey(coverUrl)) {
-      state = _artworkSeedCache[coverUrl]!;
+    if (_artworkSeedCache.containsKey(raw)) {
+      state = _artworkSeedCache[raw]!;
+      return;
+    }
+
+    // Auto-upgrade cleartext http:// to https:// to prevent Android cleartext blocking
+    String primaryUrl = raw;
+    if (primaryUrl.startsWith('http://')) {
+      primaryUrl = 'https://${primaryUrl.substring(7)}';
+    }
+
+    ImageProvider? imageProvider;
+    if (primaryUrl.startsWith('file://')) {
+      imageProvider = FileImage(File(Uri.parse(primaryUrl).toFilePath()));
+    } else if (primaryUrl.startsWith('/')) {
+      imageProvider = FileImage(File(primaryUrl));
+    } else if (primaryUrl.startsWith('https://')) {
+      imageProvider = NetworkImage(primaryUrl);
+    }
+
+    if (imageProvider == null) {
+      final fallbackColor = _generateConsistentHashColor(raw);
+      state = fallbackColor;
       return;
     }
 
     try {
       final generator = await PaletteGenerator.fromImageProvider(
-        NetworkImage(coverUrl),
+        imageProvider,
         size: const Size(64, 64),
         maximumColorCount: 8,
-      );
+      ).timeout(const Duration(seconds: 4));
 
       final color = generator.vibrantColor?.color ??
           generator.dominantColor?.color ??
           generator.lightVibrantColor?.color ??
           generator.mutedColor?.color ??
-          const Color(0xFFED5564);
+          _generateConsistentHashColor(raw);
 
       if (_artworkSeedCache.length >= 100) {
         _artworkSeedCache.remove(_artworkSeedCache.keys.first);
       }
-      _artworkSeedCache[coverUrl] = color;
+      _artworkSeedCache[raw] = color;
       state = color;
     } catch (_) {
-      // Keep previous seed on network or image decoding failure
+      // YouTube fallback: maxresdefault -> hqdefault
+      if (primaryUrl.contains('maxresdefault.jpg')) {
+        final fallbackUrl = primaryUrl.replaceAll('maxresdefault.jpg', 'hqdefault.jpg');
+        try {
+          final fallbackGen = await PaletteGenerator.fromImageProvider(
+            NetworkImage(fallbackUrl),
+            size: const Size(64, 64),
+            maximumColorCount: 8,
+          ).timeout(const Duration(seconds: 3));
+
+          final color = fallbackGen.vibrantColor?.color ??
+              fallbackGen.dominantColor?.color ??
+              fallbackGen.lightVibrantColor?.color ??
+              _generateConsistentHashColor(raw);
+
+          _artworkSeedCache[raw] = color;
+          state = color;
+          return;
+        } catch (_) {}
+      }
+
+      // Guaranteed deterministic harmonious seed from artwork hash so theme ALWAYS adapts
+      final fallbackColor = _generateConsistentHashColor(raw);
+      _artworkSeedCache[raw] = fallbackColor;
+      state = fallbackColor;
     }
+  }
+
+  static Color _generateConsistentHashColor(String seed) {
+    int hash = 0;
+    for (int i = 0; i < seed.length; i++) {
+      hash = (31 * hash + seed.codeUnitAt(i)) & 0xFFFFFF;
+    }
+    final hue = (hash % 360).toDouble();
+    return HSVColor.fromAHSV(1.0, hue, 0.65, 0.75).toColor();
   }
 
   void setManualSeed(Color color) {
@@ -229,28 +308,49 @@ final auroraPaletteProvider =
     return const Color(0xFF34D399); // Default studio sage mint
   }
 
-  if (_auroraPaletteCache.containsKey(coverUrl)) {
-    return _auroraPaletteCache[coverUrl]!;
+  final raw = coverUrl.trim();
+  if (_auroraPaletteCache.containsKey(raw)) {
+    return _auroraPaletteCache[raw]!;
+  }
+
+  String primaryUrl = raw;
+  if (primaryUrl.startsWith('http://')) {
+    primaryUrl = 'https://${primaryUrl.substring(7)}';
+  }
+
+  ImageProvider? imageProvider;
+  if (primaryUrl.startsWith('file://')) {
+    imageProvider = FileImage(File(Uri.parse(primaryUrl).toFilePath()));
+  } else if (primaryUrl.startsWith('/')) {
+    imageProvider = FileImage(File(primaryUrl));
+  } else if (primaryUrl.startsWith('https://')) {
+    imageProvider = NetworkImage(primaryUrl);
+  }
+
+  if (imageProvider == null) {
+    return DynamicThemeNotifier._generateConsistentHashColor(raw);
   }
 
   try {
     final generator = await PaletteGenerator.fromImageProvider(
-      NetworkImage(coverUrl),
-      size: const Size(32, 32), // Fast downsample for minimal CPU/GPU overhead
+      imageProvider,
+      size: const Size(32, 32),
       maximumColorCount: 6,
-    );
+    ).timeout(const Duration(seconds: 4));
 
     final color = generator.dominantColor?.color ??
         generator.mutedColor?.color ??
         generator.vibrantColor?.color ??
-        const Color(0xFF34D399);
+        DynamicThemeNotifier._generateConsistentHashColor(raw);
 
     if (_auroraPaletteCache.length >= 100) {
       _auroraPaletteCache.remove(_auroraPaletteCache.keys.first);
     }
-    _auroraPaletteCache[coverUrl] = color;
+    _auroraPaletteCache[raw] = color;
     return color;
   } catch (_) {
-    return const Color(0xFF34D399);
+    final fallback = DynamicThemeNotifier._generateConsistentHashColor(raw);
+    _auroraPaletteCache[raw] = fallback;
+    return fallback;
   }
 });

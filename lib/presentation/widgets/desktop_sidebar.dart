@@ -77,14 +77,18 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                     borderRadius: BorderRadius.circular(tokens.radiusSm),
                   ),
                   child: Center(
-                    child: Image.asset(
-                      'assets/logo/logo.png',
-                      width: 22,
-                      height: 22,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.graphic_eq_rounded,
-                        color: AppTheme.accent,
-                        size: 20,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(tokens.radiusSm),
+                      child: Image.asset(
+                        'assets/logo/logo.png',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.graphic_eq_rounded,
+                          color: AppTheme.accent,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),

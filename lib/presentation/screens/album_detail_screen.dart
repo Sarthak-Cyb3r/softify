@@ -99,43 +99,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       bottomNavigationBar: MediaQuery.of(context).size.width < 800
           ? const SafeArea(top: false, bottom: true, child: MiniPlayer())
           : const DesktopPlayerBar(),
-      floatingActionButton: _tracks.isNotEmpty
-          ? BouncingScaleButton(
-              scaleFactor: 0.94,
-              minTouchTarget: 0,
-              onTap: () {
-                audioHandler.setQueue(_tracks);
-              },
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: tokens.accent,
-                  borderRadius: BorderRadius.circular(tokens.radiusFull),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.black,
-                      size: 24,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Play All',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : null,
       body: CustomScrollView(
         slivers: [
           // Cinematic Album Hero Header

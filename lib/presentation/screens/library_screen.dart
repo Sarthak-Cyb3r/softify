@@ -286,25 +286,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           ),
         ),
         actions: [
-          if (isDesktop) ...[
-            AppPillButton(
-              label: 'Create playlist',
-              icon: const Icon(Icons.add_rounded, size: 16),
-              variant: AppPillButtonVariant.primary,
-              height: 32,
-              onPressed: () => _showCreatePlaylistDialog(context),
-            ),
-            const SizedBox(width: 8),
-          ] else ...[
-            BouncingScaleButton(
-              scaleFactor: 0.9,
-              onTap: () => _showCreatePlaylistDialog(context),
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Icon(Icons.add_rounded, size: 24),
-              ),
-            ),
-          ],
           BouncingScaleButton(
             scaleFactor: 0.9,
             onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,

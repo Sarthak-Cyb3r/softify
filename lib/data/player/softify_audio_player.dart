@@ -310,8 +310,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final targetVol = _volumeSubject.value;
     final bool canCrossfade = crossfade > Duration.zero &&
         !Platform.isLinux &&
-        outgoing.playing &&
-        outgoing.processingState == ProcessingState.ready;
+        outgoing.processingState != ProcessingState.idle;
 
     final currentGen = ++_crossfadeGenerationId;
     if (!canCrossfade) {

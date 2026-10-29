@@ -352,10 +352,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
     // Listen to position for automatic DJ crossfade & speculative standby pre-warming
     _crossfadePositionSubscription = _player.positionStream.listen((pos) {
       if (_isTransitioningTrack) return;
-      final dur = currentTrack?.duration;
-      if (dur != null && dur > const Duration(seconds: 25)) {
-        // 1. Speculative JIT pre-warming (20s before completion)
-        if (pos >= dur - const Duration(seconds: 20) &&
+      final dur = _player.duration ?? currentTrack?.duration;
+      if (dur != null && dur > const Duration(seconds: 15)) {
+        // 1. Speculative JIT pre-warming (lead time: at least 25s or crossfade duration + 10s)
+        final leadSeconds = max(25, _crossfadeSeconds + 10);
+        final leadTime = Duration(seconds: leadSeconds);
+        if (pos >= dur - leadTime &&
             !_player.hasPreloadedNext &&
             !_isPrefetching) {
           unawaited(_prefetchNextTrackStream());
@@ -365,9 +367,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
         final nextTrack = _peekNextTrack();
         final effectiveCrossfade = _computeEffectiveCrossfade(currentTrack, nextTrack);
         if (effectiveCrossfade > Duration.zero &&
-            pos >= dur - effectiveCrossfade &&
-            _player.hasPreloadedNext) {
-          _onTrackCompleted();
+            pos >= dur - effectiveCrossfade) {
+          if (_player.hasPreloadedNext) {
+            _onTrackCompleted();
+          } else if (!_isPrefetching) {
+            unawaited(_prefetchNextTrackStream());
+          }
         }
       }
 
@@ -579,24 +584,16 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   /// Context-aware audio transition matrix:
-  /// - Spoken/Podcast tracks: Always 0ms cutover (preserves dialogue clarity).
-  /// - Consecutive album tracks: 0ms true gapless cutover (preserves conceptual album continuity).
-  /// - Playlists/Mixed seeds: Equal-power DJ crossfade using configured crossfade duration.
+  /// - Spoken/Podcast tracks: 0ms cutover (preserves dialogue clarity).
+  /// - Music tracks: Equal-power DJ crossfade using user-configured crossfade duration.
   Duration _computeEffectiveCrossfade(Track? from, Track? to) {
     if (_crossfadeSeconds <= 0) return Duration.zero;
     if (from == null || to == null) return Duration(seconds: _crossfadeSeconds);
 
-    if (from.supportsSpeedPlayback || to.supportsSpeedPlayback) {
-      return Duration.zero;
-    }
-
-    final fromAlbum = from.album?.trim().toLowerCase();
-    final toAlbum = to.album?.trim().toLowerCase();
-    if (fromAlbum != null &&
-        fromAlbum.isNotEmpty &&
-        toAlbum != null &&
-        toAlbum.isNotEmpty &&
-        fromAlbum == toAlbum) {
+    // Spoken podcasts bypass crossfade to prevent vocal unintelligibility
+    final isFromPodcast = from.id.startsWith('podcast_') || from.sourceId.startsWith('podcast_');
+    final isToPodcast = to.id.startsWith('podcast_') || to.sourceId.startsWith('podcast_');
+    if (isFromPodcast || isToPodcast) {
       return Duration.zero;
     }
 

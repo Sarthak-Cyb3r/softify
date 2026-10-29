@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:palette_generator/palette_generator.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
+import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/artist_chooser_bottom_sheet.dart';
 import '../widgets/bouncing_scale_button.dart';
@@ -93,31 +96,64 @@ class _FullScreenPlayerScreenState
     }
     _lastExtractedCoverUrl = coverUrl;
 
-    if (_paletteCache.containsKey(coverUrl)) {
+    final raw = coverUrl.trim();
+    if (_paletteCache.containsKey(raw)) {
+      final color = _paletteCache[raw]!;
       setState(() {
-        _ambientColor = _paletteCache[coverUrl]!;
+        _ambientColor = color;
       });
+      ref.read(dynamicThemeColorProvider.notifier).setManualSeed(color);
+      return;
+    }
+
+    String primaryUrl = raw;
+    if (primaryUrl.startsWith('http://')) {
+      primaryUrl = 'https://${primaryUrl.substring(7)}';
+    }
+
+    ImageProvider? provider;
+    if (primaryUrl.startsWith('file://')) {
+      provider = FileImage(File(Uri.parse(primaryUrl).toFilePath()));
+    } else if (primaryUrl.startsWith('/')) {
+      provider = FileImage(File(primaryUrl));
+    } else if (primaryUrl.startsWith('https://')) {
+      provider = NetworkImage(primaryUrl);
+    }
+
+    if (provider == null) {
+      final color = DynamicThemeNotifier._generateConsistentHashColor(raw);
+      _paletteCache[raw] = color;
+      if (mounted) {
+        setState(() => _ambientColor = color);
+        ref.read(dynamicThemeColorProvider.notifier).setManualSeed(color);
+      }
       return;
     }
 
     PaletteGenerator.fromImageProvider(
-      NetworkImage(coverUrl),
-      size: const Size(48, 48), // Downscaled sample for 60fps performance on Moto G34
+      provider,
+      size: const Size(48, 48), // Downscaled sample for 60fps performance on mobile
       maximumColorCount: 8,
     ).then((generator) {
       final color = generator.dominantColor?.color ??
           generator.vibrantColor?.color ??
           generator.mutedColor?.color ??
-          const Color(0xFF1E2822);
+          DynamicThemeNotifier._generateConsistentHashColor(raw);
 
-      _paletteCache[coverUrl] = color;
+      _paletteCache[raw] = color;
       if (mounted) {
         setState(() {
           _ambientColor = color;
         });
+        ref.read(dynamicThemeColorProvider.notifier).setManualSeed(color);
       }
     }).catchError((_) {
-      // Keep existing ambient fallback
+      final color = DynamicThemeNotifier._generateConsistentHashColor(raw);
+      _paletteCache[raw] = color;
+      if (mounted) {
+        setState(() => _ambientColor = color);
+        ref.read(dynamicThemeColorProvider.notifier).setManualSeed(color);
+      }
     });
   }
 
@@ -318,7 +354,7 @@ class _FullScreenPlayerScreenState
                           ],
                         ),
                       ),
-                      if (isSleepActive) ...[
+                      if (isSleepActive)
                         BouncingScaleButton(
                           scaleFactor: 0.9,
                           onTap: () => SleepTimerBottomSheet.show(context),
@@ -350,38 +386,9 @@ class _FullScreenPlayerScreenState
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      BouncingScaleButton(
-                        scaleFactor: 0.9,
-                        onTap: isPlaceholder
-                            ? null
-                            : () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
-                        child: tokens.isGlass
-                            ? AppSurface(
-                                withBlur: true,
-                                width: 38,
-                                height: 38,
-                                borderRadius: BorderRadius.circular(19),
-                                border: Border.all(color: tokens.glassBorder, width: 1.0),
-                                child: Center(
-                                  child: Icon(
-                                    Icons.more_vert_rounded,
-                                    size: 22,
-                                    color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : Colors.white,
-                                  ),
-                                ),
-                              )
-                            : Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Icon(
-                                  Icons.more_vert_rounded,
-                                  size: 24,
-                                  color: isPlaceholder ? tokens.textSecondary.withValues(alpha: 0.3) : null,
-                                ),
-                              ),
-                      ),
+                        )
+                      else
+                        const SizedBox(width: 38),
                     ],
                   ),
                 ),

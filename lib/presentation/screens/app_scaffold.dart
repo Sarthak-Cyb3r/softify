@@ -8,7 +8,6 @@ import '../theme/app_theme.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/mini_player.dart';
-import '../widgets/quick_playback_panel.dart';
 import '../widgets/shared/aurora_background.dart';
 import 'music_screensaver_screen.dart';
 import '../../features/podcasts/domain/parse_podcast_link.dart';
@@ -30,7 +29,6 @@ import '../../data/database/app_database.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/device_control_providers.dart';
 import '../../data/services/device_control_service.dart';
-import '../widgets/acoustic_recognition_sheet.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
 import 'device_blocked_screen.dart';
 
@@ -59,7 +57,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   bool _isScreensaverOpen = false;
   Timer? _screensaverIdleTimer;
   int _lastScreensaverResetMs = 0;
-  bool _isQuickPanelOpen = false;
 
   void _resetScreensaverIdleTimerThrottled() {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -723,12 +720,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         _currentIndex = index;
                       });
                     },
-                    onLongPress: (index) {
-                      if (index == 1) {
-                        HapticFeedback.heavyImpact();
-                        AcousticRecognitionSheet.show(context);
-                      }
-                    },
                     items: const [
                       SlimNavItem(
                         icon: Icons.home_outlined,
@@ -756,64 +747,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
               ),
             ),
           ),
-
-          // Top Swipe-Down Trigger Handle for Quick Playback Panel
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.of(context).padding.top + 28,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onVerticalDragUpdate: (details) {
-                if (details.delta.dy > 4 && !_isQuickPanelOpen) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _isQuickPanelOpen = true);
-                }
-              },
-              onTap: () {
-                HapticFeedback.lightImpact();
-                setState(() => _isQuickPanelOpen = true);
-              },
-              child: SafeArea(
-                bottom: false,
-                child: Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Floating Frosted Quick Playback Controlling Panel
-          if (_isQuickPanelOpen) ...[
-            // Dismiss Barrier
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _isQuickPanelOpen = false),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.45),
-                ),
-              ),
-            ),
-
-            // Top-anchored Dropdown Panel
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: QuickPlaybackPanel(
-                onDismiss: () => setState(() => _isQuickPanelOpen = false),
-              ),
-            ),
-          ],
         ],
       ),
     );

@@ -62,7 +62,11 @@ class FakeLibraryRepository implements ILibraryRepository {
   @override
   Future<void> addTrackToPlaylist(String playlistId, Track track) async {}
   @override
-  Future<void> addTracksToPlaylist(String playlistId, List<Track> tracks) async {}
+  Future<void> addTracksToPlaylist(
+    String playlistId,
+    List<Track> tracks, {
+    List<({String title, String artist})>? originalMetadata,
+  }) async {}
   @override
   Future<void> removeTrackFromPlaylist(String playlistId, int position) async {}
   @override

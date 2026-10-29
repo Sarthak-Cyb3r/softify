@@ -231,13 +231,20 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         sourceUrl: 'https://open.spotify.com/playlist/${currentPlaylist.id}',
       );
 
-      final matchedTracks = currentPlaylist.tracks
+      final matchedEntries = currentPlaylist.tracks
           .where((t) => t.isMatched && t.matchedTrack != null)
-          .map((t) => t.matchedTrack!)
+          .toList();
+      final matchedTracks = matchedEntries.map((t) => t.matchedTrack!).toList();
+      final originalMeta = matchedEntries
+          .map((t) => (title: t.title, artist: t.artist))
           .toList();
 
-      // Atomic single-transaction batch insert
-      await _libraryRepo.addTracksToPlaylist(newPlaylist.id, matchedTracks);
+      // Atomic single-transaction batch insert with original Spotify titles & artists
+      await _libraryRepo.addTracksToPlaylist(
+        newPlaylist.id,
+        matchedTracks,
+        originalMetadata: originalMeta,
+      );
 
       state = state.copyWith(
         status: SpotifyImportStatus.importedSuccess,
@@ -272,6 +279,22 @@ class SpotifyPlaylistSyncService {
   })  : _importer = importer,
         _libraryRepo = libraryRepo;
 
+  static String _cleanString(String s) {
+    return s
+        .toLowerCase()
+        // Remove text inside parentheses/brackets: (official video), [lyrics], (feat. x), etc.
+        .replaceAll(RegExp(r'\([^)]*\)|\[[^\]]*\]'), ' ')
+        // Remove common YouTube fluff words
+        .replaceAll(
+            RegExp(r'\b(official|music|video|audio|lyric|lyrics|remastered|hd|4k|visualizer|ft|feat|featuring)\b'),
+            ' ')
+        // Keep alphanumeric characters and spaces
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        // Collapse multiple spaces
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   /// Compares local imported playlist with the remote Spotify playlist.
   /// Finds any newly added tracks, matches them, and adds them to the playlist.
   /// Returns the number of newly added tracks (0 if up to date).
@@ -298,40 +321,100 @@ class SpotifyPlaylistSyncService {
         return 0;
       }
 
-      // 2. Build set of existing track identifiers
-      final existingSignatures = <String>{};
+      // 2. Build multi-index structures of all existing tracks in playlist
+      final existingTrackIds = <String>{};
+      final existingSourceIds = <String>{};
+      final exactSignatures = <String>{};
+      final cleanSignatures = <String>{};
+      final entryCombinedList = <String>[];
+
       for (final entry in playlistData.entries) {
-        if (entry.track != null) {
-          existingSignatures.add(entry.track!.sourceId.toLowerCase());
+        if (entry.trackId != null && entry.trackId!.isNotEmpty) {
+          existingTrackIds.add(entry.trackId!.toLowerCase());
         }
-        final sig =
-            '${entry.originalTitle.toLowerCase().trim()}___${entry.originalArtist.toLowerCase().trim()}';
-        existingSignatures.add(sig);
+        if (entry.track != null) {
+          existingTrackIds.add(entry.track!.id.toLowerCase());
+          existingSourceIds.add(entry.track!.sourceId.toLowerCase());
+
+          final tTitle = entry.track!.title.toLowerCase().trim();
+          final tArtist = entry.track!.artist.toLowerCase().trim();
+          exactSignatures.add('$tTitle___$tArtist');
+          cleanSignatures.add('${_cleanString(tTitle)}___${_cleanString(tArtist)}');
+        }
+
+        final oTitle = entry.originalTitle.toLowerCase().trim();
+        final oArtist = entry.originalArtist.toLowerCase().trim();
+        exactSignatures.add('$oTitle___$oArtist');
+        cleanSignatures.add('${_cleanString(oTitle)}___${_cleanString(oArtist)}');
+
+        final combined = _cleanString(
+            '$oArtist $oTitle ${entry.track?.artist ?? ''} ${entry.track?.title ?? ''}');
+        if (combined.isNotEmpty) {
+          entryCombinedList.add(combined);
+        }
       }
 
       // 3. Find newly added tracks from Spotify
       final newItems = <SpotifyTrackItem>[];
       for (final remoteTrack in remotePlaylist.tracks) {
-        final sig =
-            '${remoteTrack.title.toLowerCase().trim()}___${remoteTrack.artist.toLowerCase().trim()}';
-        final uri = remoteTrack.spotifyUri.toLowerCase().trim();
-        if (!existingSignatures.contains(sig) &&
-            !existingSignatures.contains(uri)) {
-          newItems.add(remoteTrack);
+        final rTitle = remoteTrack.title.toLowerCase().trim();
+        final rArtist = remoteTrack.artist.toLowerCase().trim();
+        final rawSig = '$rTitle___$rArtist';
+        final cleanTitle = _cleanString(rTitle);
+        final cleanArtist = _cleanString(rArtist);
+        final cleanSig = '$cleanTitle___$cleanArtist';
+
+        // Check exact match on raw title/artist
+        if (exactSignatures.contains(rawSig)) continue;
+
+        // Check clean match
+        if (cleanSignatures.contains(cleanSig)) continue;
+
+        // Fuzzy match against combined text of existing entries
+        bool isAlreadyInPlaylist = false;
+        if (cleanTitle.isNotEmpty) {
+          for (final combined in entryCombinedList) {
+            if (combined.contains(cleanTitle)) {
+              if (cleanArtist.isEmpty ||
+                  combined.contains(cleanArtist) ||
+                  cleanArtist.contains(combined)) {
+                isAlreadyInPlaylist = true;
+                break;
+              }
+            }
+          }
         }
+        if (isAlreadyInPlaylist) continue;
+
+        newItems.add(remoteTrack);
       }
 
       if (newItems.isEmpty) {
         return 0;
       }
 
-      // 4. Match new tracks
+      // 4. Match new tracks and guard against duplicate YouTube matches
       final matchedTracks = <Track>[];
+      final newMetadata = <({String title, String artist})>[];
+      final newMatchedSourceIds = <String>{};
+
       for (final item in newItems) {
         try {
           final matched = await _importer.matchTrack(item);
           if (matched != null) {
+            final mSourceId = matched.sourceId.toLowerCase().trim();
+            final mId = matched.id.toLowerCase().trim();
+
+            // Guard: Never add a track whose YouTube sourceId is already in the playlist
+            if (existingSourceIds.contains(mSourceId) ||
+                existingTrackIds.contains(mId) ||
+                newMatchedSourceIds.contains(mSourceId)) {
+              continue;
+            }
+
+            newMatchedSourceIds.add(mSourceId);
             matchedTracks.add(matched);
+            newMetadata.add((title: item.title, artist: item.artist));
           }
         } catch (_) {}
       }
@@ -340,8 +423,12 @@ class SpotifyPlaylistSyncService {
         return 0;
       }
 
-      // 5. Append to playlist
-      await _libraryRepo.addTracksToPlaylist(playlistId, matchedTracks);
+      // 5. Append to playlist with original Spotify metadata
+      await _libraryRepo.addTracksToPlaylist(
+        playlistId,
+        matchedTracks,
+        originalMetadata: newMetadata,
+      );
       return matchedTracks.length;
     } catch (_) {
       return 0;

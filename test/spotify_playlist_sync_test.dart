@@ -43,7 +43,11 @@ class FakeLibraryRepository implements ILibraryRepository {
   }
 
   @override
-  Future<void> addTracksToPlaylist(String playlistId, List<Track> tracks) async {
+  Future<void> addTracksToPlaylist(
+    String playlistId,
+    List<Track> tracks, {
+    List<({String title, String artist})>? originalMetadata,
+  }) async {
     appendedTracks.addAll(tracks);
   }
 
@@ -193,6 +197,111 @@ void main() {
             duration: Duration(seconds: 175),
           ),
         ],
+      );
+
+      final addedCount = await syncService.syncPlaylist(playlistId);
+      expect(addedCount, 0);
+      expect(libraryRepo.appendedTracks, isEmpty);
+    });
+
+    test('returns 0 when local entry has YouTube title with Official Music Video tags', () async {
+      const playlistId = 'pl_spotify_3';
+      const spotifyId = '37i9dQZF1DXcBWIGoYBM5M';
+
+      libraryRepo.playlistWithTracks = PlaylistWithTracks(
+        playlist: Playlist(
+          id: playlistId,
+          name: 'Hits',
+          isImported: true,
+          sourceUrl: 'https://open.spotify.com/playlist/$spotifyId',
+          createdAt: DateTime.now(),
+        ),
+        entries: const [
+          PlaylistEntry(
+            playlistId: playlistId,
+            position: 0,
+            originalTitle: 'The Weeknd - Blinding Lights (Official Audio)',
+            originalArtist: 'The Weeknd',
+            matchStatus: MatchStatus.matched,
+            track: Track(
+              id: 't_blinding',
+              sourceId: 'yt_blinding_123',
+              title: 'The Weeknd - Blinding Lights (Official Audio)',
+              artist: 'The Weeknd',
+              duration: Duration(seconds: 200),
+            ),
+          ),
+        ],
+      );
+
+      importer.playlists[spotifyId] = const SpotifyImportPlaylist(
+        id: spotifyId,
+        name: 'Hits',
+        tracks: [
+          SpotifyTrackItem(
+            spotifyUri: 'spotify:track:blinding_spotify_id',
+            title: 'Blinding Lights',
+            artist: 'The Weeknd',
+            duration: Duration(seconds: 200),
+          ),
+        ],
+      );
+
+      final addedCount = await syncService.syncPlaylist(playlistId);
+      expect(addedCount, 0);
+      expect(libraryRepo.appendedTracks, isEmpty);
+    });
+
+    test('does not add duplicate track if matched YouTube sourceId already in playlist', () async {
+      const playlistId = 'pl_spotify_4';
+      const spotifyId = '37i9dQZF1DXcBWIGoYBM5M';
+
+      libraryRepo.playlistWithTracks = PlaylistWithTracks(
+        playlist: Playlist(
+          id: playlistId,
+          name: 'Hits',
+          isImported: true,
+          sourceUrl: 'https://open.spotify.com/playlist/$spotifyId',
+          createdAt: DateTime.now(),
+        ),
+        entries: const [
+          PlaylistEntry(
+            playlistId: playlistId,
+            position: 0,
+            originalTitle: 'Song A',
+            originalArtist: 'Artist A',
+            matchStatus: MatchStatus.matched,
+            track: Track(
+              id: 't_a',
+              sourceId: 'yt_shared_id',
+              title: 'Song A',
+              artist: 'Artist A',
+              duration: Duration(seconds: 180),
+            ),
+          ),
+        ],
+      );
+
+      importer.playlists[spotifyId] = const SpotifyImportPlaylist(
+        id: spotifyId,
+        name: 'Hits',
+        tracks: [
+          SpotifyTrackItem(
+            spotifyUri: 'spotify:track:song_b_remix',
+            title: 'Song B (Remix)',
+            artist: 'Different Artist',
+            duration: Duration(seconds: 180),
+          ),
+        ],
+      );
+
+      // YouTube resolver returns the same video ID that is already in playlist
+      importer.matches['spotify:track:song_b_remix'] = const Track(
+        id: 't_different_id',
+        sourceId: 'yt_shared_id',
+        title: 'Song B',
+        artist: 'Different Artist',
+        duration: Duration(seconds: 180),
       );
 
       final addedCount = await syncService.syncPlaylist(playlistId);
