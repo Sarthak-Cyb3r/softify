@@ -942,10 +942,11 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     final poolKey = '${track.id}_${track.sourceId}';
 
     // 1. Retrieve or harvest a rich candidate pool strictly in the same genre & vibe
-    List<Track>? candidatePool = _genreCandidatePoolCache[poolKey];
-    if (candidatePool == null || candidatePool.isEmpty) {
-      candidatePool = await _harvestGenreCandidates(track);
-      if (candidatePool.isNotEmpty) {
+    List<Track> candidatePool = _genreCandidatePoolCache[poolKey] ?? [];
+    if (candidatePool.isEmpty) {
+      final harvested = await _harvestGenreCandidates(track);
+      if (harvested.isNotEmpty) {
+        candidatePool = harvested;
         _cacheResult(_genreCandidatePoolCache, poolKey, candidatePool);
       }
     }
