@@ -184,13 +184,41 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     _volumeSub?.cancel();
     _speedSub?.cancel();
 
-    _playerStateSub = _activePlayer.playerStateStream.listen(_playerStateSubject.add);
-    _playbackEventSub = _activePlayer.playbackEventStream.listen(_playbackEventSubject.add);
-    _positionSub = _activePlayer.positionStream.listen(_positionSubject.add);
-    _bufferedPositionSub = _activePlayer.bufferedPositionStream.listen(_bufferedPositionSubject.add);
-    _durationSub = _activePlayer.durationStream.listen(_durationSubject.add);
-    _volumeSub = _activePlayer.volumeStream.listen(_volumeSubject.add);
-    _speedSub = _activePlayer.speedStream.listen(_speedSubject.add);
+    _playerStateSub = _activePlayer.playerStateStream.listen(
+      _playerStateSubject.add,
+      onError: (err) {
+        _playerStateSubject.add(PlayerState(false, ProcessingState.idle));
+      },
+    );
+    _playbackEventSub = _activePlayer.playbackEventStream.listen(
+      _playbackEventSubject.add,
+      onError: (err) {
+        _playbackEventSubject.add(PlaybackEvent(
+          processingState: ProcessingState.idle,
+          updatePosition: _activePlayer.position,
+        ));
+      },
+    );
+    _positionSub = _activePlayer.positionStream.listen(
+      _positionSubject.add,
+      onError: (_) {},
+    );
+    _bufferedPositionSub = _activePlayer.bufferedPositionStream.listen(
+      _bufferedPositionSubject.add,
+      onError: (_) {},
+    );
+    _durationSub = _activePlayer.durationStream.listen(
+      _durationSubject.add,
+      onError: (_) {},
+    );
+    _volumeSub = _activePlayer.volumeStream.listen(
+      _volumeSubject.add,
+      onError: (_) {},
+    );
+    _speedSub = _activePlayer.speedStream.listen(
+      _speedSubject.add,
+      onError: (_) {},
+    );
 
     _playerStateSubject.add(_activePlayer.playerState);
     _positionSubject.add(_activePlayer.position);
@@ -285,7 +313,11 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   }
 
   @override
-  bool get hasPreloadedNext => _isStandbyReady && _standbyPlayer != null;
+  bool get hasPreloadedNext =>
+      _isStandbyReady &&
+      _standbyPlayer != null &&
+      _standbyPlayer!.processingState != ProcessingState.idle &&
+      _standbyPlayer!.processingState != ProcessingState.completed;
 
   @override
   String? get preloadedSource => _preloadedSource;

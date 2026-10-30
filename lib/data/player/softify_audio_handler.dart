@@ -347,15 +347,22 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
 
     // Listen to player state events and broadcast to audio_service
-    _playbackEventSubscription =
-        _player.playbackEventStream.listen(_broadcastPlaybackState);
+    _playbackEventSubscription = _player.playbackEventStream.listen(
+      _broadcastPlaybackState,
+      onError: (_) {
+        _broadcastPlaybackState();
+      },
+    );
 
     // Listen to completion of tracks
-    _playerStateSubscription = _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        _onTrackCompleted();
-      }
-    });
+    _playerStateSubscription = _player.playerStateStream.listen(
+      (state) {
+        if (state.processingState == ProcessingState.completed) {
+          _onTrackCompleted();
+        }
+      },
+      onError: (_) {},
+    );
 
     // Listen to position for automatic DJ crossfade & speculative standby pre-warming
     _crossfadePositionSubscription = _player.positionStream.listen((pos) {
@@ -433,7 +440,31 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
+  Timer? _bufferingWatchdogTimer;
+  Duration _lastBufferingPosition = Duration.zero;
+
+  void _checkBufferingWatchdog() {
+    if (_player.playing && _player.processingState == ProcessingState.buffering) {
+      if (_bufferingWatchdogTimer == null || !_bufferingWatchdogTimer!.isActive) {
+        _lastBufferingPosition = _player.position;
+        _bufferingWatchdogTimer = Timer(const Duration(seconds: 10), () {
+          if (_player.playing &&
+              _player.processingState == ProcessingState.buffering &&
+              _player.position == _lastBufferingPosition &&
+              !_isTransitioningTrack) {
+            _log('[SoftifyAudioHandler] Buffering stalled for 10s on mobile connection. Triggering transparent recovery...');
+            unawaited(_playCurrentIndex(forceFresh: true));
+          }
+        });
+      }
+    } else {
+      _bufferingWatchdogTimer?.cancel();
+      _bufferingWatchdogTimer = null;
+    }
+  }
+
   void _broadcastPlaybackState([PlaybackEvent? _]) {
+    _checkBufferingWatchdog();
     final playing = _isTransitioningTrack ? true : _player.playing;
     final processingState = _isTransitioningTrack
         ? AudioProcessingState.buffering
@@ -544,7 +575,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
     } catch (_) {}
 
     if (_player.processingState == ProcessingState.idle ||
-        _player.processingState == ProcessingState.completed) {
+        _player.processingState == ProcessingState.completed ||
+        (!_player.playing && _player.processingState != ProcessingState.ready)) {
       await _playCurrentIndex();
     } else {
       await _player.play();
@@ -556,8 +588,18 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> pause() async {
+    _bufferingWatchdogTimer?.cancel();
+    _bufferingWatchdogTimer = null;
     await _player.pause();
     await _saveQueueStateImmediately();
+    playbackState.add(
+      playbackState.value.copyWith(
+        playing: false,
+        processingState: _player.processingState == ProcessingState.ready
+            ? AudioProcessingState.ready
+            : AudioProcessingState.idle,
+      ),
+    );
     try {
       syncDelegate?.onHostPause(_player.position);
     } catch (_) {}
@@ -638,9 +680,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
           }
         }
         final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
-        await _player.playPreloadedNext(
-          crossfade: effectiveCrossfade,
-        );
+        try {
+          await _player.playPreloadedNext(
+            crossfade: effectiveCrossfade,
+          );
+        } catch (e) {
+          _log('[SoftifyAudioHandler] playPreloadedNext failed: $e, falling back to _playCurrentIndex');
+          await _playCurrentIndex(forceFresh: true);
+          return;
+        }
         if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
           await _player.setSpeed(1.0);
         }
@@ -673,9 +721,15 @@ class SoftifyAudioHandler extends BaseAudioHandler
           }
         }
         final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
-        await _player.playPreloadedNext(
-          crossfade: effectiveCrossfade,
-        );
+        try {
+          await _player.playPreloadedNext(
+            crossfade: effectiveCrossfade,
+          );
+        } catch (e) {
+          _log('[SoftifyAudioHandler] playPreloadedNext failed on repeat all: $e, falling back to _playCurrentIndex');
+          await _playCurrentIndex(forceFresh: true);
+          return;
+        }
         if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
           await _player.setSpeed(1.0);
         }
@@ -695,7 +749,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
       _checkAndPrefetchRecommendations();
     } else {
       final seedTrack = currentTrack ?? previousTrack;
-      if (_autoPlay && _catalogRepo != null && seedTrack != null && !seedTrack.isYoutube) {
+      if (_autoPlay && _catalogRepo != null && seedTrack != null) {
         await _fetchAndPlayRecommendations(seedTrack);
       } else {
         await stop();
@@ -1227,7 +1281,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
       } else {
         // Exhausted fallbacks: Stop playback after N = 3 consecutive failures
         _consecutiveFailures = 0;
-        await pause();
+        await stop();
       }
     }
   }
@@ -1359,16 +1413,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
   void _checkAndPrefetchRecommendations() {
     final activeTrack = currentTrack;
     if (activeTrack != null &&
-        (activeTrack.isYoutube ||
-         activeTrack.id.startsWith('yt_') ||
-         activeTrack.id.startsWith('podcast_') ||
+        (activeTrack.id.startsWith('podcast_') ||
          activeTrack.sourceId.startsWith('podcast_'))) {
       return;
     }
-    if (_currentTrackSource == 'youtube_link' || _currentTrackSource == 'podcast') {
+    if (_currentTrackSource == 'podcast') {
       if (activeTrack != null &&
-          !activeTrack.isYoutube &&
-          !activeTrack.id.startsWith('yt_') &&
           !activeTrack.id.startsWith('podcast_') &&
           !activeTrack.sourceId.startsWith('podcast_')) {
         _currentTrackSource = 'catalog';
@@ -1383,9 +1433,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     final remaining = _queue.length - 1 - _currentIndex;
     if (remaining <= 1) {
       final seedTrack = _queue.last;
-      if (seedTrack.isYoutube ||
-          seedTrack.id.startsWith('yt_') ||
-          seedTrack.id.startsWith('podcast_') ||
+      if (seedTrack.id.startsWith('podcast_') ||
           seedTrack.sourceId.startsWith('podcast_')) {
         return;
       }
@@ -1402,7 +1450,17 @@ class SoftifyAudioHandler extends BaseAudioHandler
           .getRelatedTracks(seedTrack)
           .timeout(const Duration(seconds: 10), onTimeout: () => <Track>[]);
       final existingIds = _queue.map((t) => t.sourceId).toSet();
-      final fresh = related.where((t) => !existingIds.contains(t.sourceId)).toList();
+      var fresh = related.where((t) => !existingIds.contains(t.sourceId)).toList();
+
+      if (fresh.isEmpty && seedTrack.artist.isNotEmpty && seedTrack.artist != 'Unknown') {
+        try {
+          final artistResults = await _catalogRepo!.searchTracks(seedTrack.artist, limit: 15);
+          final fallbackRelated = artistResults.where((t) => !existingIds.contains(t.sourceId) && t.id != seedTrack.id).toList();
+          if (fallbackRelated.isNotEmpty) {
+            fresh = fallbackRelated;
+          }
+        } catch (_) {}
+      }
 
       if (fresh.isNotEmpty) {
         _queue.addAll(fresh);
@@ -1419,9 +1477,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   Future<void> _fetchAndPlayRecommendations(Track seedTrack) async {
-    if (seedTrack.isYoutube ||
-        seedTrack.id.startsWith('yt_') ||
-        seedTrack.id.startsWith('podcast_') ||
+    if (seedTrack.id.startsWith('podcast_') ||
         seedTrack.sourceId.startsWith('podcast_')) {
       await stop();
       return;
@@ -1451,7 +1507,17 @@ class SoftifyAudioHandler extends BaseAudioHandler
       }
 
       final existingIds = _queue.map((t) => t.sourceId).toSet();
-      final fresh = related.where((t) => !existingIds.contains(t.sourceId)).toList();
+      var fresh = related.where((t) => !existingIds.contains(t.sourceId)).toList();
+
+      if (fresh.isEmpty && seedTrack.artist.isNotEmpty && seedTrack.artist != 'Unknown') {
+        try {
+          final artistResults = await _catalogRepo!.searchTracks(seedTrack.artist, limit: 15);
+          final fallbackRelated = artistResults.where((t) => !existingIds.contains(t.sourceId) && t.id != seedTrack.id).toList();
+          if (fallbackRelated.isNotEmpty) {
+            fresh = fallbackRelated;
+          }
+        } catch (_) {}
+      }
 
       if (fresh.isNotEmpty) {
         _queue.addAll(fresh);

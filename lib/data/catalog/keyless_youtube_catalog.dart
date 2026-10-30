@@ -950,8 +950,15 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       }
     }
 
-    // STRICT: Never fall back to getTrendingTracks or another genre!
-    if (candidatePool.isEmpty) return [];
+    // If candidatePool is empty, fall back to artist catalog search to ensure autoplay continuity
+    if (candidatePool == null || candidatePool.isEmpty) {
+      try {
+        final artistTracks = await searchTracks(track.artist, limit: 20);
+        candidatePool = artistTracks.where((t) => t.id != track.id).toList();
+      } catch (_) {}
+    }
+
+    if (candidatePool == null || candidatePool.isEmpty) return [];
 
     // 2. Filter for Artist Diversity (prevent same band/artist repetition)
     final cleanSeedTitle = _cleanTitle(track.title).toLowerCase();
@@ -964,9 +971,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     final List<Track> diverseCandidates = [];
 
     for (final cand in candidatePool) {
-      if (cand.isYoutube ||
-          cand.id.startsWith('yt_') ||
-          cand.id.startsWith('podcast_') ||
+      if (cand.id.startsWith('podcast_') ||
           cand.sourceId.startsWith('podcast_')) {
         continue;
       }
@@ -1009,6 +1014,18 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       seenIds.add(cand.id);
       seenIds.add(cand.sourceId);
       diverseCandidates.add(cand);
+    }
+
+    // If strict vibe check eliminated all candidates, fallback to candidatePool to prevent autoplay halt
+    if (diverseCandidates.isEmpty && candidatePool.isNotEmpty) {
+      for (final cand in candidatePool) {
+        if (!cand.id.startsWith('podcast_') &&
+            !cand.sourceId.startsWith('podcast_') &&
+            cand.id != track.id &&
+            cand.sourceId != track.sourceId) {
+          diverseCandidates.add(cand);
+        }
+      }
     }
 
     // 3. Dynamic session rotation & anti-repetition queue generation
