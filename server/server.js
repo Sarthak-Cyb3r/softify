@@ -26,7 +26,7 @@ const DEFAULT_CONFIG = {
   broadcastNotice: null,
   maintenanceMode: false,
   maintenanceMessage: 'Softify is currently undergoing brief maintenance. Normal playback will resume shortly.',
-  minAppVersion: '3.0.3',
+  minAppVersion: '3.0.6',
   features: {
     spotifyLyrics: true,
     pipedFallback: true,
@@ -661,7 +661,7 @@ class Store {
         board: info.board || '',
         isPhysicalDevice: info.isPhysicalDevice !== 'false' && info.isPhysicalDevice !== false,
         fingerprint: info.fingerprint || '',
-        appVersion: info.appVersion || '3.0.3',
+        appVersion: info.appVersion || '3.0.6',
         ipAddress: clientIp,
         status: initialStatus,
         blockReason: initialStatus === 'pending' ? 'Device pending administrator approval' : '',
@@ -1258,7 +1258,7 @@ class Store {
       versions,
       roomStats: this.getRoomStats(),
       maintenanceMode: Boolean(this.config.maintenanceMode),
-      minAppVersion: this.config.minAppVersion || '3.0.3',
+      minAppVersion: this.config.minAppVersion || '3.0.6',
       broadcastActive: Boolean(this.config.broadcastNotice || this.config.broadcastBanner)
     };
   }
@@ -1403,7 +1403,7 @@ app.post('/api/device/sync', async (req, res) => {
     config: {
       features: store.config.features,
       heartbeatIntervalSeconds: store.config.heartbeatIntervalSeconds || 60,
-      minAppVersion: store.config.minAppVersion || '3.0.3',
+      minAppVersion: store.config.minAppVersion || '3.0.6',
       maintenanceMode: Boolean(store.config.maintenanceMode),
       maintenanceExempt: !isMaintenanceAffected
     },

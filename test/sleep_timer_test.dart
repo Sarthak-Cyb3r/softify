@@ -52,6 +52,9 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
   Duration get bufferedPosition => Duration.zero;
 
   @override
+  Duration? get duration => _durationSubject.value;
+
+  @override
   double get speed => _speed;
 
   @override

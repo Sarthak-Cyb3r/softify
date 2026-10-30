@@ -57,6 +57,8 @@ class TestMockAudioPlayer implements ISoftifyAudioPlayer {
   @override
   Duration get bufferedPosition => Duration.zero;
   @override
+  Duration? get duration => _durationSubject.value;
+  @override
   double get speed => 1.0;
   @override
   Stream<double> get speedStream => const Stream.empty();

@@ -1265,7 +1265,7 @@
             <span>Latest Release</span>
             <span>🚀</span>
           </div>
-          <div class="metric-value" id="statVersion">v3.0.3</div>
+          <div class="metric-value" id="statVersion">v3.0.6</div>
           <div class="metric-sub" id="statVersionSub">Active target channel</div>
         </div>
       </div>
@@ -1294,15 +1294,15 @@
         <div class="analytics-section">
           <h4>
             <span>Release Adoption Health</span>
-            <span id="versionStatsSummary" style="font-family: var(--mono); color: var(--accent); text-transform: none;">Target: v3.0.3</span>
+            <span id="versionStatsSummary" style="font-family: var(--mono); color: var(--accent); text-transform: none;">Target: v3.0.6</span>
           </h4>
           <div class="stacked-bar-wrap" id="versionBar">
-            <div class="bar-seg current-ver" id="barCurrentVer" style="width: 75%;" title="v3.0.3"></div>
+            <div class="bar-seg current-ver" id="barCurrentVer" style="width: 75%;" title="v3.0.6"></div>
             <div class="bar-seg old-ver" id="barOldVer" style="width: 25%;" title="Legacy"></div>
           </div>
           <div class="legend-row">
-            <span class="legend-item"><span class="legend-dot" style="background: var(--accent);"></span> Latest (v3.0.3+): <b id="legLatestVer">0</b></span>
-            <span class="legend-item"><span class="legend-dot" style="background: var(--warning);"></span> Outdated (< v3.0.3): <b id="legOutdatedVer">0</b></span>
+            <span class="legend-item"><span class="legend-dot" style="background: var(--accent);"></span> Latest (v3.0.6+): <b id="legLatestVer">0</b></span>
+            <span class="legend-item"><span class="legend-dot" style="background: var(--warning);"></span> Outdated (< v3.0.6): <b id="legOutdatedVer">0</b></span>
           </div>
         </div>
       </div>
@@ -1356,7 +1356,7 @@
 
             <div class="form-group">
               <label style="font-size: 12px; font-weight: 600;">Notice Heading / Title</label>
-              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.3 Update Available" oninput="updateNoticePreview()">
+              <input type="text" id="noticeTitleInput" class="modal-input" placeholder="e.g. Softify v3.0.6 Update Available" oninput="updateNoticePreview()">
             </div>
 
             <div class="form-group">
@@ -1382,7 +1382,7 @@
                 <span class="mock-badge" id="mockTypeBadge">📢 ADMINISTRATOR ANNOUNCEMENT</span>
                 <span style="font-size: 12px; color: #8e8e9b;">✕</span>
               </div>
-              <div class="mock-title" id="mockTitle">Softify v3.0.3 Update Available</div>
+              <div class="mock-title" id="mockTitle">Softify v3.0.6 Update Available</div>
               <div class="mock-msg" id="mockMessage">Native lyrics search and Linux MPRIS 2 controls are now live! Enjoy enhanced streaming.</div>
               <button class="mock-btn" id="mockBtn">Acknowledge & Continue</button>
             </div>
@@ -1619,7 +1619,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
               <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Enforce Minimum Version:</label>
-              <input type="text" id="cfgMinAppVersion" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="e.g. 3.0.3">
+              <input type="text" id="cfgMinAppVersion" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="e.g. 3.0.6">
             </div>
             <div>
               <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Client Heartbeat Interval:</label>
@@ -1658,7 +1658,7 @@
           <!-- 5. Marquee Banner -->
           <div>
             <label style="font-size: 12px; font-weight: 700; color: #cbd5e1;">Global Top Marquee Banner (Optional):</label>
-            <input type="text" id="cfgBroadcastBanner" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="e.g. Softify v3.0.3 is now live with Linux MPRIS support!">
+            <input type="text" id="cfgBroadcastBanner" class="modal-input" style="width: 100%; margin-top: 4px;" placeholder="e.g. Softify v3.0.6 is now live with Linux MPRIS support!">
           </div>
 
           <!-- 6. Change Admin Key -->
@@ -1706,7 +1706,7 @@
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
           <span id="inspectPhysicalBadge" class="badge-physical">✔ Physical Device</span>
           <span id="inspectStatusBadge" class="status-badge allowed">ALLOWED</span>
-          <span id="inspectVersionTag" class="version-tag">v3.0.3</span>
+          <span id="inspectVersionTag" class="version-tag">v3.0.6</span>
         </div>
 
         <div class="spec-grid">
@@ -2089,7 +2089,7 @@
         else other++;
 
         const v = d.appVersion || '';
-        if (v >= '3.0.3') latestVer++;
+        if (v >= '3.0.6') latestVer++;
         else outdatedVer++;
       }
 
@@ -2126,7 +2126,7 @@
       const modelName = d.deviceModel || 'Mobile Device';
       const isPhysical = d.isPhysicalDevice !== false;
       const isAllowed = d.status === 'allowed';
-      const isOutdated = (d.appVersion || '') < '3.0.3';
+      const isOutdated = (d.appVersion || '') < '3.0.6';
 
       let brandIcon = '📱';
       const brandLower = (d.brand || d.platform || '').toLowerCase();
@@ -2151,7 +2151,7 @@
 
       const verTag = document.getElementById('inspectVersionTag');
       verTag.className = `version-tag ${isOutdated ? 'outdated' : ''}`;
-      verTag.innerText = `v${d.appVersion || '3.0.3'}${isOutdated ? ' (Outdated)' : ' (Current)'}`;
+      verTag.innerText = `v${d.appVersion || '3.0.6'}${isOutdated ? ' (Outdated)' : ' (Current)'}`;
 
       document.getElementById('inspectSpecModel').innerText = modelName;
       document.getElementById('inspectSpecSku').innerText = d.modelCode || 'N/A';
@@ -2742,7 +2742,7 @@
     }
 
     function updateNoticePreview() {
-      const title = document.getElementById('noticeTitleInput').value.trim() || 'Softify v3.0.3 Update Available';
+      const title = document.getElementById('noticeTitleInput').value.trim() || 'Softify v3.0.6 Update Available';
       const msg = document.getElementById('noticeMessageInput').value.trim() || 'Native lyrics search and Linux MPRIS 2 controls are now live! Enjoy enhanced streaming.';
       const type = document.getElementById('noticeTypeSelect').value;
       const target = document.getElementById('noticeTargetSelect').value;
@@ -2857,7 +2857,7 @@
           document.getElementById('statActiveToday').innerText = s.activeToday;
           document.getElementById('statOffline').innerText = s.offlineCount;
           document.getElementById('statBlocked').innerText = s.blockedCount;
-          document.getElementById('statVersion').innerText = `v${s.minAppVersion || '3.0.3'}`;
+          document.getElementById('statVersion').innerText = `v${s.minAppVersion || '3.0.6'}`;
           document.getElementById('statVersionSub').innerText = s.maintenanceMode ? '⚠️ Maintenance Active' : 'Target Release Channel';
 
           document.getElementById('syncStatusText').innerText = `Cloud Live • ${s.total} Devices Synced`;
@@ -2977,7 +2977,7 @@
           activityPillHtml = `<span class="activity-pill offline"><span class="activity-dot"></span> Offline / Installed</span>`;
         }
 
-        const isOutdated = (d.appVersion || '') < '3.0.3';
+        const isOutdated = (d.appVersion || '') < '3.0.6';
         const isMaintAffected = d.maintenanceAffected !== false;
 
         let maintBadgeHtml = '';
@@ -3022,7 +3022,7 @@
               <span style="font-family: var(--mono); font-size: 12px; color: #cbd5e1;">${escapeHtml(d.ipAddress || '127.0.0.1')}</span>
             </td>
             <td>
-              <span class="version-tag ${isOutdated ? 'outdated' : ''}">v${escapeHtml(d.appVersion || '3.0.3')}</span>
+              <span class="version-tag ${isOutdated ? 'outdated' : ''}">v${escapeHtml(d.appVersion || '3.0.6')}</span>
             </td>
             <td>
               <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -3343,7 +3343,7 @@
           document.getElementById('cfgDefaultPolicy').value = c.defaultPolicy || 'auto_allow';
           document.getElementById('cfgMaintenanceMode').checked = Boolean(c.maintenanceMode);
           document.getElementById('cfgMaintenanceMessage').value = c.maintenanceMessage || '';
-          document.getElementById('cfgMinAppVersion').value = c.minAppVersion || '3.0.3';
+          document.getElementById('cfgMinAppVersion').value = c.minAppVersion || '3.0.6';
           document.getElementById('cfgHeartbeatInterval').value = String(c.heartbeatIntervalSeconds || 60);
           document.getElementById('cfgBroadcastBanner').value = c.broadcastBanner || '';
           document.getElementById('cfgNewAdminKey').value = '';

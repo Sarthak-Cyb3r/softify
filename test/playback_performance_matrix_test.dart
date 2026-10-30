@@ -55,6 +55,8 @@ class MatrixMockPlayer implements ISoftifyAudioPlayer {
   @override
   Duration get bufferedPosition => Duration.zero;
   @override
+  Duration? get duration => _duration;
+  @override
   double get speed => 1.0;
   @override
   Stream<double> get speedStream => _speedSubject.stream;

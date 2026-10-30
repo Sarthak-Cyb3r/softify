@@ -2,6 +2,30 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [3.0.6] - 2026-10-30
+
+### 🎧 Audio Engine & DJ Crossfade Restoration
+- **Decoupled ExoPlayer Audio Focus**: Disabled internal audio focus and interruptions on dual ExoPlayer instances (`handleAudioSessionActivation: false`, `handleInterruptions: false`), delegating session control to `SoftifyAudioHandler` to eliminate crossfade pause/mute cutover bugs.
+- **Generation-Tracked Transitions**: Added `_crossfadeGenerationId` and atomic `_isCrossfading` locks in `SoftifyAudioPlayer` to eliminate race conditions during rapid track skipping.
+- **Standby Isolation**: Guarded standby player prefetching against collisions during active crossfades.
+
+### 📱 Android Playback & Autoplay Resilience (Moto g34 5G)
+- **Eliminated Autoplay Loading Freezes**: Calibrated 250ms initial buffering threshold and added an automated 10s watchdog recovery in `JustAudioPlayerAdapter` to rescue stranded player states.
+- **Standby Session Safety**: Hardened standby player lifecycle cleanup to prevent audio session leaks.
+
+### 📜 Lyrics Engine & Screensaver Sync
+- **Non-Blocking Multi-Tier Concurrency**: Implemented `_inFlight` Future join deduplication and persistent negative caching in `CompositeLyricsProvider`.
+- **Stream Join Timeouts**: Enforced 3–4s timeout barriers on HTTP body stream joins across all 7 lyrics providers to prevent hanging network sockets.
+- **Screensaver & LyricsView Reactive Reset**: Isolated subtree with `ValueKey` and added explicit scroll/line key resets on track transitions to resolve stuck lyrics loading spinners.
+
+### 👥 Listen Together & UX Fixes
+- **Host-Guest Playback Synchronization**: Resolved guest playback trigger upon host song dispatch.
+- **Mini-Player Bar Clearance**: Corrected bottom padding on Listen Together join screens to prevent the mini-player from occluding the join button.
+
+### 🛠️ CI/CD & Administration
+- **iOS CI Build Remediation**: Added `@override Duration? get duration` to all test player mocks to satisfy `flutter analyze` on iOS runners.
+- **Fleet Version Bump**: Synchronized target version to `3.0.6` across `server.js`, admin `index.html`, and client `kAppVersion`.
+
 ## [3.0.0] - 2026-10-24
 
 ### 🌌 Major Milestone: Aurora Glass UI Experience (Pre-Release)

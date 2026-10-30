@@ -750,7 +750,7 @@ void main() {
       final decodedErrEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(errBytes));
       expect(decodedErrEnv, isNotNull);
       expect(decodedErrEnv!.$1, equals('error'));
-      final errPayload = ListenTogetherProtoCodec.decodeError(decodedErrEnv!.$2);
+      final errPayload = ListenTogetherProtoCodec.decodeError(decodedErrEnv.$2);
       expect(errPayload['code'], equals('room_not_found'));
       expect(errPayload['message'], equals('Room not found'));
 
@@ -762,7 +762,7 @@ void main() {
       final decodedReqEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(reqBytes));
       expect(decodedReqEnv, isNotNull);
       expect(decodedReqEnv!.$1, equals('join_request'));
-      final reqPayload = ListenTogetherProtoCodec.decodeJoinRequest(decodedReqEnv!.$2);
+      final reqPayload = ListenTogetherProtoCodec.decodeJoinRequest(decodedReqEnv.$2);
       expect(reqPayload['user_id'], equals('user_guest_456'));
       expect(reqPayload['username'], equals('GuestGuy'));
     });
