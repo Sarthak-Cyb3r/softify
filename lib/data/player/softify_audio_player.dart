@@ -21,6 +21,7 @@ abstract class ISoftifyAudioPlayer {
   Future<void> preloadNextUrl(String url, {Map<String, String>? headers});
   Future<void> preloadNextFilePath(String path);
   bool get hasPreloadedNext;
+  bool get isCrossfading => false;
   String? get preloadedSource;
   Future<void> playPreloadedNext({Duration crossfade = Duration.zero});
   void clearPreloadedNext();
@@ -64,6 +65,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   String? _preloadedSource;
   bool _isStandbyReady = false;
+  bool _isCrossfading = false;
   int _crossfadeGenerationId = 0;
 
   final BehaviorSubject<PlayerState> _playerStateSubject =
@@ -132,6 +134,8 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final pA = playerA ??
         AudioPlayer(
           audioLoadConfiguration: audioLoadConfiguration,
+          handleAudioSessionActivation: false,
+          handleInterruptions: false,
           audioPipeline: (eqA != null && loudA != null)
               ? AudioPipeline(androidAudioEffects: [loudA, eqA])
               : null,
@@ -142,6 +146,8 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
             ? null
             : AudioPlayer(
                 audioLoadConfiguration: audioLoadConfiguration,
+                handleAudioSessionActivation: false,
+                handleInterruptions: false,
                 audioPipeline: (eqB != null && loudB != null)
                     ? AudioPipeline(androidAudioEffects: [loudB, eqB])
                     : null,
@@ -266,6 +272,8 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       try {
         _standbyPlayer = AudioPlayer(
           audioLoadConfiguration: defaultAudioLoadConfiguration,
+          handleAudioSessionActivation: false,
+          handleInterruptions: false,
         );
       } catch (_) {
         _standbyPlayer = null;
@@ -275,7 +283,13 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   }
 
   @override
+  bool get isCrossfading => _isCrossfading;
+
+  @override
   Future<void> preloadNextUrl(String url, {Map<String, String>? headers}) async {
+    while (_isCrossfading) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
     final standby = _getStandbyPlayer();
     if (standby == null) return;
     if (_preloadedSource == url && _isStandbyReady) return;
@@ -295,6 +309,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   Future<void> preloadNextFilePath(String path) async {
+    while (_isCrossfading) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
     final standby = _getStandbyPlayer();
     if (standby == null) return;
     if (_preloadedSource == path && _isStandbyReady) return;
@@ -314,6 +331,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   @override
   bool get hasPreloadedNext =>
+      !_isCrossfading &&
       _isStandbyReady &&
       _standbyPlayer != null &&
       _standbyPlayer!.processingState != ProcessingState.idle &&
@@ -343,16 +361,20 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final targetVol = _volumeSubject.value;
     final bool canCrossfade = crossfade > Duration.zero &&
         !Platform.isLinux &&
-        outgoing.processingState != ProcessingState.idle;
+        outgoing.playing &&
+        outgoing.processingState != ProcessingState.idle &&
+        outgoing.processingState != ProcessingState.completed;
 
     final currentGen = ++_crossfadeGenerationId;
     if (!canCrossfade) {
+      _isCrossfading = false;
       await outgoing.stop();
       await incoming.setVolume(targetVol);
       await incoming.play();
       return;
     }
 
+    _isCrossfading = true;
     // High-performance asynchronous equal-power crossfade:
     // Starts incoming playback immediately without stalling the caller or UI thread.
     await incoming.setVolume(0.0);
@@ -383,6 +405,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         unawaited(incoming.setVolume(inVol));
       }
     } finally {
+      _isCrossfading = false;
       if (_crossfadeGenerationId == generationId) {
         await outgoing.stop();
         await outgoing.setVolume(targetVol);
@@ -401,6 +424,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   @override
   void clearPreloadedNext() {
     _crossfadeGenerationId++;
+    _isCrossfading = false;
     _preloadedSource = null;
     _isStandbyReady = false;
     if (_standbyPlayer != null) {
