@@ -57,6 +57,8 @@ class TestMockAudioPlayer implements ISoftifyAudioPlayer {
   @override
   Duration get bufferedPosition => Duration.zero;
   @override
+  bool get isCrossfading => false;
+  @override
   Duration? get duration => _durationSubject.value;
   @override
   double get speed => 1.0;

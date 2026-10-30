@@ -109,7 +109,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     // Tier 1 (Primary - Syllable/Word-by-Word Karaoke): Quick 2.5s window for BetterLyrics
     if (_betterLyrics != null) {
       try {
-        final betterResult = await _betterLyrics!.getLyrics(track).timeout(
+        final betterResult = await _betterLyrics.getLyrics(track).timeout(
               const Duration(milliseconds: 2500),
               onTimeout: () => null,
             );
@@ -147,7 +147,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     // Tier 1.2: Query Paxsenix with strict 3-second timeout for rich syllable sync
     if (_paxsenix != null) {
       try {
-        final paxResult = await _paxsenix!.getLyrics(track).timeout(
+        final paxResult = await _paxsenix.getLyrics(track).timeout(
               const Duration(seconds: 3),
               onTimeout: () => null,
             );
@@ -164,7 +164,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
-        spotifyResult = await _spotify!.getLyrics(track).timeout(
+        spotifyResult = await _spotify.getLyrics(track).timeout(
               const Duration(seconds: 3),
               onTimeout: () => null,
             );

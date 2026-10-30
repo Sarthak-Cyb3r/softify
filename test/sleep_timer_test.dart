@@ -151,6 +151,9 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
   bool get hasPreloadedNext => false;
 
   @override
+  bool get isCrossfading => false;
+
+  @override
   String? get preloadedSource => null;
 
   @override

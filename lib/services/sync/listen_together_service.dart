@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../../data/player/softify_audio_handler.dart';
+import '../../domain/entities/track.dart';
 import '../automix_service.dart';
 import 'listen_together_protocol.dart';
 import 'listen_together_proto.dart';

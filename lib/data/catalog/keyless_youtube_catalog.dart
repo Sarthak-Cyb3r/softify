@@ -951,14 +951,14 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     }
 
     // If candidatePool is empty, fall back to artist catalog search to ensure autoplay continuity
-    if (candidatePool == null || candidatePool.isEmpty) {
+    if (candidatePool.isEmpty) {
       try {
-        final artistTracks = await searchTracks(track.artist, limit: 20);
+        final artistTracks = await search(track.artist, limit: 20);
         candidatePool = artistTracks.where((t) => t.id != track.id).toList();
       } catch (_) {}
     }
 
-    if (candidatePool == null || candidatePool.isEmpty) return [];
+    if (candidatePool.isEmpty) return [];
 
     // 2. Filter for Artist Diversity (prevent same band/artist repetition)
     final cleanSeedTitle = _cleanTitle(track.title).toLowerCase();

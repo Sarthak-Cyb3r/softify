@@ -1454,7 +1454,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
       if (fresh.isEmpty && seedTrack.artist.isNotEmpty && seedTrack.artist != 'Unknown') {
         try {
-          final artistResults = await _catalogRepo!.searchTracks(seedTrack.artist, limit: 15);
+          final artistResults = await _catalogRepo.search(seedTrack.artist, limit: 15);
           final fallbackRelated = artistResults.where((t) => !existingIds.contains(t.sourceId) && t.id != seedTrack.id).toList();
           if (fallbackRelated.isNotEmpty) {
             fresh = fallbackRelated;
@@ -1511,7 +1511,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
       if (fresh.isEmpty && seedTrack.artist.isNotEmpty && seedTrack.artist != 'Unknown') {
         try {
-          final artistResults = await _catalogRepo!.searchTracks(seedTrack.artist, limit: 15);
+          final artistResults = await _catalogRepo.search(seedTrack.artist, limit: 15);
           final fallbackRelated = artistResults.where((t) => !existingIds.contains(t.sourceId) && t.id != seedTrack.id).toList();
           if (fallbackRelated.isNotEmpty) {
             fresh = fallbackRelated;
