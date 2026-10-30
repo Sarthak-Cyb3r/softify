@@ -140,14 +140,19 @@ enum DriftAction {
 
 /// High-precision collaborative listening synchronization service for Softify.
 /// Reverse-engineered from Metrolist's Listen Together architecture.
-class ListenTogetherService {
+class ListenTogetherService implements IPlaybackSyncDelegate {
   static final ListenTogetherService instance = ListenTogetherService._internal();
 
   ListenTogetherService._internal({
     this.automixService,
-    this.audioHandler,
+    SoftifyAudioHandler? audioHandler,
     ServerClock? serverClock,
-  }) : serverClock = serverClock ?? ServerClock();
+  })  : _audioHandler = audioHandler,
+        serverClock = serverClock ?? ServerClock() {
+    if (audioHandler != null) {
+      audioHandler.syncDelegate = this;
+    }
+  }
 
   factory ListenTogetherService({
     AutomixService? automixService,
@@ -162,8 +167,48 @@ class ListenTogetherService {
   }
 
   final AutomixService? automixService;
-  final SoftifyAudioHandler? audioHandler;
+  SoftifyAudioHandler? _audioHandler;
+  SoftifyAudioHandler? get audioHandler => _audioHandler;
+  set audioHandler(SoftifyAudioHandler? handler) {
+    _audioHandler = handler;
+    if (handler != null) {
+      handler.syncDelegate = this;
+    }
+  }
+
+  void attachAudioHandler(SoftifyAudioHandler handler) {
+    audioHandler = handler;
+  }
+
   final ServerClock serverClock;
+
+  @override
+  void onHostTrackChanged(Track track) {
+    if (isHost && isInRoom) {
+      broadcastTrackChange(SyncTrackInfo.fromTrack(track));
+    }
+  }
+
+  @override
+  void onHostPlay(Duration position) {
+    if (isHost && isInRoom) {
+      broadcastPlay(positionMs: position.inMilliseconds);
+    }
+  }
+
+  @override
+  void onHostPause(Duration position) {
+    if (isHost && isInRoom) {
+      broadcastPause(positionMs: position.inMilliseconds);
+    }
+  }
+
+  @override
+  void onHostSeek(Duration position) {
+    if (isHost && isInRoom) {
+      broadcastSeek(position.inMilliseconds);
+    }
+  }
 
   // Connection & Room state
   SyncConnectionState _connectionState = SyncConnectionState.disconnected;
@@ -524,7 +569,18 @@ class ListenTogetherService {
     });
 
     sendMessage(MessageTypes.createRoom, {'username': username});
-    return completer.future;
+    final createdRoom = await completer.future;
+    if (audioHandler?.currentTrack != null) {
+      final syncTrack = SyncTrackInfo.fromTrack(audioHandler!.currentTrack!);
+      final posMs = audioHandler!.playbackState.value.position.inMilliseconds;
+      broadcastTrackChange(syncTrack, positionMs: posMs);
+      if (audioHandler!.playbackState.value.playing) {
+        broadcastPlay(positionMs: posMs);
+      } else {
+        broadcastPause(positionMs: posMs);
+      }
+    }
+    return createdRoom;
   }
 
   /// Request to join an existing room by room code and await approval.
@@ -579,7 +635,16 @@ class ListenTogetherService {
       MessageTypes.joinRoom,
       {'room_code': roomCode.toUpperCase(), 'username': username},
     );
-    return completer.future;
+    final joinedRoom = await completer.future;
+    if (joinedRoom.currentTrack != null) {
+      unawaited(_syncGuestToTrack(
+        joinedRoom.currentTrack!,
+        isPlaying: joinedRoom.isPlaying,
+        positionMs: joinedRoom.positionMs,
+      ));
+    }
+    sendMessage(MessageTypes.requestSync, {});
+    return joinedRoom;
   }
 
   /// Voluntarily leaves the current room.
@@ -727,8 +792,13 @@ class ListenTogetherService {
     final delayMs = targetServerTime - currentServerTime;
 
     void startAudio() {
-      audioHandler?.seek(Duration(milliseconds: payload.positionMs));
-      audioHandler?.play();
+      final curTrack = _currentRoom?.currentTrack;
+      if (isGuest && curTrack != null && audioHandler?.currentTrack?.id != curTrack.id) {
+        unawaited(_syncGuestToTrack(curTrack, isPlaying: true, positionMs: payload.positionMs));
+      } else {
+        audioHandler?.seek(Duration(milliseconds: payload.positionMs));
+        audioHandler?.play();
+      }
       _updateRoomPlayingState(true, payload.positionMs);
     }
 
@@ -790,34 +860,60 @@ class ListenTogetherService {
   void broadcastPlay({int? positionMs}) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    final curTrack = _currentRoom?.currentTrack ??
+        (audioHandler?.currentTrack != null
+            ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
+            : null);
+    final pos = positionMs ??
+        audioHandler?.playbackState.value.position.inMilliseconds ??
+        _currentRoom?.positionMs ??
+        0;
     final payload = PlaybackActionPayload(
       action: PlaybackActions.play,
-      positionMs: positionMs ?? _currentRoom?.positionMs ?? 0,
+      trackId: curTrack?.id,
+      trackInfo: curTrack,
+      positionMs: pos,
       serverTime: now,
       revision: _lastRevision,
     );
     sendMessage(MessageTypes.playbackAction, payload.toJson());
-    _updateRoomPlayingState(true, payload.positionMs ?? 0);
+    _updateRoomPlayingState(true, pos);
   }
 
   void broadcastPause({int? positionMs}) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    final curTrack = _currentRoom?.currentTrack ??
+        (audioHandler?.currentTrack != null
+            ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
+            : null);
+    final pos = positionMs ??
+        audioHandler?.playbackState.value.position.inMilliseconds ??
+        _currentRoom?.positionMs ??
+        0;
     final payload = PlaybackActionPayload(
       action: PlaybackActions.pause,
-      positionMs: positionMs ?? _currentRoom?.positionMs ?? 0,
+      trackId: curTrack?.id,
+      trackInfo: curTrack,
+      positionMs: pos,
       serverTime: now,
       revision: _lastRevision,
     );
     sendMessage(MessageTypes.playbackAction, payload.toJson());
-    _updateRoomPlayingState(false, payload.positionMs ?? 0);
+    _updateRoomPlayingState(false, pos);
   }
 
   void broadcastSeek(int positionMs) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    final curTrack = _currentRoom?.currentTrack ??
+        (audioHandler?.currentTrack != null
+            ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
+            : null);
     final payload = PlaybackActionPayload(
       action: PlaybackActions.seek,
+      trackId: curTrack?.id,
+      trackInfo: curTrack,
       positionMs: positionMs,
       serverTime: now,
       revision: _lastRevision,
@@ -861,6 +957,79 @@ class ListenTogetherService {
     }
 
     triggerBufferBarrier(track.id);
+  }
+
+  void broadcastSyncState() {
+    if (!isHost || _currentRoom == null) return;
+    final curTrack = audioHandler?.currentTrack != null
+        ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
+        : _currentRoom?.currentTrack;
+    final isPlaying = audioHandler?.playbackState.value.playing ??
+        (_currentRoom?.isPlaying ?? false);
+    final posMs = audioHandler?.playbackState.value.position.inMilliseconds ??
+        (_currentRoom?.positionMs ?? 0);
+    final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
+    _lastRevision++;
+
+    final state = PlaybackSyncState(
+      currentTrack: curTrack,
+      isPlaying: isPlaying,
+      positionMs: posMs,
+      lastUpdateEpochMs: now,
+      revision: _lastRevision,
+    );
+
+    sendMessage(MessageTypes.syncState, state.toJson());
+
+    if (curTrack != null) {
+      final action = PlaybackActionPayload(
+        action: isPlaying ? PlaybackActions.play : PlaybackActions.pause,
+        trackId: curTrack.id,
+        trackInfo: curTrack,
+        positionMs: posMs,
+        serverTime: now,
+        revision: _lastRevision,
+      );
+      sendMessage(MessageTypes.playbackAction, action.toJson());
+    }
+  }
+
+  Future<void> _syncGuestToTrack(
+    SyncTrackInfo trackInfo, {
+    required bool isPlaying,
+    int positionMs = 0,
+  }) async {
+    if (!isGuest || audioHandler == null) return;
+    try {
+      final currentLocalTrack = audioHandler!.currentTrack;
+      if (currentLocalTrack?.id != trackInfo.id) {
+        final track = trackInfo.toTrack();
+        await audioHandler!.playTrack(track);
+        if (positionMs > 0) {
+          await audioHandler!.seek(Duration(milliseconds: positionMs));
+        }
+        if (!isPlaying) {
+          await audioHandler!.pause();
+        }
+      } else {
+        if (isPlaying) {
+          if (!audioHandler!.playbackState.value.playing) {
+            await audioHandler!.play();
+          }
+        } else {
+          if (audioHandler!.playbackState.value.playing) {
+            await audioHandler!.pause();
+          }
+        }
+        if (positionMs > 0) {
+          final curPos =
+              audioHandler!.playbackState.value.position.inMilliseconds;
+          if ((curPos - positionMs).abs() > 2000) {
+            await audioHandler!.seek(Duration(milliseconds: positionMs));
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   void suggestTrack(SyncTrackInfo track, {String? reason}) {
@@ -982,6 +1151,12 @@ class ListenTogetherService {
           _setRoom(ListenTogetherRoom(
             roomCode: roomCode,
             hostId: _userId ?? '',
+            currentTrack: audioHandler?.currentTrack != null
+                ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
+                : null,
+            isPlaying: audioHandler?.playbackState.value.playing ?? false,
+            positionMs:
+                audioHandler?.playbackState.value.position.inMilliseconds ?? 0,
             users: [
               ListenTogetherUser(
                 userId: _userId ?? '',
@@ -1016,8 +1191,16 @@ class ListenTogetherService {
         _sessionToken = msg.payload['session_token']?.toString();
         final roomCode = (msg.payload['room_code'] ?? '').toString();
         if (msg.payload['state'] != null) {
-          _setRoom(ListenTogetherRoom.fromJson(
-              msg.payload['state'] as Map<String, dynamic>));
+          final room = ListenTogetherRoom.fromJson(
+              msg.payload['state'] as Map<String, dynamic>);
+          _setRoom(room);
+          if (room.currentTrack != null) {
+            unawaited(_syncGuestToTrack(
+              room.currentTrack!,
+              isPlaying: room.isPlaying,
+              positionMs: room.positionMs,
+            ));
+          }
         } else {
           _setRoom(ListenTogetherRoom(
             roomCode: roomCode,
@@ -1033,6 +1216,7 @@ class ListenTogetherService {
           ));
         }
         _setRole(SyncRole.guest);
+        sendMessage(MessageTypes.requestSync, {});
         _postRoomTelemetry('/api/rooms/join', {
           'roomCode': roomCode.toUpperCase(),
           'userId': _userId,
@@ -1058,6 +1242,15 @@ class ListenTogetherService {
             'deviceModel': 'Connected Member',
             'platform': 'unknown',
           });
+          if (isHost) {
+            broadcastSyncState();
+          }
+        }
+        break;
+
+      case MessageTypes.requestSync:
+        if (isHost) {
+          broadcastSyncState();
         }
         break;
 
@@ -1131,7 +1324,13 @@ class ListenTogetherService {
               revision: syncState.revision,
             ));
           }
-          if (isGuest) {
+          if (isGuest && syncState.currentTrack != null) {
+            unawaited(_syncGuestToTrack(
+              syncState.currentTrack!,
+              isPlaying: syncState.isPlaying,
+              positionMs: syncState.positionMs,
+            ));
+          } else if (isGuest) {
             if (syncState.isPlaying) {
               audioHandler?.play();
             } else {
@@ -1176,11 +1375,24 @@ class ListenTogetherService {
 
     switch (action.action) {
       case PlaybackActions.play:
-        audioHandler?.play();
+        if (isGuest &&
+            action.trackInfo != null &&
+            audioHandler?.currentTrack?.id != action.trackInfo!.id) {
+          unawaited(_syncGuestToTrack(action.trackInfo!,
+              isPlaying: true, positionMs: action.positionMs ?? 0));
+        } else {
+          audioHandler?.play();
+          if (action.positionMs != null && action.positionMs! > 0) {
+            audioHandler?.seek(Duration(milliseconds: action.positionMs!));
+          }
+        }
         _updateRoomPlayingState(true, action.positionMs ?? 0);
         break;
       case PlaybackActions.pause:
         audioHandler?.pause();
+        if (action.positionMs != null && action.positionMs! > 0) {
+          audioHandler?.seek(Duration(milliseconds: action.positionMs!));
+        }
         _updateRoomPlayingState(false, action.positionMs ?? 0);
         break;
       case PlaybackActions.seek:
@@ -1192,7 +1404,6 @@ class ListenTogetherService {
         if (action.trackInfo != null) {
           _bufferingTrackId = action.trackInfo!.id;
           _setBufferBarrierState(BufferBarrierState.buffering);
-          audioHandler?.pause();
           if (_currentRoom != null) {
             _setRoom(_currentRoom!.copyWith(
               currentTrack: action.trackInfo,
@@ -1212,7 +1423,15 @@ class ListenTogetherService {
               },
             });
           }
-          _simulateLocalPrebuffer(action.trackInfo!.id);
+          if (isGuest) {
+            unawaited(_syncGuestToTrack(
+              action.trackInfo!,
+              isPlaying: true,
+              positionMs: action.positionMs ?? 0,
+            ));
+          } else {
+            _simulateLocalPrebuffer(action.trackInfo!.id);
+          }
         }
         break;
       case PlaybackActions.syncQueue:

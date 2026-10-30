@@ -24,8 +24,16 @@ import '../../services/voice/voice_search_matcher.dart';
 
 import 'softify_audio_player.dart';
 
+abstract class IPlaybackSyncDelegate {
+  void onHostTrackChanged(Track track);
+  void onHostPlay(Duration position);
+  void onHostPause(Duration position);
+  void onHostSeek(Duration position);
+}
+
 class SoftifyAudioHandler extends BaseAudioHandler
     with SeekHandler, QueueHandler {
+  IPlaybackSyncDelegate? syncDelegate;
   final ISoftifyAudioPlayer _player;
   final IStreamResolver _streamResolver;
   final ILibraryRepository _libraryRepo;
@@ -541,12 +549,18 @@ class SoftifyAudioHandler extends BaseAudioHandler
     } else {
       await _player.play();
     }
+    try {
+      syncDelegate?.onHostPlay(_player.position);
+    } catch (_) {}
   }
 
   @override
   Future<void> pause() async {
     await _player.pause();
     await _saveQueueStateImmediately();
+    try {
+      syncDelegate?.onHostPause(_player.position);
+    } catch (_) {}
   }
 
   @override
@@ -571,6 +585,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
   @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
+    try {
+      syncDelegate?.onHostSeek(position);
+    } catch (_) {}
   }
 
   Track? _peekNextTrack() {
@@ -1136,6 +1153,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
           _debouncedSaveQueue();
           unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
           unawaited(_prefetchNextTrackStream());
+          try {
+            syncDelegate?.onHostTrackChanged(track);
+          } catch (_) {}
           return;
         } catch (downloadErr) {
           if (requestId != _activePlayRequestId) return;
@@ -1178,6 +1198,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
       unawaited(_prefetchNextTrackStream());
       _checkAndPrefetchRecommendations();
+      try {
+        syncDelegate?.onHostTrackChanged(track);
+      } catch (_) {}
     } catch (e, st) {
       if (requestId != _activePlayRequestId) {
         // Superseded by newer track selection; discard cleanly without retry or error.

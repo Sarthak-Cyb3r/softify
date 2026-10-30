@@ -147,7 +147,8 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
 
   Widget _buildLobbyView(BuildContext context, AppTokens tokens) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 180),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       physics: const BouncingScrollPhysics(),
       children: [
         if (_errorMessage != null)
@@ -395,6 +396,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
             _buildFeatureChip(Icons.sync_rounded, 'Barrier Clock', tokens),
           ],
         ),
+        const SizedBox(height: 180),
       ],
     );
   }
@@ -421,9 +423,10 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
   ) {
     final users = room.users;
     final isHost = _service.isHost;
+    final activeTrack = currentTrack ?? room.currentTrack?.toTrack();
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 180),
       physics: const BouncingScrollPhysics(),
       children: [
         // Room Code Banner
@@ -482,7 +485,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
         const SizedBox(height: 16),
 
         // Synchronized Playback Card
-        if (currentTrack != null)
+        if (activeTrack != null)
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -497,7 +500,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
                   child: SizedBox(
                     width: 52,
                     height: 52,
-                    child: AppNetworkImage(imageUrl: currentTrack.coverUrl),
+                    child: AppNetworkImage(imageUrl: activeTrack.coverUrl),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -506,7 +509,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        currentTrack.title,
+                        activeTrack.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -517,7 +520,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        currentTrack.artist,
+                        activeTrack.artist,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: tokens.textSecondary),
@@ -640,6 +643,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 180),
       ],
     );
   }
