@@ -44,17 +44,17 @@ class BetterLyricsProvider implements ILyricsProvider {
       }
 
       final uri = Uri.parse('$_baseUrl/getLyrics').replace(queryParameters: queryParams);
-      final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 6));
+      final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 3));
       request.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Softify/1.0');
       request.headers.set('Accept', 'application/json');
 
-      final response = await request.close().timeout(const Duration(seconds: 6));
+      final response = await request.close().timeout(const Duration(seconds: 3));
       if (response.statusCode != 200) {
         _cache[track.id] = null;
         return null;
       }
 
-      final body = await response.transform(utf8.decoder).join();
+      final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 3));
       final json = jsonDecode(body) as Map<String, dynamic>;
       final ttml = json['ttml'] as String?;
 

@@ -50,7 +50,7 @@ class SaavnLyricsProvider implements ILyricsProvider {
         return null;
       }
 
-      final body = await res.transform(utf8.decoder).join();
+      final body = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
       final json = jsonDecode(body) as Map<String, dynamic>;
       final rawLyrics = json['lyrics'] as String?;
 
@@ -100,7 +100,7 @@ class SaavnLyricsProvider implements ILyricsProvider {
         final res = await req.close().timeout(const Duration(seconds: 5));
         if (res.statusCode != 200) continue;
 
-        final body = await res.transform(utf8.decoder).join();
+        final body = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
         final json = jsonDecode(body) as Map<String, dynamic>;
         final results = (json['results'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
 
@@ -151,7 +151,7 @@ class SaavnLyricsProvider implements ILyricsProvider {
       acReq.headers.set('User-Agent', _userAgent);
       final acRes = await acReq.close().timeout(const Duration(seconds: 4));
       if (acRes.statusCode == 200) {
-        final acBody = await acRes.transform(utf8.decoder).join();
+        final acBody = await acRes.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
         final acJson = jsonDecode(acBody) as Map<String, dynamic>;
         final songsObj = acJson['songs'];
         if (songsObj is Map<String, dynamic>) {

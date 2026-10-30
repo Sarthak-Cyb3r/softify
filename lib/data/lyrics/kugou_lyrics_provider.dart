@@ -113,7 +113,7 @@ class KugouLyricsProvider implements ILyricsProvider {
       req.headers.set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64)');
       final res = await req.close().timeout(const Duration(seconds: 5));
       if (res.statusCode != 200) return null;
-      final body = await res.transform(utf8.decoder).join();
+      final body = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
       return jsonDecode(body) as Map<String, dynamic>?;
     } catch (_) {
       return null;

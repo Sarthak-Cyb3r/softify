@@ -52,13 +52,13 @@ class AppleTokenManager {
       // 1. Fetch beta.music.apple.com to locate index~*.js
       final req1 = await client
           .getUrl(Uri.parse('https://beta.music.apple.com'))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 4));
       req1.headers.set(
         'User-Agent',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Softify/1.0',
       );
-      final res1 = await req1.close().timeout(const Duration(seconds: 10));
-      final body1 = await res1.transform(utf8.decoder).join();
+      final res1 = await req1.close().timeout(const Duration(seconds: 4));
+      final body1 = await res1.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
 
       final indexJsRegex = RegExp(r'/assets/index~[^/]+\.js');
       final indexJsMatch = indexJsRegex.firstMatch(body1);
@@ -69,13 +69,13 @@ class AppleTokenManager {
       final indexJsUri = indexJsMatch.group(0)!;
       final req2 = await client
           .getUrl(Uri.parse('https://beta.music.apple.com$indexJsUri'))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 4));
       req2.headers.set(
         'User-Agent',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Softify/1.0',
       );
-      final res2 = await req2.close().timeout(const Duration(seconds: 10));
-      final body2 = await res2.transform(utf8.decoder).join();
+      final res2 = await req2.close().timeout(const Duration(seconds: 4));
+      final body2 = await res2.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
 
       final tokenRegex = RegExp(
         r'eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+',
@@ -206,7 +206,7 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
         '$_appleApiBase/search?term=$encodedQuery&types=songs&limit=25&l=en-US&platform=web&format[resources]=map&include[songs]=artists&extend=artistUrl',
       );
       final req =
-          await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 8));
+          await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 4));
       req.headers.set('Authorization', 'Bearer $token');
       req.headers.set('Origin', 'https://music.apple.com');
       req.headers.set('Referer', 'https://music.apple.com/');
@@ -218,7 +218,7 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
       req.headers.set('Accept-Language', 'en-US,en;q=0.5');
       req.headers.set('x-apple-renewal', 'true');
 
-      final res = await req.close().timeout(const Duration(seconds: 8));
+      final res = await req.close().timeout(const Duration(seconds: 4));
       if (res.statusCode == 401) {
         throw const HttpException('Unauthorized (401)');
       }
@@ -226,7 +226,7 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
         return const [];
       }
 
-      final body = await res.transform(utf8.decoder).join();
+      final body = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
       final map = jsonDecode(body) as Map<String, dynamic>;
       final results = map['results'] as Map<String, dynamic>?;
       final songsObj = results?['songs'] as Map<String, dynamic>?;
@@ -353,17 +353,17 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
     try {
       final uri = Uri.parse('$_baseUrl/apple-music/lyrics?id=$appleTrackId');
       final req =
-          await _httpClient.getUrl(uri).timeout(const Duration(seconds: 8));
+          await _httpClient.getUrl(uri).timeout(const Duration(seconds: 3));
       req.headers.set(
         'User-Agent',
         'Softify/1.0 (https://github.com/softify/softify)',
       );
       req.headers.set('Accept', 'application/json');
 
-      final res = await req.close().timeout(const Duration(seconds: 8));
+      final res = await req.close().timeout(const Duration(seconds: 3));
       if (res.statusCode != 200) return null;
 
-      final body = await res.transform(utf8.decoder).join();
+      final body = await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 3));
       final map = jsonDecode(body) as Map<String, dynamic>;
 
       // 1. TTML content has highest fidelity
@@ -560,9 +560,9 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
       SyncedLyrics? bestLyrics;
       int bestQuality = 0;
 
-      for (final candidate in scoredCandidates.take(10)) {
+      for (final candidate in scoredCandidates.take(2)) {
         final lyrics = await fetchLyricsForTrack(candidate.key.id, track.id);
-        if (lyrics == null) continue;
+        if (lyrics == null) break;
 
         final quality = getQuality(lyrics);
         if (quality > bestQuality) {

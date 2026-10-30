@@ -28,6 +28,7 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
     with SingleTickerProviderStateMixin {
   final ScrollController _lyricsScrollController = ScrollController();
   final Map<int, GlobalKey> _lineKeys = {};
+  String? _lastTrackId;
 
   static final Map<String, Color> _paletteCache = {};
   Color _ambientColor = const Color(0xFF1E2822);
@@ -112,6 +113,7 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
   }
 
   void _scrollToActiveLine(int activeIndex) {
+    if (!_lyricsScrollController.hasClients) return;
     final key = _lineKeys[activeIndex];
     if (key == null || key.currentContext == null) return;
 
@@ -128,6 +130,14 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
     final tokens = context.tokens;
     final currentTrack = ref.watch(currentTrackProvider).value;
     final playbackState = ref.watch(playbackStateStreamProvider).value;
+
+    if (currentTrack?.id != _lastTrackId) {
+      _lastTrackId = currentTrack?.id;
+      _lineKeys.clear();
+      if (_lyricsScrollController.hasClients) {
+        _lyricsScrollController.jumpTo(0.0);
+      }
+    }
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
     final duration =
         ref.watch(durationStreamProvider).value ?? currentTrack?.duration ?? Duration.zero;
@@ -897,6 +907,7 @@ class _MusicScreensaverScreenState extends ConsumerState<MusicScreensaverScreen>
           },
           blendMode: BlendMode.dstIn,
           child: ListView.builder(
+            key: ValueKey('screensaver_lyrics_${track.id}'),
             controller: _lyricsScrollController,
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.symmetric(

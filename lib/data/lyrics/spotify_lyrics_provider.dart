@@ -212,7 +212,7 @@ class SpotifyLyricsProvider implements ILyricsProvider {
     final response = await request.close().timeout(const Duration(seconds: 5));
     if (response.statusCode != 200) return null;
 
-    final body = await response.transform(utf8.decoder).join();
+    final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
     return parseSpotifyLyricsJson(body, track.id);
   }
 
@@ -250,7 +250,7 @@ class SpotifyLyricsProvider implements ILyricsProvider {
             await request.close().timeout(const Duration(seconds: 5));
         if (response.statusCode != 200) continue;
 
-        final body = (await response.transform(utf8.decoder).join()).trim();
+        final body = (await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4))).trim();
         if (body.isEmpty) continue;
 
         if (body.startsWith('{')) {

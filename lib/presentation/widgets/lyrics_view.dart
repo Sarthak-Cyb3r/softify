@@ -218,6 +218,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       _positionNotifier.value = Duration.zero;
       _lineKeys.clear();
       _loadSavedOffset();
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0.0);
+      }
     }
   }
 
@@ -539,6 +542,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             return false;
                           },
                           child: SingleChildScrollView(
+                            key: ValueKey('plain_lyrics_scroll_${widget.track.id}'),
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 28,
@@ -589,6 +593,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                               return false;
                             },
                             child: SingleChildScrollView(
+                              key: ValueKey('lyrics_scroll_${widget.track.id}'),
                               controller: _scrollController,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,

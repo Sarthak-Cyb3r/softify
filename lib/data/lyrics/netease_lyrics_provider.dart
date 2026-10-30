@@ -113,7 +113,7 @@ class NeteaseLyricsProvider implements ILyricsProvider {
       final response = await request.close().timeout(const Duration(seconds: 4));
       if (response.statusCode != 200) return null;
 
-      final body = await response.transform(utf8.decoder).join();
+      final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
       return jsonDecode(body) as Map<String, dynamic>?;
     } catch (_) {
       return null;

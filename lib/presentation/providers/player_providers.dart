@@ -307,11 +307,23 @@ final trackLyricsProvider =
           providerName: 'Local Cache',
         );
       }
+    } else if (cached.isNotFound) {
+      // Known track without lyrics recorded in SQLite
+      return null;
     }
   }
 
-  // 2. Query multi-source lyrics engine (Spotify Direct + Multi-Tier Studio Catalogs)
-  final lyrics = await lyricsEngine.getLyrics(track);
+  // 2. Query multi-source lyrics engine with strict 7-second safeguard
+  SyncedLyrics? lyrics;
+  try {
+    lyrics = await lyricsEngine.getLyrics(track).timeout(
+          const Duration(seconds: 7),
+          onTimeout: () => null,
+        );
+  } catch (_) {
+    lyrics = null;
+  }
+
   if (lyrics != null) {
     try {
       await libraryRepo.cacheLyrics(
@@ -323,6 +335,14 @@ final trackLyricsProvider =
     } catch (_) {}
     return lyrics;
   }
+
+  // Negative cache in SQLite to avoid recurring network stalls
+  try {
+    await libraryRepo.cacheLyrics(
+      track.id,
+      isNotFound: true,
+    );
+  } catch (_) {}
 
   // 3. Fallback to cached plain lyrics if synced could not be resolved
   if (cached != null &&

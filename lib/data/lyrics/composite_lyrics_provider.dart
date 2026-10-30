@@ -24,6 +24,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   final ILyricsProvider _saavn;
   final ILyricsProvider _fallback;
   final Map<String, SyncedLyrics?> _cache = {};
+  final Map<String, Future<SyncedLyrics?>> _inFlight = {};
 
   static const int maxCacheEntries = 150;
 
@@ -50,43 +51,110 @@ class CompositeLyricsProvider implements ILyricsProvider {
 
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
-    if (_cache.containsKey(track.id) && _cache[track.id] != null) {
+    if (_cache.containsKey(track.id)) {
       return _cache[track.id];
     }
 
-    // Tier 0 (Gold Standard): Query Softify verified studio master catalog
+    final inFlight = _inFlight[track.id];
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final future = _resolveLyricsWithTimeout(track);
+    _inFlight[track.id] = future;
+
+    try {
+      final result = await future;
+      _addToCache(track.id, result);
+      return result;
+    } finally {
+      _inFlight.remove(track.id);
+    }
+  }
+
+  Future<SyncedLyrics?> _resolveLyricsWithTimeout(Track track) async {
+    try {
+      return await _resolveLyrics(track).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<SyncedLyrics?> _resolveLyrics(Track track) async {
+    // Tier 0 (Gold Standard): Query Softify verified studio master catalog (0ms)
     try {
       final curatedResult = await _curated.getLyrics(track);
       if (curatedResult != null &&
           curatedResult.isSynced &&
           curatedResult.lines.isNotEmpty) {
-        _addToCache(track.id, curatedResult);
         return curatedResult;
       }
     } catch (_) {}
 
-    // Tier 1 (Primary - Syllable/Word-by-Word Karaoke): Query BetterLyrics (BeautifulLyrics Apple Music TTML)
+    // Fast concurrent query: LRCLIB (fastest LRC, ~150ms) & JioSaavn in parallel with BetterLyrics (syllable TTML)
+    final fastTier2Future = Future.wait([
+      _lrclib
+          .getLyrics(track)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null)
+          .catchError((_) => null),
+      _saavn
+          .getLyrics(track)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null)
+          .catchError((_) => null),
+    ]);
+
+    // Tier 1 (Primary - Syllable/Word-by-Word Karaoke): Quick 2.5s window for BetterLyrics
     if (_betterLyrics != null) {
       try {
-        final betterResult = await _betterLyrics.getLyrics(track);
+        final betterResult = await _betterLyrics!.getLyrics(track).timeout(
+              const Duration(milliseconds: 2500),
+              onTimeout: () => null,
+            );
         if (betterResult != null &&
             betterResult.isSynced &&
             betterResult.lines.isNotEmpty) {
-          _addToCache(track.id, betterResult);
           return betterResult;
         }
       } catch (_) {}
     }
 
-    // Tier 1.2: Query Paxsenix for Musixmatch / Apple Music rich syllable / word-by-word sync
+    // Check fast synced results from LRCLIB / JioSaavn
+    SyncedLyrics? lrclibResult;
+    SyncedLyrics? saavnResult;
+    try {
+      final fastResults = await fastTier2Future;
+      lrclibResult = fastResults[0];
+      saavnResult = fastResults[1];
+
+      // If LRCLIB returned valid synced lyrics, immediately return
+      if (lrclibResult != null &&
+          lrclibResult.isSynced &&
+          lrclibResult.lines.isNotEmpty) {
+        return lrclibResult;
+      }
+
+      // If JioSaavn returned synced lyrics, return
+      if (saavnResult != null &&
+          saavnResult.isSynced &&
+          saavnResult.lines.isNotEmpty) {
+        return saavnResult;
+      }
+    } catch (_) {}
+
+    // Tier 1.2: Query Paxsenix with strict 3-second timeout for rich syllable sync
     if (_paxsenix != null) {
       try {
-        final paxResult = await _paxsenix.getLyrics(track);
+        final paxResult = await _paxsenix!.getLyrics(track).timeout(
+              const Duration(seconds: 3),
+              onTimeout: () => null,
+            );
         if (paxResult != null &&
             paxResult.isSynced &&
             paxResult.lines.isNotEmpty &&
             paxResult.isSyllableSynced) {
-          _addToCache(track.id, paxResult);
           return paxResult;
         }
       } catch (_) {}
@@ -96,51 +164,31 @@ class CompositeLyricsProvider implements ILyricsProvider {
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
-        spotifyResult = await _spotify.getLyrics(track);
+        spotifyResult = await _spotify!.getLyrics(track).timeout(
+              const Duration(seconds: 3),
+              onTimeout: () => null,
+            );
         if (spotifyResult != null &&
             spotifyResult.isSynced &&
             spotifyResult.lines.isNotEmpty) {
-          _addToCache(track.id, spotifyResult);
           return spotifyResult;
         }
       } catch (_) {}
     }
-
-    // Tier 2: Query LRCLIB and JioSaavn concurrently
-    SyncedLyrics? lrclibResult;
-    SyncedLyrics? saavnResult;
-    try {
-      final tier2Results = await Future.wait([
-        _lrclib.getLyrics(track).catchError((_) => null),
-        _saavn.getLyrics(track).catchError((_) => null),
-      ]);
-      lrclibResult = tier2Results[0];
-      saavnResult = tier2Results[1];
-
-      // If LRCLIB returned valid synced lyrics, immediately return
-      if (lrclibResult != null &&
-          lrclibResult.isSynced &&
-          lrclibResult.lines.isNotEmpty) {
-        _addToCache(track.id, lrclibResult);
-        return lrclibResult;
-      }
-
-      // If JioSaavn returned synced lyrics, return
-      if (saavnResult != null &&
-          saavnResult.isSynced &&
-          saavnResult.lines.isNotEmpty) {
-        _addToCache(track.id, saavnResult);
-        return saavnResult;
-      }
-    } catch (_) {}
 
     // Tier 3: Query NetEase Cloud Music and Kugou concurrently
     SyncedLyrics? neteaseResult;
     SyncedLyrics? kugouResult;
     try {
       final tier3Results = await Future.wait([
-        _netease.getLyrics(track).catchError((_) => null),
-        _kugou.getLyrics(track).catchError((_) => null),
+        _netease
+            .getLyrics(track)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null)
+            .catchError((_) => null),
+        _kugou
+            .getLyrics(track)
+            .timeout(const Duration(seconds: 3), onTimeout: () => null)
+            .catchError((_) => null),
       ]);
       neteaseResult = tier3Results[0];
       kugouResult = tier3Results[1];
@@ -148,20 +196,17 @@ class CompositeLyricsProvider implements ILyricsProvider {
       if (neteaseResult != null &&
           neteaseResult.isSynced &&
           neteaseResult.lines.isNotEmpty) {
-        _addToCache(track.id, neteaseResult);
         return neteaseResult;
       }
 
       if (kugouResult != null &&
           kugouResult.isSynced &&
           kugouResult.lines.isNotEmpty) {
-        _addToCache(track.id, kugouResult);
         return kugouResult;
       }
     } catch (_) {}
 
     // Tier 4: Fallback to verified plain lyrics across sources
-    // (JioSaavn verified studio lyrics first, then LRCLIB plain, NetEase, Kugou, Spotify)
     final plainCandidates = [
       saavnResult,
       lrclibResult,
@@ -179,23 +224,23 @@ class CompositeLyricsProvider implements ILyricsProvider {
     );
 
     if (plainFallback != null) {
-      _addToCache(track.id, plainFallback);
       return plainFallback;
     }
 
     // Tier 5: Query Genius for verified song lyrics
     try {
-      final geniusResult = await _fallback.getLyrics(track);
+      final geniusResult = await _fallback.getLyrics(track).timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => null,
+          );
       if (geniusResult != null &&
           geniusResult.plainLyrics != null &&
           geniusResult.plainLyrics!.trim().isNotEmpty) {
-        _addToCache(track.id, geniusResult);
         return geniusResult;
       }
     } catch (_) {}
 
     // Tier 6: Strict Instrumental Detection
-    // Note: Do NOT match "soundtrack", "score", or "album" as those are vocal movie songs!
     final isExplicitInstrumental = RegExp(
       r'\b(?:instrumental|karaoke|backing track|minus one|white noise|relaxing sound|nature sounds|ambient rain)\b',
       caseSensitive: false,
@@ -211,7 +256,6 @@ class CompositeLyricsProvider implements ILyricsProvider {
         syncType: 'LINE_SYNCED',
         providerName: 'Instrumental',
       );
-      _addToCache(track.id, instrumentalResult);
       return instrumentalResult;
     }
 
@@ -219,7 +263,6 @@ class CompositeLyricsProvider implements ILyricsProvider {
   }
 
   void _addToCache(String key, SyncedLyrics? value) {
-    if (value == null) return;
     if (_cache.length >= maxCacheEntries) {
       _cache.remove(_cache.keys.first);
     }

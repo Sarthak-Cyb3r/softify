@@ -98,7 +98,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
 
       final response = await request.close().timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
+        final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
         final json = jsonDecode(body) as Map<String, dynamic>;
         final syncedLrc = json['syncedLyrics'] as String?;
         final plainLyrics = json['plainLyrics'] as String?;
@@ -174,7 +174,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
         final response = await request.close().timeout(const Duration(seconds: 4));
         if (response.statusCode != 200) continue;
 
-        final body = await response.transform(utf8.decoder).join();
+        final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
         final list = jsonDecode(body) as List<dynamic>;
         if (list.isEmpty) continue;
 

@@ -49,7 +49,7 @@ class GeniusLyricsProvider implements ILyricsProvider {
           await request.close().timeout(const Duration(seconds: 5));
       if (response.statusCode != 200) return null;
 
-      final body = await response.transform(utf8.decoder).join();
+      final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
       final json = jsonDecode(body) as Map<String, dynamic>;
       final responseMap = json['response'] as Map<String, dynamic>?;
       final sections = responseMap?['sections'] as List<dynamic>?;
@@ -84,7 +84,7 @@ class GeniusLyricsProvider implements ILyricsProvider {
           await request.close().timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) return null;
 
-      final html = await response.transform(utf8.decoder).join();
+      final html = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
       final buffer = StringBuffer();
 
       // Find all divs matching data-lyrics-container="true"
