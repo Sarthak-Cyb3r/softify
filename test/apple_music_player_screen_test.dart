@@ -154,7 +154,7 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   Future<void> seek(Duration position) async {}
 
   @override
-  Future<void> playTrack(Track track, {List<Track>? queue}) async {}
+  Future<void> playTrack(Track track, {List<Track>? queue, int? startIndex}) async {}
 
   @override
   Future<void> skipToQueueItem(int index) async {
