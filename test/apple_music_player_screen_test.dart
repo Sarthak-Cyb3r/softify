@@ -387,7 +387,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
 
       // Verifies Up Next Queue view opened
-      expect(find.text('Playing Next'), findsOneWidget);
+      expect(find.text('PLAYING NEXT'), findsOneWidget);
       expect(find.text('In Your Eyes'), findsOneWidget);
 
       // Tap Queue button again to toggle back to Main view
