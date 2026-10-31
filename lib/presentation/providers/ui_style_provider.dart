@@ -208,7 +208,7 @@ class NowPlayingStyleNotifier extends StateNotifier<NowPlayingStyle> {
   final AppDatabase? _db;
   static const String _key = 'now_playing_style';
 
-  NowPlayingStyleNotifier(this._db) : super(NowPlayingStyle.classic) {
+  NowPlayingStyleNotifier(this._db) : super(NowPlayingStyle.appleMusic) {
     if (_db != null) {
       _loadFromDb();
     }
@@ -222,10 +222,10 @@ class NowPlayingStyleNotifier extends StateNotifier<NowPlayingStyle> {
             ..where((t) => t.key.equals(_key)))
           .getSingleOrNull();
       if (row != null) {
-        if (row.value == NowPlayingStyle.appleMusic.name) {
-          state = NowPlayingStyle.appleMusic;
-        } else {
+        if (row.value == NowPlayingStyle.classic.name) {
           state = NowPlayingStyle.classic;
+        } else {
+          state = NowPlayingStyle.appleMusic;
         }
       }
     } catch (_) {}
