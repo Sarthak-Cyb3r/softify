@@ -145,29 +145,21 @@ class MainActivity : AudioServiceActivity() {
             result.error("FILE_NOT_FOUND", "APK file not found: $filePath", null)
             return
         }
-        if (!canRequestInstalls()) {
-            startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-            result.error("BLOCKED", "Requires permission to install unknown apps", null)
-            return
-        }
 
-        var sessionId = -1
         try {
-            val installer = packageManager.packageInstaller
-            sessionId = installer.createSession(newSessionParams())
-            val session = installer.openSession(sessionId)
-            session.openWrite("base.apk", 0, file.length()).use { out ->
-                FileInputStream(file).use { input -> input.copyTo(out) }
-                session.fsync(out)
+            val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            pendingOps[sessionId] = PendingOp(result, filePath)
-            activeSessions[sessionId] = session
-            session.commit(statusPendingIntent(sessionId, OP_INSTALL).intentSender)
+            startActivity(intent)
+            result.success(true)
         } catch (e: Exception) {
-            failSession(sessionId)
             result.error("INSTALL_ERROR", e.message, null)
         }
     }
@@ -430,8 +422,7 @@ class MainActivity : AudioServiceActivity() {
         else -> "Operation failed"
     }
 
-    private fun canRequestInstalls() =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()
+    private fun canRequestInstalls() = true
 
     private fun signatureFlags() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

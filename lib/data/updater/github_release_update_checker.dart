@@ -246,7 +246,18 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
         'filePath': targetFile.path,
       });
     } on PlatformException catch (e) {
-      throw _installException(e.code, e.message);
+      try {
+        // Fallback: Delegate directly to system browser / release download (SimpMusic pattern)
+        final targetUrl = release.apkDownloadUrl.isNotEmpty
+            ? release.apkDownloadUrl
+            : 'https://github.com/Sarthak-Cyb3r/softify/releases/latest';
+        await launchUrl(
+          Uri.parse(targetUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (_) {
+        throw _installException(e.code, e.message);
+      }
     }
   }
 
