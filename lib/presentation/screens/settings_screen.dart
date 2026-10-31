@@ -230,6 +230,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final currentUiStyle = ref.watch(uiStyleProvider);
     final currentReduceEffects = ref.watch(reduceEffectsProvider);
+    final liquidGlassEnabled = ref.watch(liquidGlassEnabledProvider);
 
     final tokens = context.tokens;
 
@@ -290,6 +291,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             tokens,
             currentUiStyle,
             currentReduceEffects,
+            liquidGlassEnabled,
           ),
           const SizedBox(height: 24),
 
@@ -1186,6 +1188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     AppTokens tokens,
     UiStyle currentStyle,
     ReduceEffectsMode currentEffects,
+    bool liquidGlassEnabled,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1332,6 +1335,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       );
                     }).toList(),
                   ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white10, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      color: tokens.accent,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Liquid Glass Effect',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            'Apple-style optical refraction, directional highlight rim, and fluid touch ripples',
+                            style: TextStyle(
+                              color: tokens.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: liquidGlassEnabled,
+                      activeColor: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                      onChanged: (val) {
+                        ref
+                            .read(liquidGlassEnabledProvider.notifier)
+                            .setEnabled(val);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),

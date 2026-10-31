@@ -140,6 +140,8 @@ class MiniPlayer extends ConsumerWidget {
           borderRadius: BorderRadius.circular(MetrolistDimensions.modernPillRadius),
           withBlur: true,
           blurSigma: 16.0,
+          interactive: true,
+          pressedScale: 1.04,
           color: tokens.card.withValues(alpha: 0.94),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.08),

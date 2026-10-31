@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_tokens.dart';
 import '../../providers/ui_style_provider.dart';
+import 'liquid_glass_container.dart';
+
+export 'liquid_glass_container.dart';
 
 /// Versatile surface widget that renders authentic solid surfaces in Classic style
 /// and high-performance frosted glassmorphism in Aurora Glass style.
@@ -26,6 +29,8 @@ class AppSurface extends ConsumerWidget {
   final List<BoxShadow>? boxShadow;
   final bool withBlur;
   final double blurSigma;
+  final bool interactive;
+  final double pressedScale;
   final Clip clipBehavior;
 
   const AppSurface({
@@ -41,6 +46,8 @@ class AppSurface extends ConsumerWidget {
     this.boxShadow,
     this.withBlur = true,
     this.blurSigma = 16.0,
+    this.interactive = false,
+    this.pressedScale = 1.08,
     this.clipBehavior = Clip.antiAlias,
   });
 
@@ -69,6 +76,7 @@ class AppSurface extends ConsumerWidget {
     }
 
     // Aurora Glass Theme
+    final isLiquidActive = ref.watch(isLiquidGlassActiveProvider);
     final effectiveBorder = border ??
         Border.all(
           color: tokens.glassBorder,
@@ -82,6 +90,22 @@ class AppSurface extends ConsumerWidget {
     final canBlur = withBlur && !reduceEffects && !isConstrainedDesktop;
 
     if (canBlur) {
+      if (isLiquidActive) {
+        return LiquidGlassContainer(
+          width: width,
+          height: height,
+          margin: margin,
+          padding: padding,
+          borderRadius: radius,
+          tintColor: color,
+          interactive: interactive,
+          pressedScale: pressedScale,
+          blurScale: (blurSigma / 16.0).clamp(0.5, 2.0),
+          clipBehavior: clipBehavior,
+          child: child,
+        );
+      }
+
       return RepaintBoundary(
         child: Container(
           width: width,
@@ -161,6 +185,8 @@ class AppGlassCard extends StatelessWidget {
   final List<BoxShadow>? boxShadow;
   final bool withBlur;
   final double blurSigma;
+  final bool interactive;
+  final double pressedScale;
 
   const AppGlassCard({
     super.key,
@@ -177,6 +203,8 @@ class AppGlassCard extends StatelessWidget {
     this.boxShadow,
     this.withBlur = true,
     this.blurSigma = 16.0,
+    this.interactive = false,
+    this.pressedScale = 1.04,
   });
 
   @override
@@ -195,6 +223,8 @@ class AppGlassCard extends StatelessWidget {
       boxShadow: boxShadow,
       withBlur: withBlur,
       blurSigma: blurSigma,
+      interactive: interactive,
+      pressedScale: pressedScale,
       child: child,
     );
 

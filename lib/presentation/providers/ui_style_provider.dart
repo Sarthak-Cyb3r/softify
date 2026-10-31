@@ -120,6 +120,66 @@ final reduceEffectsProvider =
   return ReduceEffectsNotifier(db);
 });
 
+/// StateNotifier managing whether Liquid Glass effect is enabled.
+class LiquidGlassNotifier extends StateNotifier<bool> {
+  final AppDatabase? _db;
+  static const String _key = 'liquid_glass_enabled';
+
+  LiquidGlassNotifier(this._db) : super(true) {
+    if (_db != null) {
+      _loadFromDb();
+    }
+  }
+
+  Future<void> _loadFromDb() async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      final row = await (db.select(db.settings)
+            ..where((t) => t.key.equals(_key)))
+          .getSingleOrNull();
+      if (row != null) {
+        state = row.value == 'true';
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    if (state == enabled) return;
+    state = enabled;
+    final db = _db;
+    if (db == null) return;
+    try {
+      await db.into(db.settings).insertOnConflictUpdate(
+            SettingRow(
+              key: _key,
+              value: enabled.toString(),
+            ),
+          );
+    } catch (_) {}
+  }
+}
+
+/// Provides whether the Liquid Glass effect is enabled by user preference.
+final liquidGlassEnabledProvider =
+    StateNotifierProvider<LiquidGlassNotifier, bool>((ref) {
+  AppDatabase? db;
+  try {
+    db = ref.watch(databaseProvider);
+  } catch (_) {}
+  return LiquidGlassNotifier(db);
+});
+
+/// Computes whether Liquid Glass rendering pipeline is currently active.
+/// Active when the UI style is Aurora Glass, user has Liquid Glass enabled,
+/// and effects are not reduced.
+final isLiquidGlassActiveProvider = Provider<bool>((ref) {
+  final isGlassStyle = ref.watch(uiStyleProvider) == UiStyle.auroraGlass;
+  final isLiquidEnabled = ref.watch(liquidGlassEnabledProvider);
+  final reduceEffects = ref.watch(shouldReduceEffectsProvider);
+  return isGlassStyle && isLiquidEnabled && !reduceEffects;
+});
+
 /// Auto-detects whether the current device is low-spec or constrained.
 final isLowEndDeviceProvider = Provider<bool>((ref) {
   try {
