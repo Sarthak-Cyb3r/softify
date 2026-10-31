@@ -66,7 +66,7 @@ class AppFilterChip extends StatelessWidget {
         child: tokens.isGlass
             ? AppSurface(
                 height: height,
-                withBlur: true,
+                withBlur: false,
                 padding: EdgeInsets.symmetric(
                   horizontal: tokens.spaceMd,
                   vertical: 0.0,

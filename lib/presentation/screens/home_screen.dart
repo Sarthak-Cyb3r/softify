@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -212,7 +213,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 850;
 
-    final historyTracks = (historyAsync.value ?? [])
+    final rawHistoryTracks = (historyAsync.value ?? [])
         .map((h) => h.track)
         .whereType<Track>()
         .toList();
@@ -221,8 +222,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : (shelvesAsync.value?.isNotEmpty == true
             ? (shelvesAsync.value!.first.tracks)
             : <Track>[]);
-    final quickPicksTracks =
-        historyTracks.isNotEmpty ? historyTracks : fallbackTracks;
+    final baseQuickPicks =
+        rawHistoryTracks.isNotEmpty ? rawHistoryTracks : fallbackTracks;
+
+    List<Track> applyMoodFilter(List<Track> list, String mood) {
+      if (mood == 'All') return list;
+      final query = mood.toLowerCase();
+      final filtered = list.where((t) {
+        final title = t.title.toLowerCase();
+        final artist = t.artist.toLowerCase();
+        final album = (t.album ?? '').toLowerCase();
+        return title.contains(query) || artist.contains(query) || album.contains(query);
+      }).toList();
+      return filtered.isNotEmpty ? filtered : list;
+    }
+
+    final historyTracks = applyMoodFilter(rawHistoryTracks, _selectedFilter);
+    final quickPicksTracks = applyMoodFilter(baseQuickPicks, _selectedFilter);
 
     return Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
@@ -398,45 +414,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _buildUpNextSidebar(tokens, audioHandler),
               ],
             )
-          : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFilterChips(tokens),
-                const SizedBox(height: 8),
-                if (historyTracks.isNotEmpty) ...[
-                  _buildSpeedDialSection(tokens, historyTracks, audioHandler),
-                  const SizedBox(height: 24),
-                ],
-                _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
-                const SizedBox(height: 28),
-                _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
-                const SizedBox(height: 28),
-                _buildContinueListeningSection(
-                  tokens,
-                  historyAsync,
-                  audioHandler,
-                  isDesktop: false,
-                ),
-                const SizedBox(height: 32),
-                shelvesAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (shelves) {
-                    if (shelves.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final shelf in shelves) ...[
-                          _buildShelfSection(context, tokens, shelf, audioHandler, ref),
-                          const SizedBox(height: 32),
-                        ],
+                _buildFilterChips(tokens, fullBleed: true),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    children: [
+                      if (historyTracks.isNotEmpty) ...[
+                        _buildSpeedDialSection(tokens, historyTracks, audioHandler),
+                        const SizedBox(height: 24),
                       ],
-                    );
-                  },
+                      _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
+                      const SizedBox(height: 28),
+                      _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
+                      const SizedBox(height: 28),
+                      _buildContinueListeningSection(
+                        tokens,
+                        historyAsync,
+                        audioHandler,
+                        isDesktop: false,
+                      ),
+                      const SizedBox(height: 32),
+                      shelvesAsync.when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (shelves) {
+                          if (shelves.isEmpty) return const SizedBox.shrink();
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final shelf in shelves) ...[
+                                _buildShelfSection(context, tokens, shelf, audioHandler, ref),
+                                const SizedBox(height: 32),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 32),
+                      _buildPopularArtistsShelf(tokens),
+                      const SizedBox(height: 140),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 32),
-                _buildPopularArtistsShelf(tokens),
-                const SizedBox(height: 140),
               ],
             ),
     );
@@ -504,7 +526,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildFilterChips(AppTokens tokens) {
+  Widget _buildFilterChips(AppTokens tokens, {bool fullBleed = false}) {
     const filters = [
       'All',
       'Relax',
@@ -516,31 +538,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'Romance',
       'Podcasts',
     ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        children: filters.map((f) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AppFilterChip(
-              label: f,
-              isSelected: _selectedFilter == f,
-              onTap: () {
-                if (f == 'Podcasts') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const PodcastPage(),
-                    ),
-                  );
-                  return;
-                }
-                setState(() => _selectedFilter = f);
-              },
-            ),
-          );
-        }).toList(),
+    return ScrollConfiguration(
+      behavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.touch,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+        },
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.only(
+          left: fullBleed ? 16 : 0,
+          right: fullBleed ? 16 : 0,
+          top: 6,
+          bottom: 10,
+        ),
+        clipBehavior: Clip.none,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: filters.map((f) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AppFilterChip(
+                label: f,
+                isSelected: _selectedFilter == f,
+                onTap: () {
+                  if (f == 'Podcasts') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PodcastPage(),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() => _selectedFilter = f);
+                },
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
