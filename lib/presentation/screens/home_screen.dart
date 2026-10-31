@@ -225,8 +225,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final baseQuickPicks =
         rawHistoryTracks.isNotEmpty ? rawHistoryTracks : fallbackTracks;
 
+    final moodTracksAsync = _selectedFilter != 'All'
+        ? ref.watch(homeMoodTracksProvider(_selectedFilter))
+        : null;
+    final moodTracks = moodTracksAsync?.valueOrNull ?? const <Track>[];
+
     List<Track> applyMoodFilter(List<Track> list, String mood) {
       if (mood == 'All') return list;
+      if (moodTracks.isNotEmpty) return moodTracks;
       final query = mood.toLowerCase();
       final filtered = list.where((t) {
         final title = t.title.toLowerCase();
@@ -237,8 +243,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return filtered.isNotEmpty ? filtered : list;
     }
 
-    final historyTracks = applyMoodFilter(rawHistoryTracks, _selectedFilter);
-    final quickPicksTracks = applyMoodFilter(baseQuickPicks, _selectedFilter);
+    final historyTracks = (_selectedFilter == 'All') ? rawHistoryTracks : <Track>[];
+    final quickPicksTracks = (_selectedFilter == 'All')
+        ? baseQuickPicks
+        : (moodTracks.isNotEmpty ? moodTracks : applyMoodFilter(baseQuickPicks, _selectedFilter));
 
     return Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
@@ -368,7 +376,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
 
                       // Metrolist 2-row Quick Picks Grid
-                      _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
+                      _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler, filter: _selectedFilter),
                       const SizedBox(height: 32),
 
                       // 3. Continue Listening Shelf
@@ -426,7 +434,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _buildSpeedDialSection(tokens, historyTracks, audioHandler),
                         const SizedBox(height: 24),
                       ],
-                      _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler),
+                      _buildQuickPicksSection(tokens, quickPicksTracks, audioHandler, filter: _selectedFilter),
                       const SizedBox(height: 28),
                       _buildFeaturedSection(tokens, featuredAsync, audioHandler, ref),
                       const SizedBox(height: 28),
@@ -738,16 +746,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildQuickPicksSection(
     AppTokens tokens,
     List<Track> tracks,
-    dynamic audioHandler,
-  ) {
+    dynamic audioHandler, {
+    String filter = 'All',
+  }) {
     if (tracks.isEmpty) return const SizedBox.shrink();
     final displayTracks = tracks.take(12).toList();
+    final isMoodActive = filter != 'All';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         MetrolistNavigationTitle(
-          label: 'START RADIO FROM A SONG',
-          title: 'Quick picks',
+          label: isMoodActive ? '${filter.toUpperCase()} MIX' : 'START RADIO FROM A SONG',
+          title: isMoodActive ? '$filter picks' : 'Quick picks',
           padding: EdgeInsets.zero,
           onPlayAllClick: () {
             if (displayTracks.isNotEmpty) {

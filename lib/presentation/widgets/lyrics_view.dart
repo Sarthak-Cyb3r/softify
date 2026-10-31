@@ -241,16 +241,22 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   }
 
   void _scrollToActiveLine(int index, {bool force = false}) {
-    if ((_userIsScrolling && !force) || !_scrollController.hasClients || index < 0) return;
+    if ((_userIsScrolling && !force) || index < 0) return;
     if (!force && index == _lastScrolledIndex) return;
-    _lastScrolledIndex = index;
 
     final isAppleLyrics = ref.read(lyricsStyleProvider) == LyricsStyle.appleMusic;
     final scrollAlignment = isAppleLyrics ? 0.16 : 0.35;
     final scrollDuration = Duration(milliseconds: isAppleLyrics ? 380 : 320);
 
-    void performScroll() {
-      if (!mounted || (_userIsScrolling && !force) || !_scrollController.hasClients) return;
+    void performScroll([int retryCount = 0]) {
+      if (!mounted || (_userIsScrolling && !force)) return;
+      if (!_scrollController.hasClients) {
+        if (retryCount < 8) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => performScroll(retryCount + 1));
+        }
+        return;
+      }
+      _lastScrolledIndex = index;
       final key = _lineKeys[index];
       final ctx = key?.currentContext;
       if (ctx != null) {
@@ -261,19 +267,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           alignment: scrollAlignment,
         );
       } else {
-        // Line widget not laid out yet; retry on next post-frame
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_scrollController.hasClients) return;
-          final retryCtx = _lineKeys[index]?.currentContext;
-          if (retryCtx != null) {
-            Scrollable.ensureVisible(
-              retryCtx,
-              duration: scrollDuration,
-              curve: Curves.easeOutCubic,
-              alignment: scrollAlignment,
-            );
-          }
-        });
+        final targetOffset =
+            (index * 62.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+        _scrollController.animateTo(
+          targetOffset,
+          duration: scrollDuration,
+          curve: Curves.easeOutCubic,
+        );
       }
     }
 
@@ -595,7 +595,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       if (_lastActiveIndex == -1 && activeIndex >= 0) {
                         _lastActiveIndex = activeIndex;
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _scrollToActiveLine(activeIndex);
+                          _scrollToActiveLine(activeIndex, force: true);
                         });
                       }
 

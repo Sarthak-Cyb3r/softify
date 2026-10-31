@@ -556,6 +556,7 @@ class PlaybackActionPayload {
   final int? serverTime;
   final int revision;
   final int? capturedAtServerTime;
+  final bool? isPlaying;
 
   const PlaybackActionPayload({
     required this.action,
@@ -569,6 +570,7 @@ class PlaybackActionPayload {
     this.serverTime,
     this.revision = 0,
     this.capturedAtServerTime,
+    this.isPlaying,
   });
 
   Map<String, dynamic> toJson() => {
@@ -584,6 +586,7 @@ class PlaybackActionPayload {
         'revision': revision,
         if (capturedAtServerTime != null)
           'captured_at_server_time': capturedAtServerTime,
+        if (isPlaying != null) 'is_playing': isPlaying,
       };
 
   factory PlaybackActionPayload.fromJson(Map<String, dynamic> json) {
@@ -605,6 +608,7 @@ class PlaybackActionPayload {
       capturedAtServerTime: ((json['captured_at_server_time'] ??
               json['capturedAtServerTime']) as num?)
           ?.toInt(),
+      isPlaying: json['is_playing'] == true || json['isPlaying'] == true,
     );
   }
 }

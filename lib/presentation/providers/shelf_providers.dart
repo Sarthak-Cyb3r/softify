@@ -80,3 +80,23 @@ final topChartTracksProvider = FutureProvider.family<List<Track>, String>((ref, 
   }
   return catalogRepo.getTrendingTracks(limit: 30);
 });
+
+final homeMoodTracksProvider = FutureProvider.family<List<Track>, String>((ref, mood) async {
+  if (mood == 'All') return const [];
+  final catalogRepo = ref.watch(catalogRepositoryProvider);
+  final query = switch (mood) {
+    'Relax' => 'chill relaxing acoustic songs peaceful calm',
+    'Energize' => 'energizing upbeat pop dance hype workout hits',
+    'Workout' => 'workout gym motivation fitness beats hip hop',
+    'Focus' => 'lofi study beats ambient instrumental deep focus',
+    'Commute' => 'road trip travel commute feel good vibes',
+    'Party' => 'party club dance floor bangers edm pop',
+    'Romance' => 'romantic love songs acoustic soft ballads',
+    _ => '$mood songs mix',
+  };
+  try {
+    return await catalogRepo.search(query, limit: 20);
+  } catch (_) {
+    return const [];
+  }
+});

@@ -160,11 +160,10 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     SoftifyAudioHandler? audioHandler,
     ServerClock? serverClock,
   }) {
-    return ListenTogetherService._internal(
-      automixService: automixService,
-      audioHandler: audioHandler,
-      serverClock: serverClock,
-    );
+    if (audioHandler != null) {
+      instance.audioHandler = audioHandler;
+    }
+    return instance;
   }
 
   final AutomixService? automixService;
@@ -529,6 +528,9 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           case MessageTypes.reconnect:
             bytes = ListenTogetherProtoCodec.encodeReconnect(payload['session_token']?.toString() ?? '');
             break;
+          case MessageTypes.requestSync:
+            bytes = ListenTogetherProtoCodec.encodeRequestSync();
+            break;
           case MessageTypes.playbackAction:
             bytes = ListenTogetherProtoCodec.encodePlaybackAction(
               action: payload['action']?.toString() ?? 'play',
@@ -537,6 +539,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
               trackInfo: payload['track_info'] is Map<String, dynamic>
                   ? payload['track_info'] as Map<String, dynamic>
                   : null,
+              isPlaying: payload['is_playing'] as bool? ?? true,
               serverTime: payload['server_time'] as int?,
               revision: payload['revision'] as int?,
             );
@@ -981,8 +984,6 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         },
       });
     }
-
-    triggerBufferBarrier(track.id);
   }
 
   void broadcastSyncState() {
@@ -997,21 +998,12 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
 
-    final state = PlaybackSyncState(
-      currentTrack: curTrack,
-      isPlaying: isPlaying,
-      positionMs: posMs,
-      lastUpdateEpochMs: now,
-      revision: _lastRevision,
-    );
-
-    sendMessage(MessageTypes.syncState, state.toJson());
-
     if (curTrack != null) {
       final action = PlaybackActionPayload(
         action: isPlaying ? PlaybackActions.play : PlaybackActions.pause,
         trackId: curTrack.id,
         trackInfo: curTrack,
+        isPlaying: isPlaying,
         positionMs: posMs,
         serverTime: now,
         revision: _lastRevision,
@@ -1066,8 +1058,10 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           }
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ListenTogether] Error syncing to remote track: $e');
     } finally {
+      await Future.delayed(const Duration(milliseconds: 600));
       _isSyncingFromRemote = false;
     }
   }
@@ -1153,7 +1147,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         payload = ListenTogetherProtoCodec.decodePlaybackAction(payloadBytes);
         break;
       case 'sync_state':
-        payload = ListenTogetherProtoCodec.decodeRoomState(payloadBytes);
+        payload = ListenTogetherProtoCodec.decodeSyncState(payloadBytes);
         break;
       default:
         break;
@@ -1458,12 +1452,14 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         _updateRoomPlayingState(_currentRoom?.isPlaying ?? false, pos);
         break;
       case PlaybackActions.changeTrack:
-        if (action.trackInfo != null) {
-          _bufferingTrackId = action.trackInfo!.id;
-          final effectivePlaying = _lastRoomPlaying;
+        final effectivePlaying = action.isPlaying ?? true;
+        _lastRoomPlaying = effectivePlaying;
+        final track = action.trackInfo;
+        if (track != null) {
+          _bufferingTrackId = track.id;
           if (_currentRoom != null) {
             _setRoom(_currentRoom!.copyWith(
-              currentTrack: action.trackInfo,
+              currentTrack: track,
               isPlaying: effectivePlaying,
               positionMs: action.positionMs ?? 0,
               lastUpdateEpochMs: action.serverTime ?? 0,
@@ -1472,23 +1468,36 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
             _postRoomTelemetry('/api/rooms/song-played', {
               'roomCode': _currentRoom!.roomCode,
               'track': {
-                'id': action.trackInfo!.id,
-                'title': action.trackInfo!.title,
-                'artist': action.trackInfo!.artist,
-                'album': action.trackInfo!.album,
-                'durationMs': action.trackInfo!.durationMs,
-                'thumbnailUrl': action.trackInfo!.thumbnailUrl,
+                'id': track.id,
+                'title': track.title,
+                'artist': track.artist,
+                'album': track.album,
+                'durationMs': track.durationMs,
+                'thumbnailUrl': track.thumbnailUrl,
               },
             });
           }
-          if (audioHandler?.currentTrack?.id != action.trackInfo!.id) {
+          if (audioHandler?.currentTrack?.id != track.id) {
             unawaited(_syncToRemoteTrack(
-              action.trackInfo!,
+              track,
               isPlaying: effectivePlaying,
               positionMs: action.positionMs ?? 0,
             ));
           } else {
-            _simulateLocalPrebuffer(action.trackInfo!.id);
+            if (effectivePlaying && !(audioHandler?.playbackState.value.playing ?? false)) {
+              audioHandler?.play();
+            }
+          }
+        } else if (action.trackId != null && action.trackId!.isNotEmpty) {
+          final cur = _currentRoom?.currentTrack;
+          if (cur != null && cur.id == action.trackId) {
+            if (audioHandler?.currentTrack?.id != cur.id) {
+              unawaited(_syncToRemoteTrack(
+                cur,
+                isPlaying: effectivePlaying,
+                positionMs: action.positionMs ?? 0,
+              ));
+            }
           }
         }
         break;

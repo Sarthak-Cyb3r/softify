@@ -9,6 +9,7 @@ import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/shared/app_network_image.dart';
+import 'full_screen_player_screen.dart';
 
 /// Metrolist-styled Listen Together screen providing real-time synchronized
 /// group playback, room creation/joining, participant tracking, and drift health.
@@ -491,64 +492,74 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
 
         // Synchronized Playback Card
         if (activeTrack != null)
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: tokens.card,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: tokens.cardHover),
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: AppNetworkImage(imageUrl: activeTrack.coverUrl),
-                  ),
+          BouncingScaleButton(
+            scaleFactor: 0.98,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FullScreenPlayerScreen(track: activeTrack),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        activeTrack.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: tokens.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        activeTrack.artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: tokens.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: tokens.accent.withValues(alpha: 0.15),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: tokens.card,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: tokens.cardHover),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isHost ? 'BROADCASTING' : 'SYNCED',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: tokens.accent,
+                    child: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: AppNetworkImage(imageUrl: activeTrack.coverUrl),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          activeTrack.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          activeTrack.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: tokens.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isHost ? 'BROADCASTING' : 'SYNCED',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: tokens.accent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 

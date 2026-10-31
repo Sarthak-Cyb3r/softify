@@ -242,11 +242,16 @@ class ListenTogetherProtoCodec {
     return encodeEnvelope('reconnect', w.takeBytes());
   }
 
+  static List<int> encodeRequestSync() {
+    return encodeEnvelope('request_sync', Uint8List(0));
+  }
+
   static List<int> encodePlaybackAction({
     required String action,
     String? trackId,
     int? position,
     Map<String, dynamic>? trackInfo,
+    bool isPlaying = true,
     int? serverTime,
     int? revision,
     String envelopeType = 'playback_action',
@@ -265,8 +270,8 @@ class ListenTogetherProtoCodec {
       tw.writeString(6, trackInfo['thumbnail'] ?? trackInfo['thumbnail_url'] ?? trackInfo['thumbnailUrl'] ?? '');
       w.writeBytes(4, tw.takeBytes());
     }
+    w.writeBool(5, isPlaying);
     if (serverTime != null) {
-      w.writeInt64(5, serverTime);
       w.writeInt64(9, serverTime);
     }
     if (revision != null) {
@@ -404,9 +409,10 @@ class ListenTogetherProtoCodec {
     String hostId = '';
     final List<Map<String, dynamic>> users = [];
     Map<String, dynamic>? currentTrack;
-    bool isPlaying = false;
+    bool isPlaying = true;
     int position = 0;
     int lastUpdate = 0;
+    double volume = 1.0;
 
     while (r.hasMore) {
       final t = r.readTag();
@@ -418,6 +424,8 @@ class ListenTogetherProtoCodec {
       else if (t.$1 == 5) isPlaying = r.readBool();
       else if (t.$1 == 6) position = r.readInt64();
       else if (t.$1 == 7) lastUpdate = r.readInt64();
+      else if (t.$1 == 8) volume = r.readFloat();
+      else if (t.$1 == 10) isPlaying = r.readInt64() != 0;
       else r.skipField(t.$2);
     }
 
@@ -429,6 +437,46 @@ class ListenTogetherProtoCodec {
       'is_playing': isPlaying,
       'position': position,
       'last_update': lastUpdate,
+      'volume': volume,
+    };
+  }
+
+  static Map<String, dynamic> decodeSyncState(Uint8List payload) {
+    final r = ProtoReader(payload);
+    Map<String, dynamic>? currentTrack;
+    int position = 0;
+    int lastUpdate = 0;
+    double volume = 1.0;
+    bool isPlaying = true;
+    int revision = 0;
+
+    while (r.hasMore) {
+      final t = r.readTag();
+      if (t == null) break;
+      if (t.$1 == 1) {
+        currentTrack = decodeTrackInfo(r.readBytes());
+      } else if (t.$1 == 2) {
+        position = r.readInt64();
+      } else if (t.$1 == 4) {
+        lastUpdate = r.readInt64();
+      } else if (t.$1 == 6) {
+        volume = r.readFloat();
+      } else if (t.$1 == 7) {
+        isPlaying = r.readInt64() != 0;
+      } else if (t.$1 == 8 || t.$1 == 10) {
+        revision = r.readInt64();
+      } else {
+        r.skipField(t.$2);
+      }
+    }
+
+    return {
+      'current_track': currentTrack,
+      'is_playing': isPlaying,
+      'position': position,
+      'last_update': lastUpdate,
+      'volume': volume,
+      'revision': revision,
     };
   }
 
@@ -559,6 +607,7 @@ class ListenTogetherProtoCodec {
     String trackId = '';
     int position = 0;
     Map<String, dynamic>? trackInfo;
+    bool isPlaying = true;
     int serverTime = 0;
     int revision = 0;
 
@@ -569,7 +618,8 @@ class ListenTogetherProtoCodec {
       else if (t.$1 == 2) trackId = r.readString();
       else if (t.$1 == 3) position = r.readInt64();
       else if (t.$1 == 4) trackInfo = decodeTrackInfo(r.readBytes());
-      else if (t.$1 == 5 || t.$1 == 9) serverTime = r.readInt64();
+      else if (t.$1 == 5) isPlaying = r.readBool();
+      else if (t.$1 == 9) serverTime = r.readInt64();
       else if (t.$1 == 6 || t.$1 == 10) revision = r.readInt64();
       else r.skipField(t.$2);
     }
@@ -579,6 +629,7 @@ class ListenTogetherProtoCodec {
       'track_id': trackId,
       'position': position,
       'track_info': trackInfo,
+      'is_playing': isPlaying,
       'server_time': serverTime,
       'revision': revision,
     };

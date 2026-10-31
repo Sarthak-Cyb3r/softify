@@ -108,12 +108,18 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
   }
 
   void _scrollToActiveLine(int index, {bool force = false}) {
-    if ((_userIsScrolling && !force) || !_scrollController.hasClients || index < 0) return;
+    if ((_userIsScrolling && !force) || index < 0) return;
     if (!force && index == _lastScrolledIndex) return;
-    _lastScrolledIndex = index;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || (_userIsScrolling && !force) || !_scrollController.hasClients) return;
+    void performScroll([int retryCount = 0]) {
+      if (!mounted || (_userIsScrolling && !force)) return;
+      if (!_scrollController.hasClients) {
+        if (retryCount < 8) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => performScroll(retryCount + 1));
+        }
+        return;
+      }
+      _lastScrolledIndex = index;
       final key = _lineKeys[index];
       final ctx = key?.currentContext;
       if (ctx != null) {
@@ -123,8 +129,25 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
           curve: Curves.easeOutCubic,
           alignment: 0.22,
         );
+      } else {
+        final targetOffset =
+            (index * 68.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+        _scrollController.animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutCubic,
+        );
       }
-    });
+    }
+
+    if (WidgetsBinding.instance.schedulerPhase ==
+            SchedulerPhase.persistentCallbacks ||
+        WidgetsBinding.instance.schedulerPhase ==
+            SchedulerPhase.midFrameMicrotasks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => performScroll());
+    } else {
+      performScroll();
+    }
   }
 
   void _onUserInteractedWithScroll() {
@@ -358,85 +381,100 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
               final activeIdx =
                   SpotifyLyricsSynchronizer.findActiveLineIndex(lines, effectivePosition);
 
-              if (activeIdx != _lastActiveIndex && activeIdx >= 0) {
-                _lastActiveIndex = activeIdx;
-                _scrollToActiveLine(activeIdx);
+              if (activeIdx >= 0) {
+                if (_lastActiveIndex == -1) {
+                  _lastActiveIndex = activeIdx;
+                  _scrollToActiveLine(activeIdx, force: true);
+                } else if (activeIdx != _lastActiveIndex) {
+                  _lastActiveIndex = activeIdx;
+                  _scrollToActiveLine(activeIdx);
+                }
               }
 
-              return ListView.builder(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 24, 64, 40),
-                itemCount: lines.length,
-                itemBuilder: (context, i) {
-                  final line = lines[i];
-                  final isActive = i == activeIdx;
-                  final distance = (i - activeIdx).abs();
-
-                  final double blur;
-                  final double opacity;
-                  final double fontSize;
-                  final FontWeight fontWeight;
-
-                  if (isActive) {
-                    blur = 0.0;
-                    opacity = 1.0;
-                    fontSize = 32.0;
-                    fontWeight = FontWeight.w800;
-                  } else {
-                    if (reduceEffects) {
-                      blur = 0.0;
-                    } else if (distance == 1) {
-                      blur = 1.8;
-                    } else if (distance == 2) {
-                      blur = 3.6;
-                    } else {
-                      blur = 5.2;
-                    }
-
-                    opacity = (1.0 - (distance * 0.22)).clamp(0.24, 0.65);
-                    fontSize = 28.0;
-                    fontWeight = FontWeight.w700;
+              return NotificationListener<UserScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.direction != ScrollDirection.idle) {
+                    _onUserInteractedWithScroll();
                   }
-
-                  final lineText = romanizeEnabled
-                      ? RomanizationService.romanize(line.text)
-                      : line.text;
-
-                  Widget textWidget = Text(
-                    lineText,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontDisplay,
-                      fontSize: fontSize,
-                      fontWeight: fontWeight,
-                      letterSpacing: -0.4,
-                      height: 1.28,
-                      color: Colors.white.withValues(alpha: opacity),
-                    ),
-                  );
-
-                  if (blur > 0.0) {
-                    textWidget = ImageFiltered(
-                      imageFilter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                      child: textWidget,
-                    );
-                  }
-
-                  return GestureDetector(
-                    key: _getKeyForIndex(i),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      try {
-                        widget.audioHandler.seek(line.timestamp);
-                      } catch (_) {}
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: textWidget,
-                    ),
-                  );
+                  return false;
                 },
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 64, 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: List.generate(lines.length, (i) {
+                      final line = lines[i];
+                      final isActive = i == activeIdx;
+                      final distance = (i - activeIdx).abs();
+
+                      final double blur;
+                      final double opacity;
+                      final double fontSize;
+                      final FontWeight fontWeight;
+
+                      if (isActive) {
+                        blur = 0.0;
+                        opacity = 1.0;
+                        fontSize = 32.0;
+                        fontWeight = FontWeight.w800;
+                      } else {
+                        if (reduceEffects) {
+                          blur = 0.0;
+                        } else if (distance == 1) {
+                          blur = 1.8;
+                        } else if (distance == 2) {
+                          blur = 3.6;
+                        } else {
+                          blur = 5.2;
+                        }
+
+                        opacity = (1.0 - (distance * 0.22)).clamp(0.24, 0.65);
+                        fontSize = 28.0;
+                        fontWeight = FontWeight.w700;
+                      }
+
+                      final lineText = romanizeEnabled
+                          ? RomanizationService.romanize(line.text)
+                          : line.text;
+
+                      Widget textWidget = Text(
+                        lineText,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontDisplay,
+                          fontSize: fontSize,
+                          fontWeight: fontWeight,
+                          letterSpacing: -0.4,
+                          height: 1.28,
+                          color: Colors.white.withValues(alpha: opacity),
+                        ),
+                      );
+
+                      if (blur > 0.0) {
+                        textWidget = ImageFiltered(
+                          imageFilter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                          child: textWidget,
+                        );
+                      }
+
+                      return GestureDetector(
+                        key: _getKeyForIndex(i),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          try {
+                            widget.audioHandler.seek(line.timestamp);
+                          } catch (_) {}
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: textWidget,
+                        ),
+                      );
+                    }),
+                  ),
+                ),
               );
             },
           ),
