@@ -1173,6 +1173,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
     final lyricsStyle = ref.watch(lyricsStyleProvider);
     final isAppleLyrics = lyricsStyle == LyricsStyle.appleMusic;
+    final reduceEffects = ref.watch(shouldReduceEffectsProvider);
 
     // Apple Music optical depth of field:
     // Distance formula from SimpMusic AppleMusicLyricsLines.kt:
@@ -1331,7 +1332,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       );
 
                       if (isAppleLyrics) {
-                        if (appleBlur > 0.1) {
+                        if (appleBlur > 0.1 && !reduceEffects) {
                           lineContent = ImageFiltered(
                             imageFilter: ImageFilter.blur(sigmaX: appleBlur, sigmaY: appleBlur),
                             child: lineContent,

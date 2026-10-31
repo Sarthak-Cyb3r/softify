@@ -92,10 +92,7 @@ class _AnimatedArtworkCardState extends ConsumerState<AnimatedArtworkCard>
 
     final tokens = context.tokens;
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      onVerticalDragEnd: widget.onVerticalDragEnd,
-      child: Center(
+    final cardContent = Center(
         child: AspectRatio(
           aspectRatio: 1.0,
           child: Container(
@@ -252,7 +249,16 @@ class _AnimatedArtworkCardState extends ConsumerState<AnimatedArtworkCard>
             ),
           ),
         ),
-      ),
-    );
+      );
+
+    if (widget.onTap != null || widget.onVerticalDragEnd != null) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        onVerticalDragEnd: widget.onVerticalDragEnd,
+        child: cardContent,
+      );
+    }
+
+    return cardContent;
   }
 }

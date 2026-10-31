@@ -246,6 +246,14 @@ void main() {
       expect(find.text('Classic'), findsWidgets);
       expect(find.text('Aurora Glass'), findsWidgets);
       expect(find.text('Reduce effects'), findsOneWidget);
+      expect(find.text('Liquid Glass Effect'), findsOneWidget);
+      expect(find.text('Now Playing Style'), findsOneWidget);
+      expect(find.text('Lyrics Style'), findsOneWidget);
+      expect(find.text('Animated Artwork'), findsOneWidget);
+
+      // Tap on Apple Music Now Playing style
+      await tester.tap(find.text('Apple Music').first);
+      await tester.pumpAndSettle();
 
       // Tap on Aurora Glass preview card
       await tester.tap(find.text('Aurora Glass').first);

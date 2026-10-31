@@ -161,11 +161,15 @@ class AnimatedArtworkService {
       _cachedToken = selectedToken;
       // Tokens usually live for months; refresh conservatively after 24 hours
       _tokenExpiry = DateTime.now().add(const Duration(hours: 24));
-      _tokenCompleter!.complete(selectedToken);
+      if (!(_tokenCompleter?.isCompleted ?? true)) {
+        _tokenCompleter?.complete(selectedToken);
+      }
       return selectedToken;
     } catch (e) {
       _cachedToken = null;
-      _tokenCompleter?.completeError(e);
+      if (!(_tokenCompleter?.isCompleted ?? true)) {
+        _tokenCompleter?.completeError(e);
+      }
       rethrow;
     } finally {
       _tokenCompleter = null;
@@ -196,6 +200,7 @@ class AnimatedArtworkService {
     );
     cleaned = cleaned.replaceAll(RegExp(r'[\-_/\\|]+'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (cleaned.isEmpty) cleaned = text.trim();
     return cleaned;
   }
 
@@ -493,7 +498,7 @@ class AnimatedArtworkService {
 
       final candidates = pool.where((v) => v.width == targetWidth).toList();
       candidates.sort((a, b) => a.bandwidth.compareTo(b.bandwidth));
-      return candidates.first.uri;
+      return candidates.isNotEmpty ? candidates.first.uri : null;
     } catch (_) {
       return null;
     }

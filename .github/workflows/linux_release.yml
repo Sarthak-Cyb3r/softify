@@ -55,7 +55,7 @@ jobs:
       - name: Run Quality Verification
         run: |
           flutter analyze --no-fatal-infos || true
-          flutter test test/desktop_layout_test.dart
+          flutter test test/desktop_layout_test.dart test/ui_style_test.dart test/apple_music_and_animated_artwork_test.dart test/apple_music_player_screen_test.dart
 
       - name: Build Linux Release Bundle
         run: |

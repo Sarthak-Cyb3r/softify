@@ -1391,7 +1391,7 @@ class _FullScreenPlayerScreenState
                           thumbColor: Colors.white,
                         ),
                         child: Slider(
-                          value: volume.clamp(0.0, 1.0),
+                          value: (volume.isNaN ? 1.0 : volume).clamp(0.0, 1.0),
                           onChanged: (v) {
                             audioHandler.setVolume(v);
                           },
