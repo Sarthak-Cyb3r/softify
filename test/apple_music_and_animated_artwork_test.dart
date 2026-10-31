@@ -29,29 +29,29 @@ void main() {
 
     test('NowPlayingStyleNotifier toggles between classic and appleMusic and persists to DB', () async {
       final notifier = NowPlayingStyleNotifier(db);
-      expect(notifier.state, equals(NowPlayingStyle.classic));
-
-      await notifier.setStyle(NowPlayingStyle.appleMusic);
       expect(notifier.state, equals(NowPlayingStyle.appleMusic));
+
+      await notifier.setStyle(NowPlayingStyle.classic);
+      expect(notifier.state, equals(NowPlayingStyle.classic));
 
       // Verify row in SQLite Drift
       final row = await (db.select(db.settings)
             ..where((t) => t.key.equals('now_playing_style')))
           .getSingle();
-      expect(row.value, equals(NowPlayingStyle.appleMusic.name));
+      expect(row.value, equals(NowPlayingStyle.classic.name));
 
       // Reloading from fresh notifier instance loads persisted style
       final reloaded = NowPlayingStyleNotifier(db);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(reloaded.state, equals(NowPlayingStyle.appleMusic));
-
-      // Switch back to classic
-      await reloaded.setStyle(NowPlayingStyle.classic);
       expect(reloaded.state, equals(NowPlayingStyle.classic));
+
+      // Switch back to appleMusic
+      await reloaded.setStyle(NowPlayingStyle.appleMusic);
+      expect(reloaded.state, equals(NowPlayingStyle.appleMusic));
       final updatedRow = await (db.select(db.settings)
             ..where((t) => t.key.equals('now_playing_style')))
           .getSingle();
-      expect(updatedRow.value, equals(NowPlayingStyle.classic.name));
+      expect(updatedRow.value, equals(NowPlayingStyle.appleMusic.name));
     });
 
     test('LyricsStyleNotifier toggles between classic and appleMusic and persists to DB', () async {

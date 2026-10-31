@@ -88,9 +88,7 @@ class _AppleMusicScrubberState extends ConsumerState<AppleMusicScrubber> {
     final kbps = (streamInfo != null && streamInfo.bitrate > 0)
         ? streamInfo.bitrate ~/ 1000
         : 147;
-    final sampleRateStr = (streamInfo != null && streamInfo.sampleRate > 0)
-        ? '${streamInfo.sampleRate ~/ 1000} kHz'
-        : '48 kHz';
+    const sampleRateStr = '48 kHz';
     final specsText = '$kbps kbps · $sampleRateStr';
 
     return Padding(

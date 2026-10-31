@@ -48,10 +48,6 @@ class DriftLibraryRepository implements ILibraryRepository {
           ..where((t) => t.sourceId.equals(track.sourceId)))
         .getSingleOrNull();
 
-    final existingBySource = await (_db.select(_db.tracks)
-          ..where((t) => t.sourceId.equals(track.sourceId)))
-        .getSingleOrNull();
-
     final existingById = existingBySource == null
         ? await (_db.select(_db.tracks)..where((t) => t.id.equals(track.id))).getSingleOrNull()
         : null;
