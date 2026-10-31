@@ -828,13 +828,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final isCurrentTrack = currentTrack?.id == track.id;
 
     final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
-    final isLiked = isLikedAsync.value ?? track.isLiked;
+    final isLikedBySource = track.sourceId.isNotEmpty
+        ? ref.watch(isTrackLikedProvider(track.sourceId)).value ?? false
+        : false;
+    final isLiked = isLikedAsync.value ?? isLikedBySource || track.isLiked;
 
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(track.id));
     final isDownloaded = isDownloadedAsync.value ?? false;
 
     return TrackRow(
-      track: track,
+      track: track.copyWith(isLiked: isLiked),
       index: index + 1,
       isPlaying: isCurrentTrack && isPlaying,
       isSelected: isCurrentTrack,
@@ -860,9 +863,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       },
       onLikeTap: () {
         HapticFeedback.selectionClick();
+        final newLiked = !isLiked;
         ref
             .read(libraryRepositoryProvider)
-            .setLiked(track.id, !isLiked, track: track);
+            .setLiked(track.id, newLiked, track: track.copyWith(isLiked: newLiked));
+        ref.read(audioHandlerProvider).updateTrackLikedState(track.id, newLiked);
       },
       onOptionsTap: () {
         TrackOptionsBottomSheet.show(context, track: track);

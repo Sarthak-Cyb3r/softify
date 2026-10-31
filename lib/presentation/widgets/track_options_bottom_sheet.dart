@@ -49,7 +49,10 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final audioHandler = ref.watch(audioHandlerProvider);
     final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
-    final isLiked = isLikedAsync.value ?? track.isLiked;
+    final isLikedBySource = track.sourceId.isNotEmpty
+        ? ref.watch(isTrackLikedProvider(track.sourceId)).value ?? false
+        : false;
+    final isLiked = isLikedAsync.value ?? isLikedBySource || track.isLiked;
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(track.id));
     final isDownloaded = isDownloadedAsync.value ?? false;
     final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
@@ -179,9 +182,11 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       onTap: () {
                         final nav = Navigator.of(context);
                         final messenger = ScaffoldMessenger.maybeOf(context);
+                        final newLiked = !isLiked;
                         ref
                             .read(libraryRepositoryProvider)
-                            .setLiked(track.id, !isLiked, track: track);
+                            .setLiked(track.id, newLiked, track: track.copyWith(isLiked: newLiked));
+                        ref.read(audioHandlerProvider).updateTrackLikedState(track.id, newLiked);
                         nav.pop();
                         messenger?.showSnackBar(
                           SnackBar(

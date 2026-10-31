@@ -200,9 +200,14 @@ final likedTracksStreamProvider = StreamProvider<List<Track>>((ref) {
   return repo.watchLikedTracks();
 });
 
+final likedTrackIdsProvider = StreamProvider<Set<String>>((ref) {
+  final repo = ref.watch(libraryRepositoryProvider);
+  return repo.watchLikedTrackIds();
+});
+
 final isTrackLikedProvider = StreamProvider.family<bool, String>((ref, trackId) {
   final repo = ref.watch(libraryRepositoryProvider);
-  return repo.watchLikedTracks().map((tracks) => tracks.any((t) => t.id == trackId)).distinct();
+  return repo.watchLikedTrackIds().map((ids) => ids.contains(trackId)).distinct();
 });
 
 final playlistsStreamProvider = StreamProvider<List<Playlist>>((ref) {

@@ -216,7 +216,10 @@ class _FullScreenPlayerScreenState
     }
 
     final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(effectiveTrack.id));
-    final isLiked = isLikedAsync?.value ?? effectiveTrack.isLiked;
+    final isLikedBySource = (!isPlaceholder && effectiveTrack.sourceId.isNotEmpty)
+        ? ref.watch(isTrackLikedProvider(effectiveTrack.sourceId)).value ?? false
+        : false;
+    final isLiked = isLikedAsync?.value ?? isLikedBySource || effectiveTrack.isLiked;
 
     final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
     final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);
@@ -718,9 +721,11 @@ class _FullScreenPlayerScreenState
                             ? null
                             : () {
                                 HapticFeedback.selectionClick();
+                                final newLiked = !isLiked;
                                 ref
                                     .read(libraryRepositoryProvider)
-                                    .setLiked(effectiveTrack.id, !isLiked, track: effectiveTrack);
+                                    .setLiked(effectiveTrack.id, newLiked, track: effectiveTrack.copyWith(isLiked: newLiked));
+                                ref.read(audioHandlerProvider).updateTrackLikedState(effectiveTrack.id, newLiked);
                               },
                         child: Container(
                           width: 44,
@@ -1107,11 +1112,13 @@ class _FullScreenPlayerScreenState
                         ? null
                         : () {
                             HapticFeedback.selectionClick();
+                            final newLiked = !isLiked;
                             ref.read(libraryRepositoryProvider).setLiked(
                                   effectiveTrack.id,
-                                  !isLiked,
-                                  track: effectiveTrack,
+                                  newLiked,
+                                  track: effectiveTrack.copyWith(isLiked: newLiked),
                                 );
+                            ref.read(audioHandlerProvider).updateTrackLikedState(effectiveTrack.id, newLiked);
                           },
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -1378,11 +1385,13 @@ class _FullScreenPlayerScreenState
                             ? null
                             : () {
                                 HapticFeedback.selectionClick();
+                                final newLiked = !isLiked;
                                 ref.read(libraryRepositoryProvider).setLiked(
                                       effectiveTrack.id,
-                                      !isLiked,
-                                      track: effectiveTrack,
+                                      newLiked,
+                                      track: effectiveTrack.copyWith(isLiked: newLiked),
                                     );
+                                ref.read(audioHandlerProvider).updateTrackLikedState(effectiveTrack.id, newLiked);
                               },
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),

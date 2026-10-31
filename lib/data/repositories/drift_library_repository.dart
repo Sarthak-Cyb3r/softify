@@ -48,21 +48,31 @@ class DriftLibraryRepository implements ILibraryRepository {
           ..where((t) => t.sourceId.equals(track.sourceId)))
         .getSingleOrNull();
 
-    final targetId = existingBySource?.id ?? track.id;
+    final existingBySource = await (_db.select(_db.tracks)
+          ..where((t) => t.sourceId.equals(track.sourceId)))
+        .getSingleOrNull();
+
+    final existingById = existingBySource == null
+        ? await (_db.select(_db.tracks)..where((t) => t.id.equals(track.id))).getSingleOrNull()
+        : null;
+
+    final existing = existingBySource ?? existingById;
+    final targetId = existing?.id ?? track.id;
+    final effectiveIsLiked = (existing?.isLiked ?? false) || track.isLiked;
 
     await _db.into(_db.tracks).insertOnConflictUpdate(
           TracksCompanion(
             id: Value(targetId),
-            sourceId: Value(track.sourceId),
+            sourceId: Value(track.sourceId.isNotEmpty ? track.sourceId : targetId),
             title: Value(track.title),
             artist: Value(track.artist),
             album: Value(track.album),
             durationMs: Value(track.duration.inMilliseconds),
             coverUrl: Value(track.coverUrl),
             matchConfidence: Value(track.matchConfidence),
-            isLiked: Value(track.isLiked),
+            isLiked: Value(effectiveIsLiked),
             isUnavailable: Value(track.isUnavailable),
-            createdAt: Value(existingBySource?.createdAt ?? DateTime.now().millisecondsSinceEpoch),
+            createdAt: Value(existing?.createdAt ?? DateTime.now().millisecondsSinceEpoch),
           ),
         );
   }
@@ -116,11 +126,33 @@ class DriftLibraryRepository implements ILibraryRepository {
 
   @override
   Future<void> setLiked(String trackId, bool isLiked, {Track? track}) async {
-    if (track != null) {
+    // 1. Find existing row by id or sourceId, or by track's sourceId/id
+    final query = _db.select(_db.tracks)
+      ..where((t) =>
+          t.id.equals(trackId) |
+          t.sourceId.equals(trackId) |
+          (track != null
+              ? (t.sourceId.equals(track.sourceId) | t.id.equals(track.id))
+              : const Constant(false)));
+    final existing = await query.getSingleOrNull();
+
+    if (existing != null) {
+      await (_db.update(_db.tracks)..where((t) => t.id.equals(existing.id))).write(
+        TracksCompanion(
+          isLiked: Value(isLiked),
+          title: track != null ? Value(track.title) : const Value.absent(),
+          artist: track != null ? Value(track.artist) : const Value.absent(),
+          album: track != null ? Value(track.album) : const Value.absent(),
+          durationMs: track != null ? Value(track.duration.inMilliseconds) : const Value.absent(),
+          coverUrl: track != null ? Value(track.coverUrl) : const Value.absent(),
+          matchConfidence: track != null ? Value(track.matchConfidence) : const Value.absent(),
+        ),
+      );
+    } else if (track != null) {
       await _db.into(_db.tracks).insertOnConflictUpdate(
             TracksCompanion(
               id: Value(track.id),
-              sourceId: Value(track.sourceId),
+              sourceId: Value(track.sourceId.isNotEmpty ? track.sourceId : track.id),
               title: Value(track.title),
               artist: Value(track.artist),
               album: Value(track.album),
@@ -132,17 +164,25 @@ class DriftLibraryRepository implements ILibraryRepository {
               createdAt: Value(DateTime.now().millisecondsSinceEpoch),
             ),
           );
-      return;
+    } else {
+      await _db.into(_db.tracks).insertOnConflictUpdate(
+            TracksCompanion(
+              id: Value(trackId),
+              sourceId: Value(trackId),
+              title: const Value('Unknown Track'),
+              artist: const Value('Unknown Artist'),
+              durationMs: const Value(0),
+              isLiked: Value(isLiked),
+              createdAt: Value(DateTime.now().millisecondsSinceEpoch),
+            ),
+          );
     }
-    await (_db.update(_db.tracks)..where((t) => t.id.equals(trackId))).write(
-      TracksCompanion(isLiked: Value(isLiked)),
-    );
   }
 
   @override
   Future<bool> isLiked(String trackId) async {
     final row = await (_db.select(_db.tracks)
-          ..where((t) => t.id.equals(trackId)))
+          ..where((t) => t.id.equals(trackId) | t.sourceId.equals(trackId)))
         .getSingleOrNull();
     return row?.isLiked ?? false;
   }
@@ -154,6 +194,21 @@ class DriftLibraryRepository implements ILibraryRepository {
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .watch()
         .map((rows) => rows.map(_trackFromRow).toList());
+  }
+
+  @override
+  Stream<Set<String>> watchLikedTrackIds() {
+    return (_db.select(_db.tracks)
+          ..where((t) => t.isLiked.equals(true)))
+        .watch()
+        .map((rows) {
+          final set = <String>{};
+          for (final row in rows) {
+            set.add(row.id);
+            set.add(row.sourceId);
+          }
+          return set;
+        });
   }
 
   @override

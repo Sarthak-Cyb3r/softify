@@ -267,9 +267,11 @@ class _ArtistDetailScreenState extends ConsumerState<ArtistDetailScreen> {
                       audioHandler.setQueue(_tracks, startIndex: index);
                     },
                     onLikeTap: () {
+                      final newLiked = !isLiked;
                       ref
                           .read(libraryRepositoryProvider)
-                          .setLiked(track.id, !isLiked, track: track);
+                          .setLiked(track.id, newLiked, track: track.copyWith(isLiked: newLiked));
+                      ref.read(audioHandlerProvider).updateTrackLikedState(track.id, newLiked);
                     },
                     onOptionsTap: () {
                       TrackOptionsBottomSheet.show(context, track: track);

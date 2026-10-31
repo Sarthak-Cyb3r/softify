@@ -72,6 +72,39 @@ void main() {
       await repo.setLiked(testTrack1.id, false);
       expect(await repo.isLiked(testTrack1.id), isFalse);
     });
+
+    test('liked status persistence against upsertTrack, playHistory, and queue saves', () async {
+      // 1. Initial like
+      await repo.setLiked(testTrack1.id, true, track: testTrack1);
+      expect(await repo.isLiked(testTrack1.id), isTrue);
+      expect(await repo.isLiked(testTrack1.sourceId), isTrue);
+
+      final idsSet = await repo.watchLikedTrackIds().first;
+      expect(idsSet.contains(testTrack1.id), isTrue);
+      expect(idsSet.contains(testTrack1.sourceId), isTrue);
+
+      // 2. Play history records play with in-memory unliked track
+      final unlikedInMemory = testTrack1.copyWith(isLiked: false);
+      await repo.recordPlayHistory(unlikedInMemory, 0.5);
+
+      // Verify like was NOT overwritten
+      expect(await repo.isLiked(testTrack1.id), isTrue);
+      final likedAfterPlay = await repo.getLikedTracks();
+      expect(likedAfterPlay.any((t) => t.id == testTrack1.id), isTrue);
+
+      // 3. Queue save with in-memory unliked tracks
+      await repo.saveQueueState([unlikedInMemory], 0, const Duration(seconds: 10));
+
+      // Verify like still preserved
+      expect(await repo.isLiked(testTrack1.id), isTrue);
+      final restoredQueue = await repo.getQueueState();
+      expect(restoredQueue.tracks.first.isLiked, isTrue);
+
+      // 4. Unlike
+      await repo.setLiked(testTrack1.id, false, track: testTrack1);
+      expect(await repo.isLiked(testTrack1.id), isFalse);
+      expect(await repo.isLiked(testTrack1.sourceId), isFalse);
+    });
   });
 
   group('DriftLibraryRepository: Playlists', () {

@@ -412,7 +412,9 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       onTap: () => _playAll(startIndex: index),
       onPlayTap: () => _playAll(startIndex: index),
       onLikeTap: () {
-        ref.read(libraryRepositoryProvider).setLiked(track.id, !isLiked, track: track);
+        final newLiked = !isLiked;
+        ref.read(libraryRepositoryProvider).setLiked(track.id, newLiked, track: track.copyWith(isLiked: newLiked));
+        ref.read(audioHandlerProvider).updateTrackLikedState(track.id, newLiked);
       },
       onOptionsTap: () {
         TrackOptionsBottomSheet.show(

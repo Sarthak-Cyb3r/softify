@@ -444,9 +444,11 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     },
                     onLikeTap: () {
                       HapticFeedback.selectionClick();
+                      final newLiked = !isLiked;
                       ref
                           .read(libraryRepositoryProvider)
-                          .setLiked(track.id, !isLiked, track: track);
+                          .setLiked(track.id, newLiked, track: track.copyWith(isLiked: newLiked));
+                      ref.read(audioHandlerProvider).updateTrackLikedState(track.id, newLiked);
                     },
                     onOptionsTap: () {
                       HapticFeedback.selectionClick();

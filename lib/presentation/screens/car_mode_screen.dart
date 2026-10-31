@@ -362,7 +362,9 @@ class _CarModeScreenState extends ConsumerState<CarModeScreen> {
     return BouncingScaleButton(
       scaleFactor: 0.9,
       onTap: () {
-        ref.read(libraryRepositoryProvider).setLiked(track.id, !isLiked, track: track);
+        final newLiked = !isLiked;
+        ref.read(libraryRepositoryProvider).setLiked(track.id, newLiked, track: track.copyWith(isLiked: newLiked));
+        ref.read(audioHandlerProvider).updateTrackLikedState(track.id, newLiked);
       },
       child: Container(
         width: 52,

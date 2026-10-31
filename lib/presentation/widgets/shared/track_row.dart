@@ -182,8 +182,8 @@ class _TrackRowState extends State<TrackRow> {
                   ),
                 ),
 
-                // Like Button (Desktop hover or mobile always if liked)
-                if (widget.showLikeButton && (isHovered || widget.track.isLiked))
+                // Like Button
+                if (widget.showLikeButton)
                   IconButton(
                     iconSize: 18.0,
                     splashRadius: 18.0,

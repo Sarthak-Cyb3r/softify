@@ -16,6 +16,7 @@ abstract class ILibraryRepository {
   Future<void> setLiked(String trackId, bool isLiked, {Track? track});
   Future<bool> isLiked(String trackId);
   Stream<List<Track>> watchLikedTracks();
+  Stream<Set<String>> watchLikedTrackIds();
   Future<List<Track>> getLikedTracks();
 
   // Playlists

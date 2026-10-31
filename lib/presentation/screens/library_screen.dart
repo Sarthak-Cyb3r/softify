@@ -1102,7 +1102,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       HapticFeedback.selectionClick();
                       ref
                           .read(libraryRepositoryProvider)
-                          .setLiked(track.id, false, track: track);
+                          .setLiked(track.id, false, track: track.copyWith(isLiked: false));
+                      ref.read(audioHandlerProvider).updateTrackLikedState(track.id, false);
                     },
                     onOptionsTap: () {
                       TrackOptionsBottomSheet.show(context, track: track);

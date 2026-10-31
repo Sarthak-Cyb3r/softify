@@ -98,7 +98,10 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
     final isPlaying = playbackState?.playing ?? false;
     final isLikedAsync = ref.watch(isTrackLikedProvider(currentTrack.id));
-    final isLiked = isLikedAsync.value ?? currentTrack.isLiked;
+    final isLikedBySource = currentTrack.sourceId.isNotEmpty
+        ? ref.watch(isTrackLikedProvider(currentTrack.sourceId)).value ?? false
+        : false;
+    final isLiked = isLikedAsync.value ?? isLikedBySource || currentTrack.isLiked;
 
     final isGlass = tokens.isGlass;
 
@@ -184,9 +187,11 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     color: isLiked ? tokens.accent : tokens.textSecondary,
                   ),
                   onPressed: () {
+                    final newLiked = !isLiked;
                     ref
                         .read(libraryRepositoryProvider)
-                        .setLiked(currentTrack.id, !isLiked, track: currentTrack);
+                        .setLiked(currentTrack.id, newLiked, track: currentTrack.copyWith(isLiked: newLiked));
+                    ref.read(audioHandlerProvider).updateTrackLikedState(currentTrack.id, newLiked);
                   },
                 ),
               ],

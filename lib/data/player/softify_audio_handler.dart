@@ -1032,6 +1032,36 @@ class SoftifyAudioHandler extends BaseAudioHandler
     unawaited(_prefetchNextTrackStream());
   }
 
+  void updateTrackLikedState(String trackId, bool isLiked) {
+    bool changed = false;
+    for (int i = 0; i < _queue.length; i++) {
+      if (_queue[i].id == trackId || _queue[i].sourceId == trackId) {
+        _queue[i] = _queue[i].copyWith(isLiked: isLiked);
+        changed = true;
+      }
+    }
+    for (int i = 0; i < _unshuffledQueue.length; i++) {
+      if (_unshuffledQueue[i].id == trackId || _unshuffledQueue[i].sourceId == trackId) {
+        _unshuffledQueue[i] = _unshuffledQueue[i].copyWith(isLiked: isLiked);
+      }
+    }
+    if (_currentIndex >= 0 && _currentIndex < _queue.length) {
+      final cur = _queue[_currentIndex];
+      if (cur.id == trackId || cur.sourceId == trackId) {
+        _currentTrackSubject.add(cur);
+        if (mediaItem.value != null) {
+          final extras = Map<String, dynamic>.from(mediaItem.value!.extras ?? {});
+          extras['isLiked'] = isLiked;
+          mediaItem.add(mediaItem.value!.copyWith(extras: extras));
+        }
+      }
+    }
+    if (changed) {
+      _syncQueueState();
+      _debouncedSaveQueue();
+    }
+  }
+
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
     if (oldIndex < 0 ||
         oldIndex >= _queue.length ||
