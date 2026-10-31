@@ -15,6 +15,7 @@ import 'package:softify/presentation/providers/ui_style_provider.dart';
 import 'package:softify/presentation/screens/full_screen_player_screen.dart';
 import 'package:softify/presentation/theme/app_theme.dart';
 import 'package:softify/presentation/widgets/animated_artwork_card.dart';
+import 'package:softify/presentation/widgets/audiophile_quality_badge.dart';
 
 class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   double currentVol = 0.8;
