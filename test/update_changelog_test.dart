@@ -38,9 +38,10 @@ void main() {
       expect(find.text('Fresh looks, living artwork & smoother music'), findsOneWidget);
 
       // Verify simple consumer-friendly cards
-      expect(find.text('Instant Liked Songs'), findsOneWidget);
+      expect(find.text('Accurate Audio Matching'), findsOneWidget);
+      expect(find.text('Multi-Provider Lyrics Engine'), findsOneWidget);
       expect(find.text('Listen Together Rooms'), findsOneWidget);
-      expect(find.text('Apple Music Style Player'), findsOneWidget);
+      expect(find.text('Instant Liked Songs'), findsOneWidget);
 
       // Scroll to verify remaining cards
       await tester.scrollUntilVisible(find.text('Living Motion Album Artwork'), 150);

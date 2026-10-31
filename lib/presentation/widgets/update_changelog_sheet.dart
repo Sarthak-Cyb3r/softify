@@ -173,12 +173,21 @@ class UpdateChangelogSheet extends StatelessWidget {
                         children: [
                           _buildChangelogCard(
                             context: context,
-                            icon: Icons.favorite_rounded,
-                            iconColor: const Color(0xFFFF4081),
-                            title: 'Instant Liked Songs',
+                            icon: Icons.graphic_eq_rounded,
+                            iconColor: const Color(0xFF4EDEA3),
+                            title: 'Accurate Audio Matching',
                             description:
-                                'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
-                            badge: 'Library',
+                                'Song titles are now verified with strict word matching and phonetic transliteration, completely eliminating incorrect track substitutions on movie soundtracks.',
+                            badge: 'Audio Engine',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.subtitles_rounded,
+                            iconColor: const Color(0xFFFFB74D),
+                            title: 'Multi-Provider Lyrics Engine',
+                            description:
+                                'Lyrics now load reliably across multiple global catalogs with multi-artist and subtitle extraction, eliminating blank lyric screens.',
+                            badge: 'Lyrics',
                           ),
                           _buildChangelogCard(
                             context: context,
@@ -186,8 +195,17 @@ class UpdateChangelogSheet extends StatelessWidget {
                             iconColor: const Color(0xFF00E676),
                             title: 'Listen Together Rooms',
                             description:
-                                'Listen with friends in synchronized rooms using the open Metrolist wire protocol with precise sub-second clock alignment.',
+                                'Track switches and playback now sync smoothly across mobile and desktop devices in shared rooms with precise sub-second clock alignment.',
                             badge: 'Social',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.favorite_rounded,
+                            iconColor: const Color(0xFFFF4081),
+                            title: 'Instant Liked Songs',
+                            description:
+                                'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
+                            badge: 'Library',
                           ),
                           _buildChangelogCard(
                             context: context,
