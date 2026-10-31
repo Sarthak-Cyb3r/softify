@@ -368,7 +368,7 @@ void main() {
       expect(find.textContaining('THE WEEKND', findRichText: true), findsWidgets);
 
       // Verifies Lossless audio badge
-      expect(find.text('LOSSLESS'), findsOneWidget);
+      expect(find.byType(AudiophileQualityBadge), findsOneWidget);
 
       // Verifies Integrated Volume Bar is present
       expect(find.byType(Slider), findsWidgets);

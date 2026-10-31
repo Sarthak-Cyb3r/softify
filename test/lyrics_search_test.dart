@@ -644,7 +644,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Lyrics match'), findsOneWidget);
-        expect(find.byIcon(Icons.lyrics_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
         expect(tester.takeException(), isNull, reason: 'Zero RenderFlex overflow under narrow mobile constraint');
       });
 

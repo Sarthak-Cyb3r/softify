@@ -142,39 +142,46 @@ class _AppleMusicScrubberState extends ConsumerState<AppleMusicScrubber> {
                     color: Color(0xCCFFFFFF),
                   ),
                 ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    showModalBottomSheet<void>(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (_) => AudiophileStreamInspectorSheet(
-                        track: widget.track,
-                        streamInfo: streamInfo,
-                      ),
-                    );
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.headphones_rounded,
-                        size: 14,
-                        color: Color(0xB3FFFFFF),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        specsText,
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontUi,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xB3FFFFFF),
+                Flexible(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          showModalBottomSheet<void>(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (_) => AudiophileStreamInspectorSheet(
+                              track: widget.track,
+                              streamInfo: streamInfo,
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.headphones_rounded,
+                              size: 14,
+                              color: Color(0xB3FFFFFF),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              specsText,
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontUi,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xB3FFFFFF),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 Text(
