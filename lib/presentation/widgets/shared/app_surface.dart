@@ -76,36 +76,10 @@ class AppSurface extends ConsumerWidget {
     }
 
     // Aurora Glass Theme
-    final isLiquidActive = ref.watch(isLiquidGlassActiveProvider);
-    final effectiveBorder = border ??
-        Border.all(
-          color: tokens.glassBorder,
-          width: 1.0,
-        );
-
-    final effectiveShadow = boxShadow ?? tokens.cardShadow;
-
-    // Use BackdropFilter when hardware allows (bypass on Linux/Windows where Skia readback causes GPU compositor stalls)
     final isConstrainedDesktop = Platform.isLinux || Platform.isWindows;
     final canBlur = withBlur && !reduceEffects && !isConstrainedDesktop;
 
     if (canBlur) {
-      if (isLiquidActive) {
-        return LiquidGlassContainer(
-          width: width,
-          height: height,
-          margin: margin,
-          padding: padding,
-          borderRadius: radius,
-          tintColor: color,
-          interactive: interactive,
-          pressedScale: pressedScale,
-          blurScale: (blurSigma / 16.0).clamp(0.5, 2.0),
-          clipBehavior: clipBehavior,
-          child: child,
-        );
-      }
-
       return RepaintBoundary(
         child: Container(
           width: width,
@@ -113,7 +87,7 @@ class AppSurface extends ConsumerWidget {
           margin: margin,
           decoration: BoxDecoration(
             borderRadius: radius,
-            boxShadow: effectiveShadow,
+            boxShadow: boxShadow,
           ),
           child: ClipRRect(
             borderRadius: radius,
@@ -126,16 +100,9 @@ class AppSurface extends ConsumerWidget {
               child: Container(
                 padding: padding,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      (color ?? Colors.white).withValues(alpha: 0.18),
-                      (color ?? Colors.white).withValues(alpha: 0.08),
-                    ],
-                  ),
+                  color: (color ?? tokens.glassSurface).withValues(alpha: tokens.isGlass ? 0.65 : 1.0),
                   borderRadius: radius,
-                  border: effectiveBorder,
+                  border: border,
                 ),
                 child: child,
               ),
@@ -152,17 +119,10 @@ class AppSurface extends ConsumerWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            (color ?? Colors.white).withValues(alpha: 0.20),
-            (color ?? Colors.white).withValues(alpha: 0.08),
-          ],
-        ),
+        color: (color ?? tokens.glassSurface).withValues(alpha: tokens.isGlass ? 0.65 : 1.0),
         borderRadius: radius,
-        border: effectiveBorder,
-        boxShadow: effectiveShadow,
+        border: border,
+        boxShadow: boxShadow,
       ),
       clipBehavior: clipBehavior,
       child: child,

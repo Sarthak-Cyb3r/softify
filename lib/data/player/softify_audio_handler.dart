@@ -113,8 +113,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
   int _activePrefetchRequestId = 0;
 
   void setCrossfadeSeconds(int seconds) {
-    _crossfadeSeconds = seconds.clamp(0, 12);
-    _crossfadeSecondsSubject.add(_crossfadeSeconds);
+    _crossfadeSeconds = 0;
+    _crossfadeSecondsSubject.add(0);
   }
 
   StreamSubscription? _playerStateSubscription;
@@ -683,21 +683,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     return null;
   }
 
-  /// Context-aware audio transition matrix:
-  /// - Spoken/Podcast tracks: 0ms cutover (preserves dialogue clarity).
-  /// - Music tracks: Equal-power DJ crossfade using user-configured crossfade duration.
+  /// Crossfade feature removed: always returns Duration.zero for pure gapless playback.
   Duration _computeEffectiveCrossfade(Track? from, Track? to) {
-    if (_crossfadeSuppressed || _crossfadeSeconds <= 0) return Duration.zero;
-    if (from == null || to == null) return Duration(seconds: _crossfadeSeconds);
-
-    // Spoken podcasts bypass crossfade to prevent vocal unintelligibility
-    final isFromPodcast = from.id.startsWith('podcast_') || from.sourceId.startsWith('podcast_');
-    final isToPodcast = to.id.startsWith('podcast_') || to.sourceId.startsWith('podcast_');
-    if (isFromPodcast || isToPodcast) {
-      return Duration.zero;
-    }
-
-    return Duration(seconds: _crossfadeSeconds);
+    return Duration.zero;
   }
 
   @override

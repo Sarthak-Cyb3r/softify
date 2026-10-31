@@ -154,31 +154,24 @@ class _MediaCardState extends State<MediaCard> {
         child: BouncingScaleButton(
           onTap: widget.onTap ?? widget.onPlayTap,
           scaleDown: 0.98,
-          child: tokens.isGlass
-              ? AppSurface(
-                  width: widget.width,
-                  padding: EdgeInsets.all(tokens.spaceSm + 2.0),
-                  borderRadius: BorderRadius.circular(tokens.radiusCard),
-                  withBlur: true,
-                  border: Border.all(
-                    color: _isHovered
-                        ? tokens.accentCyan.withValues(alpha: 0.60)
-                        : tokens.glassBorder,
-                    width: 1.0,
-                  ),
-                  boxShadow: tokens.cardShadow,
-                  child: cardContent,
-                )
-              : AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  width: widget.width,
-                  padding: const EdgeInsets.all(6.0),
-                  decoration: BoxDecoration(
-                    color: _isHovered ? cardBg : Colors.transparent,
-                    borderRadius: BorderRadius.circular(tokens.radiusSm),
-                  ),
-                  child: cardContent,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            width: widget.width,
+            padding: const EdgeInsets.all(6.0),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? (tokens.isGlass ? Colors.white.withValues(alpha: 0.10) : cardBg)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
+              border: _isHovered && tokens.isGlass
+                  ? Border.all(
+                      color: tokens.accentCyan.withValues(alpha: 0.40),
+                      width: 1.0,
+                    )
+                  : null,
+            ),
+            child: cardContent,
+          ),
         ),
       ),
     );

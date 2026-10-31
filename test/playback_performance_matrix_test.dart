@@ -357,12 +357,12 @@ void main() {
       expect(mockPlayer.lastCrossfadeApplied, Duration.zero,
           reason: 'Consecutive tracks from the same album must have sample-accurate 0ms gapless transition');
 
-      // Now skip from trackAlbumA2 to trackAlbumB (different album) -> MUST apply equal-power crossfade!
+      // Now skip from trackAlbumA2 to trackAlbumB (crossfade removed: always 0ms gapless transition)
       mockPlayer._hasPreloadedNext = true;
       mockPlayer._preloadedUrl = 'https://example.com/audio_track_3.m4a';
       await handler.skipToNext();
-      expect(mockPlayer.lastCrossfadeApplied, const Duration(seconds: 4),
-          reason: 'Tracks from different albums/playlists must use configured crossfade');
+      expect(mockPlayer.lastCrossfadeApplied, Duration.zero,
+          reason: 'Crossfade feature removed: always sample-accurate 0ms gapless transition');
 
       // Now skip from trackAlbumB to podcastTrack (spoken/podcast) -> MUST be 0ms gapless transition!
       mockPlayer._hasPreloadedNext = true;

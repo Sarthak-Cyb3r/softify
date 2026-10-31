@@ -168,14 +168,12 @@ class AppTheme {
         trackHeight: 6.0,
       ),
       cardTheme: CardThemeData(
-        color: effectiveIsGlass ? dynamicTokens.card : finalScheme.surfaceContainer,
+        color: effectiveIsGlass ? Colors.white.withValues(alpha: 0.05) : finalScheme.surfaceContainer,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(dynamicTokens.radiusCard),
-          side: effectiveIsGlass
-              ? BorderSide(color: dynamicTokens.glassBorder, width: 1.0)
-              : BorderSide.none,
+          side: BorderSide.none,
         ),
       ),
       dialogTheme: DialogThemeData(

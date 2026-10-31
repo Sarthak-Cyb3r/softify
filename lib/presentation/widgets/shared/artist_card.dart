@@ -138,37 +138,26 @@ class _ArtistCardState extends State<ArtistCard> {
         child: BouncingScaleButton(
           onTap: widget.onTap ?? widget.onPlayTap,
           scaleDown: 0.98,
-          child: tokens.isGlass
-              ? AppSurface(
-                  width: widget.width,
-                  padding: EdgeInsets.all(tokens.spaceSm + 2.0),
-                  borderRadius: BorderRadius.circular(tokens.radiusCard),
-                  withBlur: true,
-                  border: Border.all(
-                    color: _isHovered
-                        ? tokens.accentCyan.withValues(alpha: 0.60)
-                        : tokens.glassBorder,
-                    width: 1.0,
-                  ),
-                  boxShadow: tokens.cardShadow,
-                  child: cardContent,
-                )
-              : AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  width: widget.width,
-                  padding: EdgeInsets.all(tokens.spaceSm + 2.0),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(tokens.radiusCard),
-                    border: Border.all(
-                      color: _isHovered
-                          ? const Color(0x33FFFFFF)
-                          : tokens.divider,
-                      width: 1.0,
-                    ),
-                  ),
-                  child: cardContent,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            width: widget.width,
+            padding: EdgeInsets.all(tokens.spaceSm + 2.0),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? (tokens.isGlass ? Colors.white.withValues(alpha: 0.10) : cardBg)
+                  : (tokens.isGlass ? Colors.transparent : cardBg),
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
+              border: Border.all(
+                color: _isHovered
+                    ? (tokens.isGlass
+                        ? tokens.accentCyan.withValues(alpha: 0.40)
+                        : const Color(0x33FFFFFF))
+                    : (tokens.isGlass ? Colors.transparent : tokens.divider),
+                width: 1.0,
+              ),
+            ),
+            child: cardContent,
+          ),
         ),
       ),
     );

@@ -312,7 +312,7 @@ class _LiquidGlassPainter extends CustomPainter {
     final darken = (minScrim +
             (maxScrim - minScrim) *
                 ((luminance - 0.3) / 0.5).clamp(0.0, 1.0))
-        .clamp(0.08, 0.65);
+        .clamp(0.06, 0.18);
 
     final scrimColor = (isDark ? Colors.black : Colors.white)
         .withValues(alpha: darken);
@@ -329,7 +329,7 @@ class _LiquidGlassPainter extends CustomPainter {
     // Optional subtle accent/brand tint
     if (tintColor != null) {
       final tintPaint = Paint()
-        ..color = tintColor!.withValues(alpha: 0.09)
+        ..color = tintColor!.withValues(alpha: 0.08)
         ..style = PaintingStyle.fill;
       if (shape == BoxShape.circle) {
         canvas.drawCircle(rect.center, minDim / 2.0, tintPaint);
@@ -338,36 +338,27 @@ class _LiquidGlassPainter extends CustomPainter {
       }
     }
 
-    // 2. Bounded Lens Refraction Bevel
-    // refractionHeight stays below minDim / 4 to prevent medial horizontal seam on wide pills
-    final refractionHeight =
-        (minDim / 4.0 + 2.0 * pressProgress).clamp(2.0, (minDim / 2.0) - 1.0);
-
-    final Path lensPath = Path()..fillType = PathFillType.evenOdd;
-    if (shape == BoxShape.circle) {
-      lensPath.addOval(rect);
-      lensPath.addOval(rect.deflate(refractionHeight));
-    } else {
-      final RRect innerRRect = rrect.deflate(refractionHeight);
-      lensPath.addRRect(rrect);
-      lensPath.addRRect(innerRRect);
-    }
-
-    final lensGradient = LinearGradient(
+    // 2. Optical Specular Surface Gradient (Smooth, no square inner cuts)
+    final specularGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.white.withValues(alpha: 0.15 + 0.05 * pressProgress),
-        Colors.white.withValues(alpha: 0.03),
-        Colors.black.withValues(alpha: 0.09),
+        Colors.white.withValues(alpha: 0.12 + 0.04 * pressProgress),
+        Colors.white.withValues(alpha: 0.02),
+        Colors.transparent,
       ],
-      stops: const [0.0, 0.45, 1.0],
+      stops: const [0.0, 0.40, 1.0],
     );
 
-    final lensPaint = Paint()
-      ..shader = lensGradient.createShader(rect)
+    final specularPaint = Paint()
+      ..shader = specularGradient.createShader(rect)
       ..style = PaintingStyle.fill;
-    canvas.drawPath(lensPath, lensPaint);
+
+    if (shape == BoxShape.circle) {
+      canvas.drawCircle(rect.center, minDim / 2.0, specularPaint);
+    } else {
+      canvas.drawRRect(rrect, specularPaint);
+    }
 
     // 3. Directional 45° Rim Highlight (Kyant Highlight.Default)
     if (withHighlight) {

@@ -666,11 +666,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                 ),
                               );
                             },
-                            child: AppSurface(
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 8),
-                              borderRadius: BorderRadius.circular(tokens.radiusCard),
-                              withBlur: true,
                               child: Row(
                                 children: [
                                   Consumer(
@@ -842,10 +840,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       child: InkWell(
         borderRadius: BorderRadius.circular(tokens.radiusCard),
         onTap: () => setState(() => _tabController.animateTo(1)),
-        child: AppSurface(
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          borderRadius: BorderRadius.circular(tokens.radiusCard),
-          withBlur: true,
           child: Row(
             children: [
               Container(
@@ -927,10 +923,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       child: InkWell(
         borderRadius: BorderRadius.circular(tokens.radiusCard),
         onTap: () => setState(() => _tabController.animateTo(2)),
-        child: AppSurface(
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          borderRadius: BorderRadius.circular(tokens.radiusCard),
-          withBlur: true,
           child: Row(
             children: [
               Container(
@@ -1357,11 +1351,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: AppSurface(
-                      borderRadius: BorderRadius.circular(tokens.radiusCard),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 8),
-                      withBlur: false,
                       child: Row(
                         children: [
                           ClipRRect(
