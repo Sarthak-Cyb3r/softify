@@ -120,7 +120,7 @@ class _LiquidGlassContainerState extends ConsumerState<LiquidGlassContainer>
     final tokens = context.tokens;
     final isLiquidActive = ref.watch(isLiquidGlassActiveProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dynamicSeed = ref.watch(dynamicThemeProvider);
+    final dynamicSeed = ref.watch(dynamicThemeColorProvider);
     final seedLuminance = dynamicSeed.computeLuminance();
     final effectiveLuminance = widget.customLuminance ??
         (tokens.isGlass ? seedLuminance : (isDark ? 0.25 : 0.75));
