@@ -68,22 +68,32 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   int _lastScrolledIndex = -1;
   bool _userIsScrolling = false;
   Timer? _userScrollTimer;
+  double _filteredPositionMs = 0.0;
+  DateTime _lastFrameTime = DateTime.now();
 
   Duration _calculateEffectivePosition(DateTime now) {
     if (!_isPlaying) {
       final pausedMs = _lastPlayerPosition.inMilliseconds + _syncOffsetMs;
+      _filteredPositionMs = pausedMs.toDouble();
       return Duration(milliseconds: pausedMs < 0 ? 0 : pausedMs);
     }
     final elapsed = now.difference(_lastPlayerReceipt);
     final elapsedMs = elapsed.inMilliseconds < 0 ? 0 : elapsed.inMilliseconds;
     // High-precision extrapolation bounded by 10s safeguard to prevent unbound drift while buffering
     final safeElapsedMs = elapsedMs.clamp(0, 10000);
-    final extrapolatedMs = _lastPlayerPosition.inMilliseconds +
+    final targetMs = _lastPlayerPosition.inMilliseconds +
         safeElapsedMs +
         _syncOffsetMs;
+
+    // 150ms spring relaxation constant for frame-clock sweep playhead
+    final frameDt = now.difference(_lastFrameTime).inMilliseconds.clamp(1, 100);
+    _lastFrameTime = now;
+    final alpha = 1.0 - math.exp(-frameDt / 150.0);
+    _filteredPositionMs += (targetMs - _filteredPositionMs) * alpha;
+
     final clampedMs = (widget.track.duration.inMilliseconds > 0)
-        ? extrapolatedMs.clamp(0, widget.track.duration.inMilliseconds)
-        : (extrapolatedMs < 0 ? 0 : extrapolatedMs);
+        ? _filteredPositionMs.round().clamp(0, widget.track.duration.inMilliseconds)
+        : (_filteredPositionMs < 0 ? 0 : _filteredPositionMs.round());
     return Duration(milliseconds: clampedMs);
   }
 

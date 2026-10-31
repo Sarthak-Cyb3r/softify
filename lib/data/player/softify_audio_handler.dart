@@ -20,6 +20,7 @@ import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_stream_resolver.dart';
 import '../../domain/ports/i_taste_profile_repository.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import '../../services/audio_clock_service.dart';
 import '../../services/voice/voice_search_matcher.dart';
 
 import 'softify_audio_player.dart';
@@ -97,7 +98,13 @@ class SoftifyAudioHandler extends BaseAudioHandler
   final BehaviorSubject<bool> _sleepEndOfTrackSubject =
       BehaviorSubject<bool>.seeded(false);
   int _crossfadeSeconds = 0;
-  int get crossfadeSeconds => _crossfadeSeconds;
+  bool _crossfadeSuppressed = false;
+  int get crossfadeSeconds => _crossfadeSuppressed ? 0 : _crossfadeSeconds;
+  bool get isCrossfadeSuppressed => _crossfadeSuppressed;
+
+  void setCrossfadeSuppressed(bool suppressed) {
+    _crossfadeSuppressed = suppressed;
+  }
   final BehaviorSubject<int> _crossfadeSecondsSubject =
       BehaviorSubject<int>.seeded(0);
   Stream<int> get crossfadeSecondsStream => _crossfadeSecondsSubject.stream;
@@ -275,7 +282,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
     _sleepTimer = Timer(duration, () {
       final shouldFade = (_sleepInitialDuration?.inSeconds ?? 0) >= 15;
-      _triggerSleepTimer(fadeDuration: shouldFade ? const Duration(seconds: 3) : Duration.zero);
+      _triggerSleepTimer(fadeDuration: shouldFade ? const Duration(seconds: 5) : Duration.zero);
     });
 
     _sleepTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -287,7 +294,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
       if (remaining <= Duration.zero) {
         timer.cancel();
         final shouldFade = (_sleepInitialDuration?.inSeconds ?? 0) >= 15;
-        _triggerSleepTimer(fadeDuration: shouldFade ? const Duration(seconds: 3) : Duration.zero);
+        _triggerSleepTimer(fadeDuration: shouldFade ? const Duration(seconds: 5) : Duration.zero);
       } else {
         _sleepTimerRemainingSubject.add(remaining);
       }
@@ -320,13 +327,18 @@ class SoftifyAudioHandler extends BaseAudioHandler
     cancelSleepTimer();
     if (_player.playing && fadeDuration > Duration.zero) {
       final initialVolume = _player.volume;
-      const steps = 6;
+      const steps = 20;
       final stepDelay = Duration(milliseconds: fadeDuration.inMilliseconds ~/ steps);
       for (int i = 1; i <= steps; i++) {
-        final currentVol = (initialVolume * (1.0 - (i / steps))).clamp(0.0, 1.0);
+        final progress = i / steps;
+        final curve = cos(progress * (pi / 2.0));
+        final currentVol = (initialVolume * curve).clamp(0.0, 1.0);
         await _player.setVolume(currentVol);
         await Future.delayed(stepDelay);
       }
+      // 800ms silence tail before pause
+      await _player.setVolume(0.0);
+      await Future.delayed(const Duration(milliseconds: 800));
       await pause();
       await _player.setVolume(initialVolume);
     } else {
@@ -465,10 +477,26 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _broadcastPlaybackState([PlaybackEvent? _]) {
     _checkBufferingWatchdog();
+    final clampedPosition =
+        _player.position < Duration.zero ? Duration.zero : _player.position;
+    final clampedBuffered = _player.bufferedPosition < clampedPosition
+        ? clampedPosition
+        : _player.bufferedPosition;
     final playing = _isTransitioningTrack ? true : _player.playing;
     final processingState = _isTransitioningTrack
         ? AudioProcessingState.buffering
         : _mapProcessingState(_player.processingState);
+
+    final durMs =
+        (_player.duration ?? currentTrack?.duration)?.inMilliseconds ?? 0;
+    AudioClockService.instance.updateAnchor(
+      positionMs: clampedPosition.inMilliseconds,
+      durationMs: durMs,
+      isPaused: !playing,
+      isBuffering: processingState == AudioProcessingState.buffering ||
+          processingState == AudioProcessingState.loading,
+      speed: _player.speed,
+    );
 
     playbackState.add(
       PlaybackState(
@@ -492,8 +520,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
         androidCompactActionIndices: const [0, 1, 2],
         processingState: processingState,
         playing: playing,
-        updatePosition: _player.position,
-        bufferedPosition: _player.bufferedPosition,
+        updatePosition: clampedPosition,
+        bufferedPosition: clampedBuffered,
         speed: _player.speed,
         queueIndex: _currentIndex >= 0 ? _currentIndex : null,
       ),
@@ -574,6 +602,16 @@ class SoftifyAudioHandler extends BaseAudioHandler
       await session.setActive(true);
     } catch (_) {}
 
+    // pointAtFirstItemIfUnset: If at EOF or past queue bound, rewind to 0
+    if (_currentIndex >= _queue.length ||
+        _currentIndex < 0 ||
+        (_player.processingState == ProcessingState.completed &&
+            _currentIndex == _queue.length - 1)) {
+      _currentIndex = 0;
+      _syncQueueState();
+      await _player.seek(Duration.zero);
+    }
+
     if (_player.processingState == ProcessingState.idle ||
         _player.processingState == ProcessingState.completed ||
         (!_player.playing && _player.processingState != ProcessingState.ready)) {
@@ -612,6 +650,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   @override
   Future<void> stop() async {
+    _isTransitioningTrack = false;
+    _bufferingWatchdogTimer?.cancel();
+    _bufferingWatchdogTimer = null;
     cancelSleepTimer();
     await _player.pause();
     await _player.stop();
@@ -646,7 +687,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
   /// - Spoken/Podcast tracks: 0ms cutover (preserves dialogue clarity).
   /// - Music tracks: Equal-power DJ crossfade using user-configured crossfade duration.
   Duration _computeEffectiveCrossfade(Track? from, Track? to) {
-    if (_crossfadeSeconds <= 0) return Duration.zero;
+    if (_crossfadeSuppressed || _crossfadeSeconds <= 0) return Duration.zero;
     if (from == null || to == null) return Duration(seconds: _crossfadeSeconds);
 
     // Spoken podcasts bypass crossfade to prevent vocal unintelligibility

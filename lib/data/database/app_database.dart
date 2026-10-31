@@ -442,4 +442,47 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads(status);',
     );
   }
+
+  /// Safely cleans orphaned tracks not referenced by playlists, active queue,
+  /// downloads, or liked status, then executes a WAL checkpoint and VACUUM compaction.
+  Future<int> safeOrphanCascadeAndVacuum() async {
+    final deletedCount = await transaction(() async {
+      final sevenDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 7))
+          .millisecondsSinceEpoch;
+
+      final count = await customUpdate('''
+        DELETE FROM tracks
+        WHERE is_liked = 0
+          AND id NOT IN (SELECT DISTINCT track_id FROM playlist_tracks WHERE track_id IS NOT NULL)
+          AND id NOT IN (SELECT DISTINCT track_id FROM queue_items)
+          AND id NOT IN (SELECT DISTINCT track_id FROM downloads)
+          AND id NOT IN (SELECT DISTINCT track_id FROM play_histories WHERE played_at > $sevenDaysAgo)
+      ''');
+
+      await customUpdate('''
+        DELETE FROM cached_lyrics
+        WHERE track_id NOT IN (SELECT id FROM tracks)
+      ''');
+
+      await customUpdate('''
+        DELETE FROM track_embeddings
+        WHERE track_id NOT IN (SELECT id FROM tracks)
+      ''');
+
+      await customUpdate('''
+        DELETE FROM track_fts
+        WHERE track_id NOT IN (SELECT id FROM tracks)
+      ''');
+
+      return count;
+    });
+
+    try {
+      await customStatement('PRAGMA wal_checkpoint(TRUNCATE);');
+      await customStatement('VACUUM;');
+    } catch (_) {}
+
+    return deletedCount;
+  }
 }

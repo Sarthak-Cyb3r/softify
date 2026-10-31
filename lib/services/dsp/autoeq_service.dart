@@ -72,6 +72,43 @@ class AutoEqProfile {
     equalizer.enabled = true;
   }
 
+  /// Maps arbitrary parametric EQ curves into fixed 10-band standard ISO peaking biquads.
+  List<EqBand> toIso10Bands({int sampleRate = 44100}) {
+    const isoFrequencies = [
+      31.25,
+      62.5,
+      125.0,
+      250.0,
+      500.0,
+      1000.0,
+      2000.0,
+      4000.0,
+      8000.0,
+      16000.0,
+    ];
+    final tempEq = ParametricEqualizer(sampleRate: sampleRate);
+    tempEq.setBands(bands, preampDb: 0.0);
+
+    final result = <EqBand>[];
+    for (int i = 0; i < isoFrequencies.length; i++) {
+      final f = isoFrequencies[i];
+      final gainAtF = tempEq.evaluateGainAt(f);
+      result.add(EqBand(
+        index: i,
+        enabled: true,
+        type: i == 0
+            ? BiquadFilterType.lowShelf
+            : (i == isoFrequencies.length - 1
+                ? BiquadFilterType.highShelf
+                : BiquadFilterType.peaking),
+        frequency: f,
+        gainDb: gainAtF.clamp(-12.0, 12.0),
+        q: 1.414,
+      ));
+    }
+    return result;
+  }
+
   Map<String, dynamic> toJson() => {
         'modelName': modelName,
         'measurer': measurer,

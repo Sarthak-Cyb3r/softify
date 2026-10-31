@@ -227,29 +227,36 @@ class YoutubeStreamResolver implements IStreamResolver {
         final effectiveStreams =
             nonDubbedStreams.isNotEmpty ? nonDubbedStreams : audioStreams.toList();
 
-        // Filter M4A/AAC streams (container-native itag 140 / 139)
-        final m4aStreams = effectiveStreams
-            .where((s) => s.container.name.toLowerCase() == 'mp4')
-            .toList();
-        final candidates =
-            m4aStreams.isNotEmpty ? m4aStreams : effectiveStreams;
+        // Priority 0: Check for studio master stream twins (Opus 774 256k or AAC 141 256k)
+        final itag774 = effectiveStreams.where((s) => s.tag == 774).firstOrNull;
+        final itag141 = effectiveStreams.where((s) => s.tag == 141).firstOrNull;
+        if (quality == AudioQualityPreset.high && (itag774 != null || itag141 != null)) {
+          selected = itag774 ?? itag141;
+        } else {
+          // Filter M4A/AAC streams (container-native itag 140 / 139)
+          final m4aStreams = effectiveStreams
+              .where((s) => s.container.name.toLowerCase() == 'mp4')
+              .toList();
+          final candidates =
+              m4aStreams.isNotEmpty ? m4aStreams : effectiveStreams;
 
-        // Target bitrate:
-        // high: ~160 kbps (itag 140 / highest AAC)
-        // standard: ~128-140 kbps (itag 140 is ~127 kbps)
-        // low: ~48-64 kbps (itag 139 is ~49 kbps)
-        final targetBitrate = quality == AudioQualityPreset.high
-            ? 160000
-            : (quality == AudioQualityPreset.standard ? 130000 : 55000);
+          // Target bitrate:
+          // high: ~256 kbps (itag 774 / itag 141 / highest AAC)
+          // standard: ~128-140 kbps (itag 140 is ~127 kbps)
+          // low: ~48-64 kbps (itag 139 is ~49 kbps)
+          final targetBitrate = quality == AudioQualityPreset.high
+              ? 256000
+              : (quality == AudioQualityPreset.standard ? 130000 : 55000);
 
-        candidates.sort((a, b) {
-          final bitA = a.bitrate.bitsPerSecond;
-          final bitB = b.bitrate.bitsPerSecond;
-          return (bitA - targetBitrate)
-              .abs()
-              .compareTo((bitB - targetBitrate).abs());
-        });
-        selected = candidates.first;
+          candidates.sort((a, b) {
+            final bitA = a.bitrate.bitsPerSecond;
+            final bitB = b.bitrate.bitsPerSecond;
+            return (bitA - targetBitrate)
+                .abs()
+                .compareTo((bitB - targetBitrate).abs());
+          });
+          selected = candidates.first;
+        }
       } else {
         // Fallback to progressive muxed stream if audio-only stream is absent
         final tag18Candidates = manifest.muxed.where((s) => s.tag == 18).toList();

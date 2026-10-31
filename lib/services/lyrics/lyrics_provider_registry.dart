@@ -26,6 +26,8 @@ class LyricsProviderRegistry implements ILyricsProvider {
   final Map<String, bool> _enabledState = {};
   List<String> _priorityOrder = List.from(defaultPriorityOrder);
   final Map<String, SyncedLyrics?> _cache = {};
+  int _activeRequestId = 0;
+  String? _activeTrackId;
 
   LyricsProviderRegistry({
     HttpClient? httpClient,
@@ -152,6 +154,9 @@ class LyricsProviderRegistry implements ILyricsProvider {
     Track track, {
     bool preferSyllableSynced = true,
   }) async {
+    final requestId = ++_activeRequestId;
+    _activeTrackId = track.id;
+
     if (_cache.containsKey(track.id)) {
       return _cache[track.id];
     }
@@ -160,8 +165,17 @@ class LyricsProviderRegistry implements ILyricsProvider {
     SyncedLyrics? fallbackCandidate;
 
     for (final provider in ordered) {
+      if (requestId != _activeRequestId || _activeTrackId != track.id) {
+        return null;
+      }
       try {
-        final result = await provider.getLyrics(track);
+        final result = await provider.getLyrics(track).timeout(
+              const Duration(milliseconds: 2500),
+              onTimeout: () => null,
+            );
+        if (requestId != _activeRequestId || _activeTrackId != track.id) {
+          return null;
+        }
         if (result != null) {
           // If the provider returned syllable-level karaoke timings, return immediately
           if (result.isSyllableSynced) {
@@ -184,6 +198,10 @@ class LyricsProviderRegistry implements ILyricsProvider {
       } catch (_) {
         continue;
       }
+    }
+
+    if (requestId != _activeRequestId || _activeTrackId != track.id) {
+      return null;
     }
 
     if (fallbackCandidate != null) {

@@ -336,13 +336,16 @@ final trackLyricsProvider =
     return lyrics;
   }
 
-  // Negative cache in SQLite to avoid recurring network stalls
-  try {
-    await libraryRepo.cacheLyrics(
-      track.id,
-      isNotFound: true,
-    );
-  } catch (_) {}
+  // Only negative cache if track is still the active track to prevent poisoning on rapid track skips
+  final currentAudioTrack = ref.read(currentTrackProvider).valueOrNull;
+  if (currentAudioTrack?.id == track.id) {
+    try {
+      await libraryRepo.cacheLyrics(
+        track.id,
+        isNotFound: true,
+      );
+    } catch (_) {}
+  }
 
   // 3. Fallback to cached plain lyrics if synced could not be resolved
   if (cached != null &&

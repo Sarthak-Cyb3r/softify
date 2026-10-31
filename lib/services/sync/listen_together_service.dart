@@ -216,6 +216,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
   SyncRole _role = SyncRole.none;
   ListenTogetherRoom? _currentRoom;
   BufferBarrierState _bufferBarrierState = BufferBarrierState.idle;
+  bool _lastRoomPlaying = true;
   String? _userId;
   String? _sessionToken;
   String? _serverUrl;
@@ -266,7 +267,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
 
   // Drift thresholds
   static const int softSyncThresholdMs = 50;
-  static const int hardSyncThresholdMs = 500;
+  static const int hardSyncThresholdMs = 750;
   static const double microNudgeSpeedAdjustment = 0.02;
 
   IListenTogetherSocket? _socket;
@@ -571,6 +572,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
 
     sendMessage(MessageTypes.createRoom, {'username': username});
     final createdRoom = await completer.future;
+    audioHandler?.setCrossfadeSuppressed(true);
+    automixService?.setCrossfadeEnabled(false);
     if (audioHandler?.currentTrack != null) {
       final syncTrack = SyncTrackInfo.fromTrack(audioHandler!.currentTrack!);
       final posMs = audioHandler!.playbackState.value.position.inMilliseconds;
@@ -637,6 +640,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       {'room_code': roomCode.toUpperCase(), 'username': username},
     );
     final joinedRoom = await completer.future;
+    audioHandler?.setCrossfadeSuppressed(true);
+    automixService?.setCrossfadeEnabled(false);
     if (joinedRoom.currentTrack != null) {
       unawaited(_syncGuestToTrack(
         joinedRoom.currentTrack!,
@@ -666,6 +671,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       }
       sendMessage(MessageTypes.leaveRoom, {});
     }
+    audioHandler?.setCrossfadeSuppressed(false);
+    automixService?.setCrossfadeEnabled(true);
     _setRoom(null);
     _setRole(SyncRole.none);
     _setBufferBarrierState(BufferBarrierState.idle);
@@ -1011,6 +1018,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         }
         if (!isPlaying) {
           await audioHandler!.pause();
+        } else {
+          await audioHandler!.play();
         }
       } else {
         if (isPlaying) {
@@ -1025,7 +1034,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         if (positionMs > 0) {
           final curPos =
               audioHandler!.playbackState.value.position.inMilliseconds;
-          if ((curPos - positionMs).abs() > 2000) {
+          if ((curPos - positionMs).abs() > 750) {
             await audioHandler!.seek(Duration(milliseconds: positionMs));
           }
         }
@@ -1314,10 +1323,17 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         final syncState = PlaybackSyncState.fromJson(msg.payload);
         if (syncState.revision >= _lastRevision) {
           _lastRevision = syncState.revision;
+          final trackChanged =
+              _currentRoom?.currentTrack?.id != syncState.currentTrack?.id;
+          final effectivePlaying =
+              (trackChanged && !syncState.isPlaying)
+                  ? _lastRoomPlaying
+                  : syncState.isPlaying;
+          _lastRoomPlaying = effectivePlaying;
           if (_currentRoom != null) {
             _setRoom(_currentRoom!.copyWith(
               currentTrack: syncState.currentTrack,
-              isPlaying: syncState.isPlaying,
+              isPlaying: effectivePlaying,
               positionMs: syncState.positionMs,
               lastUpdateEpochMs: syncState.lastUpdateEpochMs,
               queue: syncState.queue ?? _currentRoom!.queue,
@@ -1328,11 +1344,11 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           if (isGuest && syncState.currentTrack != null) {
             unawaited(_syncGuestToTrack(
               syncState.currentTrack!,
-              isPlaying: syncState.isPlaying,
+              isPlaying: effectivePlaying,
               positionMs: syncState.positionMs,
             ));
           } else if (isGuest) {
-            if (syncState.isPlaying) {
+            if (effectivePlaying) {
               audioHandler?.play();
             } else {
               audioHandler?.pause();
@@ -1376,6 +1392,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
 
     switch (action.action) {
       case PlaybackActions.play:
+        _lastRoomPlaying = true;
         if (isGuest &&
             action.trackInfo != null &&
             audioHandler?.currentTrack?.id != action.trackInfo!.id) {
@@ -1390,6 +1407,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         _updateRoomPlayingState(true, action.positionMs ?? 0);
         break;
       case PlaybackActions.pause:
+        _lastRoomPlaying = false;
         audioHandler?.pause();
         if (action.positionMs != null && action.positionMs! > 0) {
           audioHandler?.seek(Duration(milliseconds: action.positionMs!));
@@ -1404,10 +1422,11 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       case PlaybackActions.changeTrack:
         if (action.trackInfo != null) {
           _bufferingTrackId = action.trackInfo!.id;
-          _setBufferBarrierState(BufferBarrierState.buffering);
+          final effectivePlaying = _lastRoomPlaying;
           if (_currentRoom != null) {
             _setRoom(_currentRoom!.copyWith(
               currentTrack: action.trackInfo,
+              isPlaying: effectivePlaying,
               positionMs: action.positionMs ?? 0,
               lastUpdateEpochMs: action.serverTime ?? 0,
             ));
@@ -1427,7 +1446,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           if (isGuest) {
             unawaited(_syncGuestToTrack(
               action.trackInfo!,
-              isPlaying: true,
+              isPlaying: effectivePlaying,
               positionMs: action.positionMs ?? 0,
             ));
           } else {

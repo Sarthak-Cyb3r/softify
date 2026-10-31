@@ -248,7 +248,17 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   Future<void> stop() => _activePlayer.stop();
 
   @override
-  Future<void> seek(Duration position) => _activePlayer.seek(position);
+  Future<void> seek(Duration position) async {
+    if (_isCrossfading) {
+      _crossfadeGenerationId++;
+      _isCrossfading = false;
+      await _activePlayer.setVolume(_volumeSubject.value);
+      if (_standbyPlayer != null) {
+        unawaited(_standbyPlayer!.stop());
+      }
+    }
+    return _activePlayer.seek(position);
+  }
 
   @override
   Future<Duration?> setUrl(String url, {Map<String, String>? headers, Duration? initialPosition}) async {

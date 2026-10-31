@@ -147,7 +147,12 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
 
   Widget _buildLobbyView(BuildContext context, AppTokens tokens) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 180),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        240 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       physics: const BouncingScrollPhysics(),
       children: [

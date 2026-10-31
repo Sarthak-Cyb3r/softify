@@ -180,6 +180,7 @@ class PrebufferDecision {
 /// Dual-deck S-curve crossfader modeling and strict 320 kbps 32-bit floating-point DSP service.
 class AutomixService {
   Duration _crossfadeDuration = const Duration(seconds: 5);
+  bool _crossfadeEnabled = true;
   CrossfadeCurveType _curveType = CrossfadeCurveType.equalPower;
   EqStyleCurves _eqStyle = EqStyleCurves.bassSwap;
   FilterFxStyle _filterFx = FilterFxStyle.none;
@@ -221,7 +222,12 @@ class AutomixService {
   }
 
   // Getters
-  Duration get crossfadeDuration => _crossfadeDuration;
+  Duration get crossfadeDuration => _crossfadeEnabled ? _crossfadeDuration : Duration.zero;
+  bool get isCrossfadeEnabled => _crossfadeEnabled;
+
+  void setCrossfadeEnabled(bool enabled) {
+    _crossfadeEnabled = enabled;
+  }
   CrossfadeCurveType get curveType => _curveType;
   EqStyleCurves get eqStyle => _eqStyle;
   FilterFxStyle get filterFx => _filterFx;
