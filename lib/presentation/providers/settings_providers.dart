@@ -472,15 +472,19 @@ final screensaverConfigProvider =
 // ==========================================
 
 class LyricsRomanizeNotifier extends StateNotifier<bool> {
-  final AppDatabase _db;
+  final AppDatabase? _db;
 
   LyricsRomanizeNotifier(this._db) : super(false) {
-    _loadFromDb();
+    if (_db != null) {
+      _loadFromDb();
+    }
   }
 
   Future<void> _loadFromDb() async {
+    final db = _db;
+    if (db == null) return;
     try {
-      final row = await (_db.select(_db.settings)
+      final row = await (db.select(db.settings)
             ..where((t) => t.key.equals('lyrics_romanize')))
           .getSingleOrNull();
       if (row != null) {
@@ -492,8 +496,10 @@ class LyricsRomanizeNotifier extends StateNotifier<bool> {
   Future<void> toggle() async {
     final next = !state;
     state = next;
+    final db = _db;
+    if (db == null) return;
     try {
-      await _db.into(_db.settings).insertOnConflictUpdate(
+      await db.into(db.settings).insertOnConflictUpdate(
             SettingRow(key: 'lyrics_romanize', value: next ? 'true' : 'false'),
           );
     } catch (_) {}
@@ -501,8 +507,10 @@ class LyricsRomanizeNotifier extends StateNotifier<bool> {
 
   Future<void> setEnabled(bool enabled) async {
     state = enabled;
+    final db = _db;
+    if (db == null) return;
     try {
-      await _db.into(_db.settings).insertOnConflictUpdate(
+      await db.into(db.settings).insertOnConflictUpdate(
             SettingRow(key: 'lyrics_romanize', value: enabled ? 'true' : 'false'),
           );
     } catch (_) {}
@@ -511,7 +519,10 @@ class LyricsRomanizeNotifier extends StateNotifier<bool> {
 
 final lyricsRomanizeProvider =
     StateNotifierProvider<LyricsRomanizeNotifier, bool>((ref) {
-  final db = ref.watch(databaseProvider);
+  AppDatabase? db;
+  try {
+    db = ref.watch(databaseProvider);
+  } catch (_) {}
   return LyricsRomanizeNotifier(db);
 });
 
