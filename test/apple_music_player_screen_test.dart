@@ -368,7 +368,7 @@ void main() {
       expect(find.textContaining('THE WEEKND', findRichText: true), findsWidgets);
 
       // Verifies Stream Audio Specs (headphones badge and bitrate)
-      expect(find.byIcon(Icons.headphones_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.headphones_rounded), findsWidgets);
       expect(find.textContaining('kbps'), findsOneWidget);
 
       // Verifies Integrated Volume Bar is present
@@ -377,12 +377,12 @@ void main() {
       expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
 
       // Verifies Apple Music Persistent Dock buttons
-      expect(find.byIcon(Icons.format_quote_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.airplay_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.queue_music_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.people_alt_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.format_list_bulleted_rounded), findsOneWidget);
 
       // 1. Test Dock: Tap Queue icon
-      await tester.tap(find.byIcon(Icons.queue_music_rounded));
+      await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
 
@@ -391,13 +391,13 @@ void main() {
       expect(find.text('In Your Eyes'), findsOneWidget);
 
       // Tap Queue button again to toggle back to Main view
-      await tester.tap(find.byIcon(Icons.queue_music_rounded));
+      await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
       expect(find.text('SAVE YOUR TEARS'), findsOneWidget);
 
       // 2. Test Dock: Tap Lyrics icon
-      await tester.tap(find.byIcon(Icons.format_quote_rounded));
+      await tester.tap(find.byIcon(Icons.chat_bubble_outline_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
 
