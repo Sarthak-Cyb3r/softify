@@ -12,6 +12,7 @@ import '../providers/player_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/artist_chooser_bottom_sheet.dart';
+import '../widgets/animated_artwork_card.dart';
 import '../widgets/bouncing_scale_button.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/queue_bottom_sheet.dart';
@@ -529,12 +530,11 @@ class _FullScreenPlayerScreenState
                                                 ),
                                               ),
                                             )
-                                          : AppNetworkImage(
-                                              imageUrl: effectiveTrack.coverUrl,
-                                              fit: BoxFit.cover,
-                                              cacheWidth: 800,
-                                              cacheHeight: 800,
-                                              placeholderIcon: Icons.music_note_rounded,
+                                          : AnimatedArtworkCard(
+                                              track: effectiveTrack,
+                                              isPlaying: isPlaying,
+                                              ambientColor: _ambientColor,
+                                              borderRadius: 8,
                                             ),
                                     ),
                                   ),
@@ -1165,40 +1165,24 @@ class _FullScreenPlayerScreenState
               const SizedBox(height: 8),
               // Floating Hero Artwork with dynamic ambient shadow
               Center(
-                child: AspectRatio(
-                  aspectRatio: 1.0,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 360, maxHeight: 360),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _ambientColor.withValues(alpha: 0.5),
-                          blurRadius: 36,
-                          spreadRadius: 4,
-                          offset: const Offset(0, 16),
+                child: isPlaceholder
+                    ? Container(
+                        constraints: const BoxConstraints(maxWidth: 360, maxHeight: 360),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: tokens.surfaceElevated,
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: isPlaceholder
-                          ? Container(
-                              color: tokens.surfaceElevated,
-                              child: const Center(
-                                child: Icon(Icons.music_note_rounded, size: 64, color: Colors.white54),
-                              ),
-                            )
-                          : AppNetworkImage(
-                              imageUrl: effectiveTrack.coverUrl,
-                              fit: BoxFit.cover,
-                              cacheWidth: 800,
-                              cacheHeight: 800,
-                              placeholderIcon: Icons.music_note_rounded,
-                            ),
-                    ),
-                  ),
-                ),
+                        child: const Center(
+                          child: Icon(Icons.music_note_rounded, size: 64, color: Colors.white54),
+                        ),
+                      )
+                    : AnimatedArtworkCard(
+                        track: effectiveTrack,
+                        isPlaying: isPlaying,
+                        ambientColor: _ambientColor,
+                        borderRadius: 16,
+                        size: 360,
+                      ),
               ),
               const SizedBox(height: 24),
 

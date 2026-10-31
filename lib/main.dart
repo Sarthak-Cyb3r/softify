@@ -28,6 +28,7 @@ import 'presentation/screens/app_scaffold.dart';
 import 'services/lyrics/better_lyrics_provider.dart';
 import 'services/lyrics/paxsenix_lyrics_provider.dart';
 import 'services/sync/listen_together_service.dart';
+import 'services/animated_artwork_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -133,6 +134,9 @@ void main() async {
       audioHandler.setCrossfadeSeconds(sec);
     }
   } catch (_) {}
+
+  // Initialize animated artwork cache
+  AnimatedArtworkService.instance.initialize();
 
   runApp(
     ProviderScope(

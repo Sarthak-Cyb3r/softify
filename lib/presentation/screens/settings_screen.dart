@@ -16,6 +16,7 @@ import '../providers/player_providers.dart';
 import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
 import '../providers/ui_style_provider.dart';
+import '../providers/animated_artwork_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared/app_surface.dart';
 import '../widgets/shared/aurora_background.dart';
@@ -233,6 +234,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final liquidGlassEnabled = ref.watch(liquidGlassEnabledProvider);
     final currentNowPlayingStyle = ref.watch(nowPlayingStyleProvider);
     final currentLyricsStyle = ref.watch(lyricsStyleProvider);
+    final animatedArtworkEnabled = ref.watch(animatedArtworkEnabledProvider);
 
     final tokens = context.tokens;
 
@@ -296,6 +298,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             liquidGlassEnabled,
             currentNowPlayingStyle,
             currentLyricsStyle,
+            animatedArtworkEnabled,
           ),
           const SizedBox(height: 24),
 
@@ -1195,6 +1198,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     bool liquidGlassEnabled,
     NowPlayingStyle nowPlayingStyle,
     LyricsStyle lyricsStyle,
+    bool animatedArtworkEnabled,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1561,6 +1565,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       );
                     }).toList(),
                   ),
+                ),
+
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white10, height: 1),
+                const SizedBox(height: 16),
+
+                // Animated Artwork
+                Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_motion_rounded,
+                      color: tokens.accent,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Animated Artwork',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            "Play the album's animated cover instead of a Canvas. No account needed. Albums without one keep the still cover.",
+                            style: TextStyle(
+                              color: tokens.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: animatedArtworkEnabled,
+                      activeColor: tokens.isGlass ? tokens.accentCyan : tokens.accent,
+                      onChanged: (val) {
+                        ref
+                            .read(animatedArtworkEnabledProvider.notifier)
+                            .setEnabled(val);
+                      },
+                    ),
+                  ],
                 ),
                   ],
                 ),
