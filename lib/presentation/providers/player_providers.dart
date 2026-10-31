@@ -20,6 +20,7 @@ import '../../data/lyrics/lrclib_lyrics_provider.dart';
 import '../../data/lyrics/spotify_lyrics_provider.dart';
 import '../../services/lyrics/better_lyrics_provider.dart';
 import '../../services/lyrics/lyrics_provider_registry.dart';
+import '../../services/lyrics/paxsenix_lyrics_provider.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_download_repository.dart';
 import '../../domain/ports/i_event_logger.dart';
@@ -265,6 +266,7 @@ final lyricsProvider = Provider<ILyricsProvider>((ref) {
   final authService = ref.watch(spotifyAuthServiceProvider);
   final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return CompositeLyricsProvider(
+    paxsenix: PaxsenixLyricsProvider(),
     spotify: SpotifyLyricsProvider(
       db: db,
       authService: authService,
@@ -284,6 +286,7 @@ final lyricsProviderRegistryProvider = Provider<LyricsProviderRegistry>((ref) {
       authService: authService,
       spotifyApi: spotifyApi,
     ),
+    paxsenix: PaxsenixLyricsProvider(),
   );
 });
 
@@ -307,17 +310,14 @@ final trackLyricsProvider =
           providerName: 'Local Cache',
         );
       }
-    } else if (cached.isNotFound) {
-      // Known track without lyrics recorded in SQLite
-      return null;
     }
   }
 
-  // 2. Query multi-source lyrics engine with strict 7-second safeguard
+  // 2. Query multi-source lyrics engine with resilient 12-second safeguard
   SyncedLyrics? lyrics;
   try {
     lyrics = await lyricsEngine.getLyrics(track).timeout(
-          const Duration(seconds: 7),
+          const Duration(seconds: 12),
           onTimeout: () => null,
         );
   } catch (_) {
@@ -334,17 +334,6 @@ final trackLyricsProvider =
       );
     } catch (_) {}
     return lyrics;
-  }
-
-  // Only negative cache if track is still the active track to prevent poisoning on rapid track skips
-  final currentAudioTrack = ref.read(currentTrackProvider).valueOrNull;
-  if (currentAudioTrack?.id == track.id) {
-    try {
-      await libraryRepo.cacheLyrics(
-        track.id,
-        isNotFound: true,
-      );
-    } catch (_) {}
   }
 
   // 3. Fallback to cached plain lyrics if synced could not be resolved

@@ -706,6 +706,9 @@ class DriftLibraryRepository implements ILibraryRepository {
     String? plainText,
     bool isNotFound = false,
   }) async {
+    // Never persist negative hits into SQLite so tracks are never permanently poisoned
+    if (isNotFound) return;
+
     try {
       // Ensure track exists in tracks table so foreign key constraint is satisfied
       final existing = await (_db.select(_db.tracks)..where((t) => t.id.equals(trackId))).getSingleOrNull();
@@ -727,7 +730,7 @@ class DriftLibraryRepository implements ILibraryRepository {
               trackId: trackId,
               syncedLrc: Value(syncedLrc),
               plainText: Value(plainText),
-              isNotFound: Value(isNotFound),
+              isNotFound: const Value(false),
               cachedAt: DateTime.now().millisecondsSinceEpoch,
             ),
           );
@@ -745,10 +748,21 @@ class DriftLibraryRepository implements ILibraryRepository {
         .getSingleOrNull();
 
     if (row == null) return null;
+
+    // Automatically purge poisoned isNotFound entries on access so user can fetch real lyrics
+    if (row.isNotFound) {
+      try {
+        await (_db.delete(_db.cachedLyrics)
+              ..where((c) => c.trackId.equals(trackId)))
+            .go();
+      } catch (_) {}
+      return null;
+    }
+
     return (
       syncedLrc: row.syncedLrc,
       plainText: row.plainText,
-      isNotFound: row.isNotFound,
+      isNotFound: false,
     );
   }
 }

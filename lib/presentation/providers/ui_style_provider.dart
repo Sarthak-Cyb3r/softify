@@ -171,13 +171,13 @@ final liquidGlassEnabledProvider =
 });
 
 /// Computes whether Liquid Glass rendering pipeline is currently active.
-/// Active when the UI style is Aurora Glass, user has Liquid Glass enabled,
+/// Active when the UI style is Aurora Glass or Liquid Glass is enabled,
 /// and effects are not reduced.
 final isLiquidGlassActiveProvider = Provider<bool>((ref) {
   final isGlassStyle = ref.watch(uiStyleProvider) == UiStyle.auroraGlass;
   final isLiquidEnabled = ref.watch(liquidGlassEnabledProvider);
   final reduceEffects = ref.watch(shouldReduceEffectsProvider);
-  return isGlassStyle && isLiquidEnabled && !reduceEffects;
+  return (isGlassStyle || isLiquidEnabled) && !reduceEffects;
 });
 
 /// Now Playing Presentation Style (Classic Spotify vs. Apple Music)
@@ -506,9 +506,17 @@ final dynamicArtworkThemingEnabledProvider = StateProvider<bool>((ref) => true);
 final uiThemeDataProvider = Provider<ThemeData>((ref) {
   final dynamicSeed = ref.watch(dynamicThemeColorProvider);
   final pureBlack = ref.watch(pureBlackThemeEnabledProvider);
+  final currentStyle = ref.watch(uiStyleProvider);
+  final isLiquidGlass = ref.watch(liquidGlassEnabledProvider);
+  final effectiveStyle = (isLiquidGlass || currentStyle == UiStyle.auroraGlass)
+      ? UiStyle.auroraGlass
+      : UiStyle.classic;
+
   return AppTheme.buildMetrolistTheme(
     seedColor: dynamicSeed,
     pureBlack: pureBlack,
+    style: effectiveStyle,
+    isGlass: effectiveStyle == UiStyle.auroraGlass,
   );
 });
 

@@ -213,5 +213,12 @@ void main() {
       expect(cached!.syncedLrc, '[00:10.00] Starboy line');
       expect(cached.isNotFound, isFalse);
     });
+
+    test('cacheLyrics with isNotFound=true is never persisted and does not poison track', () async {
+      await repo.cacheLyrics(testTrack2.id, isNotFound: true);
+
+      final cached = await repo.getCachedLyrics(testTrack2.id);
+      expect(cached, isNull);
+    });
   });
 }

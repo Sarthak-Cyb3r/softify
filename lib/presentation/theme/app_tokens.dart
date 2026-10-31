@@ -167,22 +167,42 @@ class AppTokens extends ThemeExtension<AppTokens> {
     ColorScheme scheme, {
     UiStyle style = UiStyle.classic,
     bool pureBlack = false,
+    bool? isGlass,
   }) {
-    final bg = pureBlack ? Colors.black : scheme.surface;
-    final surf = pureBlack ? Colors.black : scheme.surface;
+    final effectiveIsGlass = isGlass ?? (style == UiStyle.auroraGlass);
+    final bg = pureBlack
+        ? Colors.black
+        : (effectiveIsGlass ? const Color(0xFF0E0E11) : scheme.surface);
+    final surf = pureBlack
+        ? Colors.black
+        : (effectiveIsGlass ? const Color(0xFF16161A) : scheme.surface);
     return AppTokens(
-      style: style,
-      isGlass: false,
+      style: effectiveIsGlass ? UiStyle.auroraGlass : style,
+      isGlass: effectiveIsGlass,
       background: bg,
       sidebar: bg,
       surface: surf,
-      surfaceElevated: scheme.surfaceContainerHigh,
-      surfaceHighlight: scheme.surfaceContainerHighest,
-      card: scheme.surfaceContainer,
-      cardHover: scheme.surfaceContainerHigh,
-      glass: scheme.surfaceContainer.withValues(alpha: 0.85),
-      glassSurface: scheme.surfaceContainer.withValues(alpha: 0.5),
-      glassBorder: scheme.outlineVariant.withValues(alpha: 0.25),
+      surfaceElevated: effectiveIsGlass
+          ? const Color(0xFF1C1C22)
+          : scheme.surfaceContainerHigh,
+      surfaceHighlight: effectiveIsGlass
+          ? const Color(0xFF24242B)
+          : scheme.surfaceContainerHighest,
+      card: effectiveIsGlass
+          ? const Color(0x0FFFFFFF)
+          : scheme.surfaceContainer,
+      cardHover: effectiveIsGlass
+          ? const Color(0x18FFFFFF)
+          : scheme.surfaceContainerHigh,
+      glass: effectiveIsGlass
+          ? const Color(0x0DFFFFFF)
+          : scheme.surfaceContainer.withValues(alpha: 0.85),
+      glassSurface: effectiveIsGlass
+          ? const Color(0x12FFFFFF)
+          : scheme.surfaceContainer.withValues(alpha: 0.5),
+      glassBorder: effectiveIsGlass
+          ? const Color(0x1AFFFFFF)
+          : scheme.outlineVariant.withValues(alpha: 0.25),
       accent: scheme.primary,
       accentRose: scheme.primary,
       accentCyan: scheme.tertiary,
@@ -192,13 +212,23 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textMuted: scheme.onSurfaceVariant.withValues(alpha: 0.6),
       divider: scheme.outlineVariant.withValues(alpha: 0.2),
       error: scheme.error,
-      radiusSm: 8.0,
-      radiusCard: 12.0,
-      radiusMd: 16.0,
-      radiusLg: 20.0,
+      radiusSm: effectiveIsGlass ? 10.0 : 8.0,
+      radiusCard: effectiveIsGlass ? 14.0 : 12.0,
+      radiusMd: effectiveIsGlass ? 18.0 : 16.0,
+      radiusLg: effectiveIsGlass ? 24.0 : 20.0,
       radiusXl: 28.0,
       radiusFull: 999.0,
       radiusPill: 999.0,
+      cardShadow: effectiveIsGlass
+          ? const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 16,
+                spreadRadius: -2,
+                offset: Offset(0, 4),
+              ),
+            ]
+          : const [],
     );
   }
 

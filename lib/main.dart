@@ -88,7 +88,7 @@ void main() async {
     libraryRepo: libraryRepo,
   );
 
-  final lyricsProvider = CompositeLyricsProvider(
+  final compositeLyricsEngine = CompositeLyricsProvider(
     betterLyrics: BetterLyricsProvider(),
     paxsenix: PaxsenixLyricsProvider(),
     spotify: SpotifyLyricsProvider(
@@ -108,7 +108,7 @@ void main() async {
       eventLogger: eventLogger,
       tasteRepo: tasteRepo,
       automixTailReorderer: AutomixTailReorderer(),
-      lyricsProvider: lyricsProvider,
+      lyricsProvider: compositeLyricsEngine,
     ),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'softify',
@@ -151,6 +151,7 @@ void main() async {
         spotifyApiServiceProvider.overrideWithValue(spotifyApi),
         catalogRepositoryProvider.overrideWithValue(catalogRepo),
         audioHandlerProvider.overrideWithValue(audioHandler),
+        lyricsProvider.overrideWithValue(compositeLyricsEngine),
       ],
       child: const SoftifyApp(),
     ),

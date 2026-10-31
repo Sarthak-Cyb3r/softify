@@ -91,6 +91,27 @@ void main() {
       expect(auroraTheme.scaffoldBackgroundColor, equals(const Color(0xFF0E0E11)));
     });
 
+    test('AppTokens.fromColorScheme with isGlass produces glass tokens and borders', () {
+      final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF60A5FA), brightness: Brightness.dark);
+      final glassTokens = AppTokens.fromColorScheme(scheme, isGlass: true);
+      expect(glassTokens.isGlass, isTrue);
+      expect(glassTokens.style, equals(UiStyle.auroraGlass));
+      expect(glassTokens.radiusCard, equals(14.0));
+      expect(glassTokens.cardShadow, isNotEmpty);
+
+      final classicTokens = AppTokens.fromColorScheme(scheme, isGlass: false);
+      expect(classicTokens.isGlass, isFalse);
+      expect(classicTokens.style, equals(UiStyle.classic));
+    });
+
+    test('AppTheme.buildMetrolistTheme propagates glass tokens', () {
+      final glassTheme = AppTheme.buildMetrolistTheme(style: UiStyle.auroraGlass);
+      final tokens = glassTheme.extension<AppTokens>();
+      expect(tokens, isNotNull);
+      expect(tokens!.isGlass, isTrue);
+      expect(tokens.style, equals(UiStyle.auroraGlass));
+    });
+
     test('WCAG AA Contrast verification for Aurora Glass text tokens', () {
       const aurora = AppTokens.auroraTokens;
 

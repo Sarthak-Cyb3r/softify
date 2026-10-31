@@ -66,8 +66,11 @@ class AppTheme {
   static ThemeData buildMetrolistTheme({
     Color? seedColor,
     bool pureBlack = false,
+    UiStyle style = UiStyle.classic,
+    bool? isGlass,
   }) {
-    final effectiveSeed = seedColor ?? accent;
+    final effectiveIsGlass = isGlass ?? (style == UiStyle.auroraGlass);
+    final effectiveSeed = seedColor ?? (effectiveIsGlass ? const Color(0xFF60A5FA) : accent);
     final scheme = ColorScheme.fromSeed(
       seedColor: effectiveSeed,
       brightness: Brightness.dark,
@@ -78,14 +81,25 @@ class AppTheme {
         ? scheme.copyWith(
             surface: Colors.black,
           )
-        : scheme;
+        : (effectiveIsGlass
+            ? scheme.copyWith(
+                surface: const Color(0xFF16161A),
+              )
+            : scheme);
 
-    final dynamicTokens = AppTokens.fromColorScheme(finalScheme, pureBlack: pureBlack);
+    final dynamicTokens = AppTokens.fromColorScheme(
+      finalScheme,
+      style: effectiveIsGlass ? UiStyle.auroraGlass : style,
+      pureBlack: pureBlack,
+      isGlass: effectiveIsGlass,
+    );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: pureBlack ? Colors.black : finalScheme.surface,
+      scaffoldBackgroundColor: pureBlack
+          ? Colors.black
+          : (effectiveIsGlass ? const Color(0xFF0E0E11) : finalScheme.surface),
       fontFamily: fontUi,
       extensions: [dynamicTokens],
       colorScheme: finalScheme,
@@ -154,23 +168,29 @@ class AppTheme {
         trackHeight: 6.0,
       ),
       cardTheme: CardThemeData(
-        color: finalScheme.surfaceContainer,
+        color: effectiveIsGlass ? dynamicTokens.card : finalScheme.surfaceContainer,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
+          borderRadius: BorderRadius.circular(dynamicTokens.radiusCard),
+          side: effectiveIsGlass
+              ? BorderSide(color: dynamicTokens.glassBorder, width: 1.0)
+              : BorderSide.none,
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: finalScheme.surfaceContainerHigh,
+        backgroundColor: effectiveIsGlass ? const Color(0xEB16161A) : finalScheme.surfaceContainerHigh,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(28.0),
+          side: effectiveIsGlass
+              ? BorderSide(color: dynamicTokens.glassBorder, width: 1.0)
+              : BorderSide.none,
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: finalScheme.surfaceContainerHigh,
-        modalBackgroundColor: finalScheme.surfaceContainerHigh,
+        backgroundColor: effectiveIsGlass ? const Color(0xF216161A) : finalScheme.surfaceContainerHigh,
+        modalBackgroundColor: effectiveIsGlass ? const Color(0xF216161A) : finalScheme.surfaceContainerHigh,
         elevation: 0,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),

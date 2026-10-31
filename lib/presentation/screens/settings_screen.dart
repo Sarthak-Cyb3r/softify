@@ -1267,22 +1267,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Expanded(
                       child: _buildUiStylePreviewCard(
                         style: UiStyle.classic,
-                        isSelected: currentStyle == UiStyle.classic,
+                        isSelected: currentStyle == UiStyle.classic && !liquidGlassEnabled,
                         tokens: tokens,
-                        onTap: () => ref
-                            .read(uiStyleProvider.notifier)
-                            .setStyle(UiStyle.classic),
+                        onTap: () {
+                          ref
+                              .read(uiStyleProvider.notifier)
+                              .setStyle(UiStyle.classic);
+                          ref
+                              .read(liquidGlassEnabledProvider.notifier)
+                              .setEnabled(false);
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildUiStylePreviewCard(
                         style: UiStyle.auroraGlass,
-                        isSelected: currentStyle == UiStyle.auroraGlass,
+                        isSelected: currentStyle == UiStyle.auroraGlass || liquidGlassEnabled,
                         tokens: tokens,
-                        onTap: () => ref
-                            .read(uiStyleProvider.notifier)
-                            .setStyle(UiStyle.auroraGlass),
+                        onTap: () {
+                          ref
+                              .read(uiStyleProvider.notifier)
+                              .setStyle(UiStyle.auroraGlass);
+                          ref
+                              .read(liquidGlassEnabledProvider.notifier)
+                              .setEnabled(true);
+                        },
                       ),
                     ),
                   ],
@@ -1413,6 +1423,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ref
                             .read(liquidGlassEnabledProvider.notifier)
                             .setEnabled(val);
+                        if (val) {
+                          ref
+                              .read(uiStyleProvider.notifier)
+                              .setStyle(UiStyle.auroraGlass);
+                        } else {
+                          ref
+                              .read(uiStyleProvider.notifier)
+                              .setStyle(UiStyle.classic);
+                        }
                       },
                     ),
                   ],

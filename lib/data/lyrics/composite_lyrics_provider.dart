@@ -75,7 +75,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   Future<SyncedLyrics?> _resolveLyricsWithTimeout(Track track) async {
     try {
       return await _resolveLyrics(track).timeout(
-        const Duration(seconds: 8),
+        const Duration(seconds: 11),
         onTimeout: () => null,
       );
     } catch (_) {
@@ -94,8 +94,8 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    // Fast concurrent query: LRCLIB (fastest LRC, ~150ms) & JioSaavn in parallel with BetterLyrics (syllable TTML)
-    final fastTier2Future = Future.wait([
+    // Fast concurrent query: LRCLIB, JioSaavn, Paxsenix, and BetterLyrics in parallel
+    final fastTierFuture = Future.wait([
       _lrclib
           .getLyrics(track)
           .timeout(const Duration(seconds: 4), onTimeout: () => null)
@@ -104,39 +104,61 @@ class CompositeLyricsProvider implements ILyricsProvider {
           .getLyrics(track)
           .timeout(const Duration(seconds: 4), onTimeout: () => null)
           .catchError((_) => null),
+      if (_paxsenix != null)
+        _paxsenix!
+            .getLyrics(track)
+            .timeout(const Duration(seconds: 4), onTimeout: () => null)
+            .catchError((_) => null)
+      else
+        Future<SyncedLyrics?>.value(null),
+      if (_betterLyrics != null)
+        _betterLyrics!
+            .getLyrics(track)
+            .timeout(const Duration(seconds: 2), onTimeout: () => null)
+            .catchError((_) => null)
+      else
+        Future<SyncedLyrics?>.value(null),
     ]);
 
-    // Tier 1 (Primary - Syllable/Word-by-Word Karaoke): Quick 2.5s window for BetterLyrics
-    if (_betterLyrics != null) {
-      try {
-        final betterResult = await _betterLyrics.getLyrics(track).timeout(
-              const Duration(milliseconds: 2500),
-              onTimeout: () => null,
-            );
-        if (betterResult != null &&
-            betterResult.isSynced &&
-            betterResult.lines.isNotEmpty) {
-          return betterResult;
-        }
-      } catch (_) {}
-    }
-
-    // Check fast synced results from LRCLIB / JioSaavn
     SyncedLyrics? lrclibResult;
     SyncedLyrics? saavnResult;
+    SyncedLyrics? paxResult;
+    SyncedLyrics? betterResult;
+
     try {
-      final fastResults = await fastTier2Future;
+      final fastResults = await fastTierFuture;
       lrclibResult = fastResults[0];
       saavnResult = fastResults[1];
+      paxResult = fastResults[2];
+      betterResult = fastResults[3];
 
-      // If LRCLIB returned valid synced lyrics, immediately return
+      // 1. Syllable/Karaoke sync preference (Paxsenix Apple Music or BetterLyrics)
+      if (paxResult != null &&
+          paxResult.isSynced &&
+          paxResult.lines.isNotEmpty &&
+          paxResult.isSyllableSynced) {
+        return paxResult;
+      }
+
+      if (betterResult != null &&
+          betterResult.isSynced &&
+          betterResult.lines.isNotEmpty) {
+        return betterResult;
+      }
+
+      // 2. Line-synced preference (LRCLIB, Paxsenix, JioSaavn)
       if (lrclibResult != null &&
           lrclibResult.isSynced &&
           lrclibResult.lines.isNotEmpty) {
         return lrclibResult;
       }
 
-      // If JioSaavn returned synced lyrics, return
+      if (paxResult != null &&
+          paxResult.isSynced &&
+          paxResult.lines.isNotEmpty) {
+        return paxResult;
+      }
+
       if (saavnResult != null &&
           saavnResult.isSynced &&
           saavnResult.lines.isNotEmpty) {
@@ -144,27 +166,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    // Tier 1.2: Query Paxsenix with strict 3-second timeout for rich syllable sync
-    if (_paxsenix != null) {
-      try {
-        final paxResult = await _paxsenix.getLyrics(track).timeout(
-              const Duration(seconds: 3),
-              onTimeout: () => null,
-            );
-        if (paxResult != null &&
-            paxResult.isSynced &&
-            paxResult.lines.isNotEmpty &&
-            paxResult.isSyllableSynced) {
-          return paxResult;
-        }
-      } catch (_) {}
-    }
-
     // Tier 1.5: Query Spotify official color-lyrics v2
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
-        spotifyResult = await _spotify.getLyrics(track).timeout(
+        spotifyResult = await _spotify!.getLyrics(track).timeout(
               const Duration(seconds: 3),
               onTimeout: () => null,
             );
