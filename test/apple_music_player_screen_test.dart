@@ -7,6 +7,7 @@ import 'package:rxdart/rxdart.dart';
 
 import 'package:softify/data/database/app_database.dart';
 import 'package:softify/data/player/softify_audio_handler.dart';
+import 'package:softify/data/repositories/drift_library_repository.dart';
 import 'package:softify/domain/entities/audio_repeat_mode.dart';
 import 'package:softify/domain/entities/track.dart';
 import 'package:softify/presentation/providers/player_providers.dart';
@@ -29,6 +30,18 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   Future<void> setVolume(double val) async {
     currentVol = val;
   }
+
+  @override
+  final BehaviorSubject<MediaItem?> mediaItem =
+      BehaviorSubject<MediaItem?>.seeded(
+    const MediaItem(
+      id: 'test_am_track',
+      title: 'Save Your Tears',
+      artist: 'The Weeknd',
+      album: 'After Hours',
+      duration: Duration(seconds: 215),
+    ),
+  );
 
   @override
   final BehaviorSubject<PlaybackState> playbackState =
@@ -114,10 +127,12 @@ void main() {
 
   group('FullScreenPlayerScreen Apple Music vs. Classic Layout Tests', () {
     late AppDatabase db;
+    late DriftLibraryRepository libraryRepo;
     late _FakePlayerAudioHandler fakeHandler;
 
     setUp(() {
       db = AppDatabase(NativeDatabase.memory());
+      libraryRepo = DriftLibraryRepository(db);
       fakeHandler = _FakePlayerAudioHandler();
     });
 
@@ -130,7 +145,56 @@ void main() {
         ProviderScope(
           overrides: [
             databaseProvider.overrideWithValue(db),
+            libraryRepositoryProvider.overrideWithValue(libraryRepo),
             audioHandlerProvider.overrideWithValue(fakeHandler),
+            likedTracksStreamProvider.overrideWith((ref) => Stream.value([])),
+            downloadsStreamProvider.overrideWith((ref) => Stream.value([])),
+            playHistoryStreamProvider.overrideWith((ref) => Stream.value([])),
+            currentTrackProvider.overrideWith(
+              (ref) => Stream.value(
+                const Track(
+                  id: 'test_am_track',
+                  sourceId: 'mock_src',
+                  title: 'Save Your Tears',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 215),
+                  coverUrl: 'https://example.com/cover.jpg',
+                ),
+              ),
+            ),
+            mediaItemStreamProvider.overrideWith(
+              (ref) => Stream.value(
+                const MediaItem(
+                  id: 'test_am_track',
+                  title: 'Save Your Tears',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 215),
+                ),
+              ),
+            ),
+            queueProvider.overrideWith(
+              (ref) => Stream.value([
+                const Track(
+                  id: 'test_am_track',
+                  sourceId: 'mock_src',
+                  title: 'Save Your Tears',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 215),
+                  coverUrl: 'https://example.com/cover.jpg',
+                ),
+                const Track(
+                  id: 'queue_track_1',
+                  sourceId: 'src_1',
+                  title: 'In Your Eyes',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 237),
+                ),
+              ]),
+            ),
             nowPlayingStyleProvider.overrideWith((ref) {
               final n = NowPlayingStyleNotifier(db);
               n.state = NowPlayingStyle.classic;
@@ -163,7 +227,56 @@ void main() {
         ProviderScope(
           overrides: [
             databaseProvider.overrideWithValue(db),
+            libraryRepositoryProvider.overrideWithValue(libraryRepo),
             audioHandlerProvider.overrideWithValue(fakeHandler),
+            likedTracksStreamProvider.overrideWith((ref) => Stream.value([])),
+            downloadsStreamProvider.overrideWith((ref) => Stream.value([])),
+            playHistoryStreamProvider.overrideWith((ref) => Stream.value([])),
+            currentTrackProvider.overrideWith(
+              (ref) => Stream.value(
+                const Track(
+                  id: 'test_am_track',
+                  sourceId: 'mock_src',
+                  title: 'Save Your Tears',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 215),
+                  coverUrl: 'https://example.com/cover.jpg',
+                ),
+              ),
+            ),
+            mediaItemStreamProvider.overrideWith(
+              (ref) => Stream.value(
+                const MediaItem(
+                  id: 'test_am_track',
+                  title: 'Save Your Tears',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 215),
+                ),
+              ),
+            ),
+            queueProvider.overrideWith(
+              (ref) => Stream.value([
+                const Track(
+                  id: 'test_am_track',
+                  sourceId: 'mock_src',
+                  title: 'Save Your Tears',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 215),
+                  coverUrl: 'https://example.com/cover.jpg',
+                ),
+                const Track(
+                  id: 'queue_track_1',
+                  sourceId: 'src_1',
+                  title: 'In Your Eyes',
+                  artist: 'The Weeknd',
+                  album: 'After Hours',
+                  duration: Duration(seconds: 237),
+                ),
+              ]),
+            ),
             nowPlayingStyleProvider.overrideWith((ref) {
               final n = NowPlayingStyleNotifier(db);
               n.state = NowPlayingStyle.appleMusic;
