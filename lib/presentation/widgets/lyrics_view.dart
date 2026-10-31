@@ -87,11 +87,17 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         safeElapsedMs +
         _syncOffsetMs;
 
-    // 150ms spring relaxation constant for frame-clock sweep playhead
     final frameDt = now.difference(_lastFrameTime).inMilliseconds.clamp(1, 100);
     _lastFrameTime = now;
-    final alpha = 1.0 - math.exp(-frameDt / 150.0);
-    _filteredPositionMs += (targetMs - _filteredPositionMs) * alpha;
+
+    // Discontinuity snap (>200ms jump e.g. seek, initial load, test playback injection)
+    if ((targetMs - _filteredPositionMs).abs() > 200) {
+      _filteredPositionMs = targetMs.toDouble();
+    } else {
+      // 150ms spring relaxation constant for smooth frame-clock sweep playhead
+      final alpha = 1.0 - math.exp(-frameDt / 150.0);
+      _filteredPositionMs += (targetMs - _filteredPositionMs) * alpha;
+    }
 
     final clampedMs = (widget.track.duration.inMilliseconds > 0)
         ? _filteredPositionMs.round().clamp(0, widget.track.duration.inMilliseconds)

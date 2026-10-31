@@ -19,6 +19,10 @@ import 'package:softify/presentation/widgets/animated_artwork_card.dart';
 class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   double currentVol = 0.8;
   int skipCount = 0;
+  bool isShuffle = false;
+  AudioRepeatMode repeat = AudioRepeatMode.off;
+  double playbackSpeed = 1.0;
+  int currentQIndex = 0;
 
   @override
   Stream<double> get volumeStream => Stream.value(currentVol);
@@ -29,6 +33,14 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   @override
   Future<void> setVolume(double val) async {
     currentVol = val;
+  }
+
+  @override
+  double get speed => playbackSpeed;
+
+  @override
+  Future<void> setSpeed(double s) async {
+    playbackSpeed = s;
   }
 
   @override
@@ -54,10 +66,10 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
 
   @override
   Stream<AudioRepeatMode> get repeatModeStream =>
-      Stream.value(AudioRepeatMode.off);
+      Stream.value(repeat);
 
   @override
-  Stream<bool> get shuffleModeStream => Stream.value(false);
+  Stream<bool> get shuffleModeStream => Stream.value(isShuffle);
 
   @override
   Stream<bool> get autoPlayStream => Stream.value(true);
@@ -69,20 +81,22 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   Stream<bool> get sleepEndOfTrackStream => Stream.value(false);
 
   @override
-  Stream<Track?> get currentTrackStream => Stream.value(
-        const Track(
-          id: 'test_am_track',
-          sourceId: 'mock_src',
-          title: 'Save Your Tears',
-          artist: 'The Weeknd',
-          album: 'After Hours',
-          duration: Duration(seconds: 215),
-          coverUrl: 'https://example.com/cover.jpg',
-        ),
+  Track? get currentTrack => const Track(
+        id: 'test_am_track',
+        sourceId: 'mock_src',
+        title: 'Save Your Tears',
+        artist: 'The Weeknd',
+        album: 'After Hours',
+        duration: Duration(seconds: 215),
+        coverUrl: 'https://example.com/cover.jpg',
       );
 
   @override
-  Stream<List<Track>> get tracksQueueStream => Stream.value([
+  Stream<Track?> get currentTrackStream => Stream.value(currentTrack);
+
+  @override
+  List<Track> get currentQueue => [
+        currentTrack!,
         const Track(
           id: 'queue_track_1',
           sourceId: 'src_1',
@@ -91,15 +105,61 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
           album: 'After Hours',
           duration: Duration(seconds: 237),
         ),
-      ]);
+      ];
 
   @override
-  Stream<Duration> get positionStream =>
-      Stream.value(const Duration(seconds: 45));
+  Stream<List<Track>> get tracksQueueStream => Stream.value(currentQueue);
 
   @override
-  Stream<Duration?> get durationStream =>
-      Stream.value(const Duration(seconds: 215));
+  int get currentIndex => currentQIndex;
+
+  @override
+  Duration get position => const Duration(seconds: 45);
+
+  @override
+  Stream<Duration> get positionStream => Stream.value(position);
+
+  @override
+  Duration? get duration => const Duration(seconds: 215);
+
+  @override
+  Stream<Duration?> get durationStream => Stream.value(duration);
+
+  @override
+  AudioRepeatMode get repeatMode => repeat;
+
+  @override
+  bool get isShuffleEnabled => isShuffle;
+
+  @override
+  bool get isAutoPlayEnabled => true;
+
+  @override
+  bool get isSleepTimerActive => false;
+
+  @override
+  bool get isSleepTimerEndOfTrack => false;
+
+  @override
+  Future<void> setShuffleEnabled(bool enabled) async {
+    isShuffle = enabled;
+  }
+
+  @override
+  Future<void> setAudioRepeatMode(AudioRepeatMode mode) async {
+    repeat = mode;
+  }
+
+  @override
+  Future<void> seek(Duration position) async {}
+
+  @override
+  Future<void> playTrack(Track track, {List<Track>? queue}) async {}
+
+  @override
+  Future<void> skipToQueueItem(int index) async {
+    currentQIndex = index;
+  }
 
   @override
   Future<void> skipToNext() async {
