@@ -105,9 +105,8 @@ class MiniPlayer extends ConsumerWidget {
 
     // Watch liked status for the favorite heart button
     final isLiked = !isPlaceholder &&
-        ((ref.watch(isTrackLikedProvider(displayTrack.id)).value ??
-          (displayTrack.sourceId.isNotEmpty ? ref.watch(isTrackLikedProvider(displayTrack.sourceId)).value : null)) ??
-          displayTrack.isLiked);
+        (ref.watch(isTrackLikedProvider(displayTrack.id)).value ??
+            displayTrack.isLiked);
 
     return Semantics(
       label: 'Now Playing: ${displayTrack.title} by ${displayTrack.artist}',

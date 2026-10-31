@@ -216,10 +216,7 @@ class _FullScreenPlayerScreenState
     }
 
     final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(effectiveTrack.id));
-    final isLikedBySource = (!isPlaceholder && effectiveTrack.sourceId.isNotEmpty)
-        ? ref.watch(isTrackLikedProvider(effectiveTrack.sourceId)).value ?? false
-        : false;
-    final isLiked = isLikedAsync?.value ?? isLikedBySource || effectiveTrack.isLiked;
+    final isLiked = isLikedAsync?.value ?? effectiveTrack.isLiked;
 
     final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
     final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);

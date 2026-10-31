@@ -98,10 +98,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
 
     final isPlaying = playbackState?.playing ?? false;
     final isLikedAsync = ref.watch(isTrackLikedProvider(currentTrack.id));
-    final isLikedBySource = currentTrack.sourceId.isNotEmpty
-        ? ref.watch(isTrackLikedProvider(currentTrack.sourceId)).value ?? false
-        : false;
-    final isLiked = isLikedAsync.value ?? isLikedBySource || currentTrack.isLiked;
+    final isLiked = isLikedAsync.value ?? currentTrack.isLiked;
 
     final isGlass = tokens.isGlass;
 

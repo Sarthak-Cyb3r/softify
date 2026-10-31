@@ -828,10 +828,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final isCurrentTrack = currentTrack?.id == track.id;
 
     final isLikedAsync = ref.watch(isTrackLikedProvider(track.id));
-    final isLikedBySource = track.sourceId.isNotEmpty
-        ? ref.watch(isTrackLikedProvider(track.sourceId)).value ?? false
-        : false;
-    final isLiked = isLikedAsync.value ?? isLikedBySource || track.isLiked;
+    final isLiked = isLikedAsync.value ?? track.isLiked;
 
     final isDownloadedAsync = ref.watch(isTrackDownloadedProvider(track.id));
     final isDownloaded = isDownloadedAsync.value ?? false;

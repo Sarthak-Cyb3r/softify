@@ -364,8 +364,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       // Verifies Apple Music metadata header
-      expect(find.text('Save Your Tears'), findsOneWidget);
-      expect(find.text('The Weeknd'), findsWidgets);
+      expect(find.text('SAVE YOUR TEARS'), findsOneWidget);
+      expect(find.textContaining('THE WEEKND', findRichText: true), findsWidgets);
 
       // Verifies Lossless audio badge
       expect(find.text('LOSSLESS'), findsOneWidget);
@@ -393,7 +393,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.queue_music_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
-      expect(find.text('Save Your Tears'), findsOneWidget);
+      expect(find.text('SAVE YOUR TEARS'), findsOneWidget);
 
       // 2. Test Dock: Tap Lyrics icon
       await tester.tap(find.byIcon(Icons.format_quote_rounded));
