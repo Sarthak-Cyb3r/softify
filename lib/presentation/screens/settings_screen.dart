@@ -231,6 +231,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final currentUiStyle = ref.watch(uiStyleProvider);
     final currentReduceEffects = ref.watch(reduceEffectsProvider);
     final liquidGlassEnabled = ref.watch(liquidGlassEnabledProvider);
+    final currentNowPlayingStyle = ref.watch(nowPlayingStyleProvider);
+    final currentLyricsStyle = ref.watch(lyricsStyleProvider);
 
     final tokens = context.tokens;
 
@@ -292,6 +294,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             currentUiStyle,
             currentReduceEffects,
             liquidGlassEnabled,
+            currentNowPlayingStyle,
+            currentLyricsStyle,
           ),
           const SizedBox(height: 24),
 
@@ -1189,6 +1193,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     UiStyle currentStyle,
     ReduceEffectsMode currentEffects,
     bool liquidGlassEnabled,
+    NowPlayingStyle nowPlayingStyle,
+    LyricsStyle lyricsStyle,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1379,6 +1385,183 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             .setEnabled(val);
                       },
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white10, height: 1),
+                const SizedBox(height: 16),
+
+                // Now Playing Style
+                Row(
+                  children: [
+                    Icon(Icons.play_circle_outline_rounded, color: tokens.accent, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Now Playing Style',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            nowPlayingStyle.description,
+                            style: TextStyle(
+                              color: tokens.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Row(
+                    children: NowPlayingStyle.values.map((style) {
+                      final isSelected = nowPlayingStyle == style;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => ref
+                              .read(nowPlayingStyleProvider.notifier)
+                              .setStyle(style),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? tokens.accent.withOpacity(0.2)
+                                  : Colors.transparent,
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusSm - 2),
+                              border: Border.all(
+                                color: isSelected
+                                    ? tokens.accent
+                                    : Colors.transparent,
+                                width: 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                style.displayName,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? (tokens.isGlass
+                                          ? tokens.accentCyan
+                                          : tokens.accent)
+                                      : tokens.textSecondary,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white10, height: 1),
+                const SizedBox(height: 16),
+
+                // Lyrics Style
+                Row(
+                  children: [
+                    Icon(Icons.format_quote_rounded, color: tokens.accent, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Lyrics Style',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            lyricsStyle.description,
+                            style: TextStyle(
+                              color: tokens.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Row(
+                    children: LyricsStyle.values.map((style) {
+                      final isSelected = lyricsStyle == style;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => ref
+                              .read(lyricsStyleProvider.notifier)
+                              .setStyle(style),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? tokens.accent.withOpacity(0.2)
+                                  : Colors.transparent,
+                              borderRadius:
+                                  BorderRadius.circular(tokens.radiusSm - 2),
+                              border: Border.all(
+                                color: isSelected
+                                    ? tokens.accent
+                                    : Colors.transparent,
+                                width: 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                style.displayName,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? (tokens.isGlass
+                                          ? tokens.accentCyan
+                                          : tokens.accent)
+                                      : tokens.textSecondary,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
                   ],
                 ),
               ],

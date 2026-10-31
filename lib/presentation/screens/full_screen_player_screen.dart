@@ -31,6 +31,8 @@ class FullScreenPlayerScreen extends ConsumerStatefulWidget {
       _FullScreenPlayerScreenState();
 }
 
+enum _AppleMusicTab { main, lyrics, queue }
+
 class _FullScreenPlayerScreenState
     extends ConsumerState<FullScreenPlayerScreen> {
   static final Map<String, Color> _paletteCache = {};
@@ -38,6 +40,7 @@ class _FullScreenPlayerScreenState
   bool _showLyrics = false;
   bool _showTurntable = false;
   bool _isFullScreenLyrics = false;
+  _AppleMusicTab _appleMusicTab = _AppleMusicTab.main;
   Color _ambientColor = const Color(0xFF141A16);
   String? _lastExtractedCoverUrl;
 
@@ -220,6 +223,8 @@ class _FullScreenPlayerScreenState
         (sleepRemaining != null && sleepRemaining > Duration.zero) ||
             isSleepEndOfTrack;
 
+    final nowPlayingStyle = ref.watch(nowPlayingStyleProvider);
+
     final playerScaffold = Scaffold(
       backgroundColor: tokens.isGlass ? Colors.transparent : tokens.background,
       body: TweenAnimationBuilder<Color?>(
@@ -296,8 +301,26 @@ class _FullScreenPlayerScreenState
             ],
           );
         },
-        child: SafeArea(
-          child: Column(
+        child: nowPlayingStyle == NowPlayingStyle.appleMusic
+            ? _buildAppleMusicPlayerLayout(
+                context: context,
+                tokens: tokens,
+                effectiveTrack: effectiveTrack,
+                isPlaying: isPlaying,
+                isBuffering: isBuffering,
+                isPlaceholder: isPlaceholder,
+                isLiked: isLiked,
+                isSleepActive: isSleepActive,
+                isSleepEndOfTrack: isSleepEndOfTrack,
+                sleepRemaining: sleepRemaining,
+                audioHandler: audioHandler,
+                repeatMode: repeatMode,
+                isShuffle: isShuffle,
+                activePlayingTrack: activePlayingTrack,
+                resolvedTrack: resolvedTrack,
+              )
+            : SafeArea(
+                child: Column(
             children: [
               // 1. Top Bar (Dismiss, Album title, Options)
               if (!_isFullScreenLyrics)
@@ -991,6 +1014,544 @@ class _FullScreenPlayerScreenState
       builder: (context) => const FractionallySizedBox(
         heightFactor: 0.75,
         child: QueueBottomSheet(),
+      ),
+    );
+  }
+
+  Widget _buildAppleMusicPlayerLayout({
+    required BuildContext context,
+    required AppTokens tokens,
+    required Track effectiveTrack,
+    required bool isPlaying,
+    required bool isBuffering,
+    required bool isPlaceholder,
+    required bool isLiked,
+    required bool isSleepActive,
+    required bool isSleepEndOfTrack,
+    required Duration? sleepRemaining,
+    required dynamic audioHandler,
+    required AudioRepeatMode repeatMode,
+    required bool isShuffle,
+    required Track? activePlayingTrack,
+    required Track? resolvedTrack,
+  }) {
+    final double volume =
+        ref.watch(volumeStreamProvider).value ?? 1.0;
+
+    Widget centerContent;
+    switch (_appleMusicTab) {
+      case _AppleMusicTab.lyrics:
+        centerContent = Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(tokens.radiusXl),
+            child: LyricsView(
+              key: ValueKey('am_lyrics_${effectiveTrack.id}'),
+              track: effectiveTrack,
+              ambientColor: _ambientColor,
+              isFullScreen: true,
+              onClose: () => setState(() => _appleMusicTab = _AppleMusicTab.main),
+            ),
+          ),
+        );
+        break;
+
+      case _AppleMusicTab.queue:
+        centerContent = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(tokens.radiusXl),
+            child: AppSurface(
+              withBlur: true,
+              color: tokens.card.withValues(alpha: 0.85),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Playing Next',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontDisplay,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        onPressed: () => setState(() => _appleMusicTab = _AppleMusicTab.main),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final queueAsync = ref.watch(queueProvider);
+                        final queue = queueAsync.value ?? [];
+                        if (queue.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'Queue is empty',
+                              style: TextStyle(color: tokens.textSecondary),
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          itemCount: queue.length,
+                          separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                          itemBuilder: (context, i) {
+                            final t = queue[i];
+                            final isCurrent = t.id == effectiveTrack.id;
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: AppNetworkImage(
+                                    imageUrl: t.coverUrl,
+                                    fit: BoxFit.cover,
+                                    placeholderIcon: Icons.music_note_rounded,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                t.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isCurrent ? tokens.accent : Colors.white,
+                                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                t.artist,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+                              ),
+                              trailing: isCurrent
+                                  ? Icon(Icons.equalizer_rounded, color: tokens.accent, size: 20)
+                                  : null,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                audioHandler.skipToQueueItem(i);
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        break;
+
+      case _AppleMusicTab.main:
+      default:
+        centerContent = SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              // Floating Hero Artwork with dynamic ambient shadow
+              Center(
+                child: AspectRatio(
+                  aspectRatio: 1.0,
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 360, maxHeight: 360),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _ambientColor.withValues(alpha: 0.5),
+                          blurRadius: 36,
+                          spreadRadius: 4,
+                          offset: const Offset(0, 16),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: isPlaceholder
+                          ? Container(
+                              color: tokens.surfaceElevated,
+                              child: const Center(
+                                child: Icon(Icons.music_note_rounded, size: 64, color: Colors.white54),
+                              ),
+                            )
+                          : AppNetworkImage(
+                              imageUrl: effectiveTrack.coverUrl,
+                              fit: BoxFit.cover,
+                              cacheWidth: 800,
+                              cacheHeight: 800,
+                              placeholderIcon: Icons.music_note_rounded,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Track metadata & favorite heart
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          effectiveTrack.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.4,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          effectiveTrack.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: tokens.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  BouncingScaleButton(
+                    scaleFactor: 0.88,
+                    onTap: isPlaceholder
+                        ? null
+                        : () {
+                            HapticFeedback.selectionClick();
+                            ref
+                                .read(libraryRepositoryProvider)
+                                .setLiked(effectiveTrack.id, !isLiked, track: effectiveTrack);
+                          },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: tokens.card.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: isLiked ? tokens.accent : Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  BouncingScaleButton(
+                    scaleFactor: 0.88,
+                    onTap: () => TrackOptionsBottomSheet.show(context, track: effectiveTrack),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: tokens.card.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Audio Quality Badge
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'LOSSLESS',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Scrubber
+              _FullScreenPlayerScrubber(
+                fallbackDuration: effectiveTrack.duration,
+                trackId: effectiveTrack.id,
+              ),
+              const SizedBox(height: 12),
+
+              // Apple Music 5-button playback row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.shuffle_rounded,
+                      color: isShuffle ? tokens.accent : Colors.white60,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      audioHandler.setShuffleEnabled(!isShuffle);
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 36),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      audioHandler.skipToPrevious();
+                    },
+                  ),
+                  BouncingScaleButton(
+                    scaleFactor: 0.95,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      if (isPlaying) {
+                        audioHandler.pause();
+                      } else if (activePlayingTrack != null) {
+                        audioHandler.play();
+                      } else if (resolvedTrack != null && !isPlaceholder) {
+                        audioHandler.playTrack(resolvedTrack);
+                      } else {
+                        audioHandler.play();
+                      }
+                    },
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: isBuffering
+                            ? const SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3.0,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                ),
+                              )
+                            : Icon(
+                                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                color: Colors.black,
+                                size: 40,
+                              ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 36),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      audioHandler.skipToNext();
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      repeatMode == AudioRepeatMode.one ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                      color: repeatMode != AudioRepeatMode.off ? tokens.accent : Colors.white60,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      audioHandler.setAudioRepeatMode(repeatMode.next());
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Device Volume Slider Row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.volume_mute_rounded, size: 18, color: tokens.textSecondary),
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 3.5,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                          activeTrackColor: Colors.white.withValues(alpha: 0.9),
+                          inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
+                          thumbColor: Colors.white,
+                        ),
+                        child: Slider(
+                          value: volume.clamp(0.0, 1.0),
+                          onChanged: (v) {
+                            audioHandler.setVolume(v);
+                          },
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.volume_up_rounded, size: 18, color: tokens.textSecondary),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+        break;
+    }
+
+    return SafeArea(
+      child: Column(
+        children: [
+          // Top bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                BouncingScaleButton(
+                  scaleFactor: 0.9,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(Icons.keyboard_arrow_down_rounded, size: 30, color: Colors.white),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    effectiveTrack.album ?? effectiveTrack.artist,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+                if (isSleepActive)
+                  BouncingScaleButton(
+                    scaleFactor: 0.9,
+                    onTap: () => SleepTimerBottomSheet.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: tokens.accent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(tokens.radiusFull),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.bedtime_rounded, color: tokens.accent, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            isSleepEndOfTrack ? 'End' : '${sleepRemaining?.inMinutes ?? 0}m',
+                            style: TextStyle(color: tokens.accent, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 38),
+              ],
+            ),
+          ),
+
+          // Body content
+          Expanded(child: centerContent),
+
+          // Apple Music Bottom Persistent Dock
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 6, 24, 16),
+            child: AppSurface(
+              withBlur: true,
+              blurSigma: 24.0,
+              borderRadius: BorderRadius.circular(28),
+              color: tokens.card.withValues(alpha: 0.70),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 1. Lyrics Dock Button
+                  IconButton(
+                    icon: Icon(
+                      Icons.format_quote_rounded,
+                      color: _appleMusicTab == _AppleMusicTab.lyrics ? tokens.accent : Colors.white70,
+                      size: 24,
+                    ),
+                    tooltip: 'Lyrics',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _appleMusicTab = _appleMusicTab == _AppleMusicTab.lyrics
+                            ? _AppleMusicTab.main
+                            : _AppleMusicTab.lyrics;
+                      });
+                    },
+                  ),
+
+                  // 2. Output / Sleep Timer Dock Button
+                  IconButton(
+                    icon: Icon(
+                      Icons.airplay_rounded,
+                      color: isSleepActive ? tokens.accent : Colors.white70,
+                      size: 22,
+                    ),
+                    tooltip: 'Audio Output & Timer',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      SleepTimerBottomSheet.show(context);
+                    },
+                  ),
+
+                  // 3. Queue Dock Button
+                  IconButton(
+                    icon: Icon(
+                      Icons.queue_music_rounded,
+                      color: _appleMusicTab == _AppleMusicTab.queue ? tokens.accent : Colors.white70,
+                      size: 24,
+                    ),
+                    tooltip: 'Playing Next',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _appleMusicTab = _appleMusicTab == _AppleMusicTab.queue
+                            ? _AppleMusicTab.main
+                            : _AppleMusicTab.queue;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -180,6 +180,158 @@ final isLiquidGlassActiveProvider = Provider<bool>((ref) {
   return isGlassStyle && isLiquidEnabled && !reduceEffects;
 });
 
+/// Now Playing Presentation Style (Classic Spotify vs. Apple Music)
+enum NowPlayingStyle {
+  classic,
+  appleMusic;
+
+  String get displayName {
+    switch (this) {
+      case NowPlayingStyle.classic:
+        return 'Classic';
+      case NowPlayingStyle.appleMusic:
+        return 'Apple Music';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case NowPlayingStyle.classic:
+        return 'Spotify-style vertical column with swipable canvas & mini cards';
+      case NowPlayingStyle.appleMusic:
+        return 'Apple Music dock with full-screen view swapping & volume bar';
+    }
+  }
+}
+
+class NowPlayingStyleNotifier extends StateNotifier<NowPlayingStyle> {
+  final AppDatabase? _db;
+  static const String _key = 'now_playing_style';
+
+  NowPlayingStyleNotifier(this._db) : super(NowPlayingStyle.classic) {
+    if (_db != null) {
+      _loadFromDb();
+    }
+  }
+
+  Future<void> _loadFromDb() async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      final row = await (db.select(db.settings)
+            ..where((t) => t.key.equals(_key)))
+          .getSingleOrNull();
+      if (row != null) {
+        if (row.value == NowPlayingStyle.appleMusic.name) {
+          state = NowPlayingStyle.appleMusic;
+        } else {
+          state = NowPlayingStyle.classic;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setStyle(NowPlayingStyle style) async {
+    if (state == style) return;
+    state = style;
+    final db = _db;
+    if (db == null) return;
+    try {
+      await db.into(db.settings).insertOnConflictUpdate(
+            SettingRow(
+              key: _key,
+              value: style.name,
+            ),
+          );
+    } catch (_) {}
+  }
+}
+
+final nowPlayingStyleProvider =
+    StateNotifierProvider<NowPlayingStyleNotifier, NowPlayingStyle>((ref) {
+  AppDatabase? db;
+  try {
+    db = ref.watch(databaseProvider);
+  } catch (_) {}
+  return NowPlayingStyleNotifier(db);
+});
+
+/// Synchronized Lyrics Presentation Style (Classic vs. Apple Music Depth of Field)
+enum LyricsStyle {
+  classic,
+  appleMusic;
+
+  String get displayName {
+    switch (this) {
+      case LyricsStyle.classic:
+        return 'Classic';
+      case LyricsStyle.appleMusic:
+        return 'Apple Music';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case LyricsStyle.classic:
+        return 'Center-anchored with active line size scaling';
+      case LyricsStyle.appleMusic:
+        return 'Optical depth of field blur, uniform typography & top anchor';
+    }
+  }
+}
+
+class LyricsStyleNotifier extends StateNotifier<LyricsStyle> {
+  final AppDatabase? _db;
+  static const String _key = 'lyrics_style';
+
+  LyricsStyleNotifier(this._db) : super(LyricsStyle.appleMusic) {
+    if (_db != null) {
+      _loadFromDb();
+    }
+  }
+
+  Future<void> _loadFromDb() async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      final row = await (db.select(db.settings)
+            ..where((t) => t.key.equals(_key)))
+          .getSingleOrNull();
+      if (row != null) {
+        if (row.value == LyricsStyle.classic.name) {
+          state = LyricsStyle.classic;
+        } else {
+          state = LyricsStyle.appleMusic;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setStyle(LyricsStyle style) async {
+    if (state == style) return;
+    state = style;
+    final db = _db;
+    if (db == null) return;
+    try {
+      await db.into(db.settings).insertOnConflictUpdate(
+            SettingRow(
+              key: _key,
+              value: style.name,
+            ),
+          );
+    } catch (_) {}
+  }
+}
+
+final lyricsStyleProvider =
+    StateNotifierProvider<LyricsStyleNotifier, LyricsStyle>((ref) {
+  AppDatabase? db;
+  try {
+    db = ref.watch(databaseProvider);
+  } catch (_) {}
+  return LyricsStyleNotifier(db);
+});
+
 /// Auto-detects whether the current device is low-spec or constrained.
 final isLowEndDeviceProvider = Provider<bool>((ref) {
   try {

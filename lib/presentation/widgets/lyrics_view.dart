@@ -12,6 +12,7 @@ import '../../data/database/app_database.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
+import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
 import 'shared/app_surface.dart';
@@ -243,6 +244,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     if (!force && index == _lastScrolledIndex) return;
     _lastScrolledIndex = index;
 
+    final isAppleLyrics = ref.read(lyricsStyleProvider) == LyricsStyle.appleMusic;
+    final scrollAlignment = isAppleLyrics ? 0.16 : 0.35;
+    final scrollDuration = Duration(milliseconds: isAppleLyrics ? 380 : 320);
+
     void performScroll() {
       if (!mounted || (_userIsScrolling && !force) || !_scrollController.hasClients) return;
       final key = _lineKeys[index];
@@ -250,9 +255,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       if (ctx != null) {
         Scrollable.ensureVisible(
           ctx,
-          duration: const Duration(milliseconds: 320),
+          duration: scrollDuration,
           curve: Curves.easeOutCubic,
-          alignment: 0.35, // Focal golden ratio line where active lyrics sit
+          alignment: scrollAlignment,
         );
       } else {
         // Line widget not laid out yet; retry on next post-frame
@@ -262,9 +267,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           if (retryCtx != null) {
             Scrollable.ensureVisible(
               retryCtx,
-              duration: const Duration(milliseconds: 320),
+              duration: scrollDuration,
               curve: Curves.easeOutCubic,
-              alignment: 0.35,
+              alignment: scrollAlignment,
             );
           }
         });
@@ -605,9 +610,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                             child: SingleChildScrollView(
                               key: ValueKey('lyrics_scroll_${widget.track.id}'),
                               controller: _scrollController,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 80,
+                              padding: EdgeInsets.only(
+                                left: 20,
+                                right: 20,
+                                top: ref.watch(lyricsStyleProvider) == LyricsStyle.appleMusic ? 40 : 80,
+                                bottom: ref.watch(lyricsStyleProvider) == LyricsStyle.appleMusic
+                                    ? (MediaQuery.of(context).size.height * 0.65)
+                                    : 80,
                               ),
                               physics: const BouncingScrollPhysics(),
                               child: Column(
@@ -1162,6 +1171,27 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         ? 1.0
         : (0.40 - (distanceFromActive * 0.04)).clamp(0.20, 0.40);
 
+    final lyricsStyle = ref.watch(lyricsStyleProvider);
+    final isAppleLyrics = lyricsStyle == LyricsStyle.appleMusic;
+
+    // Apple Music optical depth of field:
+    // Distance formula from SimpMusic AppleMusicLyricsLines.kt:
+    // Past lines carry +1 distance penalty so they recede faster:
+    final int appleDistance = (index < activeIndex)
+        ? ((activeIndex - index).abs() + 1)
+        : (index - activeIndex);
+
+    final double appleBlur = (activeIndex < 0 || isActive)
+        ? 0.0
+        : (28.0 * (appleDistance * 0.095)).clamp(0.0, 9.5);
+
+    final double appleAlpha = activeIndex < 0
+        ? 0.60
+        : (isActive ? 1.0 : (1.0 - appleDistance * 0.25).clamp(0.25, 0.90));
+
+    final double activeFontSize = isAppleLyrics ? 28.0 : (_lyricFontSize.activeSize * 1.15);
+    final double inactiveFontSize = isAppleLyrics ? 28.0 : _lyricFontSize.inactiveSize;
+
     final lineWidget = Container(
       key: _getKeyForIndex(index),
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -1236,12 +1266,12 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           ? const Duration(milliseconds: 3000)
                           : rawDuration;
 
-                      return AnimatedSlide(
-                        offset: isActive ? Offset.zero : const Offset(-0.02, 0),
+                      Widget lineContent = AnimatedSlide(
+                        offset: isActive ? Offset.zero : (isAppleLyrics ? Offset.zero : const Offset(-0.02, 0)),
                         duration: const Duration(milliseconds: 280),
                         curve: Curves.easeOutCubic,
                         child: AnimatedScale(
-                          scale: isActive ? 1.05 : 1.0,
+                          scale: isAppleLyrics ? 1.0 : (isActive ? 1.05 : 1.0),
                           duration: const Duration(milliseconds: 260),
                           curve: Curves.easeOutBack,
                           child: hasWordLevelTiming
@@ -1249,12 +1279,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                   line: line,
                                   words: line.words!,
                                   isActive: isActive,
-                                  lineOpacity: lineOpacity,
+                                  lineOpacity: isAppleLyrics ? appleAlpha : lineOpacity,
                                   tokens: tokens,
                                   accentColor: accentColor,
                                   alignment: alignment,
                                   textAlign: textAlign,
                                   isDuetV2: isDuetV2,
+                                  isAppleLyrics: isAppleLyrics,
                                 )
                               : _SpicetifyProgressiveLyricsLine(
                                   displayText: displayText,
@@ -1265,11 +1296,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                   alignment: alignment,
                                   activeStyle: TextStyle(
                                     fontFamily: AppTheme.fontUi,
-                                    fontSize: _lyricFontSize.activeSize * 1.15,
+                                    fontSize: activeFontSize,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
-                                    height: 1.45,
-                                    letterSpacing: -0.4,
+                                    height: isAppleLyrics ? 1.25 : 1.45,
+                                    letterSpacing: isAppleLyrics ? -0.5 : -0.4,
                                     shadows: const [
                                       Shadow(
                                         color: Colors.black87,
@@ -1280,13 +1311,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                   ),
                                   inactiveStyle: TextStyle(
                                     fontFamily: AppTheme.fontUi,
-                                    fontSize: _lyricFontSize.inactiveSize,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: inactiveFontSize,
+                                    fontWeight: isAppleLyrics ? FontWeight.w700 : FontWeight.w600,
                                     color: Colors.white.withValues(
-                                      alpha: lineOpacity.clamp(0.25, 0.45),
+                                      alpha: isAppleLyrics ? 0.90 : lineOpacity.clamp(0.25, 0.45),
                                     ),
-                                    height: 1.45,
-                                    letterSpacing: -0.4,
+                                    height: isAppleLyrics ? 1.25 : 1.45,
+                                    letterSpacing: isAppleLyrics ? -0.5 : -0.4,
                                     shadows: const [
                                       Shadow(
                                         color: Colors.black45,
@@ -1298,6 +1329,21 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                 ),
                         ),
                       );
+
+                      if (isAppleLyrics) {
+                        if (appleBlur > 0.1) {
+                          lineContent = ImageFiltered(
+                            imageFilter: ImageFilter.blur(sigmaX: appleBlur, sigmaY: appleBlur),
+                            child: lineContent,
+                          );
+                        }
+                        lineContent = Opacity(
+                          opacity: appleAlpha,
+                          child: lineContent,
+                        );
+                      }
+
+                      return lineContent;
                     }()),
             ),
           ),
@@ -1333,9 +1379,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     required Alignment alignment,
     required TextAlign textAlign,
     required bool isDuetV2,
+    bool isAppleLyrics = false,
   }) {
     final displayText =
         _romanizeLyrics ? RomanizationService.romanize(line.text) : line.text;
+
+    final double activeWordSize = isAppleLyrics ? 28.0 : (_lyricFontSize.activeSize * 1.18);
+    final double inactiveLineSize = isAppleLyrics ? 28.0 : _lyricFontSize.inactiveSize;
+    final Color inactiveWordColor = isAppleLyrics ? const Color(0xFF8E8E8E) : Colors.white.withValues(alpha: 0.38);
 
     if (!isActive) {
       return Text(
@@ -1344,11 +1395,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         style: TextStyle(
           fontFamily: AppTheme.fontUi,
           fontStyle: FontStyle.normal,
-          fontSize: _lyricFontSize.inactiveSize,
-          fontWeight: FontWeight.w600,
-          color: Colors.white.withValues(alpha: lineOpacity.clamp(0.25, 0.45)),
-          height: 1.45,
-          letterSpacing: -0.4,
+          fontSize: inactiveLineSize,
+          fontWeight: isAppleLyrics ? FontWeight.w700 : FontWeight.w600,
+          color: Colors.white.withValues(alpha: isAppleLyrics ? 0.90 : lineOpacity.clamp(0.25, 0.45)),
+          height: isAppleLyrics ? 1.25 : 1.45,
+          letterSpacing: isAppleLyrics ? -0.5 : -0.4,
           shadows: const [
             Shadow(
               color: Colors.black45,
@@ -1415,11 +1466,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       activeStyle: TextStyle(
                         fontFamily: AppTheme.fontUi,
                         fontStyle: FontStyle.normal,
-                        fontSize: _lyricFontSize.activeSize * 1.18,
+                        fontSize: activeWordSize,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
-                        height: 1.45,
-                        letterSpacing: -0.4,
+                        height: isAppleLyrics ? 1.25 : 1.45,
+                        letterSpacing: isAppleLyrics ? -0.5 : -0.4,
                         shadows: const [
                           Shadow(
                             color: Colors.black87,
@@ -1431,11 +1482,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                       inactiveStyle: TextStyle(
                         fontFamily: AppTheme.fontUi,
                         fontStyle: FontStyle.normal,
-                        fontSize: _lyricFontSize.activeSize * 1.18,
+                        fontSize: activeWordSize,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: 0.38),
-                        height: 1.45,
-                        letterSpacing: -0.4,
+                        color: inactiveWordColor,
+                        height: isAppleLyrics ? 1.25 : 1.45,
+                        letterSpacing: isAppleLyrics ? -0.5 : -0.4,
                         shadows: const [
                           Shadow(
                             color: Colors.black54,
