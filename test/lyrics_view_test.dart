@@ -10,6 +10,7 @@ import 'package:softify/domain/entities/track.dart';
 import 'package:softify/domain/ports/i_lyrics_provider.dart';
 import 'package:softify/presentation/providers/player_providers.dart';
 import 'package:softify/presentation/widgets/lyrics_view.dart';
+import 'package:softify/services/lyrics/romanization_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
