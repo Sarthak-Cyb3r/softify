@@ -41,8 +41,15 @@ void main() {
       expect(find.text('Apple Music Style Player'), findsOneWidget);
       expect(find.text('Living Motion Album Artwork'), findsOneWidget);
       expect(find.text('Cinematic Blurred Lyrics'), findsOneWidget);
+
+      // Scroll to verify remaining cards
+      await tester.scrollUntilVisible(find.text('Liquid Glass Interface'), 150);
       expect(find.text('Liquid Glass Interface'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('Smooth & Safe App Updates'), 150);
       expect(find.text('Smooth & Safe App Updates'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('Faster & More Stable'), 150);
       expect(find.text('Faster & More Stable'), findsOneWidget);
 
       // Verify bottom action button

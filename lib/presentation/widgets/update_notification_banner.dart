@@ -147,18 +147,16 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Softify Updated to v${widget.version}! 🎉',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13.5,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            'Softify Updated to v${widget.version}! 🎉',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           const Text(
