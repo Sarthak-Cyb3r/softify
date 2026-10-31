@@ -497,7 +497,7 @@ class _ListenTogetherScreenState extends ConsumerState<ListenTogetherScreen> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => FullScreenPlayerScreen(track: activeTrack),
+                  builder: (_) => const FullScreenPlayerScreen(),
                 ),
               );
             },
