@@ -10,11 +10,11 @@ class UpdateChangelogSheet extends StatelessWidget {
 
   const UpdateChangelogSheet({
     super.key,
-    this.version = '3.0.7',
+    this.version = '3.0.8',
   });
 
   /// Displays the changelog modal sheet.
-  static Future<void> show(BuildContext context, {String version = '3.0.7'}) {
+  static Future<void> show(BuildContext context, {String version = '3.0.8'}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -173,12 +173,39 @@ class UpdateChangelogSheet extends StatelessWidget {
                         children: [
                           _buildChangelogCard(
                             context: context,
+                            icon: Icons.favorite_rounded,
+                            iconColor: const Color(0xFFFF4081),
+                            title: 'Instant Liked Songs',
+                            description:
+                                'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
+                            badge: 'Library',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.group_rounded,
+                            iconColor: const Color(0xFF00E676),
+                            title: 'Listen Together Rooms',
+                            description:
+                                'Listen with friends in synchronized rooms using the open Metrolist wire protocol with precise sub-second clock alignment.',
+                            badge: 'Social',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
                             icon: Icons.music_note_rounded,
                             iconColor: const Color(0xFFFF5252),
                             title: 'Apple Music Style Player',
                             description:
                                 'Choose between Softify Classic and modern Apple Music style player with a floating bottom control dock and handy volume slider.',
                             badge: 'New Style',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.tune_rounded,
+                            iconColor: const Color(0xFF40C4FF),
+                            title: 'Edge-to-Edge Navigation',
+                            description:
+                                'Mood filter chips scroll cleanly with mouse drag support on desktop and full edge-to-edge flow on mobile screens.',
+                            badge: 'UI/UX',
                           ),
                           _buildChangelogCard(
                             context: context,

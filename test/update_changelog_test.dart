@@ -20,7 +20,7 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
-                onPressed: () => UpdateChangelogSheet.show(context, version: '3.0.7'),
+                onPressed: () => UpdateChangelogSheet.show(context, version: '3.0.8'),
                 child: const Text('Open'),
               ),
             ),
@@ -34,10 +34,12 @@ void main() {
 
       // Verify header and badge
       expect(find.text("What's New"), findsOneWidget);
-      expect(find.text('v3.0.7'), findsOneWidget);
+      expect(find.text('v3.0.8'), findsOneWidget);
       expect(find.text('Fresh looks, living artwork & smoother music'), findsOneWidget);
 
       // Verify simple consumer-friendly cards
+      expect(find.text('Instant Liked Songs'), findsOneWidget);
+      expect(find.text('Listen Together Rooms'), findsOneWidget);
       expect(find.text('Apple Music Style Player'), findsOneWidget);
       expect(find.text('Living Motion Album Artwork'), findsOneWidget);
       expect(find.text('Cinematic Blurred Lyrics'), findsOneWidget);

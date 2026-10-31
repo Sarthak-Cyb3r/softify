@@ -13,7 +13,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-All%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Release](https://img.shields.io/badge/Release-v2.9.1--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
+[![Release](https://img.shields.io/badge/Release-v3.0.8--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=for-the-badge)](CODE_OF_CONDUCT.md)
 
@@ -67,7 +67,7 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Android 8.0+)** | `.apk` | 64-bit Android devices • Android 8.0+ | **~19 MB** | [`Softify-v2.9.1-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Android 8.0+)** | `.apk` | 64-bit Android devices • Android 8.0+ | **~19 MB** | [`Softify-v3.0.8-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **Linux (Desktop / CLI Installer)** | Script / Binary | Ubuntu, Debian, Arch, Fedora, openSUSE (x86_64, ARM64) | ~45 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 
@@ -397,6 +397,14 @@ flutter analyze
   - Team-Draft Interleaving & Latency Guardrails (`TeamDraftInterleaver`, `GuardrailRunner`, 54 golden query benchmarks)
   - Semantic Vector Search (`VectorSearchEngine`, cosine similarity, 128-dim subword trigram vector hashing)
   - Core Audio & Stream Engines (`SaavnStreamResolver` 320kbps verification, `HybridStreamResolver`, `YoutubeStreamResolver`, `M4aAtomTagger`, `SoftifyAudioHandler`)
+
+---
+
+## 🤝 Credits & Acknowledgements
+
+- **Metrolist Project**: Architectural patterns, design aesthetics, and the original Listen Together protocol specification (`MetrolistGroup/metroproto`, `MetrolistGroup/metroserver`), licensed under GPL-3.0.
+- **SimpMusic**: Kotlin Multiplatform audio reference and Listen Together protocol client implementation (`org.simpmusic.listentogether`), licensed under GPL-3.0.
+- **Flutter & Community**: The open-source Flutter ecosystem, Riverpod, Drift, and just_audio / media_kit contributors.
 
 ---
 
