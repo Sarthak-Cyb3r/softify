@@ -9,6 +9,9 @@ class LrclibLyricsProvider implements ILyricsProvider {
   final HttpClient _httpClient;
   final Map<String, SyncedLyrics?> _memoryCache = {};
 
+  static const String _userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
   LrclibLyricsProvider({HttpClient? httpClient})
       : _httpClient = httpClient ??
             (HttpClient()
@@ -24,32 +27,46 @@ class LrclibLyricsProvider implements ILyricsProvider {
     try {
       final cleanTitle = SpotifyLyricsSynchronizer.cleanTrackTitle(track.title);
       final cleanArtist = SpotifyLyricsSynchronizer.cleanArtistName(track.artist);
-      final primaryArtist = cleanArtist
-          .split(RegExp(r',|\s+feat\.?|\s+ft\.?', caseSensitive: false))
-          .first
-          .trim();
 
-      // 1. Try exact match with cleaned title & primary artist
-      var result = await _tryExactGet(cleanTitle, primaryArtist, track.duration, track.id);
-      if (result != null) {
-        _memoryCache[track.id] = result;
-        return result;
-      }
+      // Extract title candidates: cleaned title, bare title without brackets/parentheses, dash split
+      final candidateTitles = <String>{
+        cleanTitle,
+        if (cleanTitle.contains(RegExp(r'[\(\[]')))
+          cleanTitle.replaceAll(RegExp(r'\s*[\(\[][^\)\]]*[\)\]]'), '').trim(),
+        if (track.title.contains(' - '))
+          track.title.split(' - ').first.trim(),
+        track.title.trim(),
+      }.where((t) => t.isNotEmpty).toList();
 
-      // 2. Try exact match with cleaned title & full cleaned artist
-      if (cleanArtist.isNotEmpty && cleanArtist != primaryArtist) {
-        result = await _tryExactGet(cleanTitle, cleanArtist, track.duration, track.id);
-        if (result != null) {
-          _memoryCache[track.id] = result;
-          return result;
+      // Extract artist candidates: primary artist, full string, and split individuals
+      final candidateArtists = <String>{
+        cleanArtist.split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?', caseSensitive: false)).first.trim(),
+        cleanArtist,
+        ...cleanArtist
+            .split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?', caseSensitive: false))
+            .map((a) => a.trim())
+            .where((a) => a.isNotEmpty),
+      }.where((a) => a.isNotEmpty).toList();
+
+      // 1. Try exact matches across title and artist combinations
+      for (final t in candidateTitles) {
+        for (final a in candidateArtists) {
+          final result = await _tryExactGet(t, a, track.duration, track.id);
+          if (result != null) {
+            _memoryCache[track.id] = result;
+            return result;
+          }
         }
       }
 
-      // 3. Fallback to smart search with duration-proximity ranking
-      final searchResult = await _searchFallback(track, cleanTitle, primaryArtist);
-      if (searchResult != null) {
-        _memoryCache[track.id] = searchResult;
-        return searchResult;
+      // 2. Fallback to smart search with duration-proximity ranking
+      final primaryArtist = candidateArtists.isNotEmpty ? candidateArtists.first : cleanArtist;
+      for (final t in candidateTitles) {
+        final searchResult = await _searchFallback(track, t, primaryArtist);
+        if (searchResult != null) {
+          _memoryCache[track.id] = searchResult;
+          return searchResult;
+        }
       }
 
       return null;
@@ -94,9 +111,17 @@ class LrclibLyricsProvider implements ILyricsProvider {
     try {
       final uri = Uri.https('lrclib.net', '/api/get', queryParams);
       final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
-      request.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
+      request.headers.set('User-Agent', _userAgent);
 
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      var response = await request.close().timeout(const Duration(seconds: 4));
+      if (response.statusCode == 503) {
+        // Handle transient Cloudflare / LRCLIB ServerOverloaded rate limits
+        await Future.delayed(const Duration(milliseconds: 600));
+        final retryReq = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 3));
+        retryReq.headers.set('User-Agent', _userAgent);
+        response = await retryReq.close().timeout(const Duration(seconds: 3));
+      }
+
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
         final json = jsonDecode(body) as Map<String, dynamic>;
@@ -169,9 +194,15 @@ class LrclibLyricsProvider implements ILyricsProvider {
       for (final query in queries) {
         final uri = Uri.https('lrclib.net', '/api/search', {'q': query});
         final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
-        request.headers.set('User-Agent', 'Softify/1.0 (https://github.com/softify/softify)');
+        request.headers.set('User-Agent', _userAgent);
 
-        final response = await request.close().timeout(const Duration(seconds: 4));
+        var response = await request.close().timeout(const Duration(seconds: 4));
+        if (response.statusCode == 503) {
+          await Future.delayed(const Duration(milliseconds: 600));
+          final retryReq = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 3));
+          retryReq.headers.set('User-Agent', _userAgent);
+          response = await retryReq.close().timeout(const Duration(seconds: 3));
+        }
         if (response.statusCode != 200) continue;
 
         final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 4));
