@@ -761,9 +761,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Album Artwork Showcase
           Center(
             child: Container(
@@ -889,8 +890,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLyricsHeaderSubStrip(Color activeAccent) {
     return Container(
@@ -899,9 +901,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         color: Color(0xFF121316),
         border: Border(bottom: BorderSide(color: Color(0xFF1F1F23), width: 1)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
           Row(
             children: [
               Icon(Icons.graphic_eq_rounded, size: 14, color: activeAccent),
@@ -941,8 +945,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeader(AppTokens tokens, Color activeAccent) {
     return Padding(
