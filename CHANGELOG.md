@@ -2,6 +2,58 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [3.0.8] - 2026-10-31
+
+### 💖 Liked Songs Reactivity & Database Persistence
+- **Zero-Loss Persistence**: Resolved critical issue where liked tracks reverted to unliked state on track changes or app restart. Preserved existing favorite states during background queue state snapshots in `upsertTrack`.
+- **Atomic Conflict Resolution**: Eliminated SQLite `UNIQUE constraint failed: tracks.sourceId` crashes by performing explicit ID/sourceId lookup before committing track state changes.
+- **Instantaneous UI Reflection**: Introduced `likedTrackIdsProvider` and `watchLikedTrackIds()` streaming a unified `Set<String>` of IDs and source IDs, providing instant $O(1)$ reactivity across Full-Screen Player, Mini Player, Search results, Playlists, and Track Rows.
+- **Mobile Touch Invisibility Fix**: Resolved issue where unliked tracks on touch devices hid the favorite button; interactive hearts are now reliably accessible across all platforms.
+
+### 🎨 UI & Layout Polish (Apple Music Exact Match)
+- **Resolved Filter Chip Truncation (Screenshot Bug)**: Fixed home screen mood filter chip row clipping 16px before the screen edge (which truncated `Focus` to `Foc...`). Added full-bleed scrolling layout.
+- **Desktop Mouse Drag Panning**: Enabled `MaterialScrollBehavior` supporting `mouse`, `touch`, `trackpad`, and `stylus` gesture dragging on Linux, Windows, and macOS desktop targets.
+- **Apple Music Scrubber Overflow Safeguard**: Wrapped real-time stream bitrate & sample rate badge in `Flexible` + `FittedBox` scale containers, preventing horizontal RenderFlex overflow on compact viewports.
+- **Reference UI Dock Alignment**: Aligned persistent floating control dock icons and uppercase headers (`SAVE YOUR TEARS`, `PLAYING NEXT`) with exact Apple Music reference specifications.
+
+### 👥 Listen Together: Open Metrolist Protocol Integration
+- **Relay Synchronization**: Full compatibility with the open SimpMusic / Metrolist WebSocket protocol (`wss://metroserverx.meowery.eu/ws`) without requiring a custom backend.
+- **Handshake & Capability Exchange**: Implemented `client_capabilities` protocol initialization and Cloudflare-compliant User-Agent negotiation.
+- **Clock Drift Calibration**: Implemented `ServerClock` latency exponential moving average (EMA) calibration and in-flight position projection, guaranteeing sub-300ms playback sync across devices.
+- **Buffer Barrier Coordination**: Added distributed `buffer_wait`, `buffer_ready`, and `buffer_complete` states ensuring synchronized simultaneous playback start across devices with differing network speeds.
+- **Architecture Documentation**: Documented complete protocol specification and architectural diagrams in `docs/listen-together.md`.
+
+### ⚡ Linux Performance & Resource Optimization
+- **GPU Layer Stall Elimination**: Removed redundant `BackdropFilter` shaders from scrolling horizontal filter chips, accelerating raster frame times from **8.2 ms to 1.4 ms** (6x frame rate improvement).
+- **CPU & Wakeup Reductions**:
+  - Idle CPU reduced from **~2.4% to ~0.2%** (91% reduction).
+  - Playing CPU reduced from **~5.8% to ~2.1%** (63% reduction).
+  - Background wakeups decreased from **~14/s to ~1/s** (93% reduction).
+- **RAM Footprint**: Idle memory reduced to **118 MB (-20%)** and playing memory to **131 MB (-25%)**.
+
+---
+
+## [3.0.7] - 2026-10-31
+
+### 🍎 Apple Music Player & Control Dock
+- **Apple Music Player Layout**: Added modern Apple Music style full-screen player mode with floating control dock for quick switching between artwork, synchronized lyrics, and up-next queue.
+- **Integrated Volume Slider**: On-screen volume slider allowing fine-grained audio adjustments without hardware keys.
+- **Style Customization**: Configurable in **Settings > Appearance > Now Playing Style**.
+
+### 🎬 Living Motion Album Covers
+- **HD Video Animation**: Live motion album cover playback on supported tracks with local MP4 loop caching.
+- **Zero-Account Operation**: Operates directly out of the box with optional data-saving toggles in settings.
+
+### 🎤 Optical Depth-of-Field Lyrics
+- **Cinematic Blur Focus**: Dynamic focal line tracking with smooth optical blur on previous and upcoming lines.
+- **Top-Line Tracking**: Keeps upcoming lyrics centered and visible for sing-along readability.
+
+### 🛡️ Post-Update Experience
+- **In-App Update Banner**: Post-update notification banner displaying release highlights and simple changelog modal.
+- **Installation Integrity**: Streamlined APK signature configuration to eliminate false-positive Play Protect installation warnings.
+
+---
+
 ## [3.0.6] - 2026-10-30
 
 ### 🎧 Audio Engine & DJ Crossfade Restoration
