@@ -188,7 +188,7 @@ class ListenTogetherProtoCodec {
   static List<int> encodeClientCapabilities({
     bool supportsProtobuf = true,
     bool supportsCompression = true,
-    String clientVersion = '3.0.8',
+    String clientVersion = '3.0.9',
   }) {
     final w = ProtoWriter()
       ..writeBool(1, supportsProtobuf)

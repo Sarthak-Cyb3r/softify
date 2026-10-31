@@ -20,7 +20,7 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
-                onPressed: () => UpdateChangelogSheet.show(context, version: '3.0.8'),
+                onPressed: () => UpdateChangelogSheet.show(context, version: '3.0.9'),
                 child: const Text('Open'),
               ),
             ),
@@ -34,7 +34,7 @@ void main() {
 
       // Verify header and badge
       expect(find.text("What's New"), findsOneWidget);
-      expect(find.text('v3.0.8'), findsOneWidget);
+      expect(find.text('v3.0.9'), findsOneWidget);
       expect(find.text('Fresh looks, living artwork & smoother music'), findsOneWidget);
 
       // Verify simple consumer-friendly cards

@@ -363,7 +363,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       final capMsg = ListenTogetherProtoCodec.encodeClientCapabilities(
         supportsProtobuf: true,
         supportsCompression: true,
-        clientVersion: '3.0.8',
+        clientVersion: '3.0.9',
       );
       socket.add(capMsg);
 
@@ -401,7 +401,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     final ws = await WebSocket.connect(
       url,
       headers: {
-        'User-Agent': 'SimpMusic/2.4.0 (com.maxrave.simpmusic; Linux) Softify/3.0.8',
+        'User-Agent': 'SimpMusic/2.4.0 (com.maxrave.simpmusic; Linux) Softify/3.0.9',
       },
     );
     return IoListenTogetherSocket(ws);

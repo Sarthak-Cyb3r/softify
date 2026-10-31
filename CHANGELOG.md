@@ -2,6 +2,24 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [3.0.9] - 2026-10-31
+
+### 🎵 Accurate Audio Matching & Mismatch Prevention
+- **Eliminated Erroneous Track Substitution**: Fixed track resolution where songs with missing catalog entries on JioSaavn (e.g. *Raanjhanaa* from the movie soundtrack) mistakenly matched unrelated tracks (*Tum Tak*) due to shared album/artist tags.
+- **Strict Word Overlap & Vowel Simplification**: Enforced a heavy `-200.0` penalty for zero-word candidate titles and added phonetic vowel simplification (`aa` $\to$ `a`, `ee` $\to$ `e`, `oo` $\to$ `o`) to transparently reconcile cross-platform transliteration differences (*Dildaara* vs *Dildara*) in `SaavnStreamResolver`.
+- **YouTube Music Studio Master Fallback**: Added official record label recognition (`eros`, `eros now`, `eros music`, `think music`) and title word verification in `YoutubeStreamResolver`, ensuring clean fallback to official studio audio.
+
+### 📜 Multi-Provider Lyrics Reliability
+- **LRCLIB Unblocking & Rate-Limit Resilience**: Replaced blocked user-agent header with standard client fingerprint and added exponential backoff retry for transient Cloudflare / LRCLIB HTTP 503 (`ServerOverloaded`) responses.
+- **Multi-Artist & Bare Title Candidate Splitting**: Enabled granular artist splitting across commas, slashes, and featured clauses (`Jaswinder Singh`, `A.R. Rahman`, `Shafqat Amanat Ali`), and bare-title extraction without parenthetical clauses (*Dildaara* from *Dildaara (Stand By Me)*) for instant exact-match lyric retrieval in `LrclibLyricsProvider`.
+- **Phonetic Matching for JioSaavn Lyrics**: Upgraded `SaavnLyricsProvider` with phonetic title matching and fallback resolution for verified lyrics IDs.
+- **Optimized Timeout Orchestration**: Adjusted tier timeouts across `CompositeLyricsProvider` to prevent slow or blocked regional providers from starving verified plain lyrics fallbacks.
+
+### 👥 Listen Together & UI Polish
+- **Real-Time Cross-Device Playback**: Resolved client capability negotiation and relay routing so that track switches and playback commands from mobile instantly play and sync on connected PC/Linux instances.
+- **Lyrics Initial Viewport Alignment**: Opening the Lyrics canvas automatically smoothly scrolls directly to the current playing timestamp line.
+- **Home Screen Mood Chips Reactivity**: Connected home mood chips to live feed providers for immediate genre/mood filtering.
+
 ## [3.0.8] - 2026-10-31
 
 ### 💖 Liked Songs Reactivity & Database Persistence

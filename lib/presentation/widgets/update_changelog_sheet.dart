@@ -10,11 +10,11 @@ class UpdateChangelogSheet extends StatelessWidget {
 
   const UpdateChangelogSheet({
     super.key,
-    this.version = '3.0.8',
+    this.version = '3.0.9',
   });
 
   /// Displays the changelog modal sheet.
-  static Future<void> show(BuildContext context, {String version = '3.0.8'}) {
+  static Future<void> show(BuildContext context, {String version = '3.0.9'}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,

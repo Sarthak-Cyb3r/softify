@@ -770,7 +770,7 @@ void main() {
       final capBytes = ListenTogetherProtoCodec.encodeClientCapabilities(
         supportsProtobuf: true,
         supportsCompression: true,
-        clientVersion: '3.0.8',
+        clientVersion: '3.0.9',
       );
       final decodedCapEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(capBytes));
       expect(decodedCapEnv, isNotNull);
