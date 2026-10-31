@@ -765,6 +765,29 @@ void main() {
       final reqPayload = ListenTogetherProtoCodec.decodeJoinRequest(decodedReqEnv.$2);
       expect(reqPayload['user_id'], equals('user_guest_456'));
       expect(reqPayload['username'], equals('GuestGuy'));
+
+      // Capability handshake wire round-trip
+      final capBytes = ListenTogetherProtoCodec.encodeClientCapabilities(
+        supportsProtobuf: true,
+        supportsCompression: true,
+        clientVersion: '3.0.8',
+      );
+      final decodedCapEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(capBytes));
+      expect(decodedCapEnv, isNotNull);
+      expect(decodedCapEnv!.$1, equals('client_capabilities'));
+
+      final serverCapWriter = ProtoWriter()
+        ..writeBool(1, true)
+        ..writeBool(2, true)
+        ..writeString(3, 'metroserver/1.0.0');
+      final serverCapBytes = ListenTogetherProtoCodec.encodeEnvelope('server_capabilities', serverCapWriter.takeBytes());
+      final decodedServerCapEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(serverCapBytes));
+      expect(decodedServerCapEnv, isNotNull);
+      expect(decodedServerCapEnv!.$1, equals('server_capabilities'));
+      final serverCapPayload = ListenTogetherProtoCodec.decodeServerCapabilities(decodedServerCapEnv.$2);
+      expect(serverCapPayload['supports_protobuf'], isTrue);
+      expect(serverCapPayload['supports_compression'], isTrue);
+      expect(serverCapPayload['server_version'], equals('metroserver/1.0.0'));
     });
   });
 }

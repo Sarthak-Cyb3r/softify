@@ -355,6 +355,14 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       _reconnectAttempts = 0;
       _setConnectionState(SyncConnectionState.connected);
 
+      // Metrolist / SimpMusic protocol capability negotiation: MUST be the first message!
+      final capMsg = ListenTogetherProtoCodec.encodeClientCapabilities(
+        supportsProtobuf: true,
+        supportsCompression: true,
+        clientVersion: '3.0.8',
+      );
+      socket.add(capMsg);
+
       _socketSubscription = socket.stream.listen(
         (data) {
           if (data is List<int>) {
@@ -386,7 +394,12 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
   }
 
   static Future<IListenTogetherSocket> _defaultConnector(String url) async {
-    final ws = await WebSocket.connect(url);
+    final ws = await WebSocket.connect(
+      url,
+      headers: {
+        'User-Agent': 'SimpMusic/2.4.0 (com.maxrave.simpmusic; Linux) Softify/3.0.8',
+      },
+    );
     return IoListenTogetherSocket(ws);
   }
 
@@ -1091,6 +1104,9 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
 
     Map<String, dynamic> payload = {};
     switch (type) {
+      case 'server_capabilities':
+        payload = ListenTogetherProtoCodec.decodeServerCapabilities(payloadBytes);
+        break;
       case 'error':
         payload = ListenTogetherProtoCodec.decodeError(payloadBytes);
         break;

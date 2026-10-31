@@ -185,6 +185,18 @@ class ListenTogetherProtoCodec {
 
   // --- Encoders ---
 
+  static List<int> encodeClientCapabilities({
+    bool supportsProtobuf = true,
+    bool supportsCompression = true,
+    String clientVersion = '3.0.8',
+  }) {
+    final w = ProtoWriter()
+      ..writeBool(1, supportsProtobuf)
+      ..writeBool(2, supportsCompression)
+      ..writeString(3, clientVersion);
+    return encodeEnvelope('client_capabilities', w.takeBytes());
+  }
+
   static List<int> encodeCreateRoom(String username) {
     final w = ProtoWriter()..writeString(1, username);
     return encodeEnvelope('create_room', w.takeBytes());
@@ -275,6 +287,31 @@ class ListenTogetherProtoCodec {
       }
     }
     return {'code': code, 'message': message};
+  }
+
+  static Map<String, dynamic> decodeServerCapabilities(Uint8List payload) {
+    final r = ProtoReader(payload);
+    bool supportsProtobuf = false;
+    bool supportsCompression = false;
+    String serverVersion = '';
+    while (r.hasMore) {
+      final t = r.readTag();
+      if (t == null) break;
+      if (t.$1 == 1) {
+        supportsProtobuf = r.readBool();
+      } else if (t.$1 == 2) {
+        supportsCompression = r.readBool();
+      } else if (t.$1 == 3) {
+        serverVersion = r.readString();
+      } else {
+        r.skipField(t.$2);
+      }
+    }
+    return {
+      'supports_protobuf': supportsProtobuf,
+      'supports_compression': supportsCompression,
+      'server_version': serverVersion,
+    };
   }
 
   static Map<String, dynamic> decodeJoinRequest(Uint8List payload) {
