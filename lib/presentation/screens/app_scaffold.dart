@@ -30,6 +30,8 @@ import '../../domain/ports/i_update_checker.dart';
 import '../providers/device_control_providers.dart';
 import '../../data/services/device_control_service.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
+import '../widgets/update_notification_banner.dart';
+import '../widgets/update_changelog_sheet.dart';
 import 'device_blocked_screen.dart';
 
 /// Centralized application tab icon registry for consistent styling and quick theme swaps
@@ -57,6 +59,35 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   bool _isScreensaverOpen = false;
   Timer? _screensaverIdleTimer;
   int _lastScreensaverResetMs = 0;
+  bool _showUpdateBanner = false;
+
+  Future<void> _checkUpdateBanner() async {
+    try {
+      final db = ref.read(databaseProvider);
+      final row = await (db.select(db.settings)
+            ..where((t) => t.key.equals('last_seen_app_version')))
+          .getSingleOrNull();
+      final lastSeen = row?.value;
+      if (lastSeen != kAppVersion && mounted) {
+        setState(() {
+          _showUpdateBanner = true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _dismissUpdateBanner() {
+    if (!_showUpdateBanner) return;
+    setState(() {
+      _showUpdateBanner = false;
+    });
+    try {
+      final db = ref.read(databaseProvider);
+      db.into(db.settings).insertOnConflictUpdate(
+        const SettingRow(key: 'last_seen_app_version', value: kAppVersion),
+      );
+    } catch (_) {}
+  }
 
   void _resetScreensaverIdleTimerThrottled() {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -168,10 +199,13 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         },
       );
 
-      // 2. Automated background update check & prompt
+      // 2. Post-update Changelog Announcement Banner
+      _checkUpdateBanner();
+
+      // 3. Automated background update check & prompt
       _checkAutoUpdate();
 
-      // 3. Device Fleet Authentication & Access Sync
+      // 4. Device Fleet Authentication & Access Sync
       ref.read(deviceControlProvider.notifier).checkStatus();
     });
   }
@@ -226,6 +260,22 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           ),
           if (pendingNotice != null)
             _buildNoticeBannerModal(context, tokens, pendingNotice),
+          if (_showUpdateBanner)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: UpdateNotificationBanner(
+                  version: kAppVersion,
+                  onReadChangelog: () {
+                    _dismissUpdateBanner();
+                    UpdateChangelogSheet.show(context, version: kAppVersion);
+                  },
+                  onDismiss: _dismissUpdateBanner,
+                ),
+              ),
+            ),
         ],
       ),
     );

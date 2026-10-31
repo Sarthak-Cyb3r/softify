@@ -17,6 +17,7 @@ import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../providers/animated_artwork_provider.dart';
+import '../widgets/update_changelog_sheet.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared/app_surface.dart';
 import '../widgets/shared/aurora_background.dart';
@@ -764,6 +765,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () => UpdateChangelogSheet.show(context, version: currentVersion),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome_rounded, size: 15, color: tokens.accent),
+                        const SizedBox(width: 8),
+                        Text(
+                          'What\'s New in v$currentVersion (Patch Notes)',
+                          style: TextStyle(
+                            color: tokens.accent,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded, size: 15, color: tokens.accent),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
