@@ -370,6 +370,10 @@ class YoutubeStreamResolver implements IStreamResolver {
       'yash raj films',
       'aditya music',
       'lahari music',
+      'eros',
+      'eros now',
+      'eros music',
+      'think music',
     ];
     if (officialLabels.any((label) => candAuthor.contains(label))) {
       score += 50;
@@ -488,6 +492,17 @@ class YoutubeStreamResolver implements IStreamResolver {
         .trim();
     if (cleanTitle.isNotEmpty && candTitle.contains(cleanTitle)) {
       score += 25;
+    }
+
+    // Heavy penalty if candidate title shares zero words with target song title
+    final targetWords = targetTitle
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 2)
+        .toList();
+    if (targetWords.isNotEmpty && !targetWords.any((w) => candTitle.contains(w))) {
+      score -= 300;
     }
 
     // 9. Proximity to official track duration

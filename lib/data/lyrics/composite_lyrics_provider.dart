@@ -75,7 +75,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   Future<SyncedLyrics?> _resolveLyricsWithTimeout(Track track) async {
     try {
       return await _resolveLyrics(track).timeout(
-        const Duration(seconds: 11),
+        const Duration(seconds: 14),
         onTimeout: () => null,
       );
     } catch (_) {
@@ -107,14 +107,14 @@ class CompositeLyricsProvider implements ILyricsProvider {
       if (_paxsenix != null)
         _paxsenix!
             .getLyrics(track)
-            .timeout(const Duration(seconds: 4), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 1500), onTimeout: () => null)
             .catchError((_) => null)
       else
         Future<SyncedLyrics?>.value(null),
       if (_betterLyrics != null)
         _betterLyrics!
             .getLyrics(track)
-            .timeout(const Duration(seconds: 2), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 1200), onTimeout: () => null)
             .catchError((_) => null)
       else
         Future<SyncedLyrics?>.value(null),
@@ -171,7 +171,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     if (_spotify != null) {
       try {
         spotifyResult = await _spotify!.getLyrics(track).timeout(
-              const Duration(seconds: 3),
+              const Duration(milliseconds: 1800),
               onTimeout: () => null,
             );
         if (spotifyResult != null &&
@@ -189,7 +189,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
       final tier3Results = await Future.wait([
         _netease
             .getLyrics(track)
-            .timeout(const Duration(seconds: 3), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 1500), onTimeout: () => null)
             .catchError((_) => null),
         _kugou
             .getLyrics(track)

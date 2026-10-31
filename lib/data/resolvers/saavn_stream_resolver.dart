@@ -130,17 +130,30 @@ class SaavnStreamResolver implements IStreamResolver {
 
       double score = 0.0;
 
+      final cleanSimple = _phoneticSimplify(cleanTitle);
+      final candSimple = _phoneticSimplify(candTitle);
+
       // 1. Title match
-      if (candTitle == cleanTitle) {
+      if (candTitle == cleanTitle || (candSimple.isNotEmpty && candSimple == cleanSimple)) {
         score += 60.0;
-      } else if (candTitle.contains(cleanTitle) || cleanTitle.contains(candTitle)) {
+      } else if (candTitle.contains(cleanTitle) ||
+          cleanTitle.contains(candTitle) ||
+          (candSimple.isNotEmpty &&
+              (candSimple.contains(cleanSimple) || cleanSimple.contains(candSimple)))) {
         score += 45.0;
       } else {
-        final tWords = cleanTitle.split(' ').where((w) => w.length > 2).toSet();
-        final cWords = candTitle.split(' ').where((w) => w.length > 2).toSet();
+        final tWords = cleanSimple.split(' ').where((w) => w.length >= 2).toSet();
+        final cWords = candSimple.split(' ').where((w) => w.length >= 2).toSet();
         if (tWords.isNotEmpty) {
           final inter = tWords.intersection(cWords).length;
-          score += 40.0 * (inter / tWords.length);
+          if (inter == 0) {
+            // Unrelated song title from same soundtrack (e.g. Tum Tak for Raanjhanaa) -> heavy penalty to trigger fallback
+            score -= 200.0;
+          } else {
+            score += 40.0 * (inter / tWords.length);
+          }
+        } else {
+          score -= 200.0;
         }
       }
 
@@ -284,6 +297,15 @@ class SaavnStreamResolver implements IStreamResolver {
         .toLowerCase()
         .replaceAll(RegExp(r'\s*[\(\[].*?[\)\]]'), '')
         .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .trim();
+  }
+
+  static String _phoneticSimplify(String s) {
+    return s
+        .toLowerCase()
+        .replaceAll(RegExp(r'([aeiou])\1+'), r'$1')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 }

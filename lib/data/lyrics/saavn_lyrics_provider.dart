@@ -104,21 +104,30 @@ class SaavnLyricsProvider implements ILyricsProvider {
         final json = jsonDecode(body) as Map<String, dynamic>;
         final results = (json['results'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
 
-        // 1. First pass: Exact or substring title match that has verified lyrics
+        final simpleTarget = _phoneticSimplify(normTarget);
+
+        // 1. First pass: Exact, substring, or phonetic title match that has verified lyrics
         for (final song in results) {
           final candTitle = _normalize((song['title'] ?? song['song'] ?? '').toString());
+          final simpleCand = _phoneticSimplify(candTitle);
           final moreInfo = song['more_info'] as Map<String, dynamic>? ?? {};
           final hasLyrics = moreInfo['has_lyrics'] == 'true' ||
               moreInfo['has_lyrics'] == true ||
               song['has_lyrics'] == 'true' ||
               song['has_lyrics'] == true;
 
-          if (hasLyrics &&
-              (candTitle == normTarget ||
-                  candTitle.contains(normTarget) ||
-                  normTarget.contains(candTitle))) {
-            final pid = moreInfo['lyrics_id']?.toString().isNotEmpty == true
-                ? moreInfo['lyrics_id'].toString()
+          final matches = candTitle == normTarget ||
+              candTitle.contains(normTarget) ||
+              normTarget.contains(candTitle) ||
+              (simpleTarget.isNotEmpty &&
+                  (simpleCand == simpleTarget ||
+                      simpleCand.contains(simpleTarget) ||
+                      simpleTarget.contains(simpleCand)));
+
+          if (hasLyrics && matches) {
+            final lid = moreInfo['lyrics_id']?.toString().trim();
+            final pid = (lid != null && lid.isNotEmpty && lid != 'null')
+                ? lid
                 : song['id']?.toString();
             if (pid != null && pid.isNotEmpty) {
               return pid;
@@ -126,15 +135,23 @@ class SaavnLyricsProvider implements ILyricsProvider {
           }
         }
 
-        // 2. Second pass: Try any title match in search results
+        // 2. Second pass: Try any matching title in search results
         for (final song in results) {
           final candTitle = _normalize((song['title'] ?? song['song'] ?? '').toString());
-          if (candTitle == normTarget ||
+          final simpleCand = _phoneticSimplify(candTitle);
+          final matches = candTitle == normTarget ||
               candTitle.contains(normTarget) ||
-              normTarget.contains(candTitle)) {
+              normTarget.contains(candTitle) ||
+              (simpleTarget.isNotEmpty &&
+                  (simpleCand == simpleTarget ||
+                      simpleCand.contains(simpleTarget) ||
+                      simpleTarget.contains(simpleCand)));
+
+          if (matches) {
             final moreInfo = song['more_info'] as Map<String, dynamic>? ?? {};
-            final pid = moreInfo['lyrics_id']?.toString().isNotEmpty == true
-                ? moreInfo['lyrics_id'].toString()
+            final lid = moreInfo['lyrics_id']?.toString().trim();
+            final pid = (lid != null && lid.isNotEmpty && lid != 'null')
+                ? lid
                 : song['id']?.toString();
             if (pid != null && pid.isNotEmpty) {
               return pid;
@@ -198,6 +215,15 @@ class SaavnLyricsProvider implements ILyricsProvider {
         .toLowerCase()
         .replaceAll(RegExp(r'\s*[\(\[].*?[\)\]]'), '')
         .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .trim();
+  }
+
+  static String _phoneticSimplify(String s) {
+    return s
+        .toLowerCase()
+        .replaceAll(RegExp(r'([aeiou])\1+'), r'$1')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 }
