@@ -88,7 +88,7 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
         artist: 'The Weeknd',
         album: 'After Hours',
         duration: Duration(seconds: 215),
-        coverUrl: 'https://example.com/cover.jpg',
+        coverUrl: null,
       );
 
   @override
@@ -219,7 +219,7 @@ void main() {
                   artist: 'The Weeknd',
                   album: 'After Hours',
                   duration: Duration(seconds: 215),
-                  coverUrl: 'https://example.com/cover.jpg',
+                  coverUrl: null,
                 ),
               ),
             ),
@@ -243,7 +243,7 @@ void main() {
                   artist: 'The Weeknd',
                   album: 'After Hours',
                   duration: Duration(seconds: 215),
-                  coverUrl: 'https://example.com/cover.jpg',
+                  coverUrl: null,
                 ),
                 const Track(
                   id: 'queue_track_1',
@@ -301,7 +301,7 @@ void main() {
                   artist: 'The Weeknd',
                   album: 'After Hours',
                   duration: Duration(seconds: 215),
-                  coverUrl: 'https://example.com/cover.jpg',
+                  coverUrl: null,
                 ),
               ),
             ),
@@ -325,7 +325,7 @@ void main() {
                   artist: 'The Weeknd',
                   album: 'After Hours',
                   duration: Duration(seconds: 215),
-                  coverUrl: 'https://example.com/cover.jpg',
+                  coverUrl: null,
                 ),
                 const Track(
                   id: 'queue_track_1',
@@ -358,7 +358,7 @@ void main() {
       expect(find.text('The Weeknd'), findsWidgets);
 
       // Verifies Lossless audio badge
-      expect(find.text('Lossless'), findsOneWidget);
+      expect(find.text('LOSSLESS'), findsOneWidget);
 
       // Verifies Integrated Volume Bar is present
       expect(find.byType(Slider), findsWidgets);
