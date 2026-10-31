@@ -373,7 +373,7 @@ void main() {
 
       // Verifies Integrated Volume Bar is present
       expect(find.byType(Slider), findsWidgets);
-      expect(find.byIcon(Icons.volume_mute_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.volume_down_rounded), findsOneWidget);
       expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
 
       // Verifies Apple Music Persistent Dock buttons
