@@ -8,7 +8,9 @@ import '../../data/database/app_database.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
+import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
+import '../providers/settings_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_tokens.dart';
@@ -285,6 +287,7 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
       milliseconds: (position.inMilliseconds + _syncOffsetMs).clamp(0, 9999999),
     );
     final reduceEffects = ref.watch(shouldReduceEffectsProvider);
+    final romanizeEnabled = ref.watch(lyricsRomanizeProvider);
 
     return Stack(
       children: [
@@ -326,7 +329,9 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                       vertical: 32,
                     ),
                     child: Text(
-                      lyrics.plainLyrics!,
+                      romanizeEnabled
+                          ? RomanizationService.romanize(lyrics.plainLyrics!)
+                          : lyrics.plainLyrics!,
                       style: const TextStyle(
                         fontFamily: AppTheme.fontDisplay,
                         fontSize: 22,
@@ -394,8 +399,12 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                     fontWeight = FontWeight.w700;
                   }
 
+                  final lineText = romanizeEnabled
+                      ? RomanizationService.romanize(line.text)
+                      : line.text;
+
                   Widget textWidget = Text(
-                    line.text,
+                    lineText,
                     style: TextStyle(
                       fontFamily: AppTheme.fontDisplay,
                       fontSize: fontSize,
@@ -433,35 +442,61 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
           ),
         ),
 
-        // Floating Action Buttons on Right (Screenshot 1: Clock, Share, Expand)
+        // Floating Action Buttons on Right (Screenshot 1: Romanize, Clock, Share, Expand)
         Positioned(
           right: 16,
           bottom: 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. Clock / Sync Calibration Button
+              // 1. Romanization Toggle Button (Transliterate to English Latin alphabet)
+              _floatingGlassButton(
+                icon: Icons.translate_rounded,
+                isActive: romanizeEnabled,
+                badgeText: romanizeEnabled ? 'EN' : null,
+                tooltip: romanizeEnabled ? 'Romanization ON (English)' : 'Romanize to English',
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  ref.read(lyricsRomanizeProvider.notifier).toggle();
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        !romanizeEnabled
+                            ? 'Lyrics Romanization (English) enabled'
+                            : 'Original script restored',
+                      ),
+                      duration: const Duration(milliseconds: 900),
+                      backgroundColor: const Color(0xFF16161B),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // 2. Clock / Sync Calibration Button
               _floatingGlassButton(
                 icon: Icons.access_time_rounded,
                 onTap: () => _showOffsetDialog(context),
               ),
               const SizedBox(height: 12),
 
-              // 2. Share Active Lyric Button
+              // 3. Share Active Lyric Button
               _floatingGlassButton(
                 icon: Icons.share_rounded,
                 onTap: () {
                   final lines = lyricsAsync.valueOrNull?.lines;
                   String? activeText;
                   if (lines != null && _lastActiveIndex >= 0 && _lastActiveIndex < lines.length) {
-                    activeText = lines[_lastActiveIndex].text;
+                    final raw = lines[_lastActiveIndex].text;
+                    activeText = romanizeEnabled ? RomanizationService.romanize(raw) : raw;
                   }
                   _shareActiveLyric(activeText);
                 },
               ),
               const SizedBox(height: 12),
 
-              // 3. Fullscreen / Expand Button
+              // 4. Fullscreen / Expand Button
               _floatingGlassButton(
                 icon: Icons.open_in_full_rounded,
                 onTap: () {
@@ -479,8 +514,11 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
   Widget _floatingGlassButton({
     required IconData icon,
     required VoidCallback onTap,
+    bool isActive = false,
+    String? badgeText,
+    String? tooltip,
   }) {
-    return BouncingScaleButton(
+    Widget button = BouncingScaleButton(
       scaleFactor: 0.90,
       onTap: onTap,
       child: ClipRRect(
@@ -491,19 +529,45 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.20),
+              color: isActive
+                  ? const Color(0xFFED5564).withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.20),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-                width: 0.8,
+                color: isActive
+                    ? const Color(0xFFED5564)
+                    : Colors.white.withValues(alpha: 0.18),
+                width: isActive ? 1.4 : 0.8,
               ),
             ),
             child: Center(
-              child: Icon(icon, color: Colors.white, size: 20),
+              child: badgeText != null
+                  ? Text(
+                      badgeText,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontUi,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: isActive ? Colors.white : Colors.white70,
+                      ),
+                    )
+                  : Icon(
+                      icon,
+                      color: isActive ? Colors.white : Colors.white,
+                      size: 20,
+                    ),
             ),
           ),
         ),
       ),
     );
+
+    if (tooltip != null) {
+      button = Tooltip(
+        message: tooltip,
+        child: button,
+      );
+    }
+    return button;
   }
 }

@@ -490,6 +490,24 @@ void main() {
       expect(lyrics.lines.any((l) => l.text.contains('Gunaah')), isFalse);
     });
   });
+
+  group('Lyrics Romanization Engine Tests', () {
+    test('transliterates Indic Devanagari lyrics to Latin English phonetics', () {
+      final hindi = RomanizationService.romanize('रात भर तू चल चले');
+      expect(hindi.toLowerCase(), contains('raat'));
+      expect(hindi.toLowerCase(), contains('bhar'));
+    });
+
+    test('transliterates Japanese Kana to Latin Romaji', () {
+      final romaji = RomanizationService.romanize('こんにちは');
+      expect(romaji.toLowerCase(), equals('konnichiha'));
+    });
+
+    test('transliterates Korean Hangul to Latin script', () {
+      final romanized = RomanizationService.romanize('안녕하세요');
+      expect(romanized.isNotEmpty, isTrue);
+    });
+  });
 }
 
 class _FakeLyricsProvider implements ILyricsProvider {

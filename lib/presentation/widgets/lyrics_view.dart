@@ -13,6 +13,7 @@ import '../../data/database/app_database.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
+import '../providers/settings_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
@@ -206,14 +207,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
 
   void _toggleRomanize() {
     HapticFeedback.selectionClick();
-    final nextVal = !_romanizeLyrics;
-    setState(() => _romanizeLyrics = nextVal);
-    try {
-      final db = ref.read(databaseProvider);
-      db.into(db.settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(key: 'lyrics_romanize', value: nextVal.toString()),
-      );
-    } catch (_) {}
+    ref.read(lyricsRomanizeProvider.notifier).toggle();
   }
 
   @override
@@ -314,6 +308,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    _romanizeLyrics = ref.watch(lyricsRomanizeProvider);
     final lyricsAsync = ref.watch(trackLyricsProvider(widget.track));
     final lyricsData = lyricsAsync.valueOrNull;
 
@@ -1036,35 +1031,40 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           ),
                           const SizedBox(width: 6),
                           // Interactive Romanize Transliteration Badge
-                          BouncingScaleButton(
-                            scaleFactor: 0.92,
-                            onTap: _toggleRomanize,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _romanizeLyrics
-                                    ? activeAccent.withValues(alpha: 0.28)
-                                    : const Color(0xFF222222),
-                                borderRadius: BorderRadius.circular(tokens.radiusSm),
-                                border: Border.all(
-                                  color: _romanizeLyrics
-                                      ? activeAccent
-                                      : const Color(0xFF1F1F1F),
-                                  width: 0.9,
+                          Tooltip(
+                            message: _romanizeLyrics
+                                ? 'Romanized lyrics (English transliteration) ON'
+                                : 'Romanize non-English lyrics to English alphabet',
+                            child: BouncingScaleButton(
+                              scaleFactor: 0.92,
+                              onTap: _toggleRomanize,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2.5,
                                 ),
-                              ),
-                              child: Text(
-                                _romanizeLyrics ? 'ROM' : 'ORIG',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
+                                decoration: BoxDecoration(
                                   color: _romanizeLyrics
-                                      ? activeAccent
-                                      : tokens.textSecondary,
-                                  fontFamily: AppTheme.fontUi,
+                                      ? activeAccent.withValues(alpha: 0.28)
+                                      : const Color(0xFF222222),
+                                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                  border: Border.all(
+                                    color: _romanizeLyrics
+                                        ? activeAccent
+                                        : const Color(0xFF1F1F1F),
+                                    width: 0.9,
+                                  ),
+                                ),
+                                child: Text(
+                                  _romanizeLyrics ? 'ROM' : 'ORIG',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: _romanizeLyrics
+                                        ? activeAccent
+                                        : tokens.textSecondary,
+                                    fontFamily: AppTheme.fontUi,
+                                  ),
                                 ),
                               ),
                             ),

@@ -115,11 +115,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     surface: Color(0xFF16161A), // Quiet graphite surface
     surfaceElevated: Color(0xFF1C1C22),
     surfaceHighlight: Color(0xFF24242B),
-    card: Color(0x0FFFFFFF), // 6.2% translucent white glass
-    cardHover: Color(0x18FFFFFF), // 9.5% white glass hover
-    glass: Color(0x0DFFFFFF), // 5% translucent white
-    glassSurface: Color(0x12FFFFFF), // 7% translucent white surface
-    glassBorder: Color(0x1AFFFFFF), // 10% crisp hairline border
+    card: Color(0x6616161C), // 40% translucent obsidian graphite glass
+    cardHover: Color(0x8022222A), // 50% graphite glass hover
+    glass: Color(0x4016161C), // Translucent charcoal glass
+    glassSurface: Color(0xCC141418), // 80% deep obsidian glass surface
+    glassBorder: Color(0x1FFFFFFF), // 12% crisp hairline highlight border
     accent: Color(0xFFED5564), // Metrolist Coral Red
     accentViolet: Color(0xFFB388FF),
     accentCyan: Color(0xFF60A5FA),
@@ -189,19 +189,19 @@ class AppTokens extends ThemeExtension<AppTokens> {
           ? const Color(0xFF24242B)
           : scheme.surfaceContainerHighest,
       card: effectiveIsGlass
-          ? const Color(0x0FFFFFFF)
+          ? const Color(0x6616161C)
           : scheme.surfaceContainer,
       cardHover: effectiveIsGlass
-          ? const Color(0x18FFFFFF)
+          ? const Color(0x8022222A)
           : scheme.surfaceContainerHigh,
       glass: effectiveIsGlass
-          ? const Color(0x0DFFFFFF)
+          ? const Color(0x4016161C)
           : scheme.surfaceContainer.withValues(alpha: 0.85),
       glassSurface: effectiveIsGlass
-          ? const Color(0x12FFFFFF)
+          ? const Color(0xCC141418)
           : scheme.surfaceContainer.withValues(alpha: 0.5),
       glassBorder: effectiveIsGlass
-          ? const Color(0x1AFFFFFF)
+          ? const Color(0x1FFFFFFF)
           : scheme.outlineVariant.withValues(alpha: 0.25),
       accent: scheme.primary,
       accentRose: scheme.primary,

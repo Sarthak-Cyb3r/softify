@@ -143,7 +143,9 @@ class MiniPlayer extends ConsumerWidget {
           blurSigma: 16.0,
           interactive: true,
           pressedScale: 1.04,
-          color: tokens.card.withValues(alpha: 0.94),
+          color: tokens.isGlass
+              ? const Color(0xE6141418)
+              : tokens.card,
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.08),
             width: 1.0,

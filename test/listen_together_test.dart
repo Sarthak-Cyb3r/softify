@@ -789,5 +789,47 @@ void main() {
       expect(serverCapPayload['supports_compression'], isTrue);
       expect(serverCapPayload['server_version'], equals('metroserver/1.0.0'));
     });
+
+    test('Collaborative playbackAction change_track updates room track and triggers sync', () async {
+      final mockSocket = MockListenTogetherSocket();
+      final service = ListenTogetherService();
+      await service.connect(
+        url: 'wss://test',
+        connector: (_) async => mockSocket,
+      );
+
+      service.handleIncomingMessage(
+        const ListenTogetherMessage(
+          type: MessageTypes.roomCreated,
+          payload: {'room_code': 'U4QZZCJG', 'user_id': 'host_id'},
+        ).toJsonString(),
+      );
+
+      const dildaaraTrack = SyncTrackInfo(
+        id: 'yt_dildaara',
+        title: 'Dildaara (Stand By Me)',
+        artist: 'Vishal-Shekhar, Shafqat Amanat Ali',
+        durationMs: 250000,
+        thumbnailUrl: 'https://i.ytimg.com/vi/dildaara/hqdefault.jpg',
+      );
+
+      // Incoming change_track action from a participant
+      mockSocket.deliverFromServer(
+        ListenTogetherMessage(
+          type: MessageTypes.syncPlayback,
+          payload: const PlaybackActionPayload(
+            action: PlaybackActions.changeTrack,
+            trackId: 'yt_dildaara',
+            trackInfo: dildaaraTrack,
+            positionMs: 0,
+            revision: 5,
+          ).toJson(),
+        ).toJsonString(),
+      );
+
+      expect(service.currentRoom?.currentTrack?.id, equals('yt_dildaara'));
+      expect(service.currentRoom?.currentTrack?.title, equals('Dildaara (Stand By Me)'));
+      await service.disconnect();
+    });
   });
 }

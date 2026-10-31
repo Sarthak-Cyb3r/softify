@@ -11,12 +11,19 @@ All notable changes to the Softify project are documented in this file.
 - **Mobile Touch Invisibility Fix**: Resolved issue where unliked tracks on touch devices hid the favorite button; interactive hearts are now reliably accessible across all platforms.
 
 ### 🎨 UI & Layout Polish (Apple Music Exact Match)
+- **Eliminated White Washout (The "Weird White Thing")**: Fixed an issue where `AppSurface` and `mini_player.dart` applied 65%/94% opacity onto pure white glass tokens, causing cards in Settings and the Home mini player to appear milky white. Restored rich, dark obsidian glass (`Color(0xCC141418)` / `Color(0x6616161C)`) with crisp hairline borders and authentic backdrop blur.
 - **Resolved Filter Chip Truncation (Screenshot Bug)**: Fixed home screen mood filter chip row clipping 16px before the screen edge (which truncated `Focus` to `Foc...`). Added full-bleed scrolling layout.
 - **Desktop Mouse Drag Panning**: Enabled `MaterialScrollBehavior` supporting `mouse`, `touch`, `trackpad`, and `stylus` gesture dragging on Linux, Windows, and macOS desktop targets.
 - **Apple Music Scrubber Overflow Safeguard**: Wrapped real-time stream bitrate & sample rate badge in `Flexible` + `FittedBox` scale containers, preventing horizontal RenderFlex overflow on compact viewports.
 - **Reference UI Dock Alignment**: Aligned persistent floating control dock icons and uppercase headers (`SAVE YOUR TEARS`, `PLAYING NEXT`) with exact Apple Music reference specifications.
 
+### 🔤 Synced Lyrics Romanization (English Transliteration)
+- **Interactive Romanize Toggle in Player**: Added an instant Romanization button (`Icons.translate_rounded` / `EN` badge) directly in the Apple Music floating lyrics dock and karaoke header.
+- **Client-Side Multilingual Transliteration**: Integrates deterministic on-device romanization for Devanagari (Hindi, Marathi, Nepali, Sanskrit), Gurmukhi (Punjabi), Japanese (Romaji), Korean (Hangul), Chinese (Pinyin), and Cyrillic (Russian, Ukrainian) without network latency.
+- **Persistent State Synchronization**: Reactively synchronizes user romanization preferences across `AppleMusicLyricsCanvas`, `LyricsView`, player preview teasers, and Settings via `lyricsRomanizeProvider`.
+
 ### 👥 Listen Together: Open Metrolist Protocol Integration
+- **Cross-Device Collaborative Playback**: Resolved critical issue where track changes on one device (e.g., mobile starting `Dildaara`) failed to play on connected peers (e.g., PC). Added binary protobuf routing for both `playback_action` and `sync_playback`, removed host-only outgoing filter so guests can control playback, and ensured both host and guests automatically resolve, stream, and sync incoming track updates without loopbacks.
 - **Relay Synchronization**: Full compatibility with the open SimpMusic / Metrolist WebSocket protocol (`wss://metroserverx.meowery.eu/ws`) without requiring a custom backend.
 - **Handshake & Capability Exchange**: Implemented `client_capabilities` protocol initialization and Cloudflare-compliant User-Agent negotiation.
 - **Clock Drift Calibration**: Implemented `ServerClock` latency exponential moving average (EMA) calibration and in-flight position projection, guaranteeing sub-300ms playback sync across devices.

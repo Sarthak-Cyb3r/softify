@@ -100,9 +100,9 @@ class AppSurface extends ConsumerWidget {
               child: Container(
                 padding: padding,
                 decoration: BoxDecoration(
-                  color: (color ?? tokens.glassSurface).withValues(alpha: tokens.isGlass ? 0.65 : 1.0),
+                  color: color ?? tokens.glassSurface,
                   borderRadius: radius,
-                  border: border,
+                  border: border ?? Border.all(color: tokens.glassBorder, width: 1.0),
                 ),
                 child: child,
               ),
@@ -119,9 +119,9 @@ class AppSurface extends ConsumerWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        color: (color ?? tokens.glassSurface).withValues(alpha: tokens.isGlass ? 0.65 : 1.0),
+        color: color ?? tokens.glassSurface,
         borderRadius: radius,
-        border: border,
+        border: border ?? Border.all(color: tokens.glassBorder, width: 1.0),
         boxShadow: boxShadow,
       ),
       clipBehavior: clipBehavior,

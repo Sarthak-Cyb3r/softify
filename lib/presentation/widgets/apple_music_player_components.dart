@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../domain/entities/track.dart';
+import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
+import '../providers/settings_providers.dart';
 import '../screens/listen_together_screen.dart';
 import '../theme/app_theme.dart';
 import 'audiophile_quality_badge.dart';
@@ -218,6 +220,7 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lyricsAsync = ref.watch(trackLyricsProvider(track));
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
+    final romanizeEnabled = ref.watch(lyricsRomanizeProvider);
     final lyrics = lyricsAsync.valueOrNull;
 
     String? currentLine;
@@ -230,6 +233,9 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
         currentLine = lyrics.lines[activeIdx].text;
       } else {
         currentLine = lyrics.lines.first.text;
+      }
+      if (romanizeEnabled && currentLine.isNotEmpty) {
+        currentLine = RomanizationService.romanize(currentLine);
       }
     }
 

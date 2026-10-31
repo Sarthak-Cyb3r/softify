@@ -467,3 +467,51 @@ final screensaverConfigProvider =
   return ScreensaverConfigNotifier(db);
 });
 
+// ==========================================
+// 9. Lyrics Romanization (English Transliteration)
+// ==========================================
+
+class LyricsRomanizeNotifier extends StateNotifier<bool> {
+  final AppDatabase _db;
+
+  LyricsRomanizeNotifier(this._db) : super(false) {
+    _loadFromDb();
+  }
+
+  Future<void> _loadFromDb() async {
+    try {
+      final row = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals('lyrics_romanize')))
+          .getSingleOrNull();
+      if (row != null) {
+        state = row.value == 'true' || row.value == '1';
+      }
+    } catch (_) {}
+  }
+
+  Future<void> toggle() async {
+    final next = !state;
+    state = next;
+    try {
+      await _db.into(_db.settings).insertOnConflictUpdate(
+            SettingRow(key: 'lyrics_romanize', value: next ? 'true' : 'false'),
+          );
+    } catch (_) {}
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = enabled;
+    try {
+      await _db.into(_db.settings).insertOnConflictUpdate(
+            SettingRow(key: 'lyrics_romanize', value: enabled ? 'true' : 'false'),
+          );
+    } catch (_) {}
+  }
+}
+
+final lyricsRomanizeProvider =
+    StateNotifierProvider<LyricsRomanizeNotifier, bool>((ref) {
+  final db = ref.watch(databaseProvider);
+  return LyricsRomanizeNotifier(db);
+});
+

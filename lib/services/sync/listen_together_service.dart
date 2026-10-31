@@ -182,31 +182,36 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
   }
 
   final ServerClock serverClock;
+  bool _isSyncingFromRemote = false;
 
   @override
   void onHostTrackChanged(Track track) {
-    if (isHost && isInRoom) {
+    if (_isSyncingFromRemote) return;
+    if (isInRoom) {
       broadcastTrackChange(SyncTrackInfo.fromTrack(track));
     }
   }
 
   @override
   void onHostPlay(Duration position) {
-    if (isHost && isInRoom) {
+    if (_isSyncingFromRemote) return;
+    if (isInRoom) {
       broadcastPlay(positionMs: position.inMilliseconds);
     }
   }
 
   @override
   void onHostPause(Duration position) {
-    if (isHost && isInRoom) {
+    if (_isSyncingFromRemote) return;
+    if (isInRoom) {
       broadcastPause(positionMs: position.inMilliseconds);
     }
   }
 
   @override
   void onHostSeek(Duration position) {
-    if (isHost && isInRoom) {
+    if (_isSyncingFromRemote) return;
+    if (isInRoom) {
       broadcastSeek(position.inMilliseconds);
     }
   }
@@ -814,8 +819,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
 
     void startAudio() {
       final curTrack = _currentRoom?.currentTrack;
-      if (isGuest && curTrack != null && audioHandler?.currentTrack?.id != curTrack.id) {
-        unawaited(_syncGuestToTrack(curTrack, isPlaying: true, positionMs: payload.positionMs));
+      if (curTrack != null && audioHandler?.currentTrack?.id != curTrack.id) {
+        unawaited(_syncToRemoteTrack(curTrack, isPlaying: true, positionMs: payload.positionMs));
       } else {
         audioHandler?.seek(Duration(milliseconds: payload.positionMs));
         audioHandler?.play();
@@ -1020,7 +1025,16 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     required bool isPlaying,
     int positionMs = 0,
   }) async {
-    if (!isGuest || audioHandler == null) return;
+    return _syncToRemoteTrack(trackInfo, isPlaying: isPlaying, positionMs: positionMs);
+  }
+
+  Future<void> _syncToRemoteTrack(
+    SyncTrackInfo trackInfo, {
+    required bool isPlaying,
+    int positionMs = 0,
+  }) async {
+    if (audioHandler == null) return;
+    _isSyncingFromRemote = true;
     try {
       final currentLocalTrack = audioHandler!.currentTrack;
       if (currentLocalTrack?.id != trackInfo.id) {
@@ -1052,7 +1066,10 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isSyncingFromRemote = false;
+    }
   }
 
   void suggestTrack(SyncTrackInfo track, {String? reason}) {
@@ -1132,7 +1149,11 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         payload = ListenTogetherProtoCodec.decodePong(payloadBytes);
         break;
       case 'sync_playback':
+      case 'playback_action':
         payload = ListenTogetherProtoCodec.decodePlaybackAction(payloadBytes);
+        break;
+      case 'sync_state':
+        payload = ListenTogetherProtoCodec.decodeRoomState(payloadBytes);
         break;
       default:
         break;
@@ -1307,6 +1328,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
         break;
 
       case MessageTypes.syncPlayback:
+      case MessageTypes.playbackAction:
         final action = PlaybackActionPayload.fromJson(msg.payload);
         _handlePlaybackSync(action);
         break;
@@ -1357,13 +1379,14 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
               revision: syncState.revision,
             ));
           }
-          if (isGuest && syncState.currentTrack != null) {
-            unawaited(_syncGuestToTrack(
+          if (syncState.currentTrack != null &&
+              audioHandler?.currentTrack?.id != syncState.currentTrack!.id) {
+            unawaited(_syncToRemoteTrack(
               syncState.currentTrack!,
               isPlaying: effectivePlaying,
               positionMs: syncState.positionMs,
             ));
-          } else if (isGuest) {
+          } else if (audioHandler != null) {
             if (effectivePlaying) {
               audioHandler?.play();
             } else {
@@ -1409,10 +1432,9 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     switch (action.action) {
       case PlaybackActions.play:
         _lastRoomPlaying = true;
-        if (isGuest &&
-            action.trackInfo != null &&
+        if (action.trackInfo != null &&
             audioHandler?.currentTrack?.id != action.trackInfo!.id) {
-          unawaited(_syncGuestToTrack(action.trackInfo!,
+          unawaited(_syncToRemoteTrack(action.trackInfo!,
               isPlaying: true, positionMs: action.positionMs ?? 0));
         } else {
           audioHandler?.play();
@@ -1459,8 +1481,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
               },
             });
           }
-          if (isGuest) {
-            unawaited(_syncGuestToTrack(
+          if (audioHandler?.currentTrack?.id != action.trackInfo!.id) {
+            unawaited(_syncToRemoteTrack(
               action.trackInfo!,
               isPlaying: effectivePlaying,
               positionMs: action.positionMs ?? 0,

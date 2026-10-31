@@ -249,6 +249,7 @@ class ListenTogetherProtoCodec {
     Map<String, dynamic>? trackInfo,
     int? serverTime,
     int? revision,
+    String envelopeType = 'playback_action',
   }) {
     final w = ProtoWriter();
     w.writeString(1, action);
@@ -260,13 +261,19 @@ class ListenTogetherProtoCodec {
       tw.writeString(2, trackInfo['title'] ?? '');
       tw.writeString(3, trackInfo['artist'] ?? '');
       tw.writeString(4, trackInfo['album'] ?? '');
-      tw.writeInt64(5, trackInfo['duration'] ?? 0);
-      tw.writeString(6, trackInfo['thumbnail'] ?? '');
+      tw.writeInt64(5, trackInfo['duration'] ?? trackInfo['duration_ms'] ?? trackInfo['durationMs'] ?? 0);
+      tw.writeString(6, trackInfo['thumbnail'] ?? trackInfo['thumbnail_url'] ?? trackInfo['thumbnailUrl'] ?? '');
       w.writeBytes(4, tw.takeBytes());
     }
-    if (serverTime != null) w.writeInt64(9, serverTime);
-    if (revision != null) w.writeInt64(10, revision);
-    return encodeEnvelope('sync_playback', w.takeBytes());
+    if (serverTime != null) {
+      w.writeInt64(5, serverTime);
+      w.writeInt64(9, serverTime);
+    }
+    if (revision != null) {
+      w.writeInt64(6, revision);
+      w.writeInt64(10, revision);
+    }
+    return encodeEnvelope(envelopeType, w.takeBytes());
   }
 
   // --- Decoders ---
@@ -562,8 +569,8 @@ class ListenTogetherProtoCodec {
       else if (t.$1 == 2) trackId = r.readString();
       else if (t.$1 == 3) position = r.readInt64();
       else if (t.$1 == 4) trackInfo = decodeTrackInfo(r.readBytes());
-      else if (t.$1 == 9) serverTime = r.readInt64();
-      else if (t.$1 == 10) revision = r.readInt64();
+      else if (t.$1 == 5 || t.$1 == 9) serverTime = r.readInt64();
+      else if (t.$1 == 6 || t.$1 == 10) revision = r.readInt64();
       else r.skipField(t.$2);
     }
 

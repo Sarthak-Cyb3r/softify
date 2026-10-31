@@ -428,19 +428,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 2: Lyrics & Synchronization
           _buildSectionHeader('Lyrics & Synchronization'),
           _buildCard(
-            child: ListTile(
-              leading: Icon(
-                Icons.mic_rounded,
-                color: tokens.accent,
-              ),
-              title: const Text(
-                'Synchronized Lyrics Engine',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                'LRCLIB & Synchronized Catalogs (Active - Millisecond Calibrated)',
-                style: TextStyle(color: tokens.textSecondary, fontSize: 13),
-              ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(
+                    Icons.mic_rounded,
+                    color: tokens.accent,
+                  ),
+                  title: const Text(
+                    'Synchronized Lyrics Engine',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'LRCLIB & Synchronized Catalogs (Active - Millisecond Calibrated)',
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                  ),
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final romanizeEnabled = ref.watch(lyricsRomanizeProvider);
+                    return SwitchListTile(
+                      activeColor: tokens.accent,
+                      secondary: Icon(
+                        Icons.translate_rounded,
+                        color: romanizeEnabled ? tokens.accent : tokens.textSecondary,
+                      ),
+                      title: const Text(
+                        'Romanize Non-English Lyrics',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        'Transliterate Devanagari, Japanese, Korean, Chinese, Cyrillic lyrics into English Latin alphabet',
+                        style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                      ),
+                      value: romanizeEnabled,
+                      onChanged: (val) {
+                        ref.read(lyricsRomanizeProvider.notifier).setEnabled(val);
+                      },
+                    );
+                  },
+                ),
+              ],
             ),
           ),
 
