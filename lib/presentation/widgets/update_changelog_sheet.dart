@@ -64,6 +64,32 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       highlightTag: 'Engine',
     ),
     _ChangelogItem(
+      title: 'Multi-Provider Lyrics Engine',
+      description:
+          'Lyrics now fetch across multiple global sources with multi-artist and subtitle extraction, providing rich synced karaoke lines and zero empty lyric screens.',
+      category: 'Lyrics',
+      icon: Icons.subtitles_rounded,
+      iconColor: Color(0xFFFFB74D),
+      highlightTag: 'Synced',
+    ),
+    _ChangelogItem(
+      title: 'Listen Together Rooms',
+      description:
+          'Track switches, scrubbing, and playback stay precisely in sync across mobile and desktop devices in shared listening rooms with sub-second clock alignment.',
+      category: 'Social',
+      icon: Icons.group_rounded,
+      iconColor: Color(0xFF00E676),
+      highlightTag: 'Real-time',
+    ),
+    _ChangelogItem(
+      title: 'Instant Liked Songs',
+      description:
+          'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
+      category: 'Audio',
+      icon: Icons.favorite_rounded,
+      iconColor: Color(0xFFFF4081),
+    ),
+    _ChangelogItem(
       title: 'Apple Music Style Player',
       description:
           'Switch seamlessly between Softify Classic and modern Apple Music style player with a floating bottom control dock, repeat toggle, and fluid volume slider.',
@@ -82,38 +108,12 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       highlightTag: 'Living Art',
     ),
     _ChangelogItem(
-      title: 'Multi-Provider Lyrics Engine',
-      description:
-          'Lyrics now fetch across multiple global sources with multi-artist and subtitle extraction, providing rich synced karaoke lines and zero empty lyric screens.',
-      category: 'Lyrics',
-      icon: Icons.subtitles_rounded,
-      iconColor: Color(0xFFFFB74D),
-      highlightTag: 'Synced',
-    ),
-    _ChangelogItem(
       title: 'Cinematic Blurred Lyrics',
       description:
           'Active lyric lines stay sharp in the spotlight while past and upcoming lines gently soften with a natural optical depth blur.',
       category: 'Lyrics',
       icon: Icons.blur_circular_rounded,
       iconColor: Color(0xFFFF9100),
-    ),
-    _ChangelogItem(
-      title: 'Listen Together Rooms',
-      description:
-          'Track switches, scrubbing, and playback stay precisely in sync across mobile and desktop devices in shared listening rooms with sub-second clock alignment.',
-      category: 'Social',
-      icon: Icons.group_rounded,
-      iconColor: Color(0xFF00E676),
-      highlightTag: 'Real-time',
-    ),
-    _ChangelogItem(
-      title: 'Instant Liked Songs',
-      description:
-          'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
-      category: 'Audio',
-      icon: Icons.favorite_rounded,
-      iconColor: Color(0xFFFF4081),
     ),
     _ChangelogItem(
       title: 'Liquid Glass Interface',
