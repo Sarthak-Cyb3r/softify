@@ -13,7 +13,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-All%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Release](https://img.shields.io/badge/Release-v3.0.9--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
+[![Release](https://img.shields.io/badge/Release-v4.0.0--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=for-the-badge)](CODE_OF_CONDUCT.md)
 
@@ -67,9 +67,10 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Android 8.0+)** | `.apk` | 64-bit Android devices • Android 8.0+ | **~19 MB** | [`Softify-v3.0.9-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Android 8.0+)** | `.apk` | Universal APK (ARM64, ARMv7, x86_64) • Android 8.0+ | **~29.3 MB** | [`Softify-v4.0.0-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Linux (Desktop x64)** | `.tar.gz` | Standalone binary bundle (Ubuntu, Debian, Arch, Fedora) | **~15.1 MB** | [`Softify-Linux-x64.tar.gz`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Linux (CLI Installer)** | Script | Terminal installer with automated desktop integration | < 1 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
-| **Linux (Desktop / CLI Installer)** | Script / Binary | Ubuntu, Debian, Arch, Fedora, openSUSE (x86_64, ARM64) | ~45 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 
 ### 🐧 Linux Installation (Terminal-Based):
 Softify provides a native, low-memory-conscious terminal installer with automatic package manager detection, desktop integration (`.desktop`, icons), and hardware-aware build throttling.
@@ -97,9 +98,9 @@ To update Softify on Linux to the latest version, simply run the one-line instal
 curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash
 ```
 
-To update or pin to a specific release tag (e.g. `v2.9.1`):
+To update or pin to a specific release tag (e.g. `v4.0.0`):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v2.9.1 bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v4.0.0 bash
 ```
 
 If you installed from a local git repository:
@@ -121,7 +122,7 @@ git pull
 | `Ctrl` + `,` | Open Settings Screen |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v2.9.1-Android.apk`** (~19 MB) from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v4.0.0-Android.apk`** (~29.3 MB) from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
@@ -228,9 +229,9 @@ If your device is running a TrollStore-compatible iOS version:
 
 ---
 
-## 🧠 Softify v2.0 On-Device Intelligence & Recommendation Engine
+## 🧠 On-Device Intelligence & Recommendation Engine
 
-Softify v2.0 introduces a state-of-the-art, **100% client-side, zero-telemetry** recommendation and search intelligence engine running entirely on local SQLite/Drift tables without any remote machine learning servers:
+Softify features a state-of-the-art, **100% client-side, zero-telemetry** recommendation and search intelligence engine running entirely on local SQLite/Drift tables without any remote machine learning servers:
 
 ### 1. ⚡ Local-First Instant Search & FTS5 Retrieval (S1, S2, S3)
 - **Sub-100ms Latency Budget**: Instant debounced search (120ms debounce) that prioritizes local results before blending remote catalog hits.
@@ -397,6 +398,12 @@ flutter analyze
   - Team-Draft Interleaving & Latency Guardrails (`TeamDraftInterleaver`, `GuardrailRunner`, 54 golden query benchmarks)
   - Semantic Vector Search (`VectorSearchEngine`, cosine similarity, 128-dim subword trigram vector hashing)
   - Core Audio & Stream Engines (`SaavnStreamResolver` 320kbps verification, `HybridStreamResolver`, `YoutubeStreamResolver`, `M4aAtomTagger`, `SoftifyAudioHandler`)
+
+---
+
+## 📜 Release Notes & Changelog
+
+All release notes, historical changelogs, and upgrade highlights are preserved in [CHANGELOG.md](CHANGELOG.md) and on [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases).
 
 ---
 

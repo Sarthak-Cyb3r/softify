@@ -57,7 +57,7 @@ print_banner() {
   ███████║╚██████╔╝██║        ██║   ██║██║        ██║   
   ╚══════╝ ╚═════╝ ╚═╝        ╚═╝   ╚═╝╚═╝        ╚═╝   
 EOF
-    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v2.0.8-stable${COLOR_RESET}\n"
+    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v4.0.0-stable${COLOR_RESET}\n"
     printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Fast Local-First UI${COLOR_RESET}\n\n"
 }
 
@@ -458,7 +458,7 @@ if [[ -z "$BUNDLE_DIR" ]]; then
         BUNDLE_DIR="${TARGET_REPO}/build/linux/x64/release/bundle"
     else
         log_error "No pre-built Linux release package found on GitHub Releases yet."
-        log_info "GitHub Actions is currently building and publishing the official v2.0.0 Linux assets."
+        log_info "Check https://github.com/${GITHUB_REPO}/releases for official Linux assets."
         log_info "To compile from source manually:"
         log_info "  git clone https://github.com/${GITHUB_REPO}.git"
         log_info "  cd softify && ./install.sh --build"
