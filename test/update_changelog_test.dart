@@ -41,6 +41,8 @@ void main() {
       expect(find.text('Accurate Audio Matching'), findsOneWidget);
       expect(find.text('Multi-Provider Lyrics Engine'), findsOneWidget);
       expect(find.text('Listen Together Rooms'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('Instant Liked Songs'), 150);
       expect(find.text('Instant Liked Songs'), findsOneWidget);
 
       // Scroll to verify remaining cards
