@@ -108,7 +108,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       highlightTag: 'Real-time',
     ),
     _ChangelogItem(
-      title: 'Instant Liked Songs & Sync',
+      title: 'Instant Liked Songs',
       description:
           'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
       category: 'Audio',
@@ -116,7 +116,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       iconColor: Color(0xFFFF4081),
     ),
     _ChangelogItem(
-      title: 'Liquid Glass Interface 2.0',
+      title: 'Liquid Glass Interface',
       description:
           'Enjoy an eye-catching frosted-glass design featuring glossy highlights, directional reflections, and fluid bento layouts.',
       category: 'UI/UX',
@@ -124,7 +124,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       iconColor: Color(0xFFB388FF),
     ),
     _ChangelogItem(
-      title: 'Smooth & Safe In-App Updates',
+      title: 'Smooth & Safe App Updates',
       description:
           'Optimized GitHub releases updater with safe APK staging and signature verification for zero-friction background updates.',
       category: 'System',
@@ -132,7 +132,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       iconColor: Color(0xFF69F0AE),
     ),
     _ChangelogItem(
-      title: 'Faster & Battery Efficient',
+      title: 'Faster & More Stable',
       description:
           'Smoother audio crossfades, faster search caching, reduced CPU overhead, and overall stability enhancements.',
       category: 'System',
@@ -288,7 +288,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  'Living artwork, Apple Music player & synced lyrics',
+                                  'Fresh looks, living artwork & smoother music',
                                   style: TextStyle(
                                     color: tokens.textSecondary,
                                     fontSize: 12.5,

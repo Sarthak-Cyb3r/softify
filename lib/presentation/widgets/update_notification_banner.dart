@@ -211,7 +211,7 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
                               children: [
                                 Flexible(
                                   child: Text(
-                                    'Softify Updated to v${widget.version}',
+                                    'Softify Updated to v${widget.version}! 🎉',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
@@ -247,7 +247,7 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Living covers, Apple Music style & synced lyrics',
+                              'Explore Apple Music player, motion covers & more.',
                               style: TextStyle(
                                 color: tokens.textSecondary,
                                 fontSize: 11.5,
@@ -290,7 +290,7 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'What\'s New',
+                                'Read Changelog',
                                 style: TextStyle(
                                   color: Color(0xFF09140E),
                                   fontWeight: FontWeight.w700,
