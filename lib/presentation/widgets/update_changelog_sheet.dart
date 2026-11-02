@@ -1,32 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
-import 'bouncing_scale_button.dart';
-
-/// Data model representing a changelog item in the update showcase.
-class _ChangelogItem {
-  final String title;
-  final String description;
-  final String category;
-  final IconData icon;
-  final Color iconColor;
-  final String? highlightTag;
-
-  const _ChangelogItem({
-    required this.title,
-    required this.description,
-    required this.category,
-    required this.icon,
-    required this.iconColor,
-    this.highlightTag,
-  });
-}
 
 /// Consumer-friendly update changelog modal sheet.
-/// Designed with Apple Music / Liquid Glass aesthetics, frosted glass cards,
-/// and tactile bouncing animations.
+/// Explains new features and enhancements in simple, easy-to-understand language
+/// while using Apple Music / Liquid Glass aesthetics.
 class UpdateChangelogSheet extends StatelessWidget {
   final String version;
 
@@ -46,164 +25,71 @@ class UpdateChangelogSheet extends StatelessWidget {
     );
   }
 
-  static const List<_ChangelogItem> _items = [
-    _ChangelogItem(
-      title: 'Accurate Audio Matching',
-      description:
-          'Track matching is now powered by strict phonetics, subtitle parsing, and song-title integrity checks — eliminating incorrect cover versions on movie soundtracks.',
-      category: 'Audio Engine',
-      icon: Icons.graphic_eq_rounded,
-      iconColor: Color(0xFF4EDEA3),
-      highlightTag: 'Audio Engine',
-    ),
-    _ChangelogItem(
-      title: 'Multi-Provider Lyrics Engine',
-      description:
-          'Lyrics now fetch across multiple global sources with multi-artist and subtitle extraction, providing rich synced karaoke lines and zero empty lyric screens.',
-      category: 'Lyrics',
-      icon: Icons.subtitles_rounded,
-      iconColor: Color(0xFFFFB74D),
-      highlightTag: 'Lyrics',
-    ),
-    _ChangelogItem(
-      title: 'Listen Together Rooms',
-      description:
-          'Track switches, scrubbing, and playback stay precisely in sync across mobile and desktop devices in shared listening rooms with sub-second clock alignment.',
-      category: 'Social',
-      icon: Icons.group_rounded,
-      iconColor: Color(0xFF00E676),
-      highlightTag: 'Social',
-    ),
-    _ChangelogItem(
-      title: 'Instant Liked Songs',
-      description:
-          'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
-      category: 'Library',
-      icon: Icons.favorite_rounded,
-      iconColor: Color(0xFFFF4081),
-      highlightTag: 'Library',
-    ),
-    _ChangelogItem(
-      title: 'Apple Music Style Player',
-      description:
-          'Switch seamlessly between Softify Classic and modern Apple Music style player with a floating bottom control dock, repeat toggle, and fluid volume slider.',
-      category: 'New Style',
-      icon: Icons.music_note_rounded,
-      iconColor: Color(0xFFFF375F),
-      highlightTag: 'New Style',
-    ),
-    _ChangelogItem(
-      title: 'Living Motion Album Artwork',
-      description:
-          'Album covers now come alive with high-definition video motion artwork extracted straight from music catalogs that loop seamlessly while you listen.',
-      category: 'Visuals',
-      icon: Icons.movie_filter_rounded,
-      iconColor: Color(0xFF40C4FF),
-      highlightTag: 'Visuals',
-    ),
-    _ChangelogItem(
-      title: 'Cinematic Blurred Lyrics',
-      description:
-          'Active lyric lines stay sharp in the spotlight while past and upcoming lines gently soften with a natural optical depth blur.',
-      category: 'Lyrics',
-      icon: Icons.blur_circular_rounded,
-      iconColor: Color(0xFFFF9100),
-      highlightTag: 'Lyrics',
-    ),
-    _ChangelogItem(
-      title: 'Liquid Glass Interface',
-      description:
-          'Enjoy an eye-catching frosted-glass design featuring glossy highlights, directional reflections, and fluid bento layouts.',
-      category: 'Theme',
-      icon: Icons.blur_on_rounded,
-      iconColor: Color(0xFFB388FF),
-      highlightTag: 'Theme',
-    ),
-    _ChangelogItem(
-      title: 'Smooth & Safe App Updates',
-      description:
-          'Optimized GitHub releases updater with safe APK staging and signature verification for zero-friction background updates.',
-      category: 'Reliability',
-      icon: Icons.verified_user_rounded,
-      iconColor: Color(0xFF69F0AE),
-      highlightTag: 'Reliability',
-    ),
-    _ChangelogItem(
-      title: 'Faster & More Stable',
-      description:
-          'Smoother audio crossfades, faster search caching, reduced CPU overhead, and overall stability enhancements.',
-      category: 'Performance',
-      icon: Icons.bolt_rounded,
-      iconColor: Color(0xFFFFD54F),
-      highlightTag: 'Performance',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final accent = tokens.accent;
     final mediaQuery = MediaQuery.of(context);
-    final maxHeight = mediaQuery.size.height * 0.90;
+    final maxHeight = mediaQuery.size.height * 0.88;
 
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 620,
+          maxWidth: 640,
           maxHeight: maxHeight,
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: tokens.isGlass ? const Color(0xF0121714) : tokens.surfaceElevated,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            color: tokens.isGlass ? const Color(0xE8121614) : tokens.card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border.all(
-              color: accent.withValues(alpha: 0.35),
-              width: 1.2,
+              color: tokens.isGlass ? accent.withValues(alpha: 0.35) : const Color(0x22FFFFFF),
+              width: 1,
             ),
             boxShadow: [
               const BoxShadow(
-                color: Color(0x99000000),
-                blurRadius: 36,
-                offset: Offset(0, -8),
+                color: Color(0x66000000),
+                blurRadius: 28,
+                offset: Offset(0, -6),
               ),
               BoxShadow(
                 color: accent.withValues(alpha: 0.12),
-                blurRadius: 24,
+                blurRadius: 20,
                 spreadRadius: -4,
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: SafeArea(
                 top: false,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Top Drag Pill
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Center(
                       child: Container(
                         width: 44,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.28),
+                          color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
                     // Header Section
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Row(
                         children: [
                           Container(
-                            width: 46,
-                            height: 46,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
@@ -218,17 +104,17 @@ class UpdateChangelogSheet extends StatelessWidget {
                                 BoxShadow(
                                   color: accent.withValues(alpha: 0.35),
                                   blurRadius: 14,
-                                  offset: const Offset(0, 3),
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
                             child: const Icon(
                               Icons.auto_awesome_rounded,
-                              color: Color(0xFF08120D),
-                              size: 24,
+                              color: Color(0xFF0A120E),
+                              size: 26,
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,15 +132,12 @@ class UpdateChangelogSheet extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 2.5,
-                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: accent.withValues(alpha: 0.18),
+                                        color: accent.withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
-                                          color: accent.withValues(alpha: 0.4),
+                                          color: accent.withValues(alpha: 0.45),
                                           width: 0.8,
                                         ),
                                       ),
@@ -263,8 +146,7 @@ class UpdateChangelogSheet extends StatelessWidget {
                                         style: TextStyle(
                                           color: accent,
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.2,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
@@ -282,19 +164,7 @@ class UpdateChangelogSheet extends StatelessWidget {
                             ),
                           ),
                           IconButton(
-                            icon: Container(
-                              width: 30,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.08),
-                              ),
-                              child: const Icon(
-                                Icons.close_rounded,
-                                color: Colors.white70,
-                                size: 16,
-                              ),
-                            ),
+                            icon: const Icon(Icons.close_rounded, color: Colors.white70),
                             onPressed: () => Navigator.of(context).pop(),
                             tooltip: 'Close',
                           ),
@@ -302,84 +172,141 @@ class UpdateChangelogSheet extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
-                    Divider(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      height: 1,
-                    ),
+                    const SizedBox(height: 14),
+                    const Divider(color: Color(0x1FFFFFFF), height: 1),
 
                     // Scrollable Items List
                     Flexible(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-                        itemCount: _items.length,
-                        itemBuilder: (context, index) {
-                          return _buildChangelogCard(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        children: [
+                          _buildChangelogCard(
                             context: context,
-                            item: _items[index],
-                          );
-                        },
+                            icon: Icons.graphic_eq_rounded,
+                            iconColor: const Color(0xFF4EDEA3),
+                            title: 'Accurate Audio Matching',
+                            description:
+                                'Song titles are now verified with strict word matching and phonetic transliteration, completely eliminating incorrect track substitutions on movie soundtracks.',
+                            badge: 'Audio Engine',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.subtitles_rounded,
+                            iconColor: const Color(0xFFFFB74D),
+                            title: 'Multi-Provider Lyrics Engine',
+                            description:
+                                'Lyrics now load reliably across multiple global catalogs with multi-artist and subtitle extraction, eliminating blank lyric screens.',
+                            badge: 'Lyrics',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.group_rounded,
+                            iconColor: const Color(0xFF00E676),
+                            title: 'Listen Together Rooms',
+                            description:
+                                'Track switches and playback now sync smoothly across mobile and desktop devices in shared rooms with precise sub-second clock alignment.',
+                            badge: 'Social',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.favorite_rounded,
+                            iconColor: const Color(0xFFFF4081),
+                            title: 'Instant Liked Songs',
+                            description:
+                                'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
+                            badge: 'Library',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.music_note_rounded,
+                            iconColor: const Color(0xFFFF5252),
+                            title: 'Apple Music Style Player',
+                            description:
+                                'Choose between Softify Classic and modern Apple Music style player with a floating bottom control dock, repeat toggle, and handy volume slider.',
+                            badge: 'New Style',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.tune_rounded,
+                            iconColor: const Color(0xFF40C4FF),
+                            title: 'Edge-to-Edge Navigation',
+                            description:
+                                'Mood filter chips scroll cleanly with mouse drag support on desktop and full edge-to-edge flow on mobile screens.',
+                            badge: 'UI/UX',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.movie_filter_rounded,
+                            iconColor: const Color(0xFF4EDEA3),
+                            title: 'Living Motion Album Artwork',
+                            description:
+                                'Album covers now come alive with smooth, high-definition video artwork that loops seamlessly while you listen — no login needed.',
+                            badge: 'Visuals',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.subtitles_rounded,
+                            iconColor: const Color(0xFFFFB74D),
+                            title: 'Cinematic Blurred Lyrics',
+                            description:
+                                'Active lyric lines stay sharp in the spotlight while past and upcoming lines gently soften with a natural optical blur.',
+                            badge: 'Lyrics',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.blur_on_rounded,
+                            iconColor: const Color(0xFF40C4FF),
+                            title: 'Liquid Glass Interface',
+                            description:
+                                'Enjoy an eye-catching frosted-glass design featuring glossy highlights and ambient reflections in the Aurora Glass theme.',
+                            badge: 'Theme',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.verified_user_rounded,
+                            iconColor: const Color(0xFF69F0AE),
+                            title: 'Smooth & Safe App Updates',
+                            description:
+                                'Fixed Play Protect warnings and streamlined background updates so staying on the latest version is completely hassle-free.',
+                            badge: 'Reliability',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.bolt_rounded,
+                            iconColor: const Color(0xFFFFD54F),
+                            title: 'Faster & More Stable',
+                            description:
+                                'Smoother audio crossfades, faster search responses, reduced battery usage, and overall playback improvements.',
+                            badge: 'Performance',
+                          ),
+                        ],
                       ),
                     ),
 
-                    // Bottom Action Button
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: BouncingScaleButton(
-                        scaleDown: 0.97,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.of(context).pop();
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                accent,
-                                Color.lerp(accent, Colors.white, 0.12) ?? accent,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                    // Bottom Dismiss Button
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: const Color(0xFF09140E),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: accent.withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
                           ),
-                          alignment: Alignment.center,
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.play_arrow_rounded,
-                                color: Color(0xFF09140E),
-                                size: 20,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                'Got It, Let\'s Play!',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF09140E),
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ],
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            'Got It, Let\'s Play!',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
                           ),
                         ),
                       ),
@@ -396,20 +323,20 @@ class UpdateChangelogSheet extends StatelessWidget {
 
   Widget _buildChangelogCard({
     required BuildContext context,
-    required _ChangelogItem item,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required String badge,
   }) {
-    final tokens = context.tokens;
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: tokens.isGlass
-            ? const Color(0x10FFFFFF)
-            : tokens.card.withValues(alpha: 0.65),
+        color: const Color(0x0FFFFFFF),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: item.iconColor.withValues(alpha: 0.22),
+          color: const Color(0x14FFFFFF),
           width: 0.8,
         ),
       ),
@@ -420,27 +347,16 @@ class UpdateChangelogSheet extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  item.iconColor.withValues(alpha: 0.25),
-                  item.iconColor.withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: iconColor.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: item.iconColor.withValues(alpha: 0.35),
-                width: 1,
-              ),
             ),
             child: Icon(
-              item.icon,
-              color: item.iconColor,
+              icon,
+              color: iconColor,
               size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,44 +365,37 @@ class UpdateChangelogSheet extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        item.title,
+                        title,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: item.iconColor.withValues(alpha: 0.16),
+                        color: iconColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: item.iconColor.withValues(alpha: 0.3),
-                          width: 0.8,
-                        ),
                       ),
                       child: Text(
-                        item.highlightTag ?? item.category,
+                        badge,
                         style: TextStyle(
-                          color: item.iconColor,
-                          fontSize: 9.5,
+                          color: iconColor,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
-                  item.description,
+                  description,
                   style: const TextStyle(
-                    color: Color(0xFFC8D5CD),
-                    fontSize: 12,
+                    color: Color(0xFFBAC5BE),
+                    fontSize: 12.5,
                     height: 1.35,
                   ),
                 ),

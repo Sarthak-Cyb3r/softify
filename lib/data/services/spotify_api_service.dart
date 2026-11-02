@@ -403,6 +403,17 @@ class SpotifyApiService {
     }
   }
 
+  /// Fetches global trending / popular tracks for recommendation cold start.
+  Future<List<Track>> getTrendingTracks({int limit = 20}) async {
+    try {
+      final tracks = await _fetchPlaylistTracks('37i9dQZEVXbMDoHDwVN2tF');
+      if (tracks.isNotEmpty) {
+        return tracks.take(limit).toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
   Future<List<Track>> _fetchPlaylistTracks(String playlistId) async {
     try {
       final embedUri = Uri.parse('https://open.spotify.com/embed/playlist/$playlistId');

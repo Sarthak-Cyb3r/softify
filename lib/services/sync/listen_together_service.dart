@@ -1078,7 +1078,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           final query = '${track.title} ${track.artist}'.trim();
           if (query.isNotEmpty) {
             try {
-              final results = await KeylessYouTubeCatalog.search(query);
+              final results = await KeylessYouTubeCatalog().search(query);
               if (results.isNotEmpty) {
                 await audioHandler!.playTrack(results.first);
               }
