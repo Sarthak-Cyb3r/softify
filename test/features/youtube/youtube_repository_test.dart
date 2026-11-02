@@ -127,5 +127,26 @@ void main() {
       expect(stream.url.toString(), contains('videoplayback'));
       expect(stream.providerName, contains('innertube_android'));
     });
+
+    test('YtmTrackCandidate maps to Track domain entity accurately', () {
+      const candidate = YtmTrackCandidate(
+        videoId: '5U5Ru0nTiUM',
+        title: 'Tere Liye',
+        artist: 'Atif Aslam, Shreya Ghoshal',
+        album: 'Prince',
+        duration: Duration(seconds: 280),
+        coverUrl: 'https://yt3.googleusercontent.com/test=w544-h544-l90-rj',
+      );
+
+      final track = candidate.toTrack();
+      expect(track.id, 'ytm_5U5Ru0nTiUM');
+      expect(track.sourceId, 'ytm_5U5Ru0nTiUM');
+      expect(track.title, 'Tere Liye');
+      expect(track.artist, 'Atif Aslam, Shreya Ghoshal');
+      expect(track.album, 'Prince');
+      expect(track.duration.inSeconds, 280);
+      expect(track.coverUrl, contains('w544-h544'));
+      expect(track.matchConfidence, 1.0);
+    });
   });
 }

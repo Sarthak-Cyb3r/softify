@@ -48,25 +48,38 @@ class LrclibLyricsProvider implements ILyricsProvider {
             .where((a) => a.isNotEmpty),
       }.where((a) => a.isNotEmpty).toList();
 
-      // 1. Try exact matches across title and artist combinations
-      for (final t in candidateTitles) {
-        for (final a in candidateArtists) {
+      SyncedLyrics? plainCandidate;
+
+      // 1. Try exact matches across primary title and artist combinations (capped to top 2 to avoid flood)
+      for (final t in candidateTitles.take(2)) {
+        for (final a in candidateArtists.take(2)) {
           final result = await _tryExactGet(t, a, track.duration, track.id);
           if (result != null) {
-            _memoryCache[track.id] = result;
-            return result;
+            if (result.isSynced && result.lines.isNotEmpty) {
+              _memoryCache[track.id] = result;
+              return result;
+            }
+            plainCandidate ??= result;
           }
         }
       }
 
-      // 2. Fallback to smart search with duration-proximity ranking
+      // 2. Fallback to smart search with duration-proximity ranking to resolve synced LRC
       final primaryArtist = candidateArtists.isNotEmpty ? candidateArtists.first : cleanArtist;
       for (final t in candidateTitles) {
         final searchResult = await _searchFallback(track, t, primaryArtist);
         if (searchResult != null) {
-          _memoryCache[track.id] = searchResult;
-          return searchResult;
+          if (searchResult.isSynced && searchResult.lines.isNotEmpty) {
+            _memoryCache[track.id] = searchResult;
+            return searchResult;
+          }
+          plainCandidate ??= searchResult;
         }
+      }
+
+      if (plainCandidate != null) {
+        _memoryCache[track.id] = plainCandidate;
+        return plainCandidate;
       }
 
       return null;

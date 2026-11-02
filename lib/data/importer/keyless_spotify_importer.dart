@@ -880,7 +880,15 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     }
 
     if (bestCandidate != null && highestScore >= 0.50) {
-      return bestCandidate.copyWith(matchConfidence: highestScore);
+      final finalCover = (bestCandidate.coverUrl != null &&
+              bestCandidate.coverUrl!.isNotEmpty &&
+              !bestCandidate.coverUrl!.contains('hqdefault'))
+          ? bestCandidate.coverUrl
+          : (spotifyTrack.coverUrl ?? bestCandidate.coverUrl);
+      return bestCandidate.copyWith(
+        coverUrl: finalCover,
+        matchConfidence: highestScore,
+      );
     }
 
     return null;
@@ -929,11 +937,40 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         score += 0.15;
       } else if (diff <= 30) {
         score += 0.10;
-      } else if (diff > 60) {
-        score -= 0.15;
+      } else if (diff > 50) {
+        score -= 0.35;
+      } else if (diff > 35) {
+        score -= 0.20;
       }
     } else {
       score += 0.10;
+    }
+
+    // Penalize variant mismatch (remix, unplugged, cover, lofi, slowed, instrumental) when target is original recording
+    final rawTargetTitle = target.title.toLowerCase();
+    final rawCandTitle = candidate.title.toLowerCase();
+
+    final targetHasRemix = rawTargetTitle.contains('remix') || rawTargetTitle.contains('mashup');
+    final targetHasCover = rawTargetTitle.contains('cover');
+    final targetHasUnplugged = rawTargetTitle.contains('unplugged');
+    final targetHasLofi = rawTargetTitle.contains('lofi') || rawTargetTitle.contains('lo-fi');
+    final targetHasSlowed = rawTargetTitle.contains('slowed');
+    final targetHasInstrumental = rawTargetTitle.contains('instrumental') || rawTargetTitle.contains('karaoke');
+
+    if (!targetHasRemix && (rawCandTitle.contains('remix') || rawCandTitle.contains('mashup') || rawCandTitle.contains('dj '))) {
+      score -= 0.40;
+    }
+    if (!targetHasCover && rawCandTitle.contains('cover')) {
+      score -= 0.40;
+    }
+    if (!targetHasUnplugged && rawCandTitle.contains('unplugged')) {
+      score -= 0.30;
+    }
+    if (!targetHasLofi && (rawCandTitle.contains('lofi') || rawCandTitle.contains('lo-fi') || rawCandTitle.contains('slowed'))) {
+      score -= 0.35;
+    }
+    if (!targetHasInstrumental && (rawCandTitle.contains('instrumental') || rawCandTitle.contains('karaoke'))) {
+      score -= 0.40;
     }
 
     return score.clamp(0.0, 1.0);

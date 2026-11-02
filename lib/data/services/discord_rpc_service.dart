@@ -67,7 +67,11 @@ class DiscordRpcService {
       final tmpDir = Platform.environment['TMPDIR'] ?? '/tmp';
 
       final candidates = [
-        if (runtimeDir != null) runtimeDir,
+        if (runtimeDir != null) ...[
+          runtimeDir,
+          '$runtimeDir/app/com.discordapp.Discord',
+          '$runtimeDir/snap.discord',
+        ],
         tmpDir,
       ];
 

@@ -8,6 +8,7 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
+import '../providers/animated_artwork_provider.dart';
 import '../providers/player_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
@@ -218,6 +219,9 @@ class _FullScreenPlayerScreenState
     final isLikedAsync = isPlaceholder ? null : ref.watch(isTrackLikedProvider(effectiveTrack.id));
     final isLiked = isLikedAsync?.value ?? effectiveTrack.isLiked;
 
+    final animatedArtworkAsync = isPlaceholder ? null : ref.watch(animatedArtworkProvider(effectiveTrack));
+    final animatedArtwork = animatedArtworkAsync?.valueOrNull;
+
     final sleepRemainingAsync = ref.watch(sleepTimerRemainingProvider);
     final isSleepEndOfTrackAsync = ref.watch(sleepTimerEndOfTrackProvider);
     final sleepRemaining = sleepRemainingAsync.value;
@@ -245,6 +249,19 @@ class _FullScreenPlayerScreenState
             children: [
               // 1. Root OLED Obsidian Canvas
               if (!tokens.isGlass) Container(color: tokens.background),
+
+              // 1b. YouTube Music / Ambient Background Artwork Backdrop
+              if (animatedArtwork?.backgroundUrl != null &&
+                  animatedArtwork!.backgroundUrl!.isNotEmpty)
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.16,
+                    child: AppNetworkImage(
+                      imageUrl: animatedArtwork.backgroundUrl,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
 
               // 2. Primary ambient color mesh glow node behind artwork
               Positioned.fill(
@@ -1213,6 +1230,28 @@ class _FullScreenPlayerScreenState
                       ],
                     ),
                   ),
+                  Tooltip(
+                    message: repeatMode.label,
+                    child: BouncingScaleButton(
+                      scaleFactor: 0.88,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        audioHandler.setAudioRepeatMode(repeatMode.next());
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                        child: Icon(
+                          repeatMode == AudioRepeatMode.one
+                              ? Icons.repeat_one_rounded
+                              : Icons.repeat_rounded,
+                          color: repeatMode != AudioRepeatMode.off
+                              ? Colors.white
+                              : Colors.white38,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, color: Colors.white70),
                     onPressed: () =>
@@ -1305,37 +1344,34 @@ class _FullScreenPlayerScreenState
                 const Spacer(),
                 // Centered Hero Artwork (Screenshot 2)
                 Center(
-                  child: Container(
-                    width: maxArtSize,
-                    height: maxArtSize,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.38),
-                          blurRadius: 28,
-                          offset: const Offset(0, 14),
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: isPlaceholder
-                          ? Container(
-                              color: tokens.surfaceElevated,
-                              child: const Center(
-                                child: Icon(Icons.music_note_rounded,
-                                    size: 64, color: Colors.white54),
+                  child: isPlaceholder
+                      ? Container(
+                          width: maxArtSize,
+                          height: maxArtSize,
+                          decoration: BoxDecoration(
+                            color: tokens.surfaceElevated,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.38),
+                                blurRadius: 28,
+                                offset: const Offset(0, 14),
+                                spreadRadius: 2,
                               ),
-                            )
-                          : AppNetworkImage(
-                              imageUrl: effectiveTrack.coverUrl,
-                              fit: BoxFit.cover,
-                              placeholderIcon: Icons.music_note_rounded,
-                            ),
-                    ),
-                  ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.music_note_rounded,
+                                size: 64, color: Colors.white54),
+                          ),
+                        )
+                      : AnimatedArtworkCard(
+                          track: effectiveTrack,
+                          isPlaying: isPlaying,
+                          ambientColor: _ambientColor,
+                          borderRadius: 18,
+                          size: maxArtSize,
+                        ),
                 ),
                 const Spacer(),
 
@@ -1469,6 +1505,7 @@ class _FullScreenPlayerScreenState
               audioHandler: audioHandler,
               isPlaying: isPlaying,
               isBuffering: isBuffering,
+              repeatMode: repeatMode,
               activeTabIndex: isLyricsTab ? 1 : (isQueueTab ? 2 : 0),
               onTabChanged: (idx) {
                 setState(() {

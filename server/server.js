@@ -3,6 +3,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'softify-data') : path.join(__dirname, 'data');
@@ -1291,14 +1292,22 @@ function getClientIp(req) {
   return req.socket.remoteAddress || req.ip || '127.0.0.1';
 }
 
-// Authentication middleware for admin endpoints
+// Authentication middleware for admin endpoints (constant-time token comparison)
 function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7)
     : (req.query.key || req.headers['x-admin-key']);
 
-  if (!token || token !== store.config.adminKey) {
+  if (!token || typeof token !== 'string') {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or missing Admin Key' });
+  }
+
+  const expectedKey = String(store.config.adminKey || '');
+  const tokenBuf = Buffer.from(token);
+  const keyBuf = Buffer.from(expectedKey);
+
+  if (tokenBuf.length !== keyBuf.length || !crypto.timingSafeEqual(tokenBuf, keyBuf)) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or missing Admin Key' });
   }
   next();
@@ -1902,7 +1911,8 @@ if (!process.env.VERCEL) {
     console.log(`=======================================================`);
     console.log(`🎵 Softify Fleet Command Center`);
     console.log(`🚀 Server running on: http://localhost:${PORT}`);
-    console.log(`🔑 Default Admin Key: ${store.config.adminKey}`);
+    const maskedKey = store.config.adminKey ? '****' + String(store.config.adminKey).slice(-2) : 'unset';
+    console.log(`🔑 Admin Key Status: Configured (${maskedKey})`);
     console.log(`📡 Device Sync Endpoint: POST /api/device/sync`);
     console.log(`=======================================================`);
   });

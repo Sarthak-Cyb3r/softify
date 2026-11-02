@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/player/softify_audio_handler.dart';
 import '../../domain/entities/track.dart';
 import '../automix_service.dart';
@@ -227,6 +228,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
   String? _serverUrl;
   int _pingSequence = 0;
   int _lastRevision = 0;
+  int _hostSequence = 0;
+  Completer<void>? _connectCompleter;
 
   // Telemetry backend integration for durable room storage & admin analytics
   static const String defaultTelemetryBackendUrl =
@@ -344,11 +347,14 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     String url = 'wss://metroserverx.meowery.eu/ws',
     ListenTogetherSocketConnector? connector,
   }) async {
-    if (_connectionState == SyncConnectionState.connected ||
-        _connectionState == SyncConnectionState.connecting) {
+    if (_connectionState == SyncConnectionState.connected && _socket != null) {
       return;
     }
+    if (_connectionState == SyncConnectionState.connecting && _connectCompleter != null) {
+      return _connectCompleter!.future;
+    }
 
+    _connectCompleter = Completer<void>();
     _serverUrl = url;
     _socketConnector = connector ?? _defaultConnector;
     _setConnectionState(SyncConnectionState.connecting);
@@ -393,8 +399,18 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           {'session_token': _sessionToken},
         );
       }
+
+      if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
+        _connectCompleter!.complete();
+      }
     } catch (e) {
+      if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
+        _connectCompleter!.completeError(e);
+      }
       _handleConnectionFailure(e.toString());
+      rethrow;
+    } finally {
+      _connectCompleter = null;
     }
   }
 
@@ -535,14 +551,22 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
           case MessageTypes.playbackAction:
             bytes = ListenTogetherProtoCodec.encodePlaybackAction(
               action: payload['action']?.toString() ?? 'play',
-              trackId: payload['track_id']?.toString(),
-              position: payload['position'] as int?,
+              trackId: payload['track_id']?.toString() ?? payload['trackId']?.toString(),
+              position: (payload['position'] ?? payload['positionMs'] ?? payload['position_ms']) as int?,
               trackInfo: payload['track_info'] is Map<String, dynamic>
                   ? payload['track_info'] as Map<String, dynamic>
                   : null,
-              isPlaying: payload['is_playing'] as bool? ?? true,
+              insertNext: payload['insert_next'] as bool? ?? false,
+              queue: (payload['queue'] as List<dynamic>?)
+                  ?.map((e) => e as Map<String, dynamic>)
+                  .toList(),
+              queueTitle: payload['queue_title']?.toString(),
+              volume: (payload['volume'] as num?)?.toDouble(),
               serverTime: payload['server_time'] as int?,
               revision: payload['revision'] as int?,
+              capturedAtServerTime: payload['captured_at_server_time'] as int?,
+              replaceQueue: payload['replace_queue'] as bool?,
+              hostSequence: (payload['host_sequence'] as int?) ?? _hostSequence,
             );
             break;
           default:
@@ -564,10 +588,14 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
   /// Request room creation as host and await confirmation.
   Future<ListenTogetherRoom> createRoom({required String username}) async {
     _localUsername = username;
-    if (_connectionState != SyncConnectionState.connected) {
+    if (_connectionState != SyncConnectionState.connected || _socket == null) {
       await connect();
     }
+    if (_connectionState != SyncConnectionState.connected || _socket == null) {
+      throw StateError('Unable to connect to Listen Together server.');
+    }
     _setRole(SyncRole.host);
+    _hostSequence = 0;
 
     final completer = Completer<ListenTogetherRoom>();
     StreamSubscription? sub;
@@ -615,8 +643,11 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
     required String username,
   }) async {
     _localUsername = username;
-    if (_connectionState != SyncConnectionState.connected) {
+    if (_connectionState != SyncConnectionState.connected || _socket == null) {
       await connect();
+    }
+    if (_connectionState != SyncConnectionState.connected || _socket == null) {
+      throw StateError('Unable to connect to Listen Together server.');
     }
     _setRole(SyncRole.guest);
 
@@ -890,6 +921,7 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
   void broadcastPlay({int? positionMs}) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    _hostSequence++;
     final curTrack = _currentRoom?.currentTrack ??
         (audioHandler?.currentTrack != null
             ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
@@ -906,13 +938,15 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       serverTime: now,
       revision: _lastRevision,
     );
-    sendMessage(MessageTypes.playbackAction, payload.toJson());
+    final json = payload.toJson()..['host_sequence'] = _hostSequence;
+    sendMessage(MessageTypes.playbackAction, json);
     _updateRoomPlayingState(true, pos);
   }
 
   void broadcastPause({int? positionMs}) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    _hostSequence++;
     final curTrack = _currentRoom?.currentTrack ??
         (audioHandler?.currentTrack != null
             ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
@@ -929,13 +963,15 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       serverTime: now,
       revision: _lastRevision,
     );
-    sendMessage(MessageTypes.playbackAction, payload.toJson());
+    final json = payload.toJson()..['host_sequence'] = _hostSequence;
+    sendMessage(MessageTypes.playbackAction, json);
     _updateRoomPlayingState(false, pos);
   }
 
   void broadcastSeek(int positionMs) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    _hostSequence++;
     final curTrack = _currentRoom?.currentTrack ??
         (audioHandler?.currentTrack != null
             ? SyncTrackInfo.fromTrack(audioHandler!.currentTrack!)
@@ -948,13 +984,15 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       serverTime: now,
       revision: _lastRevision,
     );
-    sendMessage(MessageTypes.playbackAction, payload.toJson());
+    final json = payload.toJson()..['host_sequence'] = _hostSequence;
+    sendMessage(MessageTypes.playbackAction, json);
     _updateRoomPlayingState(_currentRoom?.isPlaying ?? false, positionMs);
   }
 
   void broadcastTrackChange(SyncTrackInfo track, {int positionMs = 0}) {
     final now = serverTimeNow ?? DateTime.now().millisecondsSinceEpoch;
     _lastRevision++;
+    _hostSequence++;
     final payload = PlaybackActionPayload(
       action: PlaybackActions.changeTrack,
       trackId: track.id,
@@ -963,7 +1001,8 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       serverTime: now,
       revision: _lastRevision,
     );
-    sendMessage(MessageTypes.playbackAction, payload.toJson());
+    final json = payload.toJson()..['host_sequence'] = _hostSequence;
+    sendMessage(MessageTypes.playbackAction, json);
 
     if (_currentRoom != null) {
       _setRoom(_currentRoom!.copyWith(
@@ -1032,7 +1071,20 @@ class ListenTogetherService implements IPlaybackSyncDelegate {
       final currentLocalTrack = audioHandler!.currentTrack;
       if (currentLocalTrack?.id != trackInfo.id) {
         final track = trackInfo.toTrack();
-        await audioHandler!.playTrack(track);
+        try {
+          await audioHandler!.playTrack(track);
+        } catch (e) {
+          debugPrint('[ListenTogether] Direct playback error: $e, falling back to YouTube catalog search');
+          final query = '${track.title} ${track.artist}'.trim();
+          if (query.isNotEmpty) {
+            try {
+              final results = await KeylessYouTubeCatalog.search(query);
+              if (results.isNotEmpty) {
+                await audioHandler!.playTrack(results.first);
+              }
+            } catch (_) {}
+          }
+        }
         if (positionMs > 0) {
           await audioHandler!.seek(Duration(milliseconds: positionMs));
         }

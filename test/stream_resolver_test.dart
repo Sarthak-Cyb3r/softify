@@ -86,6 +86,24 @@ void main() {
       expect(stream.providerName, contains('jiosaavn_studio'));
       expect(stream.url.toString(), contains('aac.saavncdn.com'));
     });
+
+    test('Falls back cleanly to YouTube when Saavn catalog only has remixes for "Tere Liye"', () async {
+      const track = Track(
+        id: 'test_tere_liye',
+        sourceId: 'spotify_tere_liye_prince',
+        title: 'Tere Liye',
+        artist: 'Atif Aslam, Shreya Ghoshal',
+        album: 'Prince',
+        duration: Duration(seconds: 279),
+      );
+
+      final stream = await hybridResolver.resolve(track);
+      expect(stream, isNotNull);
+      // Because Saavn only offers third-party EDM remixes with heavy duration mismatch,
+      // it must reject Saavn and resolve via YouTube Music official topic release.
+      expect(stream.providerName, contains('youtube'));
+      expect(stream.url.toString(), isNotEmpty);
+    });
   });
 
   group('YouTube Stream Resolver Logic Verification', () {

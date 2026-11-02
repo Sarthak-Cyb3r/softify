@@ -788,6 +788,32 @@ void main() {
       expect(serverCapPayload['supports_protobuf'], isTrue);
       expect(serverCapPayload['supports_compression'], isTrue);
       expect(serverCapPayload['server_version'], equals('metroserver/1.0.0'));
+
+      // Playback action binary wire round-trip matching metroproto listentogether.proto
+      final paBytes = ListenTogetherProtoCodec.encodePlaybackAction(
+        action: 'change_track',
+        trackId: 'dQw4w9WgXcQ',
+        position: 0,
+        trackInfo: {
+          'id': 'dQw4w9WgXcQ',
+          'title': 'Never Gonna Give You Up',
+          'artist': 'Rick Astley',
+          'album': 'Whenever You Need Somebody',
+          'duration': 212000,
+          'thumbnail': 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        },
+        hostSequence: 1,
+        revision: 1,
+      );
+      final decodedPaEnv = ListenTogetherProtoCodec.decodeEnvelope(Uint8List.fromList(paBytes));
+      expect(decodedPaEnv, isNotNull);
+      expect(decodedPaEnv!.$1, equals('playback_action'));
+      final decodedPa = ListenTogetherProtoCodec.decodePlaybackAction(decodedPaEnv.$2);
+      expect(decodedPa['action'], equals('change_track'));
+      expect(decodedPa['track_id'], equals('dQw4w9WgXcQ'));
+      expect(decodedPa['track_info']?['title'], equals('Never Gonna Give You Up'));
+      expect(decodedPa['host_sequence'], equals(1));
+      expect(decodedPa['is_playing'], isTrue);
     });
 
     test('Collaborative playbackAction change_track updates room track and triggers sync', () async {

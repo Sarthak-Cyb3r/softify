@@ -150,13 +150,20 @@ class ShelfEngine implements IShelfRepository {
 
       var tracks = candidates.take(def.limit).toList();
 
-      // Fallback: If history is empty, populate from all available tracks
+      // Fallback: If history is empty, populate from all available tracks or global trending
       if (tracks.isEmpty) {
         final allTrackRows = await (_db.select(_db.tracks)
               ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
               ..limit(def.limit))
             .get();
         tracks = allTrackRows.map(_mapRowToTrack).where((t) => !_isExcludedTrack(t)).toList();
+      }
+
+      if (tracks.isEmpty) {
+        try {
+          final trending = await _spotifyApi.getTrendingTracks(limit: def.limit);
+          tracks = trending.where((t) => !_isExcludedTrack(t)).toList();
+        } catch (_) {}
       }
 
       return Shelf(
@@ -210,7 +217,7 @@ class ShelfEngine implements IShelfRepository {
         }
       }
 
-      // If no taste profile artists yet, pull from recent tracks
+      // If no taste profile artists yet, pull from recent tracks or global trending
       if (familiarTracks.isEmpty) {
         final recentRows = await (_db.select(_db.tracks)
               ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
@@ -223,6 +230,18 @@ class ShelfEngine implements IShelfRepository {
           if (seenIds.add(t.id) && seenKeys.add(key)) {
             familiarTracks.add(t);
           }
+        }
+        if (familiarTracks.isEmpty) {
+          try {
+            final trending = await _spotifyApi.getTrendingTracks(limit: 8);
+            for (final t in trending) {
+              if (_isExcludedTrack(t)) continue;
+              final key = _normalizeKey(t.title, t.artist);
+              if (seenIds.add(t.id) && seenKeys.add(key)) {
+                familiarTracks.add(t);
+              }
+            }
+          } catch (_) {}
         }
       }
 
@@ -471,6 +490,20 @@ class ShelfEngine implements IShelfRepository {
                   seenKeys.add(key)) {
                 novelPool.add(r);
               }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // If novel pool is still empty (e.g. cold start), populate from global trending catalog
+      if (novelPool.isEmpty) {
+        try {
+          final trending = await _spotifyApi.getTrendingTracks(limit: def.limit);
+          for (final t in trending) {
+            if (_isExcludedTrack(t)) continue;
+            final key = _normalizeKey(t.title, t.artist);
+            if (seenKeys.add(key)) {
+              novelPool.add(t);
             }
           }
         } catch (_) {}

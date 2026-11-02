@@ -78,7 +78,7 @@ class BetterLyricsProvider implements ILyricsProvider {
       _cache[track.id] = syncedLyrics;
       return syncedLyrics;
     } catch (_) {
-      _cache[track.id] = null;
+      // Do not cache null on transient network/timeout exceptions
       return null;
     }
   }

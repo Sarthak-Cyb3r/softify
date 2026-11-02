@@ -29,7 +29,7 @@ class EpsilonGreedyBandit {
       return chosenArm;
     }
 
-    // Exploitation: choose arm with best average reward (or current ratio)
+    // Exploitation: choose arm with best average reward (with UCB1 exploration boost)
     double bestRatio = stats.currentRatio;
     double bestAvgReward = -1.0;
 
@@ -37,8 +37,12 @@ class EpsilonGreedyBandit {
       final armPulls = stats.armPulls[arm] ?? 0;
       final armReward = stats.armRewards[arm] ?? 0.0;
       final avg = armPulls > 0 ? (armReward / armPulls) : 0.5; // neutral prior
-      if (avg > bestAvgReward) {
-        bestAvgReward = avg;
+      final ucbBonus = stats.pullCount > 0
+          ? math.sqrt(2 * math.log(stats.pullCount + 1) / (armPulls + 1))
+          : 0.0;
+      final score = avg + 0.15 * ucbBonus;
+      if (score > bestAvgReward) {
+        bestAvgReward = score;
         bestRatio = arm;
       }
     }

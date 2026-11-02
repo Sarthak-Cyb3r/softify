@@ -40,11 +40,18 @@ class NeteaseLyricsProvider implements ILyricsProvider {
       );
 
       final searchData = await _getJson(searchUri);
-      if (searchData == null) return null;
-
-      final songsList = (searchData['result']?['songs'] as List?)
+      var songsList = (searchData?['result']?['songs'] as List?)
               ?.cast<Map<String, dynamic>>() ??
           [];
+      if (songsList.isEmpty && cleanTitle != query) {
+        final fallbackUri = Uri.parse(
+          'https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=${Uri.encodeComponent(cleanTitle)}&type=1&offset=0&total=true&limit=5',
+        );
+        final fallbackData = await _getJson(fallbackUri);
+        songsList = (fallbackData?['result']?['songs'] as List?)
+                ?.cast<Map<String, dynamic>>() ??
+            [];
+      }
       if (songsList.isEmpty) return null;
 
       // Filter candidates to strictly verify song title matches

@@ -79,12 +79,14 @@ class VectorSearchEngine implements IVectorSearchEngine {
     final vector = Float32List(dimensions);
     if (clean.isEmpty) return vector;
 
-    // Hash words
+    // Hash words with positional saliency
     final words = clean.split(RegExp(r'\s+'));
-    for (final word in words) {
+    for (int wIdx = 0; wIdx < words.length; wIdx++) {
+      final word = words[wIdx];
+      final positionWeight = 1.0 / (1.0 + wIdx * 0.15);
       final hash = _hashString(word);
       final idx = hash.abs() % dimensions;
-      vector[idx] += 1.0;
+      vector[idx] += (1.0 * positionWeight);
 
       // Subword character trigrams
       if (word.length >= 3) {
@@ -92,7 +94,7 @@ class VectorSearchEngine implements IVectorSearchEngine {
           final trigram = word.substring(i, i + 3);
           final triHash = _hashString(trigram);
           final triIdx = triHash.abs() % dimensions;
-          vector[triIdx] += 0.5;
+          vector[triIdx] += (0.5 * positionWeight);
         }
       }
     }

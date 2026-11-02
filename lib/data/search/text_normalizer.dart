@@ -33,9 +33,9 @@ class TextNormalizer {
     }
 
     final stripped = buffer.toString();
-    // Replace non-alphanumeric (excluding space) with space
+    // Replace non-alphanumeric/punctuation (preserving all global letters, numbers & Indic marks) with space
     final collapsedPunctuation =
-        stripped.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+        stripped.replaceAll(RegExp(r'[^\p{L}\p{N}\p{M}\s]', unicode: true), ' ');
 
     // Collapse multiple whitespace
     return collapsedPunctuation.replaceAll(RegExp(r'\s+'), ' ').trim();

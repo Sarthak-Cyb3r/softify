@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,7 @@ import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../providers/animated_artwork_provider.dart';
+import '../widgets/bouncing_scale_button.dart';
 import '../widgets/update_changelog_sheet.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared/app_surface.dart';
@@ -131,28 +133,135 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// Android refuses it. The APK is saved to Downloads first (it survives the
   /// uninstall), then the user reinstalls from there.
   Future<void> _handleSignatureMismatch(AppReleaseInfo release) async {
+    final tokens = context.tokens;
+
     final proceed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Reinstall required'),
-        content: Text(
-          'This update (${release.tagName}) is signed with a new key, so Android '
-          'cannot install it over the current app.\n\n'
-          'Softify must be uninstalled and reinstalled first — your library, '
-          'playlists, downloads and settings will be erased.\n\n'
-          'The update APK will be saved to your Downloads folder. After the app '
-          'closes, open Files → Downloads and tap the APK to install it.',
+      builder: (dialogContext) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: tokens.isGlass ? const Color(0xF0181A1C) : tokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: const Color(0xFFFFB74D).withValues(alpha: 0.4),
+                  width: 1.2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x99000000),
+                    blurRadius: 32,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0x28FFB74D),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0x55FFB74D),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFFFB74D),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'SECURITY NOTICE',
+                              style: TextStyle(
+                                color: Color(0xFFFFB74D),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Reinstall Required (${release.tagName})',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: tokens.isGlass ? const Color(0x10FFFFFF) : tokens.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    child: Text(
+                      'This update (${release.tagName}) is signed with a new key, so Android '
+                      'cannot install it over the current app.\n\n'
+                      'Softify must be uninstalled and reinstalled first — your library, '
+                      'playlists, downloads and settings will be erased.\n\n'
+                      'The update APK will be saved to your Downloads folder. After the app '
+                      'closes, open Files → Downloads and tap the APK to install it.',
+                      style: const TextStyle(
+                        color: Color(0xFFD4DDD7),
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFB74D),
+                          foregroundColor: const Color(0xFF141006),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text(
+                          'Save Update & Uninstall',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Save update & uninstall'),
-          ),
-        ],
       ),
     );
     if (proceed != true || !mounted) return;
@@ -607,17 +716,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 3: App Updates
           _buildSectionHeader('App Updates'),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: tokens.card,
+              color: tokens.isGlass
+                  ? const Color(0x18FFFFFF)
+                  : tokens.card,
               borderRadius: BorderRadius.circular(tokens.radiusCard),
+              border: Border.all(
+                color: _availableRelease != null
+                    ? tokens.accent.withValues(alpha: 0.45)
+                    : (tokens.isGlass ? const Color(0x1AFFFFFF) : Colors.transparent),
+                width: 1.2,
+              ),
+              boxShadow: _availableRelease != null
+                  ? [
+                      BoxShadow(
+                        color: tokens.accent.withValues(alpha: 0.16),
+                        blurRadius: 24,
+                        spreadRadius: -2,
+                      ),
+                    ]
+                  : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.system_update, color: tokens.accent, size: 28),
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            tokens.accent.withValues(alpha: 0.25),
+                            tokens.accent.withValues(alpha: 0.08),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: tokens.accent.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        _availableRelease != null
+                            ? Icons.auto_awesome_rounded
+                            : Icons.system_update_rounded,
+                        color: tokens.accent,
+                        size: 24,
+                      ),
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: GestureDetector(
@@ -626,108 +777,341 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Version $currentVersion',
-                                style: const TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                            Row(
+                              children: [
+                                Text(
+                                  'Softify v$currentVersion',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15.5,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (_availableRelease != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: tokens.accent.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: tokens.accent.withValues(alpha: 0.4),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'UPDATE READY',
+                                      style: TextStyle(
+                                        color: tokens.accent,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  )
+                                else if (_updateStatusMessage != null &&
+                                    _updateStatusMessage!.contains('up to date'))
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x224EDEA3),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0x554EDEA3),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'UP TO DATE',
+                                      style: TextStyle(
+                                        color: Color(0xFF4EDEA3),
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             const SizedBox(height: 2),
-                            Text('Direct GitHub Releases Updater',
-                                style: TextStyle(color: tokens.textSecondary, fontSize: 13)),
+                            Text(
+                              'GitHub Releases Updater • Tap for dev tools',
+                              style: TextStyle(
+                                color: tokens.textSecondary,
+                                fontSize: 12.5,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: tokens.accent,
-                        foregroundColor: const Color(0xFF080F11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      onPressed: (_isCheckingUpdate || _isDownloadingUpdate)
+                    const SizedBox(width: 8),
+                    BouncingScaleButton(
+                      scaleDown: 0.94,
+                      onTap: (_isCheckingUpdate || _isDownloadingUpdate)
                           ? null
                           : _checkForUpdate,
-                      child: _isCheckingUpdate
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                            )
-                          : const Text('Check', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: tokens.accent,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: tokens.accent.withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _isCheckingUpdate
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF080F11),
+                                ),
+                              )
+                            : const Text(
+                                'Check',
+                                style: TextStyle(
+                                  color: Color(0xFF080F11),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                      ),
                     ),
                   ],
                 ),
                 if (_updateStatusMessage != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    _updateStatusMessage!,
-                    style: TextStyle(
-                      color: _availableRelease != null ? tokens.accent : tokens.textSecondary,
-                      fontSize: 13,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: (_availableRelease != null ? tokens.accent : Colors.white)
+                          .withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (_availableRelease != null ? tokens.accent : Colors.white)
+                            .withValues(alpha: 0.14),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _availableRelease != null
+                              ? Icons.info_outline_rounded
+                              : Icons.check_circle_outline_rounded,
+                          size: 16,
+                          color: _availableRelease != null ? tokens.accent : tokens.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _updateStatusMessage!,
+                            style: TextStyle(
+                              color: _availableRelease != null ? tokens.accent : tokens.textSecondary,
+                              fontSize: 12.5,
+                              fontWeight: _availableRelease != null ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
                 if (_isDownloadingUpdate) ...[
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                    value: _downloadProgress > 0 ? _downloadProgress : null,
-                    backgroundColor: Colors.white10,
-                    valueColor: AlwaysStoppedAnimation(tokens.accent),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${(_downloadProgress * 100).toStringAsFixed(1)}%',
-                    style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: tokens.accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: tokens.accent.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Downloading update APK...',
+                              style: TextStyle(
+                                color: tokens.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '${(_downloadProgress * 100).toStringAsFixed(1)}%',
+                              style: TextStyle(
+                                color: tokens.accent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: _downloadProgress > 0 ? _downloadProgress : null,
+                            minHeight: 6,
+                            backgroundColor: Colors.white12,
+                            valueColor: AlwaysStoppedAnimation(tokens.accent),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 if (_availableRelease != null && !_isDownloadingUpdate) ...[
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(color: tokens.textSecondary),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ),
-                        onPressed: () {
-                          _showChangelogDialog(context, _availableRelease!);
-                        },
-                        child: const Text('Changelog'),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          tokens.accent.withValues(alpha: 0.16),
+                          tokens.accent.withValues(alpha: 0.06),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: tokens.accent,
-                          foregroundColor: const Color(0xFF080F11),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ),
-                        onPressed: () => _startDownloadAndInstall(_availableRelease!),
-                        icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Install Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: tokens.accent.withValues(alpha: 0.35),
+                        width: 1,
                       ),
-                    ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.new_releases_rounded, color: tokens.accent, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Version ${_availableRelease!.tagName} is ready',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  _showChangelogDialog(context, _availableRelease!);
+                                },
+                                icon: const Icon(Icons.article_outlined, size: 16),
+                                label: const Text('Changelog', style: TextStyle(fontSize: 12.5)),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: BouncingScaleButton(
+                                scaleDown: 0.95,
+                                onTap: () => _startDownloadAndInstall(_availableRelease!),
+                                child: Container(
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        tokens.accent,
+                                        Color.lerp(tokens.accent, Colors.white, 0.12) ?? tokens.accent,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: tokens.accent.withValues(alpha: 0.3),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.download_rounded, color: Color(0xFF09140E), size: 18),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Install Now',
+                                        style: TextStyle(
+                                          color: Color(0xFF09140E),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-                const SizedBox(height: 12),
-                InkWell(
+                const SizedBox(height: 14),
+                BouncingScaleButton(
+                  scaleDown: 0.97,
                   onTap: () => UpdateChangelogSheet.show(context, version: currentVersion),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: tokens.isGlass
+                          ? const Color(0x12FFFFFF)
+                          : tokens.surfaceElevated.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: tokens.accent.withValues(alpha: 0.2),
+                        width: 0.8,
+                      ),
+                    ),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.auto_awesome_rounded, size: 15, color: tokens.accent),
-                        const SizedBox(width: 8),
-                        Text(
-                          'What\'s New in v$currentVersion (Patch Notes)',
-                          style: TextStyle(
-                            color: tokens.accent,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
+                        Icon(Icons.auto_awesome_rounded, size: 16, color: tokens.accent),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'What\'s New in v$currentVersion (Patch Notes)',
+                            style: TextStyle(
+                              color: tokens.accent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.chevron_right_rounded, size: 15, color: tokens.accent),
+                        Icon(Icons.chevron_right_rounded, size: 18, color: tokens.accent),
                       ],
                     ),
                   ),
@@ -1874,28 +2258,137 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
 
   void _showChangelogDialog(BuildContext context, AppReleaseInfo release) {
+    final tokens = context.tokens;
+    final accent = tokens.accent;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceElevated,
-        title: Text(
-          'Release Notes (${release.tagName})',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: SingleChildScrollView(
-          child: Text(
-            release.releaseNotes.isNotEmpty
-                ? release.releaseNotes
-                : 'No release notes provided for this version.',
-            style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+      builder: (context) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: tokens.isGlass
+                    ? const Color(0xF0151A18)
+                    : tokens.surfaceElevated,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: accent.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  const BoxShadow(
+                    color: Color(0x99000000),
+                    blurRadius: 32,
+                    offset: Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.12),
+                    blurRadius: 20,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(Icons.article_rounded, color: accent, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'RELEASE NOTES',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              release.tagName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white60, size: 20),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 340),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: tokens.isGlass ? const Color(0x10FFFFFF) : tokens.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        release.releaseNotes.isNotEmpty
+                            ? release.releaseNotes
+                            : 'No release notes provided for this version.',
+                        style: const TextStyle(
+                          color: Color(0xFFD4DDD7),
+                          fontSize: 13.5,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: const Color(0xFF09140E),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close', style: TextStyle(color: AppTheme.primary)),
-          ),
-        ],
       ),
     );
   }

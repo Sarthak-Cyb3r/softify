@@ -174,6 +174,45 @@ void main() {
       expect(matched, isNull);
     });
 
+    test('matchTrack rejects unwanted remixes when target is original recording', () async {
+      final mockCatalog = MockCatalogRepository(
+        searchMap: {
+          'Tere Liye': [
+            const Track(
+              id: 'saavn_remix_123',
+              sourceId: 'remix_123',
+              title: 'Tere Liye (Remix)',
+              artist: 'Atif Aslam, Shreya Ghoshal',
+              album: 'Prince Remixes',
+              duration: Duration(seconds: 174), // heavy duration discrepancy
+            ),
+            const Track(
+              id: 'saavn_lofi_456',
+              sourceId: 'lofi_456',
+              title: 'Tere Liye - Slowed + Reverb',
+              artist: 'Atif Aslam',
+              album: 'Lofi Chill',
+              duration: Duration(seconds: 340),
+            ),
+          ],
+        },
+      );
+
+      final matchingImporter = KeylessSpotifyImporter(catalog: mockCatalog);
+
+      const spotifyItem = SpotifyTrackItem(
+        spotifyUri: 'spotify:track:tere_liye_original',
+        title: 'Tere Liye',
+        artist: 'Atif Aslam, Shreya Ghoshal',
+        duration: Duration(seconds: 279),
+      );
+
+      final matched = await matchingImporter.matchTrack(spotifyItem);
+
+      // Should be rejected because candidate remixes/slowed versions suffer heavy mismatch penalty
+      expect(matched, isNull);
+    });
+
     test('SpotifyImportPlaylist computes match stats accurately', () {
       final tracks = [
         const SpotifyTrackItem(

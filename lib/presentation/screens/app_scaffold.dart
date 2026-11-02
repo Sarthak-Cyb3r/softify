@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/player_providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/bouncing_scale_button.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/desktop_sidebar.dart';
 import '../widgets/mini_player.dart';
@@ -282,127 +284,207 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   }
 
   Widget _buildNoticeBannerModal(BuildContext context, AppTokens tokens, AppNotice notice) {
+    final accent = tokens.accent;
+
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withValues(alpha: 0.72),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        alignment: Alignment.center,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16161E),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: tokens.accent.withValues(alpha: 0.35),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  blurRadius: 32,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: tokens.accent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.campaign_rounded,
-                        color: tokens.accent,
-                        size: 24,
-                      ),
+        color: Colors.black.withValues(alpha: 0.75),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: tokens.isGlass
+                        ? const Color(0xF0151A18)
+                        : tokens.surfaceElevated,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.38),
+                      width: 1.2,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    boxShadow: [
+                      const BoxShadow(
+                        color: Color(0x99000000),
+                        blurRadius: 36,
+                        offset: Offset(0, 12),
+                      ),
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.15),
+                        blurRadius: 24,
+                        spreadRadius: -2,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            'ADMINISTRATOR NOTICE',
-                            style: TextStyle(
-                              color: tokens.accent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.0,
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  accent.withValues(alpha: 0.28),
+                                  accent.withValues(alpha: 0.08),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(
+                                color: accent.withValues(alpha: 0.4),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accent.withValues(alpha: 0.2),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.campaign_rounded,
+                              color: accent,
+                              size: 26,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            notice.title.isNotEmpty ? notice.title : 'Announcement',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: accent.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: accent.withValues(alpha: 0.3),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'ADMINISTRATOR NOTICE',
+                                    style: TextStyle(
+                                      color: accent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  notice.title.isNotEmpty ? notice.title : 'Announcement',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          IconButton(
+                            icon: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.06),
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white60,
+                                size: 18,
+                              ),
+                            ),
+                            onPressed: () {
+                              ref.read(deviceControlProvider.notifier).dismissPendingNotice();
+                            },
                           ),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
-                      onPressed: () {
-                        ref.read(deviceControlProvider.notifier).dismissPendingNotice();
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Text(
-                    notice.message,
-                    style: const TextStyle(
-                      color: Color(0xFFE0E0E6),
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: tokens.accent,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: tokens.isGlass
+                              ? const Color(0x10FFFFFF)
+                              : tokens.card.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          notice.message,
+                          style: const TextStyle(
+                            color: Color(0xFFE2ECE5),
+                            fontSize: 14,
+                            height: 1.55,
+                          ),
+                        ),
                       ),
-                    ),
-                    onPressed: () {
-                      ref.read(deviceControlProvider.notifier).dismissPendingNotice();
-                    },
-                    child: const Text(
-                      'Acknowledge & Continue',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        letterSpacing: 0.2,
+                      const SizedBox(height: 22),
+                      BouncingScaleButton(
+                        scaleDown: 0.97,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(deviceControlProvider.notifier).dismissPendingNotice();
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accent,
+                                Color.lerp(accent, Colors.white, 0.12) ?? accent,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Acknowledge & Continue',
+                            style: TextStyle(
+                              color: Color(0xFF09140E),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

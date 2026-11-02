@@ -57,14 +57,14 @@ class DriftFtsRepository implements IFtsRepository {
 
     final rawTokens = clean
         .split(RegExp(r'\s+'))
-        .map((t) => t.replaceAll(RegExp(r'[^\w]'), ''))
+        .map((t) => t.replaceAll(RegExp(r'[^\p{L}\p{N}\p{M}]', unicode: true), ''))
         .where((t) => t.isNotEmpty)
         .toList();
 
     if (rawTokens.isEmpty) return [];
 
-    // FTS5 prefix match: "term1"* "term2"*
-    final ftsQuery = rawTokens.map((t) => '"$t"*').join(' ');
+    // FTS5 prefix match: "term1"* "term2"* with escaped internal double-quotes
+    final ftsQuery = rawTokens.map((t) => '"${t.replaceAll('"', '""')}"*').join(' ');
 
     try {
       final rows = await _db.customSelect(

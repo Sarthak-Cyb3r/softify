@@ -3,7 +3,43 @@ import 'dart:io';
 
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/entities/stream_info.dart';
+import '../../domain/entities/track.dart';
 import '../../features/youtube/domain/youtube_failure.dart';
+
+class YtmTrackCandidate {
+  final String videoId;
+  final String title;
+  final String artist;
+  final String? album;
+  final Duration duration;
+  final String? coverUrl;
+  final String? backgroundUrl;
+
+  const YtmTrackCandidate({
+    required this.videoId,
+    required this.title,
+    required this.artist,
+    this.album,
+    required this.duration,
+    this.coverUrl,
+    this.backgroundUrl,
+  });
+
+  Track toTrack() {
+    return Track(
+      id: 'ytm_$videoId',
+      sourceId: 'ytm_$videoId',
+      title: title,
+      artist: artist,
+      album: album,
+      duration: duration,
+      coverUrl: (coverUrl != null && coverUrl!.isNotEmpty)
+          ? coverUrl
+          : 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg',
+      matchConfidence: 1.0,
+    );
+  }
+}
 
 class InnertubeMetadata {
   final String videoId;
@@ -11,6 +47,7 @@ class InnertubeMetadata {
   final String author;
   final Duration duration;
   final String coverUrl;
+  final String? backgroundUrl;
   final bool isLive;
 
   const InnertubeMetadata({
@@ -19,6 +56,7 @@ class InnertubeMetadata {
     required this.author,
     required this.duration,
     required this.coverUrl,
+    this.backgroundUrl,
     required this.isLive,
   });
 }
@@ -234,12 +272,26 @@ class YoutubeInnertubeService {
       }
     }
 
+    // Extract high-resolution landscape background artwork
+    String? backgroundUrl;
+    final microformat = data['microformat']?['microformatDataRenderer'] as Map<String, dynamic>?;
+    final microThumbs = microformat?['thumbnail']?['thumbnails'] as List<dynamic>?;
+    if (microThumbs != null && microThumbs.isNotEmpty) {
+      final lastThumb = microThumbs.last as Map<String, dynamic>?;
+      final raw = lastThumb?['url'] as String?;
+      if (raw != null && raw.isNotEmpty) {
+        backgroundUrl = raw.startsWith('http://') ? 'https://${raw.substring(7)}' : raw;
+      }
+    }
+    backgroundUrl ??= 'https://i.ytimg.com/vi/$videoId/maxresdefault.jpg';
+
     return InnertubeMetadata(
       videoId: videoId,
       title: title.isNotEmpty ? title : 'YouTube Track',
       author: author.isNotEmpty ? author : 'YouTube',
       duration: Duration(seconds: lengthSecs),
       coverUrl: coverUrl,
+      backgroundUrl: backgroundUrl,
       isLive: isLive,
     );
   }
@@ -383,12 +435,14 @@ class YoutubeInnertubeService {
   }
 
   /// Searches YouTube Music (WEB_REMIX) for pure studio master audio recordings.
-  /// YouTube Music results consist strictly of official distributor releases and Topic tracks,
-  /// with ZERO promotional audio intros, ZERO video skits, and ZERO movie dialogue.
-  Future<List<String>> searchMusicTracks(String query) async {
+  /// Parses structured song metadata (title, artist, album, duration, album art).
+  Future<List<YtmTrackCandidate>> searchMusic(
+    String query, {
+    int limit = 20,
+  }) async {
     try {
       final uri = Uri.parse('https://music.youtube.com/youtubei/v1/search?prettyPrint=false');
-      final req = await _client.postUrl(uri).timeout(const Duration(seconds: 4));
+      final req = await _client.postUrl(uri).timeout(const Duration(seconds: 5));
       req.headers.set(
         'User-Agent',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -410,7 +464,7 @@ class YoutubeInnertubeService {
       };
 
       req.add(utf8.encode(jsonEncode(payload)));
-      final res = await req.close().timeout(const Duration(seconds: 4));
+      final res = await req.close().timeout(const Duration(seconds: 5));
       if (res.statusCode != 200) return [];
 
       final body = await res.transform(utf8.decoder).join();
@@ -418,34 +472,255 @@ class YoutubeInnertubeService {
       final contents = json['contents'];
       if (contents == null) return [];
 
-      final str = jsonEncode(contents);
-      // Priority 1: Match playlistItemData (exclusive to actual song items in YouTube Music shelves)
-      final primaryMatches = RegExp(r'"playlistItemData":\s*\{\s*"videoId":\s*"([a-zA-Z0-9_-]{11})"').allMatches(str);
+      final candidates = <YtmTrackCandidate>[];
       final seen = <String>{};
-      final ids = <String>[];
-      for (final m in primaryMatches) {
-        final id = m.group(1);
-        if (id != null && seen.add(id)) {
-          ids.add(id);
-          if (ids.length >= 6) break;
-        }
-      }
 
-      // Priority 2: Fallback to musicResponsiveListItemRenderer
-      if (ids.isEmpty) {
-        final fallbackMatches = RegExp(r'"musicResponsiveListItemRenderer":\{.*?"videoId":"([a-zA-Z0-9_-]{11})"').allMatches(str);
-        for (final m in fallbackMatches) {
-          final id = m.group(1);
-          if (id != null && seen.add(id)) {
-            ids.add(id);
-            if (ids.length >= 6) break;
+      void walk(dynamic node) {
+        if (candidates.length >= limit) return;
+        if (node is Map<String, dynamic>) {
+          if (node.containsKey('musicResponsiveListItemRenderer')) {
+            final item = node['musicResponsiveListItemRenderer'] as Map<String, dynamic>?;
+            if (item != null) {
+              String? vid;
+              final plData = item['playlistItemData'] as Map<String, dynamic>?;
+              if (plData != null && plData['videoId'] is String) {
+                vid = plData['videoId'] as String;
+              }
+              if (vid == null || vid.isEmpty) {
+                final overlay = item['overlay'] as Map<String, dynamic>?;
+                final thumbOverlay = overlay?['musicItemThumbnailOverlayRenderer'] as Map<String, dynamic>?;
+                final playBtn = thumbOverlay?['content']?['musicPlayButtonRenderer'] as Map<String, dynamic>?;
+                final watchEp = playBtn?['playNavigationEndpoint']?['watchEndpoint'] as Map<String, dynamic>?;
+                if (watchEp != null && watchEp['videoId'] is String) {
+                  vid = watchEp['videoId'] as String;
+                }
+              }
+              if (vid == null || vid.isEmpty) {
+                final flexCols = item['flexColumns'] as List<dynamic>? ?? [];
+                for (final col in flexCols) {
+                  if (col is Map<String, dynamic>) {
+                    final runs = col['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs'] as List<dynamic>? ?? [];
+                    for (final r in runs) {
+                      if (r is Map<String, dynamic>) {
+                        final epVid = r['navigationEndpoint']?['watchEndpoint']?['videoId'] as String?;
+                        if (epVid != null && epVid.isNotEmpty) {
+                          vid = epVid;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  if (vid != null) break;
+                }
+              }
+
+              if (vid != null && vid.isNotEmpty && seen.add(vid)) {
+                final flexCols = item['flexColumns'] as List<dynamic>? ?? [];
+                String title = '';
+                if (flexCols.isNotEmpty && flexCols[0] is Map<String, dynamic>) {
+                  final runs = flexCols[0]['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs'] as List<dynamic>? ?? [];
+                  title = runs.map((r) => r is Map<String, dynamic> ? (r['text'] as String? ?? '') : '').join().trim();
+                }
+
+                String artist = '';
+                String? album;
+                var durationSec = 0;
+
+                if (flexCols.length > 1 && flexCols[1] is Map<String, dynamic>) {
+                  final runs = flexCols[1]['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs'] as List<dynamic>? ?? [];
+                  final texts = runs
+                      .map((r) => r is Map<String, dynamic> ? (r['text'] as String? ?? '').trim() : '')
+                      .where((t) => t.isNotEmpty)
+                      .toList();
+
+                  final parts = <String>[];
+                  final curr = <String>[];
+                  for (final t in texts) {
+                    if (t == '•') {
+                      if (curr.isNotEmpty) {
+                        parts.add(curr.join(' '));
+                        curr.clear();
+                      }
+                    } else {
+                      curr.add(t);
+                    }
+                  }
+                  if (curr.isNotEmpty) parts.add(curr.join(' '));
+
+                  if (parts.isNotEmpty) artist = parts[0];
+                  for (var i = 1; i < parts.length; i++) {
+                    final p = parts[i];
+                    final durMatch = RegExp(r'^(\d+):(\d+)$').firstMatch(p);
+                    if (durMatch != null) {
+                      durationSec = int.parse(durMatch.group(1)!) * 60 + int.parse(durMatch.group(2)!);
+                    } else if (album == null && !RegExp(r'(plays|views)$', caseSensitive: false).hasMatch(p)) {
+                      album = p;
+                    }
+                  }
+                }
+
+                String? cover;
+                final thumbObj = item['thumbnail'] as Map<String, dynamic>?;
+                final thumbRenderer = thumbObj?['musicThumbnailRenderer'] as Map<String, dynamic>?;
+                final thumbList = thumbRenderer?['thumbnail']?['thumbnails'] as List<dynamic>? ?? [];
+                if (thumbList.isNotEmpty) {
+                  final last = thumbList.last as Map<String, dynamic>?;
+                  final rawUrl = last?['url'] as String? ?? '';
+                  if (rawUrl.isNotEmpty) {
+                    cover = rawUrl.replaceAll(RegExp(r'=w\d+-h\d+-'), '=w544-h544-');
+                  }
+                }
+
+                candidates.add(
+                  YtmTrackCandidate(
+                    videoId: vid,
+                    title: title.isNotEmpty ? title : 'YouTube Music Track',
+                    artist: artist.isNotEmpty ? artist : 'Unknown Artist',
+                    album: album,
+                    duration: Duration(seconds: durationSec),
+                    coverUrl: cover,
+                    backgroundUrl: 'https://i.ytimg.com/vi/$vid/maxresdefault.jpg',
+                  ),
+                );
+              }
+            }
+          } else {
+            for (final v in node.values) {
+              walk(v);
+            }
+          }
+        } else if (node is List) {
+          for (final it in node) {
+            walk(it);
           }
         }
       }
-      return ids;
+
+      walk(contents);
+      return candidates;
     } catch (_) {
       return [];
     }
+  }
+
+  /// Searches YouTube Music (WEB_REMIX) and returns matching video IDs.
+  Future<List<String>> searchMusicTracks(String query) async {
+    final cands = await searchMusic(query);
+    return cands.map((c) => c.videoId).toList();
+  }
+
+  /// Searches YouTube Music and maps results directly into [Track] domain entities.
+  Future<List<Track>> searchMusicTrackEntities(String query, {int limit = 20}) async {
+    final cands = await searchMusic(query, limit: limit);
+    return cands.map((c) => c.toTrack()).toList();
+  }
+
+  /// Retrieves music search auto-complete suggestions from YouTube Music.
+  Future<List<String>> getMusicSearchSuggestions(String query) async {
+    final clean = query.trim();
+    if (clean.isEmpty) return [];
+    try {
+      final uri = Uri.parse(
+        'https://music.youtube.com/youtubei/v1/music/get_search_suggestions?prettyPrint=false',
+      );
+      final req = await _client.postUrl(uri).timeout(const Duration(seconds: 4));
+      req.headers.set(
+        'User-Agent',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      );
+      req.headers.set('Referer', 'https://music.youtube.com/');
+      req.headers.set('Content-Type', 'application/json');
+
+      final payload = {
+        'context': {
+          'client': {
+            'clientName': 'WEB_REMIX',
+            'clientVersion': '1.20240422.01.00',
+            'hl': 'en',
+            'gl': 'IN',
+          }
+        },
+        'input': clean,
+      };
+
+      req.add(utf8.encode(jsonEncode(payload)));
+      final res = await req.close().timeout(const Duration(seconds: 4));
+      if (res.statusCode != 200) return [];
+
+      final body = await res.transform(utf8.decoder).join();
+      final json = jsonDecode(body);
+      final suggestions = <String>[];
+      final seen = <String>{};
+
+      void walk(dynamic node) {
+        if (node is Map<String, dynamic>) {
+          if (node.containsKey('searchSuggestionRenderer')) {
+            final rend = node['searchSuggestionRenderer'] as Map<String, dynamic>?;
+            final epQuery = rend?['navigationEndpoint']?['searchEndpoint']?['query'] as String?;
+            if (epQuery != null && epQuery.isNotEmpty && seen.add(epQuery.toLowerCase())) {
+              suggestions.add(epQuery);
+            }
+          } else {
+            for (final v in node.values) {
+              walk(v);
+            }
+          }
+        } else if (node is List) {
+          for (final it in node) {
+            walk(it);
+          }
+        }
+      }
+
+      walk(json['contents']);
+      return suggestions;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Resolves high-resolution 16:9 / 1080p background artwork from YouTube Music.
+  Future<String?> resolveBackgroundArtwork(String videoIdOrQuery) async {
+    String? vid;
+    final clean = videoIdOrQuery
+        .replaceFirst('ytm_', '')
+        .replaceFirst('yt_', '')
+        .trim();
+    if (clean.length == 11 && RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(clean)) {
+      vid = clean;
+    } else {
+      final cands = await searchMusic(clean);
+      if (cands.isNotEmpty) {
+        vid = cands.first.videoId;
+      }
+    }
+
+    if (vid == null) return null;
+
+    try {
+      final data = await queryPlayer(vid);
+      if (data != null) {
+        // 1. Try microformat 1280x720 / 1920x1080 backdrop
+        final microThumb = data['microformat']?['microformatDataRenderer']?['thumbnail']?['thumbnails'] as List<dynamic>?;
+        if (microThumb != null && microThumb.isNotEmpty) {
+          final url = microThumb.last['url'] as String?;
+          if (url != null && url.isNotEmpty) {
+            return url.startsWith('http://') ? 'https://${url.substring(7)}' : url;
+          }
+        }
+
+        // 2. Try videoDetails landscape thumbnail
+        final vidThumb = data['videoDetails']?['thumbnail']?['thumbnails'] as List<dynamic>?;
+        if (vidThumb != null && vidThumb.isNotEmpty) {
+          final url = vidThumb.last['url'] as String?;
+          if (url != null && url.isNotEmpty) {
+            return url.startsWith('http://') ? 'https://${url.substring(7)}' : url;
+          }
+        }
+      }
+    } catch (_) {}
+
+    return 'https://i.ytimg.com/vi/$vid/maxresdefault.jpg';
   }
 
   void close() {

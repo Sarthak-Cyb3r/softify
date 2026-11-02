@@ -94,33 +94,43 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    // Fast concurrent query: LRCLIB, JioSaavn, Paxsenix, and BetterLyrics in parallel
+    // Tier 1 (Fast Concurrent Query): LRCLIB, NetEase, Kugou, and JioSaavn in parallel
     final fastTierFuture = Future.wait([
       _lrclib
           .getLyrics(track)
-          .timeout(const Duration(seconds: 4), onTimeout: () => null)
+          .timeout(const Duration(milliseconds: 3500), onTimeout: () => null)
+          .catchError((_) => null),
+      _netease
+          .getLyrics(track)
+          .timeout(const Duration(milliseconds: 3000), onTimeout: () => null)
+          .catchError((_) => null),
+      _kugou
+          .getLyrics(track)
+          .timeout(const Duration(milliseconds: 3200), onTimeout: () => null)
           .catchError((_) => null),
       _saavn
           .getLyrics(track)
-          .timeout(const Duration(seconds: 4), onTimeout: () => null)
+          .timeout(const Duration(milliseconds: 3500), onTimeout: () => null)
           .catchError((_) => null),
       if (_paxsenix != null)
         _paxsenix!
             .getLyrics(track)
-            .timeout(const Duration(milliseconds: 1500), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 800), onTimeout: () => null)
             .catchError((_) => null)
       else
         Future<SyncedLyrics?>.value(null),
       if (_betterLyrics != null)
         _betterLyrics!
             .getLyrics(track)
-            .timeout(const Duration(milliseconds: 1200), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 800), onTimeout: () => null)
             .catchError((_) => null)
       else
         Future<SyncedLyrics?>.value(null),
     ]);
 
     SyncedLyrics? lrclibResult;
+    SyncedLyrics? neteaseResult;
+    SyncedLyrics? kugouResult;
     SyncedLyrics? saavnResult;
     SyncedLyrics? paxResult;
     SyncedLyrics? betterResult;
@@ -128,9 +138,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
     try {
       final fastResults = await fastTierFuture;
       lrclibResult = fastResults[0];
-      saavnResult = fastResults[1];
-      paxResult = fastResults[2];
-      betterResult = fastResults[3];
+      neteaseResult = fastResults[1];
+      kugouResult = fastResults[2];
+      saavnResult = fastResults[3];
+      paxResult = fastResults[4];
+      betterResult = fastResults[5];
 
       // 1. Syllable/Karaoke sync preference (Paxsenix Apple Music or BetterLyrics)
       if (paxResult != null &&
@@ -142,15 +154,34 @@ class CompositeLyricsProvider implements ILyricsProvider {
 
       if (betterResult != null &&
           betterResult.isSynced &&
-          betterResult.lines.isNotEmpty) {
+          betterResult.lines.isNotEmpty &&
+          betterResult.isSyllableSynced) {
         return betterResult;
       }
 
-      // 2. Line-synced preference (LRCLIB, Paxsenix, JioSaavn)
+      // 2. Line-synced preference (LRCLIB, NetEase, Kugou, JioSaavn)
       if (lrclibResult != null &&
           lrclibResult.isSynced &&
           lrclibResult.lines.isNotEmpty) {
         return lrclibResult;
+      }
+
+      if (neteaseResult != null &&
+          neteaseResult.isSynced &&
+          neteaseResult.lines.isNotEmpty) {
+        return neteaseResult;
+      }
+
+      if (kugouResult != null &&
+          kugouResult.isSynced &&
+          kugouResult.lines.isNotEmpty) {
+        return kugouResult;
+      }
+
+      if (saavnResult != null &&
+          saavnResult.isSynced &&
+          saavnResult.lines.isNotEmpty) {
+        return saavnResult;
       }
 
       if (paxResult != null &&
@@ -159,14 +190,14 @@ class CompositeLyricsProvider implements ILyricsProvider {
         return paxResult;
       }
 
-      if (saavnResult != null &&
-          saavnResult.isSynced &&
-          saavnResult.lines.isNotEmpty) {
-        return saavnResult;
+      if (betterResult != null &&
+          betterResult.isSynced &&
+          betterResult.lines.isNotEmpty) {
+        return betterResult;
       }
     } catch (_) {}
 
-    // Tier 1.5: Query Spotify official color-lyrics v2
+    // Tier 2: Query Spotify official color-lyrics v2
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
@@ -181,36 +212,6 @@ class CompositeLyricsProvider implements ILyricsProvider {
         }
       } catch (_) {}
     }
-
-    // Tier 3: Query NetEase Cloud Music and Kugou concurrently
-    SyncedLyrics? neteaseResult;
-    SyncedLyrics? kugouResult;
-    try {
-      final tier3Results = await Future.wait([
-        _netease
-            .getLyrics(track)
-            .timeout(const Duration(milliseconds: 1500), onTimeout: () => null)
-            .catchError((_) => null),
-        _kugou
-            .getLyrics(track)
-            .timeout(const Duration(seconds: 3), onTimeout: () => null)
-            .catchError((_) => null),
-      ]);
-      neteaseResult = tier3Results[0];
-      kugouResult = tier3Results[1];
-
-      if (neteaseResult != null &&
-          neteaseResult.isSynced &&
-          neteaseResult.lines.isNotEmpty) {
-        return neteaseResult;
-      }
-
-      if (kugouResult != null &&
-          kugouResult.isSynced &&
-          kugouResult.lines.isNotEmpty) {
-        return kugouResult;
-      }
-    } catch (_) {}
 
     // Tier 4: Fallback to verified plain lyrics across sources
     final plainCandidates = [

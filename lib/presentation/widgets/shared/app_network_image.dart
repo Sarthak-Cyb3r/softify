@@ -70,8 +70,24 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
     }
 
     var primary = raw;
-    if (primary.startsWith('http://')) {
+    if (primary.startsWith('//')) {
+      primary = 'https:$primary';
+    } else if (primary.startsWith('http://')) {
       primary = 'https://${primary.substring(7)}';
+    }
+
+    // Replace Apple Music / mzstatic dynamic dimension placeholders
+    if (primary.contains('{w}x{h}')) {
+      primary = primary.replaceAll('{w}x{h}', '600x600');
+    }
+    if (primary.contains('{w}') || primary.contains('{h}')) {
+      primary = primary.replaceAll('{w}', '600').replaceAll('{h}', '600');
+    }
+    if (primary.contains('{c}')) {
+      primary = primary.replaceAll('{c}', '');
+    }
+    if (primary.contains('{f}')) {
+      primary = primary.replaceAll('{f}', 'jpg');
     }
 
     if (!primary.startsWith('https://')) {
@@ -81,24 +97,38 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
 
     final list = <String>[primary];
 
-    // YouTube: fallback to universally supported 480x360 hqdefault
+    // YouTube: fallback to universally supported 480x360 hqdefault and mqdefault
     if (primary.contains('maxresdefault.jpg')) {
       list.add(primary.replaceAll('maxresdefault.jpg', 'hqdefault.jpg'));
+      list.add(primary.replaceAll('maxresdefault.jpg', 'mqdefault.jpg'));
     } else if (primary.contains('sddefault.jpg')) {
       list.add(primary.replaceAll('sddefault.jpg', 'hqdefault.jpg'));
     }
 
-    // JioSaavn: fallback to standard 150x150 if 500x500 CDN fails
-    if (primary.contains('500x500')) {
-      list.add(primary.replaceAll('500x500', '150x150'));
+    // Google User Content (YouTube Music high-res avatars & covers)
+    if (primary.contains('googleusercontent.com') && primary.contains('=')) {
+      final base = primary.split('=').first;
+      list.add('$base=s500');
+      list.add('$base=w500-h500-l90-rj');
+      list.add(base);
     }
 
-    // iTunes: fallback to 100x100 if 600x600 fails
+    // JioSaavn: fallback across 500x500, 150x150, and 50x50 CDN resolutions
+    if (primary.contains('500x500')) {
+      list.add(primary.replaceAll('500x500', '150x150'));
+      list.add(primary.replaceAll('500x500', '50x50'));
+    } else if (primary.contains('150x150')) {
+      list.add(primary.replaceAll('150x150', '500x500'));
+      list.add(primary.replaceAll('150x150', '50x50'));
+    }
+
+    // iTunes / Apple: fallback to 300x300 and 100x100 if 600x600 fails
     if (primary.contains('600x600bb')) {
+      list.add(primary.replaceAll('600x600bb', '300x300bb'));
       list.add(primary.replaceAll('600x600bb', '100x100bb'));
     }
 
-    _candidates = list;
+    _candidates = list.toSet().toList();
   }
 
   void _handleImageError() {

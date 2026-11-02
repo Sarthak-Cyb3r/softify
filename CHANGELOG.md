@@ -2,6 +2,49 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [4.0.0] - 2026-11-02
+
+### 🍎 Apple Music Player & Playback Controls
+- **Repeat Mode Toggle**: Added repeat mode switcher (`Off` $\to$ `All` $\to$ `One`) to the Apple Music style full-screen player floating control dock with subtle icon indicator and haptic feedback.
+- **Reactive State Synchronization**: Connected repeat state seamlessly to `playerControllerProvider` and background audio handlers, persisting repeat preferences across track transitions.
+- **Floating Control Dock Refinement**: Preserved authentic Apple Music ergonomics with quick toggles between album artwork, synced lyrics, and up-next queue.
+
+### 🎵 YouTube Music API & High-Fidelity Audio Streams
+- **Native YouTube Music InnerTube Integration**: Replaced legacy YouTube endpoints with the official YouTube Music InnerTube API (`WEB_REMIX` client) for higher bitrate studio audio streams and improved catalog coverage.
+- **Accurate Audio Matching & Substitution Elimination**: Fixed track substitution bugs (e.g., *Tere Liye* and movie soundtrack songs) by enforcing strict word matching, title phonetics, and subtitle integrity checks across JioSaavn and YouTube Music resolvers.
+- **Studio Master Verification**: Prioritized verified label tracks (`eros`, `t-series`, `sony music`, `tips`, `zee music`) while filtering out low-quality covers, unofficial live audio, and fan bootlegs.
+
+### 🎬 Living Motion Artwork & YouTube Music Backgrounds
+- **Ambient Canvas & Video Covers**: Integrated extraction of YouTube Music animated canvas covers and ambient background artwork.
+- **Zero-Blank Artwork Fallback**: Automated fallback to high-resolution background artwork whenever motion artwork or Spotify canvases are unavailable, eliminating blank or missing album art across player screens.
+- **High-Performance Local Caching**: Optimized local caching of looping MP4/WebP covers to ensure instant playback without network overhead or battery drain.
+
+### 📜 Multi-Catalog Synced Lyrics Engine
+- **Multi-Source Aggregation**: Upgraded lyrics engine across LRCLIB, JioSaavn, Kugou, and NetEase with non-blocking concurrent aggregation, zero empty lyric screens, and improved timestamp sync.
+- **Candidate Splitting & Bare-Title Matching**: Enabled granular artist splitting across multi-artist collaborations (*A.R. Rahman, Jaswinder Singh*) and bare-title extraction (stripping movie OST parentheticals and remix tags) for exact sync alignment.
+- **Cinematic Optical Depth Blur**: Enhanced active lyric line focus with natural optical depth-of-field blur on past and upcoming lines.
+
+### 🔍 Intelligent Search & Personalized Recommendations
+- **Full-Text Search (FTS) Token Normalizer**: Upgraded Drift SQLite FTS repository with phonetic text normalization for typo-tolerant query parsing.
+- **Multi-Signal Linear Search Reranker**: Integrated weighted search reranker balancing exact title matches, verified artist tags, and popularity metrics over ambiguous results.
+- **Dynamic Recommendation Bandit**: Enhanced shelf recommendation engine with $\epsilon$-greedy exploration for personalized home shelf feeds.
+
+### 👥 Listen Together Cross-Device Sync
+- **Restored Cross-Device Synchronization**: Hardened Listen Together shared listening rooms over open WebSocket protocol, ensuring track switches and seek actions from one device instantly trigger on connected peers.
+- **Sub-300ms Clock Alignment**: Refined `ServerClock` latency exponential moving average (EMA) calibration and buffer barrier coordination to guarantee sub-300ms playback sync across devices with differing connection latencies.
+- **Binary Protocol Robustness**: Repaired protobuf serialization and capability negotiation, supporting seamless room hosting and guest playback.
+
+### 🚀 Seamless In-App Updates & Android Installer
+- **Resolved Silent Installer Denial**: Fixed issue where the in-app updater announced "Installer Launched" without triggering installation by declaring `REQUEST_INSTALL_PACKAGES` permission and configuring proper FileProvider URI intent flags for Android 12-14.
+- **Persistent APK Staging**: Update binaries are safely staged to persistent cache / public Downloads directory to survive uninstalls during signature mismatch reinstallation flows.
+
+### 💎 Liquid Glass Design & Notification Overhaul
+- **Floating Notification Banner**: Redesigned floating in-app update banner into an Apple-style floating glass capsule with gesture swipe-to-dismiss, spring entrance physics, glowing accent icon badge, and tactile haptic pill buttons.
+- **Modern Update Changelog Sheet**: Upgraded in-app patch notes modal into a frosted Liquid Glass sheet with interactive category filter tabs (Audio, Visuals, Lyrics, UI/UX, Social, System), glowing status chips, and a bouncing launch button.
+- **Refined Administrator Notice Modal**: Redesigned in-app announcement modal and settings update cards with dual-layer glow, backdrop blur, and refined typography.
+
+---
+
 ## [3.0.9] - 2026-10-31
 
 ### 🎵 Accurate Audio Matching & Mismatch Prevention

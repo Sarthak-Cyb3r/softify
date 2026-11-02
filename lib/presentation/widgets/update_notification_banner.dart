@@ -1,10 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import 'bouncing_scale_button.dart';
 
-/// Floating in-app update notification banner.
-/// Informs the user when the app has updated and offers a 1-tap "Read Changelog" action.
+/// Premium floating in-app update notification banner.
+/// Features Apple Music / Liquid Glass aesthetics, swipe-to-dismiss gesture,
+/// responsive layout, and haptic-enabled quick actions.
 class UpdateNotificationBanner extends StatefulWidget {
   final String version;
   final VoidCallback onReadChangelog;
@@ -24,22 +27,27 @@ class UpdateNotificationBanner extends StatefulWidget {
 class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _slideAnimation;
+  late final Animation<Offset> _slideAnimation;
   late final Animation<double> _fadeAnimation;
+  late final Animation<double> _scaleAnimation;
   bool _isDismissing = false;
+  double _dragOffsetY = 0.0;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 420),
     );
 
-    _slideAnimation = Tween<double>(begin: -1.0, end: 0.0).animate(
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, -1.2),
+      end: Offset.zero,
+    ).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: Curves.easeOutCubic,
+        curve: Curves.easeOutBack,
         reverseCurve: Curves.easeInCubic,
       ),
     );
@@ -49,6 +57,14 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
         parent: _controller,
         curve: Curves.easeOut,
         reverseCurve: Curves.easeIn,
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       ),
     );
 
@@ -64,6 +80,7 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
   Future<void> _handleDismiss() async {
     if (_isDismissing) return;
     _isDismissing = true;
+    HapticFeedback.lightImpact();
     await _controller.reverse();
     if (mounted) {
       widget.onDismiss();
@@ -73,6 +90,7 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
   Future<void> _handleReadChangelog() async {
     if (_isDismissing) return;
     _isDismissing = true;
+    HapticFeedback.mediumImpact();
     await _controller.reverse();
     if (mounted) {
       widget.onReadChangelog();
@@ -82,137 +100,238 @@ class _UpdateNotificationBannerState extends State<UpdateNotificationBanner>
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final accent = tokens.accent;
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return FractionalTranslation(
-          translation: Offset(0.0, _slideAnimation.value),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: child,
+        return Transform.translate(
+          offset: Offset(0.0, _slideAnimation.value.dy * 80 + _dragOffsetY),
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Opacity(
+              opacity: _fadeAnimation.value.clamp(0.0, 1.0),
+              child: child,
+            ),
           ),
         );
       },
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          constraints: const BoxConstraints(maxWidth: 640),
-          decoration: BoxDecoration(
-            color: tokens.isGlass ? const Color(0xE6141D18) : const Color(0xFF141916),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: const Color(0x4D4EDEA3),
-              width: 1.2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 20,
-                offset: Offset(0, 8),
+      child: GestureDetector(
+        onVerticalDragUpdate: (details) {
+          if (details.delta.dy < 0) {
+            setState(() {
+              _dragOffsetY += details.delta.dy;
+            });
+          }
+        },
+        onVerticalDragEnd: (details) {
+          if (_dragOffsetY < -20 || (details.primaryVelocity ?? 0) < -250) {
+            _handleDismiss();
+          } else {
+            setState(() {
+              _dragOffsetY = 0.0;
+            });
+          }
+        },
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            constraints: const BoxConstraints(maxWidth: 580),
+            decoration: BoxDecoration(
+              color: tokens.isGlass
+                  ? const Color(0xE8141C18)
+                  : tokens.surfaceElevated.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.32),
+                width: 1.2,
               ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Row(
-                  children: [
-                    // Sparkle Icon Badge
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0x2B4EDEA3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0x554EDEA3),
-                          width: 1,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.12),
+                  blurRadius: 18,
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                  child: Row(
+                    children: [
+                      // Glowing Sparkle Icon Badge
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              accent.withValues(alpha: 0.28),
+                              accent.withValues(alpha: 0.08),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.45),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.25),
+                              blurRadius: 12,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.auto_awesome_rounded,
+                          color: accent,
+                          size: 22,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Color(0xFF4EDEA3),
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
 
-                    // Text Info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Softify Updated to v${widget.version}! 🎉',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              letterSpacing: -0.2,
+                      // Version & Features text
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Softify Updated to v${widget.version}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13.5,
+                                      letterSpacing: -0.2,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: accent.withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: accent.withValues(alpha: 0.35),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'NEW',
+                                    style: TextStyle(
+                                      color: accent,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Explore Apple Music player, motion covers & more.',
-                            style: TextStyle(
-                              color: Color(0xFFA5B2AA),
-                              fontSize: 11.5,
+                            const SizedBox(height: 2),
+                            Text(
+                              'Living covers, Apple Music style & synced lyrics',
+                              style: TextStyle(
+                                color: tokens.textSecondary,
+                                fontSize: 11.5,
+                                letterSpacing: -0.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 10),
 
-                    // Actions
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4EDEA3),
-                            foregroundColor: const Color(0xFF07120C),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            minimumSize: const Size(0, 34),
-                            elevation: 0,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      // Quick Action Buttons
+                      BouncingScaleButton(
+                        scaleDown: 0.94,
+                        minTouchTarget: 36,
+                        onTap: _handleReadChangelog,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accent,
+                                Color.lerp(accent, Colors.white, 0.15) ?? accent,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                          onPressed: _handleReadChangelog,
-                          child: const Text(
-                            'Read Changelog',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'What\'s New',
+                                style: TextStyle(
+                                  color: Color(0xFF09140E),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  letterSpacing: 0.1,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                color: Color(0xFF09140E),
+                                size: 14,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          icon: const Icon(
+                      ),
+                      const SizedBox(width: 4),
+
+                      // Dismiss Button
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        icon: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.06),
+                          ),
+                          child: Icon(
                             Icons.close_rounded,
-                            color: Color(0xFF8B9890),
-                            size: 18,
+                            color: tokens.textMuted,
+                            size: 16,
                           ),
-                          tooltip: 'Dismiss',
-                          onPressed: _handleDismiss,
                         ),
-                      ],
-                    ),
-                  ],
+                        tooltip: 'Dismiss',
+                        onPressed: _handleDismiss,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -19,6 +19,12 @@ void main() {
       expect(TextNormalizer.normalize('   Starboy (feat. Daft Punk)   '), 'starboy feat daft punk');
     });
 
+    test('Multilingual and Indic text preserves letters, matras, and numbers across scripts', () {
+      expect(TextNormalizer.normalize('केसरिया - Brahmāstra!'), 'केसरिया brahmastra');
+      expect(TextNormalizer.normalize('ਦਿਲਜੀਤ ਦੋਸਾਂਝ (G.O.A.T.)'), 'ਦਿਲਜੀਤ ਦੋਸਾਂਝ g o a t');
+      expect(TextNormalizer.normalize('宇多田ヒカル (First Love)'), '宇多田ヒカル first love');
+    });
+
     test('Levenshtein distance & similarity ratio are accurate', () {
       expect(TextNormalizer.levenshteinDistance('arijit', 'arijit'), 0);
       expect(TextNormalizer.similarity('arijit', 'arijit'), 1.0);

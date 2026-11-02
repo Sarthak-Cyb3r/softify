@@ -741,6 +741,28 @@ class SpotifyApiService {
               }
             } catch (_) {}
           }
+
+          // Fallback: iTunes public search for authentic high-res album cover
+          if (t.title.isNotEmpty && t.artist.isNotEmpty) {
+            try {
+              final itunesUri = Uri.parse(
+                'https://itunes.apple.com/search?term=${Uri.encodeComponent('${t.title} ${t.artist}')}&entity=song&limit=1',
+              );
+              final itunesResp = await _client.get(itunesUri).timeout(const Duration(milliseconds: 1500));
+              if (itunesResp.statusCode == 200) {
+                final itunesJson = json.decode(itunesResp.body) as Map<String, dynamic>;
+                final results = itunesJson['results'] as List<dynamic>?;
+                if (results != null && results.isNotEmpty) {
+                  final rawCover = results.first['artworkUrl100'] as String?;
+                  if (rawCover != null && rawCover.isNotEmpty) {
+                    final highRes = rawCover.replaceAll('100x100bb', '600x600bb');
+                    return t.copyWith(coverUrl: highRes);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
           return t;
         }),
       );

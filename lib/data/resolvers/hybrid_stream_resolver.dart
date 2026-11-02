@@ -73,8 +73,10 @@ class HybridStreamResolver implements IStreamResolver {
     required AudioQualityPreset quality,
     required bool forceFresh,
   }) async {
-    // Direct YouTube link tracks bypass Saavn
-    if (track.sourceId.startsWith('yt_')) {
+    // Direct YouTube / YouTube Music link tracks bypass Saavn to avoid wasted lookup
+    if (track.sourceId.startsWith('yt_') ||
+        track.sourceId.startsWith('ytm_') ||
+        track.id.startsWith('ytm_')) {
       return await _ytResolver.resolve(
         track,
         quality: quality,

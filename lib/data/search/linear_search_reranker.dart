@@ -118,6 +118,28 @@ class LinearSearchReranker implements ISearchReranker {
         score += 12.0;
       }
 
+      // 8. Album title alignment bonus
+      if (track.album != null && track.album!.isNotEmpty) {
+        final normAlbum = TextNormalizer.normalize(track.album!);
+        if (normAlbum.isNotEmpty && (normalizedQuery.contains(normAlbum) || normAlbum.contains(normalizedQuery))) {
+          score += 5.0;
+        }
+      }
+
+      // 9. Variant penalty: down-rank unwanted remixes, covers, lofi, or slowed cuts
+      final queryLower = query.toLowerCase();
+      final trackTitleLower = track.title.toLowerCase();
+      final queryWantsRemix = queryLower.contains('remix') || queryLower.contains('mashup');
+      final trackIsRemix = trackTitleLower.contains('remix') || trackTitleLower.contains('mashup') || trackTitleLower.contains('dj ');
+      final queryWantsCover = queryLower.contains('cover');
+      final trackIsCover = trackTitleLower.contains('cover');
+      if (!queryWantsRemix && trackIsRemix) {
+        score -= 8.0;
+      }
+      if (!queryWantsCover && trackIsCover) {
+        score -= 8.0;
+      }
+
       candidate.score = score;
     }
 

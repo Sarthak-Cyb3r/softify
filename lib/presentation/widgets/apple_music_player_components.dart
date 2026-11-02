@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
+import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
 import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
@@ -284,6 +285,7 @@ class AppleMusicPersistentBottomPanel extends ConsumerWidget {
   final bool isBuffering;
   final int activeTabIndex; // 0: main, 1: lyrics, 2: queue
   final ValueChanged<int> onTabChanged;
+  final AudioRepeatMode? repeatMode;
 
   const AppleMusicPersistentBottomPanel({
     super.key,
@@ -293,12 +295,17 @@ class AppleMusicPersistentBottomPanel extends ConsumerWidget {
     required this.isBuffering,
     required this.activeTabIndex,
     required this.onTabChanged,
+    this.repeatMode,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final volume = ref.watch(volumeStreamProvider).value ?? 1.0;
     final deviceName = ref.watch(deviceModelNameProvider).value ?? 'moto g34 5G';
+    final effectiveRepeatMode = repeatMode ??
+        ref.watch(repeatModeStreamProvider).value ??
+        audioHandler.repeatMode ??
+        AudioRepeatMode.off;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -476,23 +483,19 @@ class AppleMusicPersistentBottomPanel extends ConsumerWidget {
                       },
                     ),
 
-                    // Item 4: Subtitles / Mini Lyrics
-                    _dockButton(
-                      icon: Icons.subtitles_rounded,
-                      isActive: false,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Synced lyrics HUD enabled',
-                              style: TextStyle(fontFamily: AppTheme.fontUi),
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
+                    // Item 4: Repeat Mode Toggle (Off -> Playlist -> One -> Off)
+                    Tooltip(
+                      message: effectiveRepeatMode.label,
+                      child: _dockButton(
+                        icon: effectiveRepeatMode == AudioRepeatMode.one
+                            ? Icons.repeat_one_rounded
+                            : Icons.repeat_rounded,
+                        isActive: effectiveRepeatMode != AudioRepeatMode.off,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          audioHandler.setAudioRepeatMode(effectiveRepeatMode.next());
+                        },
+                      ),
                     ),
 
                     // Item 5: Queue

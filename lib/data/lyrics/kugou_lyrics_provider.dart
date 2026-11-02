@@ -35,11 +35,18 @@ class KugouLyricsProvider implements ILyricsProvider {
         'https://songsearch.kugou.com/song_search_v2?keyword=${Uri.encodeComponent(query)}&page=1&pagesize=5',
       );
       final searchData = await _getJson(searchUri);
-      if (searchData == null) return null;
-
-      final infoList = (searchData['data']?['lists'] as List?)?.cast<Map<String, dynamic>>() ??
-          (searchData['data']?['info'] as List?)?.cast<Map<String, dynamic>>() ??
+      var infoList = (searchData?['data']?['lists'] as List?)?.cast<Map<String, dynamic>>() ??
+          (searchData?['data']?['info'] as List?)?.cast<Map<String, dynamic>>() ??
           [];
+      if (infoList.isEmpty && cleanTitle != query) {
+        final fallbackUri = Uri.parse(
+          'https://songsearch.kugou.com/song_search_v2?keyword=${Uri.encodeComponent(cleanTitle)}&page=1&pagesize=5',
+        );
+        final fallbackData = await _getJson(fallbackUri);
+        infoList = (fallbackData?['data']?['lists'] as List?)?.cast<Map<String, dynamic>>() ??
+            (fallbackData?['data']?['info'] as List?)?.cast<Map<String, dynamic>>() ??
+            [];
+      }
       if (infoList.isEmpty) return null;
 
       // Filter candidates to strictly verify song title matches

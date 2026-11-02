@@ -246,6 +246,9 @@ class GitHubReleaseUpdateChecker implements IUpdateChecker {
         'filePath': targetFile.path,
       });
     } on PlatformException catch (e) {
+      if (e.code == 'BLOCKED') {
+        throw _installException(e.code, e.message);
+      }
       try {
         // Fallback: Delegate directly to system browser / release download (SimpMusic pattern)
         final targetUrl = release.apkDownloadUrl.isNotEmpty

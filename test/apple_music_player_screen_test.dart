@@ -379,7 +379,15 @@ void main() {
       // Verifies Apple Music Persistent Dock buttons
       expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
       expect(find.byIcon(Icons.people_alt_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
       expect(find.byIcon(Icons.format_list_bulleted_rounded), findsOneWidget);
+
+      // Verify Repeat Button Toggling in Apple Music dock
+      expect(fakeHandler.repeat, AudioRepeatMode.off);
+      await tester.tap(find.byIcon(Icons.repeat_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(fakeHandler.repeat, AudioRepeatMode.playlist);
 
       // 1. Test Dock: Tap Queue icon
       await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded));

@@ -172,10 +172,15 @@ class ListenTogetherProtoCodec {
 
       if (type == null) return null;
       var rawPayload = payload ?? Uint8List(0);
-      if (compressed && rawPayload.isNotEmpty) {
-        try {
-          rawPayload = Uint8List.fromList(gzip.decode(rawPayload));
-        } catch (_) {}
+      if (rawPayload.isNotEmpty) {
+        if (compressed ||
+            (rawPayload.length >= 2 &&
+                rawPayload[0] == 0x1f &&
+                rawPayload[1] == 0x8b)) {
+          try {
+            rawPayload = Uint8List.fromList(gzip.decode(rawPayload));
+          } catch (_) {}
+        }
       }
       return (type, rawPayload);
     } catch (_) {
@@ -251,32 +256,76 @@ class ListenTogetherProtoCodec {
     String? trackId,
     int? position,
     Map<String, dynamic>? trackInfo,
-    bool isPlaying = true,
+    bool insertNext = false,
+    List<Map<String, dynamic>>? queue,
+    String? queueTitle,
+    double? volume,
     int? serverTime,
     int? revision,
+    int? capturedAtServerTime,
+    bool? replaceQueue,
+    int? hostSequence,
     String envelopeType = 'playback_action',
   }) {
     final w = ProtoWriter();
     w.writeString(1, action);
-    if (trackId != null) w.writeString(2, trackId);
-    if (position != null) w.writeInt64(3, position);
+    if (trackId != null && trackId.isNotEmpty) {
+      w.writeString(2, trackId);
+    }
+    if (position != null) {
+      w.writeInt64(3, position);
+    }
     if (trackInfo != null) {
       final tw = ProtoWriter();
       tw.writeString(1, trackInfo['id'] ?? '');
       tw.writeString(2, trackInfo['title'] ?? '');
       tw.writeString(3, trackInfo['artist'] ?? '');
       tw.writeString(4, trackInfo['album'] ?? '');
-      tw.writeInt64(5, trackInfo['duration'] ?? trackInfo['duration_ms'] ?? trackInfo['durationMs'] ?? 0);
+      tw.writeInt64(5, (trackInfo['duration'] ?? trackInfo['duration_ms'] ?? trackInfo['durationMs'] as num?)?.toInt() ?? 0);
       tw.writeString(6, trackInfo['thumbnail'] ?? trackInfo['thumbnail_url'] ?? trackInfo['thumbnailUrl'] ?? '');
+      if (trackInfo['suggested_by'] != null) {
+        tw.writeString(7, trackInfo['suggested_by'].toString());
+      }
       w.writeBytes(4, tw.takeBytes());
     }
-    w.writeBool(5, isPlaying);
+    if (insertNext) {
+      w.writeBool(5, true);
+    }
+    if (queue != null && queue.isNotEmpty) {
+      for (final qItem in queue) {
+        final qw = ProtoWriter();
+        qw.writeString(1, qItem['id'] ?? '');
+        qw.writeString(2, qItem['title'] ?? '');
+        qw.writeString(3, qItem['artist'] ?? '');
+        qw.writeString(4, qItem['album'] ?? '');
+        qw.writeInt64(5, (qItem['duration'] ?? qItem['duration_ms'] ?? qItem['durationMs'] as num?)?.toInt() ?? 0);
+        qw.writeString(6, qItem['thumbnail'] ?? qItem['thumbnail_url'] ?? qItem['thumbnailUrl'] ?? '');
+        if (qItem['suggested_by'] != null) {
+          qw.writeString(7, qItem['suggested_by'].toString());
+        }
+        w.writeBytes(6, qw.takeBytes());
+      }
+    }
+    if (queueTitle != null && queueTitle.isNotEmpty) {
+      w.writeString(7, queueTitle);
+    }
+    if (volume != null) {
+      w.writeFloat(8, volume);
+    }
     if (serverTime != null) {
       w.writeInt64(9, serverTime);
     }
     if (revision != null) {
-      w.writeInt64(6, revision);
       w.writeInt64(10, revision);
+    }
+    if (capturedAtServerTime != null) {
+      w.writeInt64(11, capturedAtServerTime);
+    }
+    if (replaceQueue != null) {
+      w.writeBool(12, replaceQueue);
+    }
+    if (hostSequence != null) {
+      w.writeInt64(14, hostSequence);
     }
     return encodeEnvelope(envelopeType, w.takeBytes());
   }
@@ -413,6 +462,9 @@ class ListenTogetherProtoCodec {
     int position = 0;
     int lastUpdate = 0;
     double volume = 1.0;
+    final List<Map<String, dynamic>> queue = [];
+    int revision = 0;
+    String queueTitle = '';
 
     while (r.hasMore) {
       final t = r.readTag();
@@ -425,7 +477,9 @@ class ListenTogetherProtoCodec {
       else if (t.$1 == 6) position = r.readInt64();
       else if (t.$1 == 7) lastUpdate = r.readInt64();
       else if (t.$1 == 8) volume = r.readFloat();
-      else if (t.$1 == 10) isPlaying = r.readInt64() != 0;
+      else if (t.$1 == 9) queue.add(decodeTrackInfo(r.readBytes()));
+      else if (t.$1 == 10) revision = r.readInt64();
+      else if (t.$1 == 11) queueTitle = r.readString();
       else r.skipField(t.$2);
     }
 
@@ -438,6 +492,9 @@ class ListenTogetherProtoCodec {
       'position': position,
       'last_update': lastUpdate,
       'volume': volume,
+      'queue': queue,
+      'revision': revision,
+      'queue_title': queueTitle,
     };
   }
 
@@ -607,31 +664,71 @@ class ListenTogetherProtoCodec {
     String trackId = '';
     int position = 0;
     Map<String, dynamic>? trackInfo;
-    bool isPlaying = true;
+    bool insertNext = false;
+    final List<Map<String, dynamic>> queue = [];
+    String queueTitle = '';
+    double volume = 1.0;
     int serverTime = 0;
     int revision = 0;
+    int capturedAtServerTime = 0;
+    bool replaceQueue = false;
+    String originUserId = '';
+    int hostSequence = 0;
 
     while (r.hasMore) {
       final t = r.readTag();
       if (t == null) break;
-      if (t.$1 == 1) action = r.readString();
-      else if (t.$1 == 2) trackId = r.readString();
-      else if (t.$1 == 3) position = r.readInt64();
-      else if (t.$1 == 4) trackInfo = decodeTrackInfo(r.readBytes());
-      else if (t.$1 == 5) isPlaying = r.readBool();
-      else if (t.$1 == 9) serverTime = r.readInt64();
-      else if (t.$1 == 6 || t.$1 == 10) revision = r.readInt64();
-      else r.skipField(t.$2);
+      if (t.$1 == 1) {
+        action = r.readString();
+      } else if (t.$1 == 2) {
+        trackId = r.readString();
+      } else if (t.$1 == 3) {
+        position = r.readInt64();
+      } else if (t.$1 == 4) {
+        trackInfo = decodeTrackInfo(r.readBytes());
+      } else if (t.$1 == 5) {
+        insertNext = r.readBool();
+      } else if (t.$1 == 6) {
+        queue.add(decodeTrackInfo(r.readBytes()));
+      } else if (t.$1 == 7) {
+        queueTitle = r.readString();
+      } else if (t.$1 == 8) {
+        volume = r.readFloat();
+      } else if (t.$1 == 9) {
+        serverTime = r.readInt64();
+      } else if (t.$1 == 10) {
+        revision = r.readInt64();
+      } else if (t.$1 == 11) {
+        capturedAtServerTime = r.readInt64();
+      } else if (t.$1 == 12) {
+        replaceQueue = r.readBool();
+      } else if (t.$1 == 13) {
+        originUserId = r.readString();
+      } else if (t.$1 == 14) {
+        hostSequence = r.readInt64();
+      } else {
+        r.skipField(t.$2);
+      }
     }
+
+    final isPlaying = action != 'pause';
 
     return {
       'action': action,
       'track_id': trackId,
       'position': position,
       'track_info': trackInfo,
-      'is_playing': isPlaying,
+      'insert_next': insertNext,
+      'queue': queue,
+      'queue_title': queueTitle,
+      'volume': volume,
       'server_time': serverTime,
       'revision': revision,
+      'captured_at_server_time': capturedAtServerTime,
+      'replace_queue': replaceQueue,
+      'origin_user_id': originUserId,
+      'host_sequence': hostSequence,
+      'is_playing': isPlaying,
     };
   }
 }

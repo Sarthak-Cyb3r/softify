@@ -208,7 +208,12 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                           ],
                         ),
                         child: AppNetworkImage(
-                          imageUrl: widget.coverUrl,
+                          imageUrl: (widget.coverUrl != null &&
+                                  widget.coverUrl!.isNotEmpty)
+                              ? widget.coverUrl
+                              : (_tracks.isNotEmpty
+                                  ? _tracks.first.coverUrl
+                                  : null),
                           borderRadius: BorderRadius.circular(tokens.radiusMd),
                           fit: BoxFit.cover,
                           fallbackIcon: Icons.album_rounded,

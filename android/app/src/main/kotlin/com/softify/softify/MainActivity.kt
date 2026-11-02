@@ -146,7 +146,29 @@ class MainActivity : AudioServiceActivity() {
             return
         }
 
+        if (!canRequestInstalls()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val manageIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:$packageName")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(manageIntent)
+                }
+            } catch (e: Exception) {
+                try {
+                    val fallbackIntent = Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(fallbackIntent)
+                } catch (_: Exception) {}
+            }
+            result.error("BLOCKED", "Requires permission to install unknown apps", null)
+            return
+        }
+
         try {
+            file.setReadable(true, false)
             val contentUri = androidx.core.content.FileProvider.getUriForFile(
                 this,
                 "$packageName.fileprovider",
@@ -155,8 +177,21 @@ class MainActivity : AudioServiceActivity() {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(contentUri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+
+            val resInfoList = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            for (resolveInfo in resInfoList) {
+                val pkg = resolveInfo.activityInfo.packageName
+                grantUriPermission(pkg, contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            for (pkg in listOf("com.google.android.packageinstaller", "com.android.packageinstaller")) {
+                try {
+                    grantUriPermission(pkg, contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: Exception) {}
+            }
+
             startActivity(intent)
             result.success(true)
         } catch (e: Exception) {
@@ -422,7 +457,12 @@ class MainActivity : AudioServiceActivity() {
         else -> "Operation failed"
     }
 
-    private fun canRequestInstalls() = true
+    private fun canRequestInstalls(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
 
     private fun signatureFlags() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

@@ -123,7 +123,10 @@ class _AnimatedArtworkCardState extends ConsumerState<AnimatedArtworkCard>
                 children: [
                   // 1. Base Static Cover Image (Loads instantly, zero layout shift)
                   AppNetworkImage(
-                    imageUrl: widget.track.coverUrl,
+                    imageUrl: (widget.track.coverUrl != null &&
+                            widget.track.coverUrl!.isNotEmpty)
+                        ? widget.track.coverUrl
+                        : animatedArtwork?.previewImageUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 800,
                     cacheHeight: 800,

@@ -71,19 +71,35 @@ class SaavnStreamResolver implements IStreamResolver {
   Future<String?> _findBestMatchingPid(Track track) async {
     final cleanTitle = _normalize(track.title);
     final cleanArtist = _normalize(track.artist);
-    final cacheKey = '$cleanTitle|$cleanArtist';
+    final cacheKey = '$cleanTitle|$cleanArtist|${track.album ?? ''}';
     if (_pidCache.containsKey(cacheKey)) {
       return _pidCache[cacheKey];
     }
 
-    List<dynamic> results = [];
     final primaryArtist = track.artist.split(RegExp(r'[,&/]')).first.trim();
+    final cleanArtistQuery = track.artist
+        .replaceAll(RegExp(r'[,&/]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final cleanAlbumQuery = (track.album ?? '')
+        .replaceAll(RegExp(r'[\(\[].*?[\)\]]'), '')
+        .replaceAll(RegExp(r'[,&/]'), ' ')
+        .trim();
+
     final queriesToTry = <String>{
-      '${track.title} ${track.artist}'.trim(),
+      if (cleanAlbumQuery.isNotEmpty && primaryArtist.isNotEmpty)
+        '${track.title} $primaryArtist $cleanAlbumQuery'.trim(),
+      if (cleanAlbumQuery.isNotEmpty)
+        '${track.title} $cleanAlbumQuery'.trim(),
+      if (cleanArtistQuery.isNotEmpty)
+        '${track.title} $cleanArtistQuery'.trim(),
       if (primaryArtist.isNotEmpty && primaryArtist != track.artist)
         '${track.title} $primaryArtist'.trim(),
       track.title.trim(),
     }.toList();
+
+    final seenPids = <String>{};
+    final allCandidates = <dynamic>[];
 
     for (final q in queriesToTry) {
       final uri = Uri.parse(
@@ -97,25 +113,29 @@ class SaavnStreamResolver implements IStreamResolver {
           final body = await res.transform(utf8.decoder).join();
           final json = jsonDecode(body);
           final list = (json['results'] as List<dynamic>?) ?? [];
-          if (list.isNotEmpty) {
-            results = list;
-            break;
+          for (final item in list) {
+            final pid = item['id']?.toString();
+            if (pid != null && seenPids.add(pid)) {
+              allCandidates.add(item);
+            }
           }
+          if (allCandidates.length >= 15) break;
         }
       } catch (_) {}
     }
 
-    if (results.isEmpty) return null;
+    if (allCandidates.isEmpty) return null;
 
     double bestScore = -1.0;
     String? bestPid;
 
-    for (final r in results) {
+    for (final r in allCandidates) {
       final pid = r['id']?.toString();
       if (pid == null) continue;
 
       final moreInfo = r['more_info'] as Map<String, dynamic>?;
-      final candTitle = _normalize((r['title'] ?? r['song'] ?? '').toString());
+      final rawCandTitle = (r['title'] ?? r['song'] ?? '').toString().toLowerCase();
+      final candTitle = _normalize(rawCandTitle);
       final candLanguage = (r['language'] ?? '').toString().toLowerCase();
 
       // Extract candidate artists from primary_artists in artistMap, music, subtitle, or singers
@@ -147,7 +167,7 @@ class SaavnStreamResolver implements IStreamResolver {
         if (tWords.isNotEmpty) {
           final inter = tWords.intersection(cWords).length;
           if (inter == 0) {
-            // Unrelated song title from same soundtrack (e.g. Tum Tak for Raanjhanaa) -> heavy penalty to trigger fallback
+            // Unrelated song title from same soundtrack -> heavy penalty to trigger fallback
             score -= 200.0;
           } else {
             score += 40.0 * (inter / tWords.length);
@@ -157,7 +177,31 @@ class SaavnStreamResolver implements IStreamResolver {
         }
       }
 
-      // 2. Language preservation:
+      // 2. Strict Filter for Unwanted Remix, Unplugged, Cover, Lofi, Instrumental, Slowed
+      final targetTitleLower = track.title.toLowerCase();
+      if (!targetTitleLower.contains('remix') && rawCandTitle.contains('remix')) {
+        score -= 150.0;
+      }
+      if (!targetTitleLower.contains('unplugged') && rawCandTitle.contains('unplugged')) {
+        score -= 150.0;
+      }
+      if (!targetTitleLower.contains('lofi') && !targetTitleLower.contains('lo-fi') && (rawCandTitle.contains('lofi') || rawCandTitle.contains('lo-fi'))) {
+        score -= 150.0;
+      }
+      if (!targetTitleLower.contains('cover') && rawCandTitle.contains('cover')) {
+        score -= 150.0;
+      }
+      if (!targetTitleLower.contains('instrumental') && rawCandTitle.contains('instrumental')) {
+        score -= 150.0;
+      }
+      if (!targetTitleLower.contains('slowed') && (rawCandTitle.contains('slowed') || rawCandTitle.contains('reverb'))) {
+        score -= 150.0;
+      }
+      if (!targetTitleLower.contains('mashup') && rawCandTitle.contains('mashup')) {
+        score -= 150.0;
+      }
+
+      // 3. Language preservation:
       // If target title/artist doesn't explicitly mention regional languages, penalize regional dubbed editions
       const regionalLangs = ['telugu', 'tamil', 'bhojpuri', 'kannada', 'malayalam', 'marathi', 'bengali'];
       final targetLower = '${track.title.toLowerCase()} ${track.artist.toLowerCase()}';
@@ -165,12 +209,12 @@ class SaavnStreamResolver implements IStreamResolver {
         score -= 40.0;
       }
 
-      // 3. Prefer Hindi / English original tracks if candidate language matches or is primary
+      // 4. Prefer Hindi / English / Punjabi original tracks if candidate language matches or is primary
       if (candLanguage == 'hindi' || candLanguage == 'english' || candLanguage == 'punjabi') {
         score += 15.0;
       }
 
-      // 4. Strict singer / artist verification:
+      // 5. Strict singer / artist verification:
       // A cover or recreation by an unrelated artist (e.g. Avinash Gupta) must NEVER be matched
       final targetWords = cleanArtist.split(' ').where((w) => w.length > 2).toSet();
       final candWords = candSingers.split(' ').where((w) => w.length > 2).toSet();
@@ -181,18 +225,31 @@ class SaavnStreamResolver implements IStreamResolver {
           score += 35.0;
         } else {
           // Unrelated artist singing a track with same title -> heavy penalty to trigger fallback
-          score -= 90.0;
+          score -= 120.0;
         }
       }
 
-      // 5. Proximity to expected duration
+      // 6. Album / Soundtrack verification
+      final targetAlbum = _normalize(track.album ?? '');
+      final candAlbum = _normalize((moreInfo?['album'] ?? r['subtitle'] ?? '').toString());
+      if (targetAlbum.isNotEmpty && candAlbum.isNotEmpty) {
+        if (candAlbum == targetAlbum || candAlbum.contains(targetAlbum) || targetAlbum.contains(candAlbum)) {
+          score += 40.0;
+        }
+      }
+
+      // 7. Strict Duration Proximity
       final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
       if (track.duration > Duration.zero && candDurSec > 0) {
         final diffSec = (track.duration.inSeconds - candDurSec).abs();
-        if (diffSec > 35) {
-          score -= 60.0; // Major discrepancy (remix, cut, or cover)
-        } else if (diffSec <= 10) {
-          score += 20.0;
+        if (diffSec <= 6) {
+          score += 30.0;
+        } else if (diffSec <= 15) {
+          score += 15.0;
+        } else if (diffSec > 35) {
+          score -= 150.0; // Major discrepancy (remix, cut, or completely wrong song)
+        } else if (diffSec > 20) {
+          score -= 40.0;
         }
       }
 
@@ -202,8 +259,8 @@ class SaavnStreamResolver implements IStreamResolver {
       }
     }
 
-    // Require at least 50 points confidence to prevent erroneous matches
-    if (bestScore >= 50.0 && bestPid != null) {
+    // Require at least 65 points confidence to prevent erroneous matches
+    if (bestScore >= 65.0 && bestPid != null) {
       _pidCache[cacheKey] = bestPid;
       return bestPid;
     }
@@ -251,7 +308,7 @@ class SaavnStreamResolver implements IStreamResolver {
     final des = DES(key: keyBytes, mode: DESMode.ECB);
     final encryptedBytes = base64.decode(encryptedMediaUrl);
     final decryptedBytes = des.decrypt(encryptedBytes);
-    final rawDecrypted = utf8.decode(decryptedBytes);
+    final rawDecrypted = utf8.decode(decryptedBytes, allowMalformed: true);
 
     // Bulletproof extraction of clean URL up to '.mp4'
     final mp4Index = rawDecrypted.indexOf('.mp4');

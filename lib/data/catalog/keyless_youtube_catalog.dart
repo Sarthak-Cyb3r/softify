@@ -6,6 +6,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_catalog_repository.dart';
+import '../resolvers/youtube_innertube_service.dart';
 import '../search/text_normalizer.dart';
 import '../services/spotify_api_service.dart';
 
@@ -23,6 +24,7 @@ enum SoftifyTrackVibe {
 
 class KeylessYouTubeCatalog implements ICatalogRepository {
   final YoutubeExplode _yt;
+  final YoutubeInnertubeService _innertubeService;
   final List<String> _instances;
   final HttpClient _httpClient;
   final SpotifyApiService _spotifyApi;
@@ -36,10 +38,12 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
   KeylessYouTubeCatalog({
     YoutubeExplode? yt,
+    YoutubeInnertubeService? innertubeService,
     List<String>? instances,
     HttpClient? httpClient,
     SpotifyApiService? spotifyApi,
   })  : _yt = yt ?? YoutubeExplode(),
+        _innertubeService = innertubeService ?? YoutubeInnertubeService(),
         _instances = instances ??
             [
               'https://pipedapi.ducks.party',
@@ -113,6 +117,16 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     } catch (_) {
       // All studio engines failed
     }
+
+    // 4. Quaternary: YouTube Music API (WEB_REMIX official tracks & topic releases)
+    try {
+      final ytmTracks = await _innertubeService.searchMusicTrackEntities(cleanQuery, limit: limit);
+      if (ytmTracks.isNotEmpty) {
+        final deduped = _deduplicateTracks(ytmTracks, limit: limit, query: cleanQuery);
+        _cacheResult(_searchCache, cacheKey, deduped);
+        return deduped;
+      }
+    } catch (_) {}
 
     return [];
   }
@@ -250,9 +264,15 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final trackName = (item['title'] ?? item['song']) as String?;
       final subtitle = (item['subtitle'] as String?) ?? '';
       final rawImage = item['image'] as String?;
-      var highResCover = rawImage?.replaceAll('150x150', '500x500');
-      if (highResCover != null && highResCover.startsWith('http://')) {
-        highResCover = 'https://${highResCover.substring(7)}';
+      var highResCover = rawImage
+          ?.replaceAll('150x150', '500x500')
+          .replaceAll('50x50', '500x500');
+      if (highResCover != null) {
+        if (highResCover.startsWith('//')) {
+          highResCover = 'https:$highResCover';
+        } else if (highResCover.startsWith('http://')) {
+          highResCover = 'https://${highResCover.substring(7)}';
+        }
       }
 
       if (trackId == null || trackName == null) continue;
@@ -505,6 +525,12 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       if (spotifySuggestions.isNotEmpty) return spotifySuggestions;
     } catch (_) {}
 
+    // 2. Secondary: YouTube Music API Search Suggestions (strictly musical artist/track queries)
+    try {
+      final ytmSuggestions = await _innertubeService.getMusicSearchSuggestions(clean);
+      if (ytmSuggestions.isNotEmpty) return ytmSuggestions;
+    } catch (_) {}
+
     try {
       final uri = Uri.parse(
         'https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${Uri.encodeComponent(clean)}',
@@ -742,9 +768,15 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
         final subtitle = (item['subtitle'] as String?) ?? '';
         final rawImage = item['image'] as String?;
-        var highResCover = rawImage?.replaceAll('150x150', '500x500');
-        if (highResCover != null && highResCover.startsWith('http://')) {
-          highResCover = 'https://${highResCover.substring(7)}';
+        var highResCover = rawImage
+            ?.replaceAll('150x150', '500x500')
+            .replaceAll('50x50', '500x500');
+        if (highResCover != null) {
+          if (highResCover.startsWith('//')) {
+            highResCover = 'https:$highResCover';
+          } else if (highResCover.startsWith('http://')) {
+            highResCover = 'https://${highResCover.substring(7)}';
+          }
         }
 
         final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
@@ -1641,9 +1673,15 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       final trackName = (item['title'] ?? item['song']) as String?;
       final subtitle = (item['subtitle'] as String?) ?? '';
       final rawImage = item['image'] as String?;
-      var highResCover = rawImage?.replaceAll('150x150', '500x500');
-      if (highResCover != null && highResCover.startsWith('http://')) {
-        highResCover = 'https://${highResCover.substring(7)}';
+      var highResCover = rawImage
+          ?.replaceAll('150x150', '500x500')
+          .replaceAll('50x50', '500x500');
+      if (highResCover != null) {
+        if (highResCover.startsWith('//')) {
+          highResCover = 'https:$highResCover';
+        } else if (highResCover.startsWith('http://')) {
+          highResCover = 'https://${highResCover.substring(7)}';
+        }
       }
 
       if (trackId == null || trackName == null) continue;
@@ -1770,5 +1808,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
   void close() {
     _yt.close();
+    _innertubeService.close();
   }
 }
