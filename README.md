@@ -17,6 +17,20 @@
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=for-the-badge)](CODE_OF_CONDUCT.md)
 
+<br/><br/>
+
+<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.0/Softify-v4.0.0-Android.apk">
+  <img src="https://img.shields.io/badge/Download_APK-v4.0.0_Android-2ea44f?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Download Android APK" />
+</a>
+&nbsp;&nbsp;
+<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.0/Softify-Linux-x64.tar.gz">
+  <img src="https://img.shields.io/badge/Download_Linux-v4.0.0_x64-0052cc?style=for-the-badge&logo=linux&logoColor=white" height="42" alt="Download Linux" />
+</a>
+&nbsp;&nbsp;
+<a href="https://github.com/Sarthak-Cyb3r/softify/releases/latest">
+  <img src="https://img.shields.io/badge/All_Releases-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" height="42" alt="All Releases" />
+</a>
+
 </div>
 
 ---
@@ -34,30 +48,6 @@
 **Softify** brings the premium music listening experience back to the listener. It delivers unrestricted, high-fidelity music streaming, instant search, synchronized lyrics, custom playlists, and offline downloads without subscriptions, audio or visual advertisements, or account paywalls.
 
 Built from the ground up using **Flutter** and strict **Clean Architecture**, Softify operates entirely **client-side** with zero central backend infrastructure, zero API key requirements, and zero telemetry tracking.
-
----
-
-## 📱 Screenshots
-
-<div align="center">
-
-| Home & Dynamic Shelves | Instant Search & Deduplication | Full-Screen Studio Player | Synced Karaoke Lyrics |
-|:---:|:---:|:---:|:---:|
-| <img src="assets/screenshots/01_homepage.png" alt="Home Screen" width="220"/> | <img src="assets/screenshots/02_search.png" alt="Search Screen" width="220"/> | <img src="assets/screenshots/03_now_playing.png" alt="Full-Screen Player" width="220"/> | <img src="assets/screenshots/04_synced_lyrics.png" alt="Synced Lyrics" width="220"/> |
-
-<br/>
-
-| Your Library & Local Music | Artist Discography | 10-Band Hardware DSP EQ | On-Device Wrapped Insights |
-|:---:|:---:|:---:|:---:|
-| <img src="assets/screenshots/05_library.png" alt="Library Screen" width="220"/> | <img src="assets/screenshots/06_artist_detail.png" alt="Artist Detail" width="220"/> | <img src="assets/screenshots/08_equalizer.png" alt="10-Band Equalizer" width="220"/> | <img src="assets/screenshots/09_wrapped_insights.png" alt="Softify Wrapped" width="220"/> |
-
-<br/>
-
-| Album Deep-Dive | Landscape Car Mode | Direct Video Link Player | Audiophile Cache & Settings |
-|:---:|:---:|:---:|:---:|
-| <img src="assets/screenshots/07_album_detail.png" alt="Album Detail" width="220"/> | <img src="assets/screenshots/10_car_mode.png" alt="Car Mode" width="220"/> | <img src="assets/screenshots/12_paste_a_link.png" alt="Paste a Link" width="220"/> | <img src="assets/screenshots/11_settings.png" alt="Settings Screen" width="220"/> |
-
-</div>
 
 ---
 
@@ -154,129 +144,17 @@ If your device is running a TrollStore-compatible iOS version:
 
 ---
 
-## 🚀 Features & Capabilities
+## ✨ Features & Highlights
 
-### 1. 🧑‍🎤 Multi-Artist Navigation & Discography Chooser
-- **Collaborative Artist Selector**: When a track features multiple collaborating artists (e.g. separated by `,`, `&`, `feat.`, `ft.`, `with`, `/`, `;`), clicking *"View artist"* or tapping the artist on the player opens a clean dark bottom sheet allowing you to choose which specific artist's discography and albums to explore.
-- **Direct 1-Artist Fast Path**: Tracks with a single artist bypass the dialog and navigate straight to the artist's full catalog and top tracks.
-- **Deep-Dive Discography**: Dedicated *"Discography"* button on Artist Detail screens organizing all releases by Albums, Singles, and Compilations.
-- **Smart Artist Radio**: Isolates primary artists from collaborative credit strings, generating musically coherent 25-song queues anchored by PPMI co-occurrence graphs.
-
-### 2. 🎧 320kbps Studio Master Audio & Original Audio Engine
-- **Pure 320kbps Studio Masters**: Direct decoding of uncompressed 320kbps AAC studio masters (`AudioQualityPreset.high`) with zero movie dialogue clips, sponsor voiceovers, or multiplexing overhead.
-- **Original Audio Stream Preservation**: Intelligent auto-dubbing filter detects and strips foreign language translated audio tracks (`isAutoDubbed: true`, `acont=dubbed-auto`), guaranteeing playback of the creator's authentic original audio (`acont=original:lang=en-US`).
-- **DJ Audio Crossfade Engine**: Smooth dual-engine volume interpolation between active and preloaded tracks with 0s to 12s configurable slider in Settings.
-- **Loudness Normalization (ReplayGain / EBU R128)**: Perceived loudness leveling across diverse studio sources, eliminating volume jumps between quiet acoustic and loud modern recordings.
-- **Audiophile Micro-Pill & Telemetry Inspector**: Live badge in MiniPlayer displaying active codec/bitrate (320 KBPS, FLAC, AAC) with a 1-tap modal inspecting buffer health and DAC pipelines.
-
-### 3. 🎛️ 10-Band Hardware DSP Equalizer & Bass Boost
-- **Native Hardware DSP**: Android `AudioEffect` integration and Linux PipeWire/PulseAudio sink filtering with zero latency.
-- **Precision Frequency Control**: 10 parametric frequency bands (`31Hz`, `62Hz`, `125Hz`, `250Hz`, `500Hz`, `1kHz`, `2kHz`, `4kHz`, `8kHz`, `16kHz`) with fine gain stepping (-12dB to +12dB).
-- **Acoustic Presets**: Quick 1-tap presets: Bass Boost, Vocal Clarity, Electronic, Rock, Acoustic, and Flat.
-- **Full-Width Desktop Console**: Responsive layout ensuring all 10 bands are visible side-by-side with zero horizontal clipping.
-- **Direct Player Quick Launch**: Dedicated `[EQ]` tune button in Full-Screen Player and track options menu for real-time auditioning.
-
-### 4. 🎤 Synced Karaoke Lyrics & On-Device Romanization
-- **Real-Time Vocal Tracking**: Synchronized LRC lyrics with kinetic line highlighting and smooth auto-scrolling.
-- **On-Device ScriptRomanizer**: Zero-network, deterministic transliterator converting Devanagari (Hindi, Marathi, Nepali, Sanskrit) and Gurmukhi (Punjabi) into Latin phonetics in real-time.
-- **Instant `[ROM]` / `[ORIG]` Toggle**: One-tap switch in lyrics header allowing seamless sing-along without external API latency.
-- **Interactive Font Sizing**: Dynamic typography scaling (Compact 17px, Normal 21px, Large 26px) with preference persisted in local Drift SQLite.
-- **Shareable Lyric Quote Cards**: Long-press any lyric line to generate and copy a styled quote snippet with track and artist attribution.
-- **Composite Lyrics Fallback Cascade**: High-coverage fallback querying verified and community lyrics databases (including LRCLIB).
-
-### 5. 🔍 Instant Search & Catalog Deduplication
-- **Sub-100ms Debounced Search**: Multi-source instant search with typo-tolerant fuzzy matching and autocomplete.
-- **Quality & Offline Filter Chips**: 1-tap filtering above search results to isolate `All`, `Studio (320k)` master recordings, or `Downloaded` offline tracks.
-- **Smart Catalog Deduplication**: Collapses duplicate remix and compilation clones into original studio recordings; strips noisy intro dialogues.
-- **Genre & Mood Explorer**: Instant browsing across Bollywood, Pop, Hip-Hop, Punjabi, Rock, Indie, Lo-Fi, and more.
-
-### 6. 🏠 Home & Dynamic Taste Discovery
-- **Streamlined Bento Grid**: Compacted "Liked Songs" and "Downloads" into a clean 52px-height row with 8px rounded corners on `#282828` background, pulling "Made For You" and "Recently Played" shelves to the top.
-- **Personalized Contextual Greetings**: Dynamic time-of-day greetings tailored for both desktop and mobile layouts.
-- **Taste-Based Shelves**: Auto-generated recommendations (*"Based on your recent listening"*, *Heavy Rotation*, *Forgotten Favorites*).
-- **Verified Regional Top Charts**: Direct 1-hop access to Hindi Superhits Top 50, Punjabi Top 50, International Top 50, and Trending Today.
-
-### 7. 📁 Local Device Music & Offline File Player
-- **Zero-Network File Player**: Scans device storage for `.mp3`, `.m4a`, `.flac`, `.wav`, `.ogg`, and `.aac` audio.
-- **Smart Noise Exclusion**: Filters out UI clicks, short beeps (<300KB), app assets, `.nomedia` folders, and development directories (`node_modules`, `build`, etc.).
-- **Automatic Pruning**: Deleted or moved files are automatically purged from the library on rescan.
-- **Multi-Sort Library Header**: Sort Liked Songs, Downloads, and Local Music by `Recent`, `Title A-Z`, or `Artist A-Z` with instant batch "Play All" and "Shuffle".
-- **Offline Library Doctor**: 1-tap "Verify & Repair Offline Library" scans filesystem, cleans orphaned cache files, and re-syncs physical file sizes.
-- **1-Tap Folder Opener**: Direct button in Downloads tab and Settings to open the saved tracks folder natively via `xdg-open` (Linux), `open` (macOS), `explorer.exe` (Windows), or Android Files.
-
-### 8. 📊 Softify Wrapped & On-Device Listening Insights
-- **Interactive Analytics Dashboard**: Listening archetypes (*Night Explorer*, *Sonic Voyager*, *Deep Diver*, *Morning Energizer*, etc.), total streaming hours, top songs, and top artists.
-- **Multi-Period Filters**: Filter insights across *All Time*, *Past 30 Days*, and *Past 7 Days*.
-- **24-Hour Rhythm & Clock**: 24-column hourly activity bar chart and day-quadrant breakdown.
-- **Shareable Card**: AMOLED poster-style Wrapped card with 1-click clipboard summary export.
-- **Dynamic Smart Playlists**: Self-updating playlists (*On Repeat*, *Most Played This Month*, *Forgotten Favorites*).
-
-### 9. ⏱️ Precision Sleep Timer Engine
-- **Quick Presets & End-of-Song**: 5m, 10m, 15m, 30m, 45m, 1h, custom duration (1–1440m), or "End of this song".
-- **Background-Safe Precision**: Governed by foreground audio handler to reliably halt audio when the screen is locked.
-- **Queue Protection**: Prevents automatic next-track queue advancement once the timer expires.
-
-### 10. 🔄 1-Click Playlist Importer & Encrypted Backup
-- **Keyless Playlist Importer**: Import public playlists via URL/ID without account credentials or developer keys.
-- **Portable Encrypted Backup**: 1-click export and restore of playlists, liked songs, history, and settings into a standalone `.softify` archive.
-
-### 11. 📱 Ecosystem & OS Integrations
-- **Material You Android Widgets**: 4×1 compact pill and 4×2 expansive card home-screen widgets with dynamic system colors.
-- **Desktop Discord Rich Presence**: Live "Listening to..." presence with track title, artist, and timestamps via local Unix IPC socket.
-- **Landscape Car Mode**: Large-target, high-contrast driving mode for automotive head units and mounts.
-- **Linux Mobile Viewport Mode**: Native `--mobile` command-line switch and `SOFTIFY_MOBILE=1` environment flag for testing phone viewports on desktop Linux.
-- **iOS Media Session**: Lock screen controls, Dynamic Island (`MPRemoteCommandCenter`), and AirPods stem gesture support.
-
----
-
-## 🧠 On-Device Intelligence & Recommendation Engine
-
-Softify features a state-of-the-art, **100% client-side, zero-telemetry** recommendation and search intelligence engine running entirely on local SQLite/Drift tables without any remote machine learning servers:
-
-### 1. ⚡ Local-First Instant Search & FTS5 Retrieval (S1, S2, S3)
-- **Sub-100ms Latency Budget**: Instant debounced search (120ms debounce) that prioritizes local results before blending remote catalog hits.
-- **SQLite FTS5 Virtual Table**: Full-text prefix indexing across tracks, artists, and playlists with diacritic normalization and punctuation stripping.
-- **Fuzzy Damerau-Levenshtein Matching & Aliases**: Seamless handling of typos, spelling variants, and curated music aliases.
-- **Linear Re-Ranker with Exact-Match Invariant**: Blends BM25 lexical signals, recency, and stream history with a hard `+10.0` score boost ensuring exact search matches always rank #1.
-
-### 2. 📈 Dual-Band Taste Decay & Co-occurrence Sentence Graph (R1, R2)
-- **Dual-Band Half-Life Decay**: Models user affinity with two concurrent exponential decay bands:
-  - Fast-decay band ($W_{\text{fast}}$: 4-hour half-life) capturing immediate listening moods and session trends.
-  - Slow-decay band ($W_{\text{slow}}$: 14-day half-life) capturing enduring genre and artist taste.
-- **Session Sentence Graph & PPMI**: Treats listening sessions (interrupted by $\le 60\text{s}$ gaps) as natural language "sentences" to compute Positive Pointwise Mutual Information (PPMI) between co-occurring tracks off the main thread.
-
-### 3. 🎯 Pointwise Logistic Regression & Algotorial Shelves (R3, R4)
-- **On-Device SGD Model**: Computes stream probabilities $\sigma(z) = 1/(1+e^{-z})$ directly on device from features including taste affinity, recency, skip penalties, and source weights.
-- **Skip Sensitivity Rule**: Dynamically applies a $>50\%$ penalty when an artist or track suffers $\ge 3$ consecutive skips.
-- **Dynamic Algotorial Shelves**:
-  - *Heavy Rotation*: High-affinity tracks weighted by both slow and fast taste bands.
-  - *Forgotten Favorites*: Deep catalog gems not listened to in $>30$ days.
-  - *Discover Weekly*: Curated discovery with a strict **~10% familiar anchor ratio** (1 anchor track per 10 recommendations) to ground exploration in familiar favorites.
-
-### 4. 🧭 Multi-Source Autocomplete & Offline Intent Routing (S4, S5)
-- **Multi-Source Sealed Intent Autocomplete**: Merges candidate suggestions from 5 distinct sources (recent queries, library matches, cached history, popular artists, and fuzzy matches).
-- **Rule-Based Intent Router**: Instantly classifies user queries into structured intents (`TrackIntent`, `ArtistIntent`, `MoodOrGenreIntent`, `DiscoverIntent`, or `NavigationalIntent`) without remote LLM latency.
-
-### 5. 🔀 Dynamic Queue Reordering & Pre-Buffer Invariant (R5, R6)
-- **Player Pre-Buffer Invariant**: The secondary player engine pre-buffers track $N+1$ approximately 15 seconds before track $N$ completes. Softify strictly guarantees that **Track $N$ and Track $N+1$ are never mutated, re-ordered, or canceled**. Re-ranking occurs exclusively on the unbuffered tail ($\ge N+2$).
-- **Contextual Epsilon-Greedy Bandit**: Balances exploitation with exploration across novelty arms (`0.0, 0.1, 0.2, 0.3, 0.5`) to prevent recommendation echo-chambers.
-- **Kullback-Leibler (KL) Divergence Calibration**: Calibrates recommended genre distributions against historical listening profiles, minimizing $D_{\text{KL}}(P \parallel Q)$.
-
-### 6. 🛡️ Discovery Agency, MMR Diversity & Privacy Controls (R7, R8)
-- **Maximal Marginal Relevance (MMR)**: Penalizes redundant artists with a hard `maxPerArtist = 2` cap per recommendation shelf.
-- **30-Day Artist Snoozing**: 1-tap option to temporarily exclude any artist from recommendations and autocomplete for 30 days.
-- **Incognito Taste Mode**: Pause all profile learning during shared or party sessions.
-- **1-Line Transparent Explanations**: Every recommendation surfaces a clear rationale (*"Because you listened to The Weeknd"*, *"From your Heavy Rotation"*).
-- **Cold-Start Seeding**: Seamless onboarding genre selection and instant taste profile seeding from imported Spotify playlists.
-
-### 7. ⚖️ Radlinski Team-Draft Interleaving & Latency Guardrails (E1, E2)
-- **On-Device Team-Draft Interleaving**: Fairly evaluates candidate ranking models in vivo with a 10% baseline holdback slot to measure true user preference without telemetry.
-- **Automated Latency Guardrails**: Continuous verification requiring search responses to pass $p75 < 100\text{ ms}$ over 50 consecutive queries.
-- **Golden Query Suite**: 54 diverse benchmark queries spanning popular artists, exact titles, typos, and multi-lingual transliterations.
-
-### 8. 🧬 On-Device Semantic Vector Search (E3)
-- **128-Dimensional Float32 Embeddings**: Compact local vector representations computed via subword character trigram and word hash projections.
-- **Zero-Network Vector Retrieval**: L2-normalized cosine similarity computed directly against SQLite `track_embeddings` table. Adds $<1\text{ MB}$ to binary size with zero 100MB+ TensorFlow Lite dependencies.
+- **Dual Player Styles**: Choose between Softify Classic and modern Apple Music style player with floating dock controls, repeat switcher (`Off` / `All` / `One`), and volume sliders.
+- **Living Motion Artwork**: High-definition video canvas covers and ambient background artwork with local caching and zero-blank cover fallbacks.
+- **320 kbps Studio Audio**: High-bitrate audio streaming with official YouTube Music InnerTube and JioSaavn resolvers, strict word matching, and foreign-language dub removal.
+- **Multi-Source Synced Lyrics**: Real-time karaoke lyrics from LRCLIB, JioSaavn, and NetEase with cinematic optical depth blur and on-device Devanagari/Gurmukhi transliteration.
+- **On-Device Recommendation & Search**: 100% client-side, zero-telemetry search and discovery powered by SQLite FTS5, taste decay algorithms, PPMI co-occurrence graphs, and contextual bandits.
+- **Listen Together Rooms**: Real-time cross-device shared playback rooms over open WebSocket relays with sub-300ms clock alignment.
+- **10-Band Hardware DSP Equalizer**: Precision equalizer with bass boost, vocal clarity, and custom acoustic presets.
+- **Local & Offline Music**: Scans local audio files (`.mp3`, `.m4a`, `.flac`, `.wav`), downloads tracks offline, and provides encrypted `.softify` playlist backup/restore.
+- **OS Integrations**: Material You dynamic Android widgets, landscape Car Mode, Discord Rich Presence, and iOS lock screen controls.
 
 ---
 
