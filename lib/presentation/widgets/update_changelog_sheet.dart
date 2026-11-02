@@ -25,9 +25,9 @@ class _ChangelogItem {
 }
 
 /// Consumer-friendly update changelog modal sheet.
-/// Designed with Apple Music / Liquid Glass aesthetics, interactive category filters,
-/// frosted glass cards, and tactile animations.
-class UpdateChangelogSheet extends StatefulWidget {
+/// Designed with Apple Music / Liquid Glass aesthetics, frosted glass cards,
+/// and tactile bouncing animations.
+class UpdateChangelogSheet extends StatelessWidget {
   final String version;
 
   const UpdateChangelogSheet({
@@ -46,22 +46,15 @@ class UpdateChangelogSheet extends StatefulWidget {
     );
   }
 
-  @override
-  State<UpdateChangelogSheet> createState() => _UpdateChangelogSheetState();
-}
-
-class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
-  String _selectedCategory = 'All';
-
   static const List<_ChangelogItem> _items = [
     _ChangelogItem(
       title: 'Accurate Audio Matching',
       description:
           'Track matching is now powered by strict phonetics, subtitle parsing, and song-title integrity checks — eliminating incorrect cover versions on movie soundtracks.',
-      category: 'Audio',
+      category: 'Audio Engine',
       icon: Icons.graphic_eq_rounded,
       iconColor: Color(0xFF4EDEA3),
-      highlightTag: 'Engine',
+      highlightTag: 'Audio Engine',
     ),
     _ChangelogItem(
       title: 'Multi-Provider Lyrics Engine',
@@ -70,7 +63,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       category: 'Lyrics',
       icon: Icons.subtitles_rounded,
       iconColor: Color(0xFFFFB74D),
-      highlightTag: 'Synced',
+      highlightTag: 'Lyrics',
     ),
     _ChangelogItem(
       title: 'Listen Together Rooms',
@@ -79,24 +72,25 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       category: 'Social',
       icon: Icons.group_rounded,
       iconColor: Color(0xFF00E676),
-      highlightTag: 'Real-time',
+      highlightTag: 'Social',
     ),
     _ChangelogItem(
       title: 'Instant Liked Songs',
       description:
           'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
-      category: 'Audio',
+      category: 'Library',
       icon: Icons.favorite_rounded,
       iconColor: Color(0xFFFF4081),
+      highlightTag: 'Library',
     ),
     _ChangelogItem(
       title: 'Apple Music Style Player',
       description:
           'Switch seamlessly between Softify Classic and modern Apple Music style player with a floating bottom control dock, repeat toggle, and fluid volume slider.',
-      category: 'UI/UX',
+      category: 'New Style',
       icon: Icons.music_note_rounded,
       iconColor: Color(0xFFFF375F),
-      highlightTag: 'Featured',
+      highlightTag: 'New Style',
     ),
     _ChangelogItem(
       title: 'Living Motion Album Artwork',
@@ -105,7 +99,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       category: 'Visuals',
       icon: Icons.movie_filter_rounded,
       iconColor: Color(0xFF40C4FF),
-      highlightTag: 'Living Art',
+      highlightTag: 'Visuals',
     ),
     _ChangelogItem(
       title: 'Cinematic Blurred Lyrics',
@@ -114,41 +108,35 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
       category: 'Lyrics',
       icon: Icons.blur_circular_rounded,
       iconColor: Color(0xFFFF9100),
+      highlightTag: 'Lyrics',
     ),
     _ChangelogItem(
       title: 'Liquid Glass Interface',
       description:
           'Enjoy an eye-catching frosted-glass design featuring glossy highlights, directional reflections, and fluid bento layouts.',
-      category: 'UI/UX',
+      category: 'Theme',
       icon: Icons.blur_on_rounded,
       iconColor: Color(0xFFB388FF),
+      highlightTag: 'Theme',
     ),
     _ChangelogItem(
       title: 'Smooth & Safe App Updates',
       description:
           'Optimized GitHub releases updater with safe APK staging and signature verification for zero-friction background updates.',
-      category: 'System',
+      category: 'Reliability',
       icon: Icons.verified_user_rounded,
       iconColor: Color(0xFF69F0AE),
+      highlightTag: 'Reliability',
     ),
     _ChangelogItem(
       title: 'Faster & More Stable',
       description:
           'Smoother audio crossfades, faster search caching, reduced CPU overhead, and overall stability enhancements.',
-      category: 'System',
+      category: 'Performance',
       icon: Icons.bolt_rounded,
       iconColor: Color(0xFFFFD54F),
+      highlightTag: 'Performance',
     ),
-  ];
-
-  static const List<String> _categories = [
-    'All',
-    'Audio',
-    'Visuals',
-    'Lyrics',
-    'UI/UX',
-    'Social',
-    'System',
   ];
 
   @override
@@ -156,11 +144,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
     final tokens = context.tokens;
     final accent = tokens.accent;
     final mediaQuery = MediaQuery.of(context);
-    final maxHeight = mediaQuery.size.height * 0.88;
-
-    final filteredItems = _selectedCategory == 'All'
-        ? _items
-        : _items.where((item) => item.category == _selectedCategory).toList();
+    final maxHeight = mediaQuery.size.height * 0.90;
 
     return Center(
       child: ConstrainedBox(
@@ -199,27 +183,27 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Top Drag Pill
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Center(
                       child: Container(
                         width: 44,
-                        height: 4.5,
+                        height: 4,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-                    // Hero Header Section
+                    // Header Section
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(
                         children: [
                           Container(
-                            width: 52,
-                            height: 52,
+                            width: 46,
+                            height: 46,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
@@ -229,22 +213,22 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
                                   color: accent.withValues(alpha: 0.35),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 3),
                                 ),
                               ],
                             ),
                             child: const Icon(
                               Icons.auto_awesome_rounded,
                               color: Color(0xFF08120D),
-                              size: 28,
+                              size: 24,
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,26 +240,26 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w800,
-                                        fontSize: 21,
-                                        letterSpacing: -0.4,
+                                        fontSize: 20,
+                                        letterSpacing: -0.3,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
+                                        horizontal: 7,
+                                        vertical: 2.5,
                                       ),
                                       decoration: BoxDecoration(
                                         color: accent.withValues(alpha: 0.18),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
                                           color: accent.withValues(alpha: 0.4),
-                                          width: 1,
+                                          width: 0.8,
                                         ),
                                       ),
                                       child: Text(
-                                        'v${widget.version}',
+                                        'v$version',
                                         style: TextStyle(
                                           color: accent,
                                           fontSize: 11,
@@ -286,7 +270,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 3),
+                                const SizedBox(height: 2),
                                 Text(
                                   'Fresh looks, living artwork & smoother music',
                                   style: TextStyle(
@@ -299,8 +283,8 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                           ),
                           IconButton(
                             icon: Container(
-                              width: 32,
-                              height: 32,
+                              width: 30,
+                              height: 30,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Colors.white.withValues(alpha: 0.08),
@@ -308,7 +292,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                               child: const Icon(
                                 Icons.close_rounded,
                                 color: Colors.white70,
-                                size: 18,
+                                size: 16,
                               ),
                             ),
                             onPressed: () => Navigator.of(context).pop(),
@@ -318,66 +302,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
-
-                    // Category Filter Pills
-                    SizedBox(
-                      height: 34,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _categories.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final cat = _categories[index];
-                          final isSelected = cat == _selectedCategory;
-                          return BouncingScaleButton(
-                            scaleDown: 0.94,
-                            minTouchTarget: 34,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() {
-                                _selectedCategory = cat;
-                              });
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? accent
-                                    : (tokens.isGlass
-                                        ? const Color(0x18FFFFFF)
-                                        : tokens.card),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? accent
-                                      : Colors.white.withValues(alpha: 0.1),
-                                  width: 1,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                cat,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? const Color(0xFF08120D)
-                                      : Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Divider(
                       color: Colors.white.withValues(alpha: 0.08),
                       height: 1,
@@ -386,13 +311,12 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                     // Scrollable Items List
                     Flexible(
                       child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                        itemCount: filteredItems.length,
+                        padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+                        itemCount: _items.length,
                         itemBuilder: (context, index) {
-                          final item = filteredItems[index];
                           return _buildChangelogCard(
                             context: context,
-                            item: item,
+                            item: _items[index],
                           );
                         },
                       ),
@@ -400,7 +324,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
 
                     // Bottom Action Button
                     Container(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(
@@ -417,7 +341,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                         },
                         child: Container(
                           width: double.infinity,
-                          height: 50,
+                          height: 48,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -427,12 +351,12 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(15),
                             boxShadow: [
                               BoxShadow(
                                 color: accent.withValues(alpha: 0.35),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
+                                blurRadius: 14,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -443,13 +367,13 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                               Icon(
                                 Icons.play_arrow_rounded,
                                 color: Color(0xFF09140E),
-                                size: 22,
+                                size: 20,
                               ),
-                              SizedBox(width: 8),
+                              SizedBox(width: 6),
                               Text(
                                 'Got It, Let\'s Play!',
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF09140E),
                                   letterSpacing: 0.2,
@@ -477,24 +401,24 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
     final tokens = context.tokens;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: tokens.isGlass
             ? const Color(0x10FFFFFF)
             : tokens.card.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: item.iconColor.withValues(alpha: 0.22),
-          width: 1,
+          width: 0.8,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -504,7 +428,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: item.iconColor.withValues(alpha: 0.35),
                 width: 1,
@@ -513,10 +437,10 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
             child: Icon(
               item.icon,
               color: item.iconColor,
-              size: 22,
+              size: 20,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,7 +452,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                         item.title,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
                         ),
@@ -536,7 +460,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: item.iconColor.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(6),
@@ -549,7 +473,7 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                         item.highlightTag ?? item.category,
                         style: TextStyle(
                           color: item.iconColor,
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
                         ),
@@ -557,13 +481,13 @@ class _UpdateChangelogSheetState extends State<UpdateChangelogSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 3),
                 Text(
                   item.description,
                   style: const TextStyle(
                     color: Color(0xFFC8D5CD),
-                    fontSize: 12.5,
-                    height: 1.4,
+                    fontSize: 12,
+                    height: 1.35,
                   ),
                 ),
               ],
