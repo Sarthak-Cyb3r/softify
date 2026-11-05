@@ -13,18 +13,18 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
 [![Tests](https://img.shields.io/badge/Tests-All%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
 [![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Release](https://img.shields.io/badge/Release-v4.0.0--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
+[![Release](https://img.shields.io/badge/Release-v4.0.1--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=for-the-badge)](CODE_OF_CONDUCT.md)
 
 <br/><br/>
 
-<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.0/Softify-v4.0.0-Android.apk">
-  <img src="https://img.shields.io/badge/Download_APK-v4.0.0_Android-2ea44f?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Download Android APK" />
+<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.1/Softify-v4.0.1-Android.apk">
+  <img src="https://img.shields.io/badge/Download_APK-v4.0.1_Android-2ea44f?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Download Android APK" />
 </a>
 &nbsp;&nbsp;
-<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.0/Softify-Linux-x64.tar.gz">
-  <img src="https://img.shields.io/badge/Download_Linux-v4.0.0_x64-0052cc?style=for-the-badge&logo=linux&logoColor=white" height="42" alt="Download Linux" />
+<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.1/Softify-Linux-x64.tar.gz">
+  <img src="https://img.shields.io/badge/Download_Linux-v4.0.1_x64-0052cc?style=for-the-badge&logo=linux&logoColor=white" height="42" alt="Download Linux" />
 </a>
 &nbsp;&nbsp;
 <a href="https://github.com/Sarthak-Cyb3r/softify/releases/latest">
@@ -57,7 +57,7 @@ Download pre-compiled binaries directly from [GitHub Releases](https://github.co
 
 | Platform | Format | Compatibility | Size | Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android (Android 8.0+)** | `.apk` | Universal APK (ARM64, ARMv7, x86_64) • Android 8.0+ | **~29.3 MB** | [`Softify-v4.0.0-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
+| **Android (Android 8.0+)** | `.apk` | Universal APK (ARM64, ARMv7, x86_64) • Android 8.0+ | **~29.3 MB** | [`Softify-v4.0.1-Android.apk`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **Linux (Desktop x64)** | `.tar.gz` | Standalone binary bundle (Ubuntu, Debian, Arch, Fedora) | **~15.1 MB** | [`Softify-Linux-x64.tar.gz`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
 | **Linux (CLI Installer)** | Script | Terminal installer with automated desktop integration | < 1 MB | [`install.sh`](https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh) |
 | **iOS (Sideload / AltStore)** | `.ipa` | iPhone & iPad • iOS 15.0+ | ~10.4 MB | [`Softify-iOS-Universal.ipa`](https://github.com/Sarthak-Cyb3r/softify/releases/latest) |
@@ -88,9 +88,9 @@ To update Softify on Linux to the latest version, simply run the one-line instal
 curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | bash
 ```
 
-To update or pin to a specific release tag (e.g. `v4.0.0`):
+To update or pin to a specific release tag (e.g. `v4.0.1`):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v4.0.0 bash
+curl -fsSL https://raw.githubusercontent.com/Sarthak-Cyb3r/softify/main/install.sh | SOFTIFY_VERSION=v4.0.1 bash
 ```
 
 If you installed from a local git repository:
@@ -112,7 +112,7 @@ git pull
 | `Ctrl` + `,` | Open Settings Screen |
 
 ### 🤖 Android Installation:
-1. Download **`Softify-v4.0.0-Android.apk`** (~29.3 MB) from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
+1. Download **`Softify-v4.0.1-Android.apk`** (~29.3 MB) from [GitHub Releases](https://github.com/Sarthak-Cyb3r/softify/releases/latest).
 2. Tap the `.apk` file in your browser downloads or file manager.
 3. Grant **"Allow from this source"** in Android Settings if prompted, then tap **Install**.
 
@@ -146,15 +146,66 @@ If your device is running a TrollStore-compatible iOS version:
 
 ## ✨ Features & Highlights
 
-- **Dual Player Styles**: Choose between Softify Classic and modern Apple Music style player with floating dock controls, repeat switcher (`Off` / `All` / `One`), and volume sliders.
-- **Living Motion Artwork**: High-definition video canvas covers and ambient background artwork with local caching and zero-blank cover fallbacks.
-- **320 kbps Studio Audio**: High-bitrate audio streaming with official YouTube Music InnerTube and JioSaavn resolvers, strict word matching, and foreign-language dub removal.
-- **Multi-Source Synced Lyrics**: Real-time karaoke lyrics from LRCLIB, JioSaavn, and NetEase with cinematic optical depth blur and on-device Devanagari/Gurmukhi transliteration.
-- **On-Device Recommendation & Search**: 100% client-side, zero-telemetry search and discovery powered by SQLite FTS5, taste decay algorithms, PPMI co-occurrence graphs, and contextual bandits.
-- **Listen Together Rooms**: Real-time cross-device shared playback rooms over open WebSocket relays with sub-300ms clock alignment.
-- **10-Band Hardware DSP Equalizer**: Precision equalizer with bass boost, vocal clarity, and custom acoustic presets.
-- **Local & Offline Music**: Scans local audio files (`.mp3`, `.m4a`, `.flac`, `.wav`), downloads tracks offline, and provides encrypted `.softify` playlist backup/restore.
-- **OS Integrations**: Material You dynamic Android widgets, landscape Car Mode, Discord Rich Presence, and iOS lock screen controls.
+### 1. 🧑‍🎤 Multi-Artist Navigation & Discography Chooser
+- **Collaborative Artist Selector**: When a track features multiple collaborating artists (separated by `,`, `&`, `feat.`, `ft.`, `with`, `/`, `;`), clicking "View artist" or tapping the artist on the player opens a clean bottom sheet to choose which specific artist's discography and albums to explore.
+- **Direct Fast Path**: Single-artist tracks navigate straight to the artist's full catalog, top tracks, and albums.
+- **Deep-Dive Discography**: Dedicated discography explorer on Artist Detail screens organizing releases by Albums, Singles, and Compilations.
+- **Smart Artist Radio**: Isolates primary artists from collaborative credit strings, generating coherent queues anchored by PPMI co-occurrence graphs.
+
+### 2. 🎧 320kbps Studio Master Audio & Original Audio Engine
+- **Pure 320kbps Studio Masters**: Direct decoding of uncompressed 320kbps AAC studio masters (`AudioQualityPreset.high`) with zero movie dialogue clips or multiplexing overhead.
+- **Original Audio Stream Preservation**: Intelligent auto-dubbing filter detects and strips foreign-language translated audio tracks (`isAutoDubbed: true`), guaranteeing playback of the creator's authentic original audio.
+- **Working Audio Quality Selector**: Instant switching between Low (96 kbps), Medium (160 kbps), and High (320 kbps Studio Master) with active resolver bitrate enforcement.
+- **DJ Audio Crossfade & Loudness Normalization**: Smooth dual-engine volume interpolation between active and preloaded tracks (0s to 12s) and perceived loudness leveling (ReplayGain / EBU R128).
+- **Audiophile Micro-Pill**: Live badge in MiniPlayer displaying active codec/bitrate (`320 KBPS`, `FLAC`, `AAC`) with a 1-tap modal inspecting buffer health and DAC pipelines.
+
+### 3. 🎛️ 10-Band Hardware DSP Equalizer & Bass Boost
+- **Native Hardware DSP**: Android AudioEffect integration and Linux PipeWire/PulseAudio sink filtering with zero latency.
+- **Precision Frequency Control**: 10 parametric frequency bands (31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz) with fine gain stepping (-12dB to +12dB).
+- **Acoustic Presets**: Quick 1-tap presets: Bass Boost, Vocal Clarity, Electronic, Rock, Acoustic, and Flat.
+- **Full-Width Desktop Console & Quick Launch**: Responsive layout with dedicated EQ tune button in Full-Screen Player and track options menu.
+
+### 4. 🎤 Synced Karaoke Lyrics & On-Device Romanization
+- **Kinetic Vocal Tracking**: Synchronized LRC lyrics with kinetic line highlighting, optical depth blur, and smooth auto-scrolling.
+- **On-Device ScriptRomanizer**: Zero-network, deterministic transliterator converting Devanagari (Hindi, Marathi, Nepali, Sanskrit) and Gurmukhi (Punjabi) into Latin phonetics in real-time.
+- **Instant [ROM] / [ORIG] Toggle**: Seamless one-tap switch in lyrics header for sing-along without external API latency.
+- **Interactive Font Sizing & Quote Cards**: Dynamic typography scaling (Compact 17px, Normal 21px, Large 26px) and long-press quote card sharing.
+- **Composite Fallback Cascade**: High-coverage fallback across LRCLIB, JioSaavn, and NetEase lyrics databases.
+
+### 5. 🔍 Instant Search & Spotify Metadata Catalog
+- **Sub-100ms Debounced Search**: Multi-source instant search with typo-tolerant fuzzy matching and autocomplete.
+- **Functional Filter Tabs**: Fast instant tab filtering between **All**, **Songs**, and **Artists**.
+- **Spotify Primary Metadata Engine**: Rich metadata extraction directly from Spotify catalog for albums, artists, tracks, and discographies.
+- **Smart Catalog Deduplication**: Collapses duplicate remix and compilation clones into original studio recordings; strips noisy intro dialogues.
+- **Language-Aware Mood Explorer**: Instant browsing across moods and genres personalized to the user's native listening languages.
+
+### 6. 🏠 Home & Dynamic Taste Discovery
+- **Streamlined Bento Grid**: Compacted Liked Songs and Downloads row pulling "Made For You" and "Recently Played" shelves to the top.
+- **Contextual Greetings**: Dynamic time-of-day greetings tailored for both desktop and mobile viewports.
+- **Taste-Based Shelves**: Auto-generated recommendations (Based on your recent listening, Heavy Rotation, Forgotten Favorites).
+- **Verified Regional Top Charts**: Direct access to Hindi Superhits Top 50, Punjabi Top 50, International Top 50, and Trending Today.
+
+### 7. 📁 Local Device Music & Offline File Player
+- **Zero-Network File Player**: Scans device storage for `.mp3`, `.m4a`, `.flac`, `.wav`, `.ogg`, and `.aac` audio files.
+- **Smart Noise Exclusion**: Filters out UI clicks, short audio beeps (<300KB), app assets, `.nomedia` folders, and build artifacts.
+- **Offline Library Doctor**: 1-tap verification scans filesystem, cleans orphaned cache files, and re-syncs physical file sizes.
+- **1-Tap Folder Opener**: Direct button in Downloads tab and Settings to open saved tracks natively via system file managers.
+
+### 8. 📊 Softify Wrapped & On-Device Insights
+- **Interactive Analytics Dashboard**: Listening archetypes, total streaming hours, top songs, and top artists.
+- **Multi-Period Filters & 24h Rhythm**: Filter insights across All Time, Past 30 Days, and Past 7 Days with 24-column hourly activity charts.
+- **Shareable AMOLED Poster Card**: 1-click clipboard summary export and social sharing cards.
+
+### 9. ⏱️ Precision Sleep Timer & Keyless Tools
+- **Precision Sleep Timer**: Quick presets (5m, 10m, 15m, 30m, 45m, 1h), custom duration, or "End of this song" running safely under locked screens.
+- **Keyless Playlist Importer**: Import public playlists via URL/ID without account credentials or API keys.
+- **Encrypted Local Backup**: 1-click export and restore of playlists, liked tracks, history, and settings via `.softify` archives.
+
+### 10. 📱 Ecosystem & OS Integrations
+- **Material You Android Widgets**: 4×1 compact pill and 4×2 expansive card home-screen widgets with dynamic system color accents.
+- **Desktop Discord Rich Presence**: Live "Listening to..." presence with track title, artist, and timestamps via local Unix IPC socket.
+- **Landscape Car Mode & Linux Mobile Viewport**: High-contrast large-target driving mode and native `--mobile` CLI testing flag.
+- **iOS Media Session**: Dynamic Island (`MPRemoteCommandCenter`), lock screen controls, and AirPods stem gesture support.
 
 ---
 
@@ -171,16 +222,18 @@ lib/
 │   ├── catalog/               # KeylessYouTubeCatalog (Deduplication + Autocomplete)
 │   ├── database/              # Drift SQLite relational ORM (AppDatabase with 20 tables + FTS5)
 │   ├── evaluation/            # TeamDraftInterleaver, GuardrailRunner (Latency & Golden Benchmarks)
+│   ├── lyrics/                # LRCLIB, JioSaavn, NetEase, ScriptRomanizer (Devanagari & Gurmukhi)
 │   ├── player/                # SoftifyAudioHandler (Dual-engine pre-buffering pipeline)
 │   ├── recommendations/       # Taste profiles, PPMI graph, LogisticRanker, ShelfEngine, MMR, Bandit
 │   ├── repositories/          # DriftLibraryRepository, DriftEventLogger, DriftFtsRepository
 │   ├── resolvers/             # SaavnStreamResolver (320kbps), YoutubeStreamResolver, HybridStreamResolver
 │   ├── search/                # VectorSearchEngine, LinearSearchReranker, RuleIntentRouter
+│   ├── services/              # SpotifyApiService, MusicLanguageService, LocalAudioScanner, DiscordRpcService
 │   └── tagging/               # M4aAtomTagger (iTunes MP4 atom tagging)
 └── presentation/              # Reactive UI layer (Flutter + Riverpod)
     ├── providers/             # Cached Riverpod audio, queue, search, and settings providers
-    ├── screens/               # HomeScreen, SearchScreen, LibraryScreen, FullScreenPlayerScreen, DebugMetricsScreen
-    └── widgets/               # MiniPlayer, LyricsView, QueueBottomSheet, IntentSuggestionChips
+    ├── screens/               # HomeScreen, SearchScreen, LibraryScreen, FullScreenPlayerScreen, WrappedScreen
+    └── widgets/               # MiniPlayer, LyricsView, QueueBottomSheet, EqualizerSheet, ArtistChooserBottomSheet
 ```
 
 ### Hybrid Resolution Chain
