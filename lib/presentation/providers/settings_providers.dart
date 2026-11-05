@@ -35,7 +35,7 @@ final remoteConfigFutureProvider = FutureProvider<RemoteConfigData>((ref) {
   return repo.fetchLatestConfig();
 });
 
-const String kAppVersion = '4.0.0';
+const String kAppVersion = '4.0.1';
 final currentAppVersionProvider = Provider<String>((ref) => kAppVersion);
 
 final updateCheckFutureProvider = FutureProvider<AppReleaseInfo?>((ref) {

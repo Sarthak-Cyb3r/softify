@@ -2,6 +2,29 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [4.0.1] - 2026-11-06
+
+### 🎛️ Audio Quality Engine & Dynamic Bitrate Switching
+- **Runtime Audio Quality Synchronization**: Connected the in-app Quality Changer in Settings (`High`, `Standard`, `Data Saver`) directly to `SoftifyAudioHandler`, enabling instant bitrate switching with lookahead cache invalidation and active stream hot-swapping at the current playback second.
+- **Persistent Preset Bootstrapping**: Fixed startup initialization to restore the user's saved audio quality setting from SQLite across cold app launches.
+- **Discrete Studio & Data Saver Bitrates**: Replaced duplicate 320 kbps stream resolutions in `SaavnStreamResolver` with discrete bitrates: 96 kbps (Data Saver), 160 kbps (Standard), and 320 kbps (Studio Master).
+- **Quality-Aware Background Downloads**: Offline downloads now inherit the user's configured audio quality preference, saving cellular bandwidth when Data Saver is selected.
+
+### 🌍 Language-Personalized Mood Shelves & Taste Intelligence
+- **Dynamic Listening Language Detection**: Integrated `MusicLanguageService` to detect user listening language affinity (Hindi, Punjabi, Tamil, Telugu, Malayalam, Spanish, Korean, Japanese, English, etc.) from playback history, liked tracks, top taste entities, and Unicode scripts.
+- **Localized Mood Mixes**: Mood chips (`Relax`, `Energize`, `Workout`, `Focus`, `Commute`, `Party`, `Romance`) now search for mood-aligned songs in the user's primary and secondary listening languages instead of hardcoded Western English queries.
+- **Dual-Language Interleaving**: Blends tracks from primary and secondary regional affinities (e.g. Bollywood + Punjabi party bangers) for richer mood exploration.
+- **Manual Mood Language Override**: Added a dedicated `Mood & Music Language` preference selector under Discovery & Taste Controls in Settings.
+
+### 🔍 Instant Spotify Catalog Search & Filter Chips
+- **Accelerated Artist Resolution**: Streamlined search queries with instant debouncing and prioritized artist matching for near-instant artist profile appearance.
+- **Functional Category Filter Bar**: Restored interactive filtering across `All`, `Songs`, and `Artists` tabs with instant state updates.
+- **Authoritative Spotify Metadata**: Shifted catalog search and metadata extraction primarily to official Spotify catalog endpoints for accurate track metadata, cover art, and release dates.
+
+### 🎤 Synchronized Karaoke Lyrics Reliability
+- **Smooth Real-Time Vocal Tracking**: Fixed synchronization edge cases where lyrics loaded as static plain text rather than kinetic LRC synced lines.
+- **Multi-Source Synchronization Fallback**: Ensured LRCLIB, JioSaavn, and NetEase providers exhaustively attempt time-coded karaoke lines before falling back to un-synced text.
+
 ## [4.0.0] - 2026-11-02
 
 ### 🍎 Apple Music Player & Playback Controls

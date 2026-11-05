@@ -11,11 +11,11 @@ class UpdateChangelogSheet extends StatelessWidget {
 
   const UpdateChangelogSheet({
     super.key,
-    this.version = '4.0.0',
+    this.version = '4.0.1',
   });
 
   /// Displays the changelog modal sheet.
-  static Future<void> show(BuildContext context, {String version = '4.0.0'}) {
+  static Future<void> show(BuildContext context, {String version = '4.0.1'}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -181,6 +181,42 @@ class UpdateChangelogSheet extends StatelessWidget {
                         shrinkWrap: true,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         children: [
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.graphic_eq_rounded,
+                            iconColor: const Color(0xFF4EDEA3),
+                            title: 'Real-Time Audio Quality Switching',
+                            description:
+                                'Switch between High (320kbps), Standard (160kbps), and Data Saver (96kbps) with instant hot-swapping and cellular bandwidth savings.',
+                            badge: 'Audio Engine',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.translate_rounded,
+                            iconColor: const Color(0xFF40C4FF),
+                            title: 'Language-Personalized Moods',
+                            description:
+                                'Mood shelves now automatically learn your listening language (Hindi, Punjabi, Tamil, Spanish, etc.) and bring songs in your favorite regional sounds.',
+                            badge: 'Taste Engine',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.search_rounded,
+                            iconColor: const Color(0xFF00E676),
+                            title: 'Spotify Catalog & Fast Search',
+                            description:
+                                'Search results now extract authentic Spotify catalog metadata with instantaneous artist profile appearance and working category filters.',
+                            badge: 'Search',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.subtitles_rounded,
+                            iconColor: const Color(0xFFFFB74D),
+                            title: 'Kinetic Synced Lyrics',
+                            description:
+                                'Synchronized karaoke lyrics track along with every beat with multi-catalog fallback to prevent plain text lyrics.',
+                            badge: 'Lyrics',
+                          ),
                           _buildChangelogCard(
                             context: context,
                             icon: Icons.graphic_eq_rounded,

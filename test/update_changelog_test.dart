@@ -37,9 +37,18 @@ void main() {
       expect(find.text('v3.0.9'), findsOneWidget);
       expect(find.text('Fresh looks, living artwork & smoother music'), findsOneWidget);
 
+      // Verify v4.0.1 consumer-friendly cards
+      expect(find.text('Real-Time Audio Quality Switching'), findsOneWidget);
+      expect(find.text('Language-Personalized Moods'), findsOneWidget);
+      expect(find.text('Spotify Catalog & Fast Search'), findsOneWidget);
+      expect(find.text('Kinetic Synced Lyrics'), findsOneWidget);
+
       // Verify simple consumer-friendly cards
+      await tester.scrollUntilVisible(find.text('Accurate Audio Matching'), 150);
       expect(find.text('Accurate Audio Matching'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Multi-Provider Lyrics Engine'), 150);
       expect(find.text('Multi-Provider Lyrics Engine'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Listen Together Rooms'), 150);
       expect(find.text('Listen Together Rooms'), findsOneWidget);
 
       await tester.scrollUntilVisible(find.text('Instant Liked Songs'), 150);
@@ -70,6 +79,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text("What's New"), findsNothing);
+    });
+
+    testWidgets('UpdateChangelogSheet defaults to version 4.0.1', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => UpdateChangelogSheet.show(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text("What's New"), findsOneWidget);
+      expect(find.text('v4.0.1'), findsOneWidget);
+      expect(find.text('Real-Time Audio Quality Switching'), findsOneWidget);
     });
   });
 
