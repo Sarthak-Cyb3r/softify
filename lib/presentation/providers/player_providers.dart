@@ -331,10 +331,15 @@ final trackLyricsProvider =
 
   if (lyrics != null) {
     try {
+      final rawLrc = lyrics.rawLrc ??
+          (lyrics.isSynced && lyrics.lines.isNotEmpty
+              ? _serializeLrc(lyrics.lines)
+              : null);
       await libraryRepo.cacheLyrics(
         track.id,
-        syncedLrc: lyrics.rawLrc,
-        plainText: lyrics.plainLyrics,
+        syncedLrc: rawLrc,
+        plainText: lyrics.plainLyrics ??
+            (lyrics.lines.isNotEmpty ? lyrics.lines.map((l) => l.text).join('\n') : null),
         isNotFound: false,
       );
     } catch (_) {}
@@ -356,6 +361,17 @@ final trackLyricsProvider =
 
   return null;
 });
+
+String _serializeLrc(List<LyricLine> lines) {
+  final buffer = StringBuffer();
+  for (final line in lines) {
+    final m = line.timestamp.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = line.timestamp.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final ms = (line.timestamp.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');
+    buffer.writeln('[$m:$s.$ms]${line.text}');
+  }
+  return buffer.toString().trim();
+}
 
 // ==========================================
 // Play History Stream Provider

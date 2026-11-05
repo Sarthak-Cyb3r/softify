@@ -20,7 +20,9 @@ class LrclibLyricsProvider implements ILyricsProvider {
 
   @override
   Future<SyncedLyrics?> getLyrics(Track track) async {
-    if (_memoryCache.containsKey(track.id) && _memoryCache[track.id] != null) {
+    if (_memoryCache.containsKey(track.id) &&
+        _memoryCache[track.id] != null &&
+        _memoryCache[track.id]!.isSynced) {
       return _memoryCache[track.id];
     }
 
@@ -38,48 +40,53 @@ class LrclibLyricsProvider implements ILyricsProvider {
         track.title.trim(),
       }.where((t) => t.isNotEmpty).toList();
 
+      final bareTitle = candidateTitles.length > 1 ? candidateTitles[1] : cleanTitle;
+
       // Extract artist candidates: primary artist, full string, and split individuals
       final candidateArtists = <String>{
-        cleanArtist.split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?', caseSensitive: false)).first.trim(),
+        cleanArtist.split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?|\s+with\b', caseSensitive: false)).first.trim(),
         cleanArtist,
         ...cleanArtist
-            .split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?', caseSensitive: false))
+            .split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?|\s+with\b', caseSensitive: false))
             .map((a) => a.trim())
             .where((a) => a.isNotEmpty),
       }.where((a) => a.isNotEmpty).toList();
 
-      SyncedLyrics? plainCandidate;
-
-      // 1. Try exact matches across primary title and artist combinations (capped to top 2 to avoid flood)
-      for (final t in candidateTitles.take(2)) {
-        for (final a in candidateArtists.take(2)) {
-          final result = await _tryExactGet(t, a, track.duration, track.id);
-          if (result != null) {
-            if (result.isSynced && result.lines.isNotEmpty) {
-              _memoryCache[track.id] = result;
-              return result;
-            }
-            plainCandidate ??= result;
-          }
-        }
-      }
-
-      // 2. Fallback to smart search with duration-proximity ranking to resolve synced LRC
       final primaryArtist = candidateArtists.isNotEmpty ? candidateArtists.first : cleanArtist;
-      for (final t in candidateTitles) {
-        final searchResult = await _searchFallback(track, t, primaryArtist);
-        if (searchResult != null) {
-          if (searchResult.isSynced && searchResult.lines.isNotEmpty) {
-            _memoryCache[track.id] = searchResult;
-            return searchResult;
-          }
-          plainCandidate ??= searchResult;
-        }
+
+      // Build targeted search queries prioritized for fast synced resolution
+      final searchQueries = <String>{
+        if (primaryArtist.isNotEmpty) '$cleanTitle $primaryArtist'.trim(),
+        if (bareTitle.isNotEmpty && bareTitle != cleanTitle && primaryArtist.isNotEmpty)
+          '$bareTitle $primaryArtist'.trim(),
+        if (candidateArtists.length > 2 && candidateArtists[2].isNotEmpty)
+          '$cleanTitle ${candidateArtists[2]}'.trim(),
+        cleanTitle,
+        if (bareTitle.isNotEmpty && bareTitle != cleanTitle) bareTitle,
+      }.toList();
+
+      // 1. High-speed multi-query search with full payload retrieval
+      final searchResult = await _searchLyrics(track, searchQueries, candidateTitles);
+      if (searchResult != null && searchResult.isSynced && searchResult.lines.isNotEmpty) {
+        _memoryCache[track.id] = searchResult;
+        return searchResult;
       }
 
-      if (plainCandidate != null) {
-        _memoryCache[track.id] = plainCandidate;
-        return plainCandidate;
+      // 2. Exact match fallback with cleanTitle and primaryArtist
+      final exactResult = await _tryExactGet(cleanTitle, primaryArtist, track.duration, track.id);
+      if (exactResult != null && exactResult.isSynced && exactResult.lines.isNotEmpty) {
+        _memoryCache[track.id] = exactResult;
+        return exactResult;
+      }
+
+      // 3. Fallback to plain lyrics candidate if no synced lyrics could be found
+      final plainResult = (searchResult != null && !searchResult.isSynced)
+          ? searchResult
+          : (exactResult != null && !exactResult.isSynced ? exactResult : null);
+
+      if (plainResult != null) {
+        _memoryCache[track.id] = plainResult;
+        return plainResult;
       }
 
       return null;
@@ -123,16 +130,16 @@ class LrclibLyricsProvider implements ILyricsProvider {
   ) async {
     try {
       final uri = Uri.https('lrclib.net', '/api/get', queryParams);
-      final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
+      final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 3));
       request.headers.set('User-Agent', _userAgent);
 
-      var response = await request.close().timeout(const Duration(seconds: 4));
+      var response = await request.close().timeout(const Duration(seconds: 3));
       if (response.statusCode == 503) {
         // Handle transient Cloudflare / LRCLIB ServerOverloaded rate limits
         await Future.delayed(const Duration(milliseconds: 600));
-        final retryReq = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 3));
+        final retryReq = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 2));
         retryReq.headers.set('User-Agent', _userAgent);
-        response = await retryReq.close().timeout(const Duration(seconds: 3));
+        response = await retryReq.close().timeout(const Duration(seconds: 2));
       }
 
       if (response.statusCode == 200) {
@@ -193,16 +200,13 @@ class LrclibLyricsProvider implements ILyricsProvider {
     return null;
   }
 
-  Future<SyncedLyrics?> _searchFallback(
+  Future<SyncedLyrics?> _searchLyrics(
     Track track,
-    String cleanTitle,
-    String primaryArtist,
+    List<String> queries,
+    List<String> candidateTitles,
   ) async {
     try {
-      final queries = [
-        if (primaryArtist.isNotEmpty) '$cleanTitle $primaryArtist'.trim(),
-        cleanTitle,
-      ];
+      SyncedLyrics? plainCandidate;
 
       for (final query in queries) {
         final uri = Uri.https('lrclib.net', '/api/search', {'q': query});
@@ -224,7 +228,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
 
         final matchingItems = list.cast<Map<String, dynamic>>().where((item) {
           final candName = (item['trackName'] ?? item['name'] ?? '').toString();
-          return _isTitleMatch(cleanTitle, candName);
+          return candidateTitles.any((t) => _isTitleMatch(t, candName));
         }).toList();
 
         if (matchingItems.isEmpty) continue;
@@ -273,22 +277,23 @@ class LrclibLyricsProvider implements ILyricsProvider {
           }
         }
 
-        // 2. Fallback to matching plain lyrics
+        // 2. Keep plain lyrics candidate, but continue evaluating remaining search queries
         for (final item in matchingItems) {
           final plain = item['plainLyrics'] as String?;
           if (plain != null && plain.trim().isNotEmpty) {
-            return SyncedLyrics(
+            plainCandidate ??= SyncedLyrics(
               trackId: track.id,
               lines: const [],
               plainLyrics: plain.trim(),
               syncType: 'UNSYNCED',
               providerName: 'LRCLIB (Plain)',
             );
+            break;
           }
         }
       }
 
-      return null;
+      return plainCandidate;
     } catch (_) {
       return null;
     }

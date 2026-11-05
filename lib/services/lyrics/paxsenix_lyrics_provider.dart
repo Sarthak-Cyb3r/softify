@@ -414,7 +414,97 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
         }
       }
 
-      // 3. Plain lyrics
+      // 3. LRC formatted strings
+      final lrc = (map['lrc'] ?? map['rawLrc'] ?? map['syncedLyrics']) as String?;
+      if (lrc != null && lrc.trim().isNotEmpty) {
+        final lines = LrclibLyricsProvider.parseLrc(lrc);
+        if (lines.isNotEmpty) {
+          final isWordSynced =
+              lines.any((l) => l.words != null && l.words!.isNotEmpty);
+          return SyncedLyrics(
+            trackId: originalTrackId,
+            lines: lines,
+            rawLrc: lrc,
+            plainLyrics: lines.map((l) => l.text).join('\n'),
+            syncType: isWordSynced ? 'SYLLABLE_SYNCED' : 'LINE_SYNCED',
+            providerName: 'Paxsenix (LRC)',
+          );
+        }
+      }
+
+      // 4. Content array with timestamped lines or syllables
+      final content = map['content'] as List<dynamic>?;
+      if (content != null && content.isNotEmpty) {
+        final type = map['type'] as String?;
+        final isSyllable = type == 'Syllable';
+        final lines = <LyricLine>[];
+
+        for (final line in content) {
+          if (line is! Map<String, dynamic>) continue;
+          final timeMs = (line['timestamp'] as num?)?.toInt() ??
+              (line['time'] as num?)?.toInt() ??
+              0;
+          final wordsRaw = line['text'] as List<dynamic>?;
+          List<LyricWord>? words;
+          String lineText = '';
+
+          if (wordsRaw != null && wordsRaw.isNotEmpty) {
+            final wordsList = <LyricWord>[];
+            final parts = <String>[];
+            for (final w in wordsRaw) {
+              if (w is! Map<String, dynamic>) continue;
+              final wText = (w['text'] as String?) ?? '';
+              final wStart = (w['timestamp'] as num?)?.toInt() ?? 0;
+              final wEnd = (w['endtime'] as num?)?.toInt() ?? wStart;
+              final dur = wEnd > wStart
+                  ? Duration(milliseconds: wEnd - wStart)
+                  : null;
+              if (isSyllable) {
+                wordsList.add(
+                  LyricWord(
+                    timestamp: Duration(milliseconds: wStart),
+                    text: wText,
+                    duration: dur,
+                  ),
+                );
+              }
+              parts.add(wText);
+            }
+            if (isSyllable && wordsList.isNotEmpty) {
+              words = wordsList;
+            }
+            lineText = parts.join(' ');
+          } else if (line['text'] is String) {
+            lineText = line['text'] as String;
+          }
+
+          if (lineText.trim().isNotEmpty) {
+            lines.add(
+              LyricLine(
+                timestamp: Duration(milliseconds: timeMs),
+                text: lineText.trim(),
+                words: words,
+              ),
+            );
+          }
+        }
+
+        if (lines.isNotEmpty) {
+          final isWordSynced =
+              lines.any((l) => l.words != null && l.words!.isNotEmpty);
+          return SyncedLyrics(
+            trackId: originalTrackId,
+            lines: lines,
+            plainLyrics: lines.map((l) => l.text).join('\n'),
+            syncType: isWordSynced ? 'SYLLABLE_SYNCED' : 'LINE_SYNCED',
+            providerName: isWordSynced
+                ? 'Paxsenix (Syllable)'
+                : 'Paxsenix (Content)',
+          );
+        }
+      }
+
+      // 5. Plain lyrics fallback
       final plain = map['plain'] as String?;
       if (plain != null && plain.trim().isNotEmpty) {
         return SyncedLyrics(
@@ -424,84 +514,6 @@ class PaxsenixLyricsProvider implements ILyricsProvider {
           syncType: 'UNSYNCED',
           providerName: 'Paxsenix (Plain)',
         );
-      }
-
-      // 4. Content array
-      final content = map['content'] as List<dynamic>?;
-      if (content != null && content.isNotEmpty) {
-        final type = map['type'] as String?;
-        final isSyllable = type == 'Syllable';
-
-        if (!isSyllable) {
-          final plainLines = content
-              .map((line) {
-                final wordsRaw = line['text'] as List<dynamic>?;
-                return wordsRaw
-                        ?.map((w) => (w['text'] as String?) ?? '')
-                        .join(' ') ??
-                    '';
-              })
-              .where((l) => l.trim().isNotEmpty)
-              .join('\n');
-
-          if (plainLines.isNotEmpty) {
-            return SyncedLyrics(
-              trackId: originalTrackId,
-              lines: const [],
-              plainLyrics: plainLines,
-              syncType: 'UNSYNCED',
-              providerName: 'Paxsenix',
-            );
-          }
-        } else {
-          final lines = <LyricLine>[];
-          for (final line in content) {
-            final timeMs = (line['timestamp'] as num?)?.toInt() ?? 0;
-            final wordsRaw = line['text'] as List<dynamic>?;
-            List<LyricWord>? words;
-            String lineText = '';
-            if (wordsRaw != null && wordsRaw.isNotEmpty) {
-              final wordsList = <LyricWord>[];
-              final parts = <String>[];
-              for (final w in wordsRaw) {
-                final wText = (w['text'] as String?) ?? '';
-                final wStart = (w['timestamp'] as num?)?.toInt() ?? 0;
-                final wEnd = (w['endtime'] as num?)?.toInt() ?? wStart;
-                final dur = wEnd > wStart
-                    ? Duration(milliseconds: wEnd - wStart)
-                    : null;
-                wordsList.add(
-                  LyricWord(
-                    timestamp: Duration(milliseconds: wStart),
-                    text: wText,
-                    duration: dur,
-                  ),
-                );
-                parts.add(wText);
-              }
-              words = wordsList;
-              lineText = parts.join(' ');
-            }
-            if (lineText.trim().isNotEmpty) {
-              lines.add(
-                LyricLine(
-                  timestamp: Duration(milliseconds: timeMs),
-                  text: lineText.trim(),
-                  words: words,
-                ),
-              );
-            }
-          }
-          if (lines.isNotEmpty) {
-            return SyncedLyrics(
-              trackId: originalTrackId,
-              lines: lines,
-              plainLyrics: lines.map((l) => l.text).join('\n'),
-              syncType: 'SYLLABLE_SYNCED',
-              providerName: 'Paxsenix (Content)',
-            );
-          }
-        }
       }
 
       return null;

@@ -94,35 +94,31 @@ class CompositeLyricsProvider implements ILyricsProvider {
       }
     } catch (_) {}
 
-    // Tier 1 (Fast Concurrent Query): LRCLIB, NetEase, Kugou, and JioSaavn in parallel
+    // Tier 1 (Fast Concurrent Query): LRCLIB, NetEase, and Kugou in parallel for synchronized lyrics
     final fastTierFuture = Future.wait([
       _lrclib
           .getLyrics(track)
-          .timeout(const Duration(milliseconds: 3500), onTimeout: () => null)
+          .timeout(const Duration(milliseconds: 6000), onTimeout: () => null)
           .catchError((_) => null),
       _netease
           .getLyrics(track)
-          .timeout(const Duration(milliseconds: 3000), onTimeout: () => null)
+          .timeout(const Duration(milliseconds: 3500), onTimeout: () => null)
           .catchError((_) => null),
       _kugou
-          .getLyrics(track)
-          .timeout(const Duration(milliseconds: 3200), onTimeout: () => null)
-          .catchError((_) => null),
-      _saavn
           .getLyrics(track)
           .timeout(const Duration(milliseconds: 3500), onTimeout: () => null)
           .catchError((_) => null),
       if (_paxsenix != null)
         _paxsenix!
             .getLyrics(track)
-            .timeout(const Duration(milliseconds: 800), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 1200), onTimeout: () => null)
             .catchError((_) => null)
       else
         Future<SyncedLyrics?>.value(null),
       if (_betterLyrics != null)
         _betterLyrics!
             .getLyrics(track)
-            .timeout(const Duration(milliseconds: 800), onTimeout: () => null)
+            .timeout(const Duration(milliseconds: 1000), onTimeout: () => null)
             .catchError((_) => null)
       else
         Future<SyncedLyrics?>.value(null),
@@ -131,7 +127,6 @@ class CompositeLyricsProvider implements ILyricsProvider {
     SyncedLyrics? lrclibResult;
     SyncedLyrics? neteaseResult;
     SyncedLyrics? kugouResult;
-    SyncedLyrics? saavnResult;
     SyncedLyrics? paxResult;
     SyncedLyrics? betterResult;
 
@@ -140,9 +135,8 @@ class CompositeLyricsProvider implements ILyricsProvider {
       lrclibResult = fastResults[0];
       neteaseResult = fastResults[1];
       kugouResult = fastResults[2];
-      saavnResult = fastResults[3];
-      paxResult = fastResults[4];
-      betterResult = fastResults[5];
+      paxResult = fastResults[3];
+      betterResult = fastResults[4];
 
       // 1. Syllable/Karaoke sync preference (Paxsenix Apple Music or BetterLyrics)
       if (paxResult != null &&
@@ -159,7 +153,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
         return betterResult;
       }
 
-      // 2. Line-synced preference (LRCLIB, NetEase, Kugou, JioSaavn)
+      // 2. Line-synced preference (LRCLIB, NetEase, Kugou, Paxsenix, BetterLyrics)
       if (lrclibResult != null &&
           lrclibResult.isSynced &&
           lrclibResult.lines.isNotEmpty) {
@@ -176,12 +170,6 @@ class CompositeLyricsProvider implements ILyricsProvider {
           kugouResult.isSynced &&
           kugouResult.lines.isNotEmpty) {
         return kugouResult;
-      }
-
-      if (saavnResult != null &&
-          saavnResult.isSynced &&
-          saavnResult.lines.isNotEmpty) {
-        return saavnResult;
       }
 
       if (paxResult != null &&
@@ -202,7 +190,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
     if (_spotify != null) {
       try {
         spotifyResult = await _spotify!.getLyrics(track).timeout(
-              const Duration(milliseconds: 1800),
+              const Duration(milliseconds: 2000),
               onTimeout: () => null,
             );
         if (spotifyResult != null &&
@@ -213,9 +201,8 @@ class CompositeLyricsProvider implements ILyricsProvider {
       } catch (_) {}
     }
 
-    // Tier 4: Fallback to verified plain lyrics across sources
+    // Tier 4: Fallback to verified plain lyrics across existing results
     final plainCandidates = [
-      saavnResult,
       lrclibResult,
       neteaseResult,
       kugouResult,
@@ -233,6 +220,19 @@ class CompositeLyricsProvider implements ILyricsProvider {
     if (plainFallback != null) {
       return plainFallback;
     }
+
+    // Tier 4b: Fallback to JioSaavn for verified plain Indian/Bollywood lyrics
+    try {
+      final saavnResult = await _saavn.getLyrics(track).timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => null,
+          );
+      if (saavnResult != null &&
+          saavnResult.plainLyrics != null &&
+          saavnResult.plainLyrics!.trim().isNotEmpty) {
+        return saavnResult;
+      }
+    } catch (_) {}
 
     // Tier 5: Query Genius for verified song lyrics
     try {
