@@ -6,11 +6,13 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../data/database/app_database.dart';
 import '../../data/repositories/remote_config_repository.dart';
+import '../../data/services/music_language_service.dart';
 import '../../data/updater/github_release_update_checker.dart';
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/ports/i_remote_config.dart';
 import '../../domain/ports/i_update_checker.dart';
 import 'player_providers.dart';
+import 'shelf_providers.dart';
 
 final remoteConfigRepositoryProvider = Provider<RemoteConfigRepository>((ref) {
   final db = ref.watch(databaseProvider);
@@ -525,4 +527,46 @@ final lyricsRomanizeProvider =
   } catch (_) {}
   return LyricsRomanizeNotifier(db);
 });
+
+// Mood & Discovery Language Preference Notifier ('auto' or MusicLanguage.name)
+class MoodLanguagePreferenceNotifier extends StateNotifier<String> {
+  final AppDatabase _db;
+  final Ref _ref;
+
+  MoodLanguagePreferenceNotifier(this._db, this._ref) : super('auto') {
+    _loadFromDb();
+  }
+
+  Future<void> _loadFromDb() async {
+    try {
+      final row = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals(MusicLanguageService.settingKey)))
+          .getSingleOrNull();
+      if (row != null && row.value.isNotEmpty) {
+        state = row.value;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setLanguage(String languageName) async {
+    state = languageName;
+    try {
+      await _db.into(_db.settings).insertOnConflictUpdate(
+            SettingRow(
+              key: MusicLanguageService.settingKey,
+              value: languageName,
+            ),
+          );
+      _ref.invalidate(userListeningLanguagesProvider);
+      _ref.invalidate(homeMoodTracksProvider);
+    } catch (_) {}
+  }
+}
+
+final moodLanguagePreferenceProvider =
+    StateNotifierProvider<MoodLanguagePreferenceNotifier, String>((ref) {
+  final db = ref.watch(databaseProvider);
+  return MoodLanguagePreferenceNotifier(db, ref);
+});
+
 

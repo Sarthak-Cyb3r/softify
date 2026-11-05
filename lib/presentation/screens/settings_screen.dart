@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/services/folder_launcher_service.dart';
 import '../../data/services/library_backup_service.dart';
+import '../../data/services/music_language_service.dart';
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/ports/i_update_checker.dart';
 import '../providers/diversity_providers.dart';
@@ -16,6 +17,7 @@ import '../providers/device_control_providers.dart';
 import '../providers/player_providers.dart';
 import '../providers/equalizer_providers.dart';
 import '../providers/settings_providers.dart';
+import '../providers/shelf_providers.dart';
 import '../providers/ui_style_provider.dart';
 import '../providers/animated_artwork_provider.dart';
 import '../widgets/bouncing_scale_button.dart';
@@ -338,6 +340,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final autoPlayEnabled = autoPlayAsync.value ?? true;
     final learningPausedAsync = ref.watch(learningPausedProvider);
     final snoozedArtistsAsync = ref.watch(snoozedArtistsProvider);
+    final moodLangPref = ref.watch(moodLanguagePreferenceProvider);
+    final userLanguagesAsync = ref.watch(userListeningLanguagesProvider);
 
     final currentUiStyle = ref.watch(uiStyleProvider);
     final currentReduceEffects = ref.watch(reduceEffectsProvider);
@@ -1340,6 +1344,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
                     );
                   },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ListTile(
+                  leading: Icon(Icons.translate_rounded, color: tokens.accent, size: 20),
+                  title: const Text('Mood & Music Language', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: Text(
+                    moodLangPref == 'auto'
+                        ? (userLanguagesAsync.valueOrNull != null
+                            ? 'Auto (${userLanguagesAsync.valueOrNull!.primary.displayName})'
+                            : 'Auto (Detected from listening)')
+                        : (MusicLanguage.values
+                            .firstWhere(
+                              (l) => l.name.toLowerCase() == moodLangPref.toLowerCase(),
+                              orElse: () => MusicLanguage.english,
+                            )
+                            .displayName),
+                    style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+                  ),
+                  trailing: Icon(Icons.arrow_forward_ios, color: tokens.textSecondary, size: 14),
+                  onTap: () => _showMoodLanguageDialog(context),
                 ),
                 const Divider(color: Colors.black26, height: 1),
                 ListTile(
@@ -2435,6 +2459,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Navigator.of(ctx).pop();
             },
             child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMoodLanguageDialog(BuildContext context) {
+    final currentPref = ref.read(moodLanguagePreferenceProvider);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Mood & Music Language',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  value: 'auto',
+                  groupValue: currentPref,
+                  activeColor: AppTheme.accent,
+                  title: const Text(
+                    'Auto (Detected from listening)',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Learns from your history & liked songs',
+                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                  ),
+                  onChanged: (val) {
+                    if (val != null) {
+                      ref.read(moodLanguagePreferenceProvider.notifier).setLanguage(val);
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                ),
+                const Divider(color: Colors.black26, height: 1),
+                ...MusicLanguage.values.map((lang) {
+                  return RadioListTile<String>(
+                    value: lang.name,
+                    groupValue: currentPref,
+                    activeColor: AppTheme.accent,
+                    title: Text(
+                      lang.displayName,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      '${lang.label} personalized tracks',
+                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    ),
+                    onChanged: (val) {
+                      if (val != null) {
+                        ref.read(moodLanguagePreferenceProvider.notifier).setLanguage(val);
+                        Navigator.of(ctx).pop();
+                      }
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close', style: TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),

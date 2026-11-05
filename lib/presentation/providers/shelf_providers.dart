@@ -1,8 +1,11 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/recommendations/logistic_regression_ranker.dart';
 import '../../data/recommendations/shelf_engine.dart';
+import '../../data/services/music_language_service.dart';
 import '../../data/services/smart_playlists_service.dart';
 import '../../domain/entities/shelf.dart';
 import '../../domain/entities/track.dart';
@@ -81,21 +84,51 @@ final topChartTracksProvider = FutureProvider.family<List<Track>, String>((ref, 
   return catalogRepo.getTrendingTracks(limit: 30);
 });
 
+final userListeningLanguagesProvider = FutureProvider<UserListeningLanguages>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return MusicLanguageService.detectUserLanguages(db);
+});
+
 final homeMoodTracksProvider = FutureProvider.family<List<Track>, String>((ref, mood) async {
   if (mood == 'All') return const [];
   final catalogRepo = ref.watch(catalogRepositoryProvider);
-  final query = switch (mood) {
-    'Relax' => 'chill relaxing acoustic songs peaceful calm',
-    'Energize' => 'energizing upbeat pop dance hype workout hits',
-    'Workout' => 'workout gym motivation fitness beats hip hop',
-    'Focus' => 'lofi study beats ambient instrumental deep focus',
-    'Commute' => 'road trip travel commute feel good vibes',
-    'Party' => 'party club dance floor bangers edm pop',
-    'Romance' => 'romantic love songs acoustic soft ballads',
-    _ => '$mood songs mix',
-  };
+  final userLanguages = await ref.watch(userListeningLanguagesProvider.future);
+
+  final queryPrimary = MusicLanguageService.getMoodQuery(mood, userLanguages.primary);
+  final secondaryLang = userLanguages.secondary;
+
   try {
-    return await catalogRepo.search(query, limit: 20);
+    if (secondaryLang != null && secondaryLang != userLanguages.primary) {
+      final querySecondary = MusicLanguageService.getMoodQuery(mood, secondaryLang);
+      final results = await Future.wait([
+        catalogRepo.search(queryPrimary, limit: 16),
+        catalogRepo.search(querySecondary, limit: 14),
+      ]);
+      final primaryTracks = results[0];
+      final secondaryTracks = results[1];
+
+      final combined = <Track>[];
+      final seenIds = <String>{};
+      final maxLen = max(primaryTracks.length, secondaryTracks.length);
+      for (int i = 0; i < maxLen; i++) {
+        if (i < primaryTracks.length) {
+          final t = primaryTracks[i];
+          if (seenIds.add(t.id)) combined.add(t);
+        }
+        if (i < secondaryTracks.length) {
+          final t = secondaryTracks[i];
+          if (seenIds.add(t.id)) combined.add(t);
+        }
+      }
+      if (combined.isNotEmpty) return combined;
+    }
+
+    final tracks = await catalogRepo.search(queryPrimary, limit: 25);
+    if (tracks.isNotEmpty) return tracks;
+
+    // Graceful fallback to international English query if localized search returned nothing
+    final fallbackQuery = MusicLanguageService.getMoodQuery(mood, MusicLanguage.english);
+    return await catalogRepo.search(fallbackQuery, limit: 20);
   } catch (_) {
     return const [];
   }

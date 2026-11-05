@@ -750,8 +750,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     String filter = 'All',
   }) {
     if (tracks.isEmpty) return const SizedBox.shrink();
-    final displayTracks = tracks.take(12).toList();
     final isMoodActive = filter != 'All';
+    final displayTracks = isMoodActive ? tracks.take(24).toList() : tracks.take(12).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
