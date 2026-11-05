@@ -101,6 +101,9 @@ class SpotifyApiService {
   String? _anonToken;
   DateTime? _anonTokenExpiresAt;
 
+  final Map<String, SpotifySearchResult> _searchCache = {};
+  final Map<String, ArtistDiscography> _discographyCache = {};
+
   SpotifyApiService({
     http.Client? client,
     SpotifyAuthService? authService,
@@ -166,6 +169,11 @@ class SpotifyApiService {
   }) async {
     final clean = query.trim();
     if (clean.isEmpty) return const SpotifySearchResult();
+
+    final cacheKey = '${clean.toLowerCase()}_${limit}_$offset';
+    if (_searchCache.containsKey(cacheKey)) {
+      return _searchCache[cacheKey]!;
+    }
 
     try {
       final variables = {
@@ -271,12 +279,17 @@ class SpotifyApiService {
         }
       }
 
-      return SpotifySearchResult(
+      final result = SpotifySearchResult(
         tracks: tracks,
         artists: artists,
         albums: albums,
         topResultTitles: topTitles,
       );
+      if (_searchCache.length >= 60) {
+        _searchCache.remove(_searchCache.keys.first);
+      }
+      _searchCache[cacheKey] = result;
+      return result;
     } catch (_) {
       return const SpotifySearchResult();
     }
@@ -592,9 +605,17 @@ class SpotifyApiService {
 
   /// Reverse Engineered Spotify Artist Discography & Complete Song Collection.
   /// Fetches artist's studio albums, singles, collaborations, and top tracks.
-  Future<ArtistDiscography?> getArtistCompleteDiscography(String artistUriOrId) async {
+  Future<ArtistDiscography?> getArtistCompleteDiscography(
+    String artistUriOrId, {
+    bool fetchFullReleases = false,
+  }) async {
     final uri = _normalizeSpotifyArtistUri(artistUriOrId);
     if (uri.isEmpty) return null;
+
+    final cacheKey = '${uri}_$fetchFullReleases';
+    if (_discographyCache.containsKey(cacheKey)) {
+      return _discographyCache[cacheKey];
+    }
 
     try {
       final variables = {'uri': uri};
@@ -678,14 +699,17 @@ class SpotifyApiService {
         }
       }
 
-      // 3. Fetch tracks from the artist's releases (up to 10 releases)
-      for (final relUri in releaseUrisToFetch) {
-        try {
-          final albumTracks = await getAlbumTracks(relUri);
+      // 3. Fetch tracks from releases (only if explicitly requested)
+      if (fetchFullReleases && releaseUrisToFetch.isNotEmpty) {
+        final albumFutures = releaseUrisToFetch
+            .take(5)
+            .map((u) => getAlbumTracks(u).catchError((_) => <Track>[]));
+        final albumResults = await Future.wait(albumFutures);
+        for (final albumTracks in albumResults) {
           for (final t in albumTracks) {
             addTrack(t);
           }
-        } catch (_) {}
+        }
       }
 
       if (avatarUrl == null || avatarUrl.isEmpty) {
@@ -718,13 +742,18 @@ class SpotifyApiService {
       // Fallback 3: First available track cover
       avatarUrl ??= collectedTracks.firstOrNull?.coverUrl;
 
-      return ArtistDiscography(
+      final result = ArtistDiscography(
         artistName: artistName,
         artistUri: uri,
         avatarUrl: avatarUrl,
         allTracks: collectedTracks,
         albums: albumRefs,
       );
+      if (_discographyCache.length >= 60) {
+        _discographyCache.remove(_discographyCache.keys.first);
+      }
+      _discographyCache[cacheKey] = result;
+      return result;
     } catch (_) {
       return null;
     }

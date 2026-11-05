@@ -324,9 +324,51 @@ final artistDiscographySearchProvider =
       return null;
     }
 
-    return await spotifyApi.getArtistCompleteDiscography(topArtist.uri);
+    final disco = await spotifyApi.getArtistCompleteDiscography(
+      topArtist.uri,
+      fetchFullReleases: false,
+    );
+    if (disco != null) return disco;
+
+    return ArtistDiscography(
+      artistName: topArtist.name,
+      artistUri: topArtist.uri,
+      avatarUrl: topArtist.imageUrl,
+      allTracks: searchResult.tracks
+          .where((t) => TextNormalizer.matchesArtist(t.artist, topArtist.name))
+          .toList(),
+      albums: searchResult.albums
+          .where((a) => a.artist != null && TextNormalizer.matchesArtist(a.artist!, topArtist.name))
+          .toList(),
+    );
   } catch (_) {
     return null;
+  }
+});
+
+final searchArtistsProvider =
+    FutureProvider.family<List<SpotifyArtistRef>, String>((ref, query) async {
+  final clean = query.trim();
+  if (clean.length < 2) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  try {
+    final searchResult = await spotifyApi.search(clean, limit: 12);
+    return searchResult.artists;
+  } catch (_) {
+    return const [];
+  }
+});
+
+final searchAlbumsProvider =
+    FutureProvider.family<List<SpotifyAlbumRef>, String>((ref, query) async {
+  final clean = query.trim();
+  if (clean.length < 2) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  try {
+    final searchResult = await spotifyApi.search(clean, limit: 15);
+    return searchResult.albums;
+  } catch (_) {
+    return const [];
   }
 });
 

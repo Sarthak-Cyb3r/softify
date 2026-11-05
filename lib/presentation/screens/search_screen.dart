@@ -15,6 +15,8 @@ import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../../data/services/spotify_api_service.dart';
 import 'artist_discography_screen.dart';
+import 'artist_detail_screen.dart';
+import 'album_detail_screen.dart';
 import '../../features/youtube/presentation/youtube_page.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
 
@@ -47,9 +49,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onQueryChanged(String query) {
-    setState(() {
-      _activeFilter = SearchResultFilter.all;
-    });
+    if (query.trim().isEmpty) {
+      setState(() {
+        _activeFilter = SearchResultFilter.all;
+      });
+    }
     ref.read(searchNotifierProvider.notifier).setQuery(query);
   }
 
@@ -88,15 +92,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final filteredResults = results.where((track) {
       switch (_activeFilter) {
         case SearchResultFilter.all:
-          return true;
         case SearchResultFilter.tracks:
           return true;
-        case SearchResultFilter.artists:
-          return track.artist.toLowerCase().contains(queryText.toLowerCase());
-        case SearchResultFilter.albums:
-          return track.album?.isNotEmpty == true;
         case SearchResultFilter.downloaded:
           return downloadedTrackIds.contains(track.id);
+        case SearchResultFilter.artists:
+        case SearchResultFilter.albums:
+          return true;
       }
     }).toList();
 
@@ -104,7 +106,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ? ref.watch(artistDiscographySearchProvider(queryText))
         : const AsyncValue<ArtistDiscography?>.data(null);
     final artistDisco = artistDiscoAsync.valueOrNull;
-    final hasArtistBanner = artistDisco != null && artistDisco.allTracks.isNotEmpty;
+    final hasArtistBanner = artistDisco != null &&
+        artistDisco.allTracks.isNotEmpty &&
+        _activeFilter == SearchResultFilter.all;
     final int bannerOffset = hasArtistBanner ? 1 : 0;
 
     return Scaffold(
@@ -329,8 +333,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 );
               },
             ),
-          // Quality & Offline Filter Chips
-          if (results.isNotEmpty)
+          // Category, Quality & Offline Filter Chips
+          if (results.isNotEmpty || hasArtistBanner || queryText.isNotEmpty)
             _buildFilterChips(tokens),
 
           // Search Results / Loading / Empty States
@@ -417,89 +421,93 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   ],
                                 ),
                               ))
-                        : (filteredResults.isEmpty && results.isNotEmpty)
-                            ? Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.filter_list_off_rounded,
-                                      size: 48,
-                                      color: tokens.textMuted.withValues(alpha: 0.5),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'No tracks match "${_activeFilter.label}"',
-                                      style: TextStyle(
-                                        color: tokens.textSecondary,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    BouncingScaleButton(
-                                      scaleFactor: 0.94,
-                                      onTap: () => setState(() => _activeFilter = SearchResultFilter.all),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: tokens.surfaceElevated,
-                                          borderRadius: BorderRadius.circular(tokens.radiusFull),
-                                          border: Border.all(
-                                            color: tokens.accent.withValues(alpha: 0.4),
-                                            width: 0.8,
-                                          ),
+                        : (_activeFilter == SearchResultFilter.artists)
+                            ? _buildArtistsResultsView(tokens, queryText, results, artistDisco, audioHandler)
+                            : (_activeFilter == SearchResultFilter.albums)
+                                ? _buildAlbumsResultsView(tokens, queryText, results)
+                                : (filteredResults.isEmpty && results.isNotEmpty)
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.filter_list_off_rounded,
+                                              size: 48,
+                                              color: tokens.textMuted.withValues(alpha: 0.5),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'No tracks match "${_activeFilter.label}"',
+                                              style: TextStyle(
+                                                color: tokens.textSecondary,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            BouncingScaleButton(
+                                              scaleFactor: 0.94,
+                                              onTap: () => setState(() => _activeFilter = SearchResultFilter.all),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                  color: tokens.surfaceElevated,
+                                                  borderRadius: BorderRadius.circular(tokens.radiusFull),
+                                                  border: Border.all(
+                                                    color: tokens.accent.withValues(alpha: 0.4),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  'Reset to All Results',
+                                                  style: TextStyle(
+                                                    color: tokens.accent,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        child: Text(
-                                          'Reset to All Results',
-                                          style: TextStyle(
-                                            color: tokens.accent,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
+                                      )
+                                    : ListView.builder(
+                                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+                                        itemCount: (filteredResults.isEmpty && hasArtistBanner)
+                                            ? 1 + artistDisco.allTracks.length
+                                            : filteredResults.length + bannerOffset,
+                                        itemBuilder: (context, index) {
+                                          if (hasArtistBanner && index == 0) {
+                                            return _buildArtistDiscographyBanner(
+                                              tokens,
+                                              artistDisco,
+                                              audioHandler,
+                                            );
+                                          }
+                                          final effectiveList =
+                                              (filteredResults.isEmpty && hasArtistBanner)
+                                                  ? artistDisco.allTracks
+                                                  : filteredResults;
+                                          final trackIndex = index - bannerOffset;
+                                          final track = effectiveList[trackIndex];
+                                          if (trackIndex == 0 && _searchController.text.trim().isNotEmpty) {
+                                            return Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                _buildTopResultCard(tokens, track, audioHandler),
+                                                if (effectiveList.length > 1) ...[
+                                                  const MetrolistNavigationTitle(
+                                                    title: 'Songs',
+                                                    padding: EdgeInsets.only(top: 8, bottom: 4),
+                                                  ),
+                                                ],
+                                              ],
+                                            );
+                                          }
+                                          return _buildSearchResultTile(
+                                              tokens, track, trackIndex, audioHandler);
+                                        },
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
-                                itemCount: (filteredResults.isEmpty && hasArtistBanner)
-                                    ? 1 + artistDisco.allTracks.length
-                                    : filteredResults.length + bannerOffset,
-                                itemBuilder: (context, index) {
-                                  if (hasArtistBanner && index == 0) {
-                                    return _buildArtistDiscographyBanner(
-                                      tokens,
-                                      artistDisco,
-                                      audioHandler,
-                                    );
-                                  }
-                                  final effectiveList =
-                                      (filteredResults.isEmpty && hasArtistBanner)
-                                          ? artistDisco.allTracks
-                                          : filteredResults;
-                                  final trackIndex = index - bannerOffset;
-                                  final track = effectiveList[trackIndex];
-                                  if (trackIndex == 0 && _searchController.text.trim().isNotEmpty) {
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        _buildTopResultCard(tokens, track, audioHandler),
-                                        if (effectiveList.length > 1) ...[
-                                          const MetrolistNavigationTitle(
-                                            title: 'Songs',
-                                            padding: EdgeInsets.only(top: 8, bottom: 4),
-                                          ),
-                                        ],
-                                      ],
-                                    );
-                                  }
-                                  return _buildSearchResultTile(
-                                      tokens, track, trackIndex, audioHandler);
-                                },
-                              ),
           ),
         ],
       ),
@@ -520,7 +528,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: AppFilterChip(
                 label: filter.label,
                 isSelected: _activeFilter == filter,
-                onTap: () => setState(() => _activeFilter = filter),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _activeFilter = filter);
+                },
                 icon: filter == SearchResultFilter.downloaded
                     ? const Icon(Icons.download_done_rounded, size: 14)
                     : null,
@@ -529,6 +540,334 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           }).toList(),
         ),
       ),
+    );
+  }
+
+  Widget _buildArtistsResultsView(
+    AppTokens tokens,
+    String queryText,
+    List<Track> allResults,
+    ArtistDiscography? disco,
+    dynamic audioHandler,
+  ) {
+    final artistsAsync = ref.watch(searchArtistsProvider(queryText));
+    final spotifyArtists = artistsAsync.valueOrNull ?? [];
+
+    final seenNames = <String>{};
+    final artistList = <Map<String, String?>>[];
+
+    if (disco != null && seenNames.add(disco.artistName.toLowerCase().trim())) {
+      artistList.add({
+        'name': disco.artistName,
+        'uri': disco.artistUri,
+        'imageUrl': disco.avatarUrl,
+      });
+    }
+
+    for (final a in spotifyArtists) {
+      if (a.name.isNotEmpty && seenNames.add(a.name.toLowerCase().trim())) {
+        artistList.add({
+          'name': a.name,
+          'uri': a.uri,
+          'imageUrl': a.imageUrl,
+        });
+      }
+    }
+
+    for (final t in allResults) {
+      final clean = t.artist
+          .split(RegExp(r'[,/;&]|\s+feat\.?|\s+ft\.?|\s+with\b', caseSensitive: false))
+          .first
+          .trim();
+      if (clean.isNotEmpty && seenNames.add(clean.toLowerCase())) {
+        artistList.add({
+          'name': clean,
+          'uri': null,
+          'imageUrl': t.coverUrl,
+        });
+      }
+    }
+
+    if (artistList.isEmpty && artistsAsync.isLoading) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+        itemCount: 6,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              ShimmerSkeleton(
+                width: 56,
+                height: 56,
+                borderRadius: BorderRadius.circular(28),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerSkeleton(
+                    width: 140,
+                    height: 14,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                  ),
+                  const SizedBox(height: 6),
+                  ShimmerSkeleton(
+                    width: 80,
+                    height: 10,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (artistList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_off_rounded,
+              size: 48,
+              color: tokens.textMuted.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No artists found for "$queryText"',
+              style: TextStyle(
+                color: tokens.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+      itemCount: artistList.length + (disco != null ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (disco != null && index == 0) {
+          return _buildArtistDiscographyBanner(tokens, disco, audioHandler);
+        }
+        final itemIndex = disco != null ? index - 1 : index;
+        final artist = artistList[itemIndex];
+        final name = artist['name'] ?? 'Artist';
+        final img = artist['imageUrl'];
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          leading: ClipOval(
+            child: AppNetworkImage(
+              imageUrl: img,
+              width: 52,
+              height: 52,
+              fit: BoxFit.cover,
+              fallbackIcon: Icons.person_rounded,
+            ),
+          ),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontUi,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.verified_rounded, color: AppTheme.accent, size: 14),
+            ],
+          ),
+          subtitle: Text(
+            'Artist',
+            style: TextStyle(
+              fontFamily: AppTheme.fontUi,
+              fontSize: 12,
+              color: tokens.textSecondary,
+            ),
+          ),
+          trailing: Icon(Icons.chevron_right_rounded, color: tokens.textMuted, size: 20),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ArtistDetailScreen(
+                  artistName: name,
+                  coverUrl: img,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAlbumsResultsView(
+    AppTokens tokens,
+    String queryText,
+    List<Track> allResults,
+  ) {
+    final albumsAsync = ref.watch(searchAlbumsProvider(queryText));
+    final spotifyAlbums = albumsAsync.valueOrNull ?? [];
+
+    final seenAlbumKeys = <String>{};
+    final albumList = <Map<String, String?>>[];
+
+    for (final a in spotifyAlbums) {
+      if (a.name.isNotEmpty && seenAlbumKeys.add(a.name.toLowerCase().trim())) {
+        albumList.add({
+          'name': a.name,
+          'artist': a.artist ?? 'Album',
+          'coverUrl': a.coverUrl,
+          'uri': a.uri,
+        });
+      }
+    }
+
+    for (final t in allResults) {
+      final alb = t.album?.trim();
+      if (alb != null && alb.isNotEmpty && seenAlbumKeys.add(alb.toLowerCase())) {
+        albumList.add({
+          'name': alb,
+          'artist': t.artist,
+          'coverUrl': t.coverUrl,
+          'uri': null,
+        });
+      }
+    }
+
+    if (albumList.isEmpty && albumsAsync.isLoading) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+        itemCount: 6,
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              ShimmerSkeleton(
+                width: 56,
+                height: 56,
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerSkeleton(
+                    width: 140,
+                    height: 14,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                  ),
+                  const SizedBox(height: 6),
+                  ShimmerSkeleton(
+                    width: 90,
+                    height: 10,
+                    borderRadius: BorderRadius.circular(tokens.radiusSm),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (albumList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.album_rounded,
+              size: 48,
+              color: tokens.textMuted.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No albums found for "$queryText"',
+              style: TextStyle(
+                color: tokens.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+      itemCount: albumList.length,
+      itemBuilder: (context, index) {
+        final album = albumList[index];
+        final name = album['name'] ?? 'Album';
+        final artist = album['artist'] ?? '';
+        final cover = album['coverUrl'];
+        final uri = album['uri'];
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(tokens.radiusSm),
+            child: AppNetworkImage(
+              imageUrl: cover,
+              width: 52,
+              height: 52,
+              fit: BoxFit.cover,
+              fallbackIcon: Icons.album_rounded,
+            ),
+          ),
+          title: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontUi,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: tokens.textPrimary,
+            ),
+          ),
+          subtitle: Text(
+            artist.isNotEmpty ? '$artist • Album' : 'Album',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontUi,
+              fontSize: 12,
+              color: tokens.textSecondary,
+            ),
+          ),
+          trailing: Icon(Icons.chevron_right_rounded, color: tokens.textMuted, size: 20),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AlbumDetailScreen(
+                  albumName: name,
+                  artistName: artist,
+                  coverUrl: cover,
+                  albumUriOrId: uri,
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
