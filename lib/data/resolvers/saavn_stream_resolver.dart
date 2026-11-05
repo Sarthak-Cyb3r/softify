@@ -330,9 +330,11 @@ class SaavnStreamResolver implements IStreamResolver {
         bitrate = 96000;
         break;
       case AudioQualityPreset.standard:
+        finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_160.mp4');
+        bitrate = 160000;
+        break;
       case AudioQualityPreset.high:
-        // Always prioritize true 320kbps Studio Master stream.
-        // JioSaavn CDN edges host _320.mp4 for all modern catalog tracks.
+        // Studio Master 320kbps stream hosted on JioSaavn CDN edges.
         finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_320.mp4');
         bitrate = 320000;
         break;

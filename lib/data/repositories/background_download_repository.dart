@@ -175,6 +175,21 @@ class BackgroundDownloadRepository implements IDownloadRepository {
     final isDone = await isDownloaded(track.id);
     if (isDone) return;
 
+    // Respect user's configured audio quality from settings if standard default was passed
+    AudioQualityPreset effectiveQuality = quality;
+    if (quality == AudioQualityPreset.standard) {
+      try {
+        final qRow = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals('audio_quality')))
+            .getSingleOrNull();
+        if (qRow != null) {
+          effectiveQuality = qRow.value == 'high'
+              ? AudioQualityPreset.high
+              : (qRow.value == 'low' ? AudioQualityPreset.low : AudioQualityPreset.standard);
+        }
+      } catch (_) {}
+    }
+
     final safeId = sanitizeTrackId(track.id);
     final relativePath = p.join('tracks', '$safeId.m4a');
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -193,7 +208,7 @@ class BackgroundDownloadRepository implements IDownloadRepository {
         );
 
     // 4. Resolve stream URL
-    final streamInfo = await _streamResolver.resolve(track, quality: quality);
+    final streamInfo = await _streamResolver.resolve(track, quality: effectiveQuality);
 
     if (_updatesStream != null) {
       // Test environment: use mock downloader and updates stream

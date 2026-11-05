@@ -45,7 +45,25 @@ class SoftifyAudioHandler extends BaseAudioHandler
   final IAutomixTailReorderer? _automixTailReorderer;
   final ILyricsProvider? _lyricsProvider;
   ILyricsProvider? get lyricsProvider => _lyricsProvider;
-  final AudioQualityPreset _qualityPreset;
+  AudioQualityPreset _qualityPreset;
+  AudioQualityPreset get qualityPreset => _qualityPreset;
+
+  Future<void> setQualityPreset(AudioQualityPreset preset, {bool reloadCurrent = true}) async {
+    if (_qualityPreset == preset) return;
+    _qualityPreset = preset;
+    _log('[SoftifyAudioHandler] Audio quality preset changed to: ${preset.name}');
+
+    // Invalidate preloaded next track so standby reloads with the new quality
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+    _player.clearPreloadedNext();
+    unawaited(_prefetchNextTrackStream());
+
+    if (reloadCurrent && currentTrack != null && (playbackState.value.playing || playbackState.value.processingState == AudioProcessingState.ready)) {
+      final pos = playbackState.value.position;
+      await _playCurrentIndex(initialPosition: pos, forceFresh: true);
+    }
+  }
 
   SyncedLyrics? _currentSyncedLyrics;
   String? _lastBroadcastLyric;

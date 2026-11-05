@@ -47,8 +47,9 @@ final updateCheckFutureProvider = FutureProvider<AppReleaseInfo?>((ref) {
 // Audio Quality Setting Notifier
 class AudioQualityNotifier extends StateNotifier<AudioQualityPreset> {
   final AppDatabase _db;
+  final Ref? _ref;
 
-  AudioQualityNotifier(this._db) : super(AudioQualityPreset.standard) {
+  AudioQualityNotifier(this._db, [this._ref]) : super(AudioQualityPreset.standard) {
     _loadFromDb();
   }
 
@@ -59,6 +60,7 @@ class AudioQualityNotifier extends StateNotifier<AudioQualityPreset> {
           ? AudioQualityPreset.high
           : (row.value == 'low' ? AudioQualityPreset.low : AudioQualityPreset.standard);
       state = preset;
+      _syncToAudioHandler(preset, reloadCurrent: false);
     }
   }
 
@@ -70,13 +72,21 @@ class AudioQualityNotifier extends StateNotifier<AudioQualityPreset> {
             value: preset.name,
           ),
         );
+    _syncToAudioHandler(preset, reloadCurrent: true);
+  }
+
+  void _syncToAudioHandler(AudioQualityPreset preset, {bool reloadCurrent = false}) {
+    try {
+      final handler = _ref?.read(audioHandlerProvider);
+      handler?.setQualityPreset(preset, reloadCurrent: reloadCurrent);
+    } catch (_) {}
   }
 }
 
 final audioQualityPresetProvider =
     StateNotifierProvider<AudioQualityNotifier, AudioQualityPreset>((ref) {
   final db = ref.watch(databaseProvider);
-  return AudioQualityNotifier(db);
+  return AudioQualityNotifier(db, ref);
 });
 
 // Crossfade Duration Setting Notifier (0s to 12s)

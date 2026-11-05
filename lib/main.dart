@@ -25,6 +25,7 @@ import 'data/player/linux_audio_backend.dart';
 import 'package:audio_service_mpris/audio_service_mpris.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'presentation/screens/app_scaffold.dart';
+import 'domain/entities/audio_quality_preset.dart';
 import 'services/lyrics/better_lyrics_provider.dart';
 import 'services/lyrics/paxsenix_lyrics_provider.dart';
 import 'services/sync/listen_together_service.dart';
@@ -98,6 +99,21 @@ void main() async {
     ),
   );
 
+  // Restore persisted audio quality preset
+  AudioQualityPreset initialQuality = AudioQualityPreset.standard;
+  try {
+    final qualityRow = await (db.select(db.settings)
+          ..where((t) => t.key.equals('audio_quality')))
+        .getSingleOrNull();
+    if (qualityRow != null) {
+      initialQuality = qualityRow.value == 'high'
+          ? AudioQualityPreset.high
+          : (qualityRow.value == 'low'
+              ? AudioQualityPreset.low
+              : AudioQualityPreset.standard);
+    }
+  } catch (_) {}
+
   // 2. Audio Service Startup Dependency Injection (D6 / D14)
   final audioHandler = await AudioService.init(
     builder: () => SoftifyAudioHandler(
@@ -109,6 +125,7 @@ void main() async {
       tasteRepo: tasteRepo,
       automixTailReorderer: AutomixTailReorderer(),
       lyricsProvider: compositeLyricsEngine,
+      qualityPreset: initialQuality,
     ),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'softify',
