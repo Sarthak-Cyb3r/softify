@@ -403,8 +403,20 @@ class SpotifyApiService {
     }
   }
 
-  /// Fetches global trending / popular tracks for recommendation cold start.
+  /// Fetches global & regional trending tracks with verified Spotify metadata.
   Future<List<Track>> getTrendingTracks({int limit = 20}) async {
+    try {
+      final res = await search('Top 50 India', limit: limit);
+      if (res.tracks.isNotEmpty) {
+        return res.tracks;
+      }
+    } catch (_) {}
+    try {
+      final res = await search('Today\'s Top Hits', limit: limit);
+      if (res.tracks.isNotEmpty) {
+        return res.tracks;
+      }
+    } catch (_) {}
     try {
       final tracks = await _fetchPlaylistTracks('37i9dQZEVXbMDoHDwVN2tF');
       if (tracks.isNotEmpty) {
@@ -412,6 +424,23 @@ class SpotifyApiService {
       }
     } catch (_) {}
     return const [];
+  }
+
+  /// Resolves canonical Spotify Track metadata for a track title & artist.
+  Future<Track?> resolveCanonicalTrack(String title, String artist) async {
+    final clean = '$title $artist'.trim();
+    if (clean.isEmpty) return null;
+    try {
+      final res = await search(clean, limit: 5);
+      for (final t in res.tracks) {
+        if (TextNormalizer.matchesArtist(t.artist, artist)) {
+          return t;
+        }
+      }
+      return res.tracks.firstOrNull;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<Track>> _fetchPlaylistTracks(String playlistId) async {
@@ -753,23 +782,15 @@ class SpotifyApiService {
             } catch (_) {}
           }
 
-          // Fallback: iTunes public search for authentic high-res album cover
+          // Fallback: Spotify search for authentic high-res album cover
           if (t.title.isNotEmpty && t.artist.isNotEmpty) {
             try {
-              final itunesUri = Uri.parse(
-                'https://itunes.apple.com/search?term=${Uri.encodeComponent('${t.title} ${t.artist}')}&entity=song&limit=1',
-              );
-              final itunesResp = await _client.get(itunesUri).timeout(const Duration(milliseconds: 1500));
-              if (itunesResp.statusCode == 200) {
-                final itunesJson = json.decode(itunesResp.body) as Map<String, dynamic>;
-                final results = itunesJson['results'] as List<dynamic>?;
-                if (results != null && results.isNotEmpty) {
-                  final rawCover = results.first['artworkUrl100'] as String?;
-                  if (rawCover != null && rawCover.isNotEmpty) {
-                    final highRes = rawCover.replaceAll('100x100bb', '600x600bb');
-                    return t.copyWith(coverUrl: highRes);
-                  }
-                }
+              final sRes = await search('${t.title} ${t.artist}', limit: 1).timeout(const Duration(milliseconds: 1500));
+              if (sRes.tracks.isNotEmpty && sRes.tracks.first.coverUrl != null && sRes.tracks.first.coverUrl!.isNotEmpty) {
+                return t.copyWith(
+                  coverUrl: sRes.tracks.first.coverUrl,
+                  album: sRes.tracks.first.album ?? t.album,
+                );
               }
             } catch (_) {}
           }

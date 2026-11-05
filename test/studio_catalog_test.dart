@@ -100,5 +100,5 @@ void main() {
 }
 
 extension TrackStudioCheck on Track {
-  bool get isStudioTrack => sourceId.startsWith('itunes_');
+  bool get isStudioTrack => sourceId.startsWith('itunes_') || sourceId.startsWith('spotify_');
 }

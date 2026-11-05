@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../../data/services/spotify_api_service.dart';
 import '../theme/app_theme.dart';
 import '../screens/artist_detail_screen.dart';
 import 'shared/app_network_image.dart';
@@ -9,6 +10,7 @@ import 'shared/app_network_image.dart';
 /// In-memory cache & resolver for artist profile pictures.
 class ArtistAvatarResolver {
   static final Map<String, String?> _cache = {};
+  static final SpotifyApiService _spotifyApi = SpotifyApiService();
 
   static Future<String?> getArtistImageUrl(String artistName) async {
     final clean = artistName.trim();
@@ -18,7 +20,18 @@ class ArtistAvatarResolver {
       return _cache[key];
     }
 
-    // 1. Primary: Deezer Artist Search with hash verification
+    // 1. Primary: Spotify Artist Search (Official high-res artist avatars)
+    try {
+      final res = await _spotifyApi.search(clean, limit: 3);
+      for (final artist in res.artists) {
+        if (artist.imageUrl != null && artist.imageUrl!.isNotEmpty) {
+          _cache[key] = artist.imageUrl;
+          return artist.imageUrl;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Secondary fallback: Deezer Artist Search
     try {
       final uri = Uri.parse(
         'https://api.deezer.com/search/artist?q=${Uri.encodeComponent(clean)}',
@@ -37,51 +50,6 @@ class ArtistAvatarResolver {
                   !img.endsWith('/0-0-0.jpg')) {
                 _cache[key] = img;
                 return img;
-              }
-            }
-          }
-        }
-      }
-    } catch (_) {}
-
-    // 2. Secondary: JioSaavn Autocomplete Artist Profile
-    try {
-      final saavnUri = Uri.parse(
-        'https://www.jiosaavn.com/api.php?__call=autocomplete.get&query=${Uri.encodeComponent(clean)}&_format=json&_marker=0&ctx=web6dot0',
-      );
-      final saavnRes = await http.get(saavnUri).timeout(const Duration(seconds: 4));
-      if (saavnRes.statusCode == 200) {
-        final data = jsonDecode(saavnRes.body);
-        if (data is Map) {
-          // Check topquery
-          final topquery = data['topquery']?['data'];
-          if (topquery is List) {
-            for (final item in topquery) {
-              if (item is Map) {
-                final img = item['image'];
-                if (img is String && img.isNotEmpty && !img.contains('artist-default')) {
-                  final highRes = img
-                      .replaceAll('50x50', '500x500')
-                      .replaceAll('150x150', '500x500');
-                  _cache[key] = highRes;
-                  return highRes;
-                }
-              }
-            }
-          }
-          // Check artists list
-          final artists = data['artists']?['data'];
-          if (artists is List) {
-            for (final item in artists) {
-              if (item is Map) {
-                final img = item['image'];
-                if (img is String && img.isNotEmpty && !img.contains('artist-default')) {
-                  final highRes = img
-                      .replaceAll('50x50', '500x500')
-                      .replaceAll('150x150', '500x500');
-                  _cache[key] = highRes;
-                  return highRes;
-                }
               }
             }
           }

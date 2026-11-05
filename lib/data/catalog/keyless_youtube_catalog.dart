@@ -84,41 +84,28 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         }
       }
     } catch (_) {
-      // Fall through to JioSaavn, iTunes & Deezer
+      // Fall through to query sanitization
     }
 
-    // 2. Secondary: JioSaavn Studio Engine (320kbps studio masters, direct PID matching)
+    // 2. Spotify Sanitized Query Fallback (strip noise words and retry Spotify)
     try {
-      final saavnResults = (await _searchSaavn(cleanQuery, limit: limit).catchError((_) => <Track>[]))
-          .where((t) => !t.isYoutube)
-          .toList();
-      if (saavnResults.isNotEmpty) {
-        _cacheResult(_searchCache, cacheKey, saavnResults);
-        return saavnResults;
+      final sanitized = cleanQuery
+          .replaceAll(RegExp(r'\b(song|songs|track|music|audio|full|mp3)\b', caseSensitive: false), '')
+          .trim();
+      if (sanitized.isNotEmpty && sanitized != cleanQuery) {
+        final spotifyRes = await _spotifyApi.search(sanitized, limit: limit).catchError((_) => const SpotifySearchResult());
+        if (spotifyRes.tracks.isNotEmpty) {
+          final filtered = spotifyRes.tracks.where((t) => !t.isYoutube).toList();
+          if (filtered.isNotEmpty) {
+            final deduped = _deduplicateTracks(filtered, limit: limit, query: sanitized);
+            _cacheResult(_searchCache, cacheKey, deduped);
+            return deduped;
+          }
+        }
       }
+    } catch (_) {}
 
-      // Secondary studio fallback: iTunes (for obscure Western/Indie catalog)
-      final itunesResults = (await _searchItunes(cleanQuery, limit: limit).catchError((_) => <Track>[]))
-          .where((t) => !t.isYoutube)
-          .toList();
-      if (itunesResults.isNotEmpty) {
-        _cacheResult(_searchCache, cacheKey, itunesResults);
-        return itunesResults;
-      }
-
-      // Tertiary studio fallback: Deezer (90M+ global & European catalog with 1000x1000 master art)
-      final deezerResults = (await _searchDeezer(cleanQuery, limit: limit).catchError((_) => <Track>[]))
-          .where((t) => !t.isYoutube)
-          .toList();
-      if (deezerResults.isNotEmpty) {
-        _cacheResult(_searchCache, cacheKey, deezerResults);
-        return deezerResults;
-      }
-    } catch (_) {
-      // All studio engines failed
-    }
-
-    // 4. Quaternary: YouTube Music API (WEB_REMIX official tracks & topic releases)
+    // 3. Fallback: YouTube Music API (WEB_REMIX official tracks & topic releases)
     try {
       final ytmTracks = await _innertubeService.searchMusicTrackEntities(cleanQuery, limit: limit);
       if (ytmTracks.isNotEmpty) {
@@ -129,218 +116,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     } catch (_) {}
 
     return [];
-  }
-
-  Future<List<Track>> _searchItunes(
-    String query, {
-    int limit = 20,
-    String? attribute,
-  }) async {
-    final encoded = Uri.encodeComponent(query);
-    final attrParam = attribute != null ? '&attribute=$attribute' : '';
-    // Fetch a wider window (limit * 2) so deduplication leaves a full pristine list
-    final fetchLimit = (limit * 2).clamp(10, 50);
-    final uri = Uri.parse(
-      'https://itunes.apple.com/search?term=$encoded&entity=song&limit=$fetchLimit$attrParam',
-    );
-
-    final request =
-        await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
-    request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-
-    final response =
-        await request.close().timeout(const Duration(seconds: 5));
-    if (response.statusCode != 200) {
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
-    }
-
-    final body = await response.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final results = (json['results'] as List<dynamic>?) ?? [];
-
-    final List<Track> rawTracks = [];
-    for (final item in results) {
-      final trackId = item['trackId']?.toString();
-      final trackName = item['trackName'] as String?;
-      final artistName = item['artistName'] as String?;
-      final collectionName = item['collectionName'] as String?;
-      final trackTimeMillis = (item['trackTimeMillis'] as num?)?.toInt() ?? 0;
-      final rawArtwork = item['artworkUrl100'] as String?;
-      // Convert to 600x600 high-res album artwork
-      var highResCover = rawArtwork?.replaceAll('100x100bb', '600x600bb');
-      if (highResCover != null && highResCover.startsWith('http://')) {
-        highResCover = 'https://${highResCover.substring(7)}';
-      }
-
-      if (trackId == null || trackName == null || artistName == null) continue;
-
-      rawTracks.add(
-        Track(
-          id: 'itunes_$trackId',
-          sourceId: 'itunes_$trackId',
-          title: trackName,
-          artist: artistName,
-          album: collectionName,
-          duration: Duration(milliseconds: trackTimeMillis),
-          coverUrl: highResCover,
-          matchConfidence: 1.0,
-        ),
-      );
-    }
-    return _deduplicateTracks(rawTracks, limit: limit, query: query);
-  }
-
-  Future<List<Track>> _searchDeezer(String query, {int limit = 20}) async {
-    final encoded = Uri.encodeComponent(query);
-    final uri = Uri.parse('https://api.deezer.com/search?q=$encoded&limit=$limit');
-
-    final request = await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
-    request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-
-    final response = await request.close().timeout(const Duration(seconds: 5));
-    if (response.statusCode != 200) {
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
-    }
-
-    final body = await response.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final data = (json['data'] as List<dynamic>?) ?? [];
-
-    final List<Track> rawTracks = [];
-    for (final item in data) {
-      final trackId = item['id']?.toString();
-      final title = item['title'] as String?;
-      final artistMap = item['artist'] as Map<String, dynamic>?;
-      final albumMap = item['album'] as Map<String, dynamic>?;
-      final artistName = artistMap?['name'] as String?;
-      final albumName = albumMap?['title'] as String?;
-      final durationSec = (item['duration'] as num?)?.toInt() ?? 0;
-      final coverUrl = (albumMap?['cover_xl'] ??
-              albumMap?['cover_big'] ??
-              item['album']?['cover_medium']) as String?;
-
-      if (trackId == null || title == null || artistName == null) continue;
-
-      rawTracks.add(
-        Track(
-          id: 'deezer_$trackId',
-          sourceId: 'deezer_$trackId',
-          title: _cleanTitle(title),
-          artist: artistName,
-          album: albumName,
-          duration: Duration(seconds: durationSec),
-          coverUrl: coverUrl,
-          matchConfidence: 1.0,
-        ),
-      );
-    }
-    return _deduplicateTracks(rawTracks, limit: limit, query: query);
-  }
-
-  Future<List<Track>> _searchSaavn(String query, {int limit = 20}) async {
-    final encoded = Uri.encodeComponent(query);
-    final fetchLimit = (limit * 2).clamp(10, 50);
-    final uri = Uri.parse(
-      'https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=$fetchLimit&p=1&q=$encoded',
-    );
-
-    final request =
-        await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
-    request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-
-    final response =
-        await request.close().timeout(const Duration(seconds: 5));
-    if (response.statusCode != 200) {
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
-    }
-
-    final body = await response.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final results = (json['results'] as List<dynamic>?) ?? [];
-
-    final List<Track> rawTracks = [];
-    for (final item in results) {
-      final trackId = item['id']?.toString();
-      final trackName = (item['title'] ?? item['song']) as String?;
-      final subtitle = (item['subtitle'] as String?) ?? '';
-      final rawImage = item['image'] as String?;
-      var highResCover = rawImage
-          ?.replaceAll('150x150', '500x500')
-          .replaceAll('50x50', '500x500');
-      if (highResCover != null) {
-        if (highResCover.startsWith('//')) {
-          highResCover = 'https:$highResCover';
-        } else if (highResCover.startsWith('http://')) {
-          highResCover = 'https://${highResCover.substring(7)}';
-        }
-      }
-
-      if (trackId == null || trackName == null) continue;
-
-      final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
-
-      // Primary artists extraction
-      String artistName = '';
-      if (moreInfo['artistMap'] is Map &&
-          moreInfo['artistMap']['primary_artists'] is List) {
-        final artistsList = (moreInfo['artistMap']['primary_artists'] as List)
-            .map((a) => (a is Map ? a['name'] : null)?.toString())
-            .whereType<String>()
-            .toList();
-        if (artistsList.isNotEmpty) {
-          artistName = artistsList.join(', ');
-        }
-      }
-
-      if (artistName.isEmpty) {
-        final parts = subtitle.split(' - ');
-        artistName = parts.isNotEmpty && parts[0].trim().isNotEmpty
-            ? parts[0].trim()
-            : ((item['singers'] ?? item['primary_artists']) as String? ??
-                'Unknown Artist');
-      }
-
-      final albumRaw = (moreInfo['album'] ??
-          (subtitle.contains(' - ')
-              ? subtitle.split(' - ').last.trim()
-              : item['album'])) as String?;
-      final albumName = albumRaw != null && albumRaw.isNotEmpty
-          ? _decodeHtml(albumRaw)
-          : null;
-
-      final rawDuration = moreInfo['duration'] ?? item['duration'];
-      final durationSec = int.tryParse(rawDuration?.toString() ?? '') ?? 0;
-
-      final cleanTrackTitle = _cleanTitle(trackName);
-      final cleanArtist = _decodeHtml(artistName);
-      final hasLyrics = moreInfo['has_lyrics'] == 'true' || moreInfo['has_lyrics'] == true;
-      final normQuery = TextNormalizer.normalize(query);
-      final normTitle = TextNormalizer.normalize(cleanTrackTitle);
-      final normArt = TextNormalizer.normalize(cleanArtist);
-      final isTitleOrArtistMatch = normTitle.contains(normQuery) ||
-          normQuery.contains(normTitle) ||
-          normArt.contains(normQuery) ||
-          normQuery.contains(normArt);
-
-      final isLyricsMatch = hasLyrics &&
-          normQuery.split(' ').where((w) => w.length > 2).length >= 3 &&
-          !isTitleOrArtistMatch;
-
-      rawTracks.add(
-        Track(
-          id: 'saavn_$trackId',
-          sourceId: 'saavn_$trackId',
-          title: cleanTrackTitle,
-          artist: cleanArtist,
-          album: albumName,
-          duration: Duration(seconds: durationSec),
-          coverUrl: highResCover,
-          matchConfidence: 1.0,
-          isLyricsMatch: isLyricsMatch,
-        ),
-      );
-    }
-    return _deduplicateTracks(rawTracks, limit: limit, query: query);
   }
 
 
@@ -413,102 +188,45 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       return _trendingCache!;
     }
 
-    // 1. Primary: Official Top Chart Songs via iTunes RSS feeds
+    // 1. Primary: Spotify Pathfinder Trending & Top Charts
     try {
-      final uri = Uri.parse(
-        'https://itunes.apple.com/in/rss/topsongs/limit=$limit/json',
-      );
-      final request =
-          await _httpClient.getUrl(uri).timeout(const Duration(seconds: 5));
-      final response =
-          await request.close().timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final json = jsonDecode(body) as Map<String, dynamic>;
-        final entries = (json['feed']?['entry'] as List<dynamic>?) ?? [];
-
-        final List<Track> tracks = [];
-        for (final entry in entries) {
-          final name = entry['im:name']?['label'] as String?;
-          final artist = entry['im:artist']?['label'] as String?;
-          final id = entry['id']?['attributes']?['im:id']?.toString() ??
-              'trend_${tracks.length}';
-          final album = entry['im:collection']?['im:name']?['label'] as String?;
-          final images = entry['im:image'] as List<dynamic>?;
-          final rawImg = images?.isNotEmpty == true
-              ? images!.last['label'] as String?
-              : null;
-          final coverUrl =
-              rawImg?.replaceAll(RegExp(r'\d+x\d+bb'), '600x600bb');
-
-          if (name != null && artist != null) {
-            tracks.add(
-              Track(
-                id: 'itunes_$id',
-                sourceId: 'itunes_$id',
-                title: name,
-                artist: artist,
-                album: album,
-                duration: const Duration(seconds: 215),
-                coverUrl: coverUrl,
-                matchConfidence: 1.0,
-              ),
-            );
-          }
-        }
-        if (tracks.isNotEmpty) {
-          _trendingCache = tracks;
-          _trendingCacheTime = DateTime.now();
-          return tracks;
-        }
-      }
-    } catch (_) {
-      // Fallback to query search
-    }
-
-    // Fallback: Fetch from top Indian / Bollywood trending playlists
-    try {
-      final plTracks = await _fetchSaavnPlaylistTracks('Hindi: India Superhits Top 50', limit: limit);
-      if (plTracks.isNotEmpty) {
-        _trendingCache = plTracks;
+      final tracks = await _spotifyApi.getTrendingTracks(limit: limit);
+      if (tracks.isNotEmpty) {
+        _trendingCache = tracks;
         _trendingCacheTime = DateTime.now();
-        return plTracks;
+        return tracks;
       }
     } catch (_) {}
 
+    // 2. Secondary: Spotify Search for Top India hits
     try {
-      final saavnTracks = await _searchSaavn('Bollywood Top Hits', limit: limit);
-      if (saavnTracks.isNotEmpty) {
-        _trendingCache = saavnTracks;
+      final sRes = await _spotifyApi.search('Top Songs India', limit: limit);
+      if (sRes.tracks.isNotEmpty) {
+        _trendingCache = sRes.tracks;
         _trendingCacheTime = DateTime.now();
-        return saavnTracks;
+        return sRes.tracks;
       }
     } catch (_) {}
 
     return [];
   }
 
-  static const Map<String, String> _chartListIds = {
-    'hindi': '1134543272', // Hindi: India Superhits Top 50
-    'punjabi': '1134543511', // Punjabi: India Superhits Top 50
-    'international': '1134595537', // International : India Superhits Top 50
-    'love': '1139074020', // Most Streamed Love Songs: Hindi
-    'trending': '110858205', // Trending Today
+  static const Map<String, String> _spotifyChartQueries = {
+    'hindi': 'Hot Hits Hindi',
+    'punjabi': 'Punjabi 101',
+    'international': 'Today\'s Top Hits',
+    'love': 'Bollywood Romantic Hits',
+    'trending': 'Top 50 India',
   };
 
   Future<List<Track>> getTopChart(String chartType, {int limit = 30}) async {
     final typeKey = chartType.trim().toLowerCase();
-    final listId = _chartListIds[typeKey];
-    if (listId != null) {
-      try {
-        final tracks = await _fetchSaavnPlaylistById(listId, limit: limit);
-        if (tracks.isNotEmpty) return tracks;
-      } catch (_) {}
-    }
-
+    final query = _spotifyChartQueries[typeKey] ?? '$chartType Top Hits';
     try {
-      final tracks = await _fetchSaavnPlaylistTracks('$chartType Top Hits', limit: limit);
-      if (tracks.isNotEmpty) return tracks;
+      final res = await _spotifyApi.search(query, limit: limit);
+      if (res.tracks.isNotEmpty) {
+        return res.tracks;
+      }
     } catch (_) {}
 
     return getTrendingTracks(limit: limit);
@@ -597,29 +315,12 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       }
     } catch (_) {}
 
-    // 2. Secondary: JioSaavn fallback with strict artist match filtering
+    // 2. Secondary: Spotify Search fallback with strict artist match filtering
     try {
-      final saavn = await search('$artist songs', limit: limit * 2);
-      final filteredSaavn = saavn.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
-      if (filteredSaavn.isNotEmpty) return filteredSaavn.take(limit).toList();
-    } catch (_) {}
-
-    // 3. Tertiary: iTunes fallback with strict artist match filtering
-    try {
-      final itunes = await _searchItunes(
-        artist,
-        limit: limit * 2,
-        attribute: 'artistTerm',
-      );
-      final filteredItunes = itunes.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
-      if (filteredItunes.isNotEmpty) return filteredItunes.take(limit).toList();
-    } catch (_) {}
-
-    // 4. Quaternary: Deezer 90M+ catalog fallback with strict artist match filtering
-    try {
-      final deezer = await _searchDeezer(artist, limit: limit * 2);
-      final filteredDeezer = deezer.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
-      if (filteredDeezer.isNotEmpty) return filteredDeezer.take(limit).toList();
+      final sRes = await _spotifyApi.search('$artist songs', limit: limit * 2);
+      final filtered = sRes.tracks.where((t) => TextNormalizer.matchesArtist(t.artist, artist)).toList();
+      if (filtered.isNotEmpty) return filtered.take(limit).toList();
+      if (sRes.tracks.isNotEmpty) return sRes.tracks.take(limit).toList();
     } catch (_) {}
 
     return [];
@@ -704,216 +405,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     return score.clamp(0.0, 1.0);
   }
 
-  Future<List<Track>> _getSaavnAlbumTracks(
-    String album,
-    String artist, {
-    int limit = 25,
-  }) async {
-    try {
-      final encoded = Uri.encodeComponent(album);
-      final searchUri = Uri.parse(
-        'https://www.jiosaavn.com/api.php?__call=search.getAlbumResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=5&p=1&q=$encoded',
-      );
-
-      final req = await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
-      req.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final res = await req.close().timeout(const Duration(seconds: 5));
-      if (res.statusCode != 200) return [];
-
-      final body = await res.transform(utf8.decoder).join();
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final results = (json['results'] as List<dynamic>?) ?? [];
-      if (results.isEmpty) return [];
-
-      String? bestAlbumId;
-      double bestScore = 0.65;
-
-      for (final it in results) {
-        if (it is! Map<String, dynamic>) continue;
-        final title = (it['title'] ?? it['name'] ?? '').toString();
-        final sub = (it['subtitle'] ?? '').toString();
-        final score = _calculateAlbumMatchScore(
-          album,
-          title,
-          targetArtist: artist,
-          candidateArtist: sub,
-        );
-        if (score > bestScore) {
-          bestScore = score;
-          bestAlbumId = it['id']?.toString();
-        }
-      }
-
-      if (bestAlbumId == null) return [];
-
-      final detailUri = Uri.parse(
-        'https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=$bestAlbumId',
-      );
-      final dReq = await _httpClient.getUrl(detailUri).timeout(const Duration(seconds: 5));
-      dReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final dRes = await dReq.close().timeout(const Duration(seconds: 5));
-      if (dRes.statusCode != 200) return [];
-
-      final dBody = await dRes.transform(utf8.decoder).join();
-      final dJson = jsonDecode(dBody) as Map<String, dynamic>;
-      final songList = (dJson['list'] as List<dynamic>?) ?? [];
-      if (songList.isEmpty) return [];
-
-      final List<Track> tracks = [];
-      for (final item in songList) {
-        if (item is! Map<String, dynamic>) continue;
-        final trackId = item['id']?.toString();
-        final trackName = (item['title'] ?? item['song']) as String?;
-        if (trackId == null || trackName == null) continue;
-
-        final subtitle = (item['subtitle'] as String?) ?? '';
-        final rawImage = item['image'] as String?;
-        var highResCover = rawImage
-            ?.replaceAll('150x150', '500x500')
-            .replaceAll('50x50', '500x500');
-        if (highResCover != null) {
-          if (highResCover.startsWith('//')) {
-            highResCover = 'https:$highResCover';
-          } else if (highResCover.startsWith('http://')) {
-            highResCover = 'https://${highResCover.substring(7)}';
-          }
-        }
-
-        final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
-        String artistName = '';
-        if (moreInfo['artistMap'] is Map &&
-            moreInfo['artistMap']['primary_artists'] is List) {
-          final artistsList = (moreInfo['artistMap']['primary_artists'] as List)
-              .map((a) => (a is Map ? a['name'] : null)?.toString())
-              .whereType<String>()
-              .toList();
-          artistName = artistsList.join(', ');
-        }
-        if (artistName.isEmpty) {
-          artistName = (moreInfo['singers'] as String?) ??
-              (moreInfo['music'] as String?) ??
-              subtitle;
-        }
-
-        final cleanTrackTitle = trackName
-            .replaceAll(RegExp(r'&quot;'), '"')
-            .replaceAll(RegExp(r'&amp;'), '&')
-            .replaceAll(RegExp(r'&#039;'), "'")
-            .trim();
-
-        final durationSeconds = int.tryParse(moreInfo['duration']?.toString() ?? '') ?? 0;
-
-        tracks.add(
-          Track(
-            id: 'saavn_$trackId',
-            sourceId: 'saavn_$trackId',
-            title: cleanTrackTitle,
-            artist: artistName.isEmpty ? artist : artistName,
-            album: (dJson['title'] as String?) ?? album,
-            duration: Duration(seconds: durationSeconds),
-            coverUrl: highResCover,
-            matchConfidence: 1.0,
-          ),
-        );
-      }
-
-      return tracks.take(limit).toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<List<Track>> _getItunesAlbumTracks(
-    String album,
-    String artist, {
-    int limit = 25,
-  }) async {
-    try {
-      final encoded = Uri.encodeComponent(album);
-      final searchUri = Uri.parse(
-        'https://itunes.apple.com/search?term=$encoded&entity=album&limit=5',
-      );
-      final req = await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
-      req.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final res = await req.close().timeout(const Duration(seconds: 5));
-      if (res.statusCode != 200) return [];
-
-      final body = await res.transform(utf8.decoder).join();
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final results = (json['results'] as List<dynamic>?) ?? [];
-      if (results.isEmpty) return [];
-
-      int? bestCollectionId;
-      double bestScore = 0.65;
-
-      for (final it in results) {
-        if (it is! Map<String, dynamic>) continue;
-        final name = (it['collectionName'] ?? '').toString();
-        final art = (it['artistName'] ?? '').toString();
-        final score = _calculateAlbumMatchScore(
-          album,
-          name,
-          targetArtist: artist,
-          candidateArtist: art,
-        );
-        if (score > bestScore) {
-          bestScore = score;
-          bestCollectionId = (it['collectionId'] as num?)?.toInt();
-        }
-      }
-
-      if (bestCollectionId == null) return [];
-
-      final lookupUri = Uri.parse(
-        'https://itunes.apple.com/lookup?id=$bestCollectionId&entity=song',
-      );
-      final lReq = await _httpClient.getUrl(lookupUri).timeout(const Duration(seconds: 5));
-      lReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final lRes = await lReq.close().timeout(const Duration(seconds: 5));
-      if (lRes.statusCode != 200) return [];
-
-      final lBody = await lRes.transform(utf8.decoder).join();
-      final lJson = jsonDecode(lBody) as Map<String, dynamic>;
-      final lResults = (lJson['results'] as List<dynamic>?) ?? [];
-
-      final List<Track> tracks = [];
-      for (final item in lResults) {
-        if (item is! Map<String, dynamic>) continue;
-        if (item['wrapperType'] != 'track') continue;
-
-        final trackId = item['trackId']?.toString();
-        final trackName = item['trackName'] as String?;
-        final artistName = item['artistName'] as String?;
-        final collectionName = item['collectionName'] as String?;
-        final trackTimeMillis = (item['trackTimeMillis'] as num?)?.toInt() ?? 0;
-        final rawArtwork = item['artworkUrl100'] as String?;
-        var highResCover = rawArtwork?.replaceAll('100x100bb', '600x600bb');
-        if (highResCover != null && highResCover.startsWith('http://')) {
-          highResCover = 'https://${highResCover.substring(7)}';
-        }
-
-        if (trackId == null || trackName == null || artistName == null) continue;
-
-        tracks.add(
-          Track(
-            id: 'itunes_$trackId',
-            sourceId: 'itunes_$trackId',
-            title: trackName,
-            artist: artistName,
-            album: collectionName ?? album,
-            duration: Duration(milliseconds: trackTimeMillis),
-            coverUrl: highResCover,
-            matchConfidence: 1.0,
-          ),
-        );
-      }
-
-      return tracks.take(limit).toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
   @override
   Future<List<Track>> getAlbumTracks(
     String album,
@@ -948,22 +439,10 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       }
     } catch (_) {}
 
-    // 2. Secondary: JioSaavn Official Verified Album Details
+    // 2. Secondary: Spotify search fallback
     try {
-      final saavnTracks = await _getSaavnAlbumTracks(album, artist, limit: limit);
-      if (saavnTracks.isNotEmpty) return saavnTracks;
-    } catch (_) {}
-
-    // 3. Tertiary: Apple iTunes Official Album Lookup
-    try {
-      final itunesTracks = await _getItunesAlbumTracks(album, artist, limit: limit);
-      if (itunesTracks.isNotEmpty) return itunesTracks;
-    } catch (_) {}
-
-    // 4. Quaternary: Deezer Album Fallback
-    try {
-      final deezer = await _searchDeezer('$album $artist', limit: limit);
-      if (deezer.isNotEmpty) return deezer;
+      final sResTracks = await _spotifyApi.search('$album $artist', limit: limit);
+      if (sResTracks.tracks.isNotEmpty) return sResTracks.tracks.take(limit).toList();
     } catch (_) {}
 
     return [];
@@ -1153,8 +632,8 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     'ankit tiwari', 'jeet gannguli', 'meet bros', 'darshan raval', 'vishal mishra'
   };
 
-  bool _isIndianTrack(Track track, String? itunesGenre) {
-    final combined = '${track.title} ${track.artist} ${track.album ?? ''} ${itunesGenre ?? ''}'.toLowerCase();
+  bool _isIndianTrack(Track track, String? genre) {
+    final combined = '${track.title} ${track.artist} ${track.album ?? ''} ${genre ?? ''}'.toLowerCase();
     if (combined.contains('bollywood') ||
         combined.contains('hindi') ||
         combined.contains('punjabi') ||
@@ -1176,8 +655,8 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     return false;
   }
 
-  SoftifyTrackVibe _classifyTrackVibe(Track track, String? itunesGenre) {
-    final combined = '${track.title} ${track.artist} ${track.album ?? ''} ${itunesGenre ?? ''}'.toLowerCase();
+  SoftifyTrackVibe _classifyTrackVibe(Track track, String? genre) {
+    final combined = '${track.title} ${track.artist} ${track.album ?? ''} ${genre ?? ''}'.toLowerCase();
     final isPunjabi = combined.contains('punjabi') ||
         combined.contains('ap dhillon') ||
         combined.contains('diljit') ||
@@ -1280,8 +759,8 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
       if (combined.contains(rk)) return SoftifyTrackVibe.rock;
     }
 
-    if (itunesGenre != null) {
-      final g = itunesGenre.toLowerCase();
+    if (genre != null) {
+      final g = genre.toLowerCase();
       if (g.contains('dance') || g.contains('electronic')) return SoftifyTrackVibe.party;
       if (g.contains('hip-hop') || g.contains('rap')) return SoftifyTrackVibe.hiphop;
       if (g.contains('rock') || g.contains('alternative') || g.contains('metal')) return SoftifyTrackVibe.rock;
@@ -1348,9 +827,9 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
   Future<List<Track>> _harvestGenreCandidates(Track track) async {
     final List<Track> pool = [];
     final seenIds = <String>{track.id, track.sourceId};
-    final itunesGenre = await _detectTrackGenre(track);
-    final isIndian = _isIndianTrack(track, itunesGenre);
-    final vibe = _classifyTrackVibe(track, itunesGenre);
+    final genre = await _detectTrackGenre(track);
+    final isIndian = _isIndianTrack(track, genre);
+    final vibe = _classifyTrackVibe(track, genre);
 
     // 0. Primary: Reverse Engineered Spotify Recommendation Engine
     // (Track Radio via inspiredby-mix, SEO recommendations, Artist Radio)
@@ -1450,8 +929,7 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
 
     if (!isIndian) {
       // STRICT ENGLISH / INTERNATIONAL QUEUE:
-      // ZERO JioSaavn calls to prevent Hindi songs from ever polluting English queues!
-      // Harvest exclusively from Apple Music / iTunes Store official store catalog.
+      // Harvest exclusively from Spotify catalog
       final List<String> queries = [];
       switch (vibe) {
         case SoftifyTrackVibe.party:
@@ -1475,15 +953,15 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
           queries.addAll(['Acoustic Pop Hits', 'Chill Pop Vibes']);
           break;
         case SoftifyTrackVibe.general:
-          final gq = (itunesGenre != null && itunesGenre.isNotEmpty) ? '$itunesGenre Hits' : 'Top Pop Hits';
+          final gq = (genre != null && genre.isNotEmpty) ? '$genre Hits' : 'Top Pop Hits';
           queries.add(gq);
           break;
       }
 
       for (final q in queries) {
         try {
-          final itunesTracks = await _searchItunes(q, limit: 30);
-          for (final it in itunesTracks) {
+          final sRes = await _spotifyApi.search(q, limit: 30);
+          for (final it in sRes.tracks) {
             if (!seenIds.contains(it.id) &&
                 !seenIds.contains(it.sourceId) &&
                 !_isJunkOrMashup(it) &&
@@ -1502,85 +980,44 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
     }
 
     // STRICT INDIAN / REGIONAL QUEUE:
-    // Curated Editorial Playlists matching the EXACT vibe!
-    final List<String> playlistQueries = [];
     final List<String> searchQueries = [];
 
     switch (vibe) {
       case SoftifyTrackVibe.punjabiParty:
-        playlistQueries.addAll(['Punjabi Party Hits', 'Desi Party Bangers', 'Punjabi Dance Floor']);
         searchQueries.addAll(['Punjabi Party Hits', 'Punjabi Dance Club']);
         break;
 
       case SoftifyTrackVibe.punjabiRomantic:
-        playlistQueries.addAll(['Punjabi Romantic Songs', 'Soulful Punjabi', 'Punjabi Love Melodies']);
         searchQueries.addAll(['Punjabi Romantic Songs', 'Punjabi Love Hits']);
         break;
 
       case SoftifyTrackVibe.party:
-        playlistQueries.addAll([
-          'Bollywood Party Hits',
-          'Non-Stop Party',
-          'Badshah - Party Songs - Hindi',
-          'Bollywood Dance Club',
-          'Desi Party Anthems',
-        ]);
         searchQueries.addAll(['Bollywood Party Hits', 'Bollywood Dance Bangers']);
         break;
 
       case SoftifyTrackVibe.romantic:
-        playlistQueries.addAll([
-          'Bollywood Top Romantic Hits',
-          'Love Melodies - Hindi',
-          'Romantic Bollywood Hits',
-          'Soulful Bollywood',
-          '2000s Romantic Hits',
-        ]);
         searchQueries.addAll(['Bollywood Romantic Melodies', 'Arijit Singh Romantic Hits']);
         break;
 
       case SoftifyTrackVibe.sad:
-        playlistQueries.addAll([
-          'Bollywood Sad Songs',
-          'Heartbreak Hindi Hits',
-          'Dard-E-Dil Bollywood',
-        ]);
         searchQueries.addAll(['Bollywood Sad Songs', 'Arijit Singh Sad Melodies']);
         break;
 
       case SoftifyTrackVibe.hiphop:
-        playlistQueries.addAll([
-          'Desi Hip Hop Hits',
-          'Indian Rap Banger',
-          'Viral Desi Dance Hits',
-        ]);
         searchQueries.addAll(['Desi Hip Hop Hits', 'Divine Raftaar Seedhe Maut']);
         break;
 
       default:
-        playlistQueries.addAll(['Bollywood Top Hits', 'Bollywood Romantic Hits']);
-        searchQueries.addAll(['Bollywood Hits']);
+        searchQueries.addAll(['Bollywood Top Hits', 'Bollywood Romantic Hits']);
         break;
     }
 
-    // 1. Fetch from curated playlists (highest quality & goated songs)
-    for (final pq in playlistQueries) {
+    for (final sq in searchQueries) {
       try {
-        final plTracks = await _fetchSaavnPlaylistTracks(pq, limit: 30);
-        _addValidTracks(pool, plTracks, seenIds, targetVibe: vibe);
+        final sRes = await _spotifyApi.search(sq, limit: 30);
+        _addValidTracks(pool, sRes.tracks, seenIds, targetVibe: vibe);
       } catch (_) {}
-      if (pool.length >= 30) break;
-    }
-
-    // 2. Fetch from Saavn search if pool is still small
-    if (pool.length < 15) {
-      for (final sq in searchQueries) {
-        try {
-          final sTracks = await _searchSaavn(sq, limit: 30);
-          _addValidTracks(pool, sTracks, seenIds, targetVibe: vibe);
-        } catch (_) {}
-        if (pool.length >= 25) break;
-      }
+      if (pool.length >= 25) break;
     }
 
     return pool;
@@ -1602,139 +1039,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
         pool.add(t);
       }
     }
-  }
-
-  Future<List<Track>> _fetchSaavnPlaylistTracks(
-    String query, {
-    int limit = 30,
-  }) async {
-    try {
-      final encoded = Uri.encodeComponent(query);
-      final searchUri = Uri.parse(
-        'https://www.jiosaavn.com/api.php?__call=search.getPlaylistResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=2&p=1&q=$encoded',
-      );
-      final searchReq =
-          await _httpClient.getUrl(searchUri).timeout(const Duration(seconds: 5));
-      searchReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final searchResp =
-          await searchReq.close().timeout(const Duration(seconds: 5));
-      if (searchResp.statusCode != 200) return [];
-
-      final searchBody = await searchResp.transform(utf8.decoder).join();
-      final searchJson = jsonDecode(searchBody) as Map<String, dynamic>;
-      final playlists = (searchJson['results'] as List<dynamic>?) ?? [];
-      if (playlists.isEmpty) return [];
-
-      final List<Track> tracks = [];
-      for (final pl in playlists.take(2)) {
-        final plId = pl['id']?.toString() ?? pl['listid']?.toString();
-        if (plId == null || plId.isEmpty) continue;
-
-        final plTracks = await _fetchSaavnPlaylistById(plId, limit: limit - tracks.length);
-        tracks.addAll(plTracks);
-        if (tracks.length >= limit) break;
-      }
-      return tracks;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<List<Track>> _fetchSaavnPlaylistById(
-    String listId, {
-    int limit = 30,
-  }) async {
-    try {
-      final plUri = Uri.parse(
-        'https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=$listId',
-      );
-      final plReq =
-          await _httpClient.getUrl(plUri).timeout(const Duration(seconds: 5));
-      plReq.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final plResp =
-          await plReq.close().timeout(const Duration(seconds: 5));
-      if (plResp.statusCode != 200) return [];
-
-      final plBody = await plResp.transform(utf8.decoder).join();
-      final plJson = jsonDecode(plBody) as Map<String, dynamic>;
-      final songItems =
-          ((plJson['songs'] ?? plJson['list']) as List<dynamic>?) ?? [];
-      return _parseSaavnSongItems(songItems, limit: limit);
-    } catch (_) {
-      return [];
-    }
-  }
-
-  List<Track> _parseSaavnSongItems(List<dynamic> songItems, {int limit = 30}) {
-    final List<Track> tracks = [];
-    for (final item in songItems) {
-      if (item is! Map<String, dynamic>) continue;
-      final trackId = item['id']?.toString();
-      final trackName = (item['title'] ?? item['song']) as String?;
-      final subtitle = (item['subtitle'] as String?) ?? '';
-      final rawImage = item['image'] as String?;
-      var highResCover = rawImage
-          ?.replaceAll('150x150', '500x500')
-          .replaceAll('50x50', '500x500');
-      if (highResCover != null) {
-        if (highResCover.startsWith('//')) {
-          highResCover = 'https:$highResCover';
-        } else if (highResCover.startsWith('http://')) {
-          highResCover = 'https://${highResCover.substring(7)}';
-        }
-      }
-
-      if (trackId == null || trackName == null) continue;
-
-      final moreInfo = (item['more_info'] as Map<String, dynamic>?) ?? {};
-      String artistName = '';
-      if (moreInfo['artistMap'] is Map &&
-          moreInfo['artistMap']['primary_artists'] is List) {
-        final artistsList = (moreInfo['artistMap']['primary_artists'] as List)
-            .map((a) => (a is Map ? a['name'] : null)?.toString())
-            .whereType<String>()
-            .toList();
-        if (artistsList.isNotEmpty) {
-          artistName = artistsList.join(', ');
-        }
-      }
-
-      if (artistName.isEmpty) {
-        final parts = subtitle.split(' - ');
-        artistName = parts.isNotEmpty && parts[0].trim().isNotEmpty
-            ? parts[0].trim()
-            : ((item['singers'] ?? item['primary_artists']) as String? ??
-                'Unknown Artist');
-      }
-
-      final albumRaw = (moreInfo['album'] ??
-          (subtitle.contains(' - ')
-              ? subtitle.split(' - ').last.trim()
-              : item['album'])) as String?;
-      final albumName = albumRaw != null && albumRaw.isNotEmpty
-          ? _decodeHtml(albumRaw)
-          : null;
-
-      final rawDuration = moreInfo['duration'] ?? item['duration'];
-      final durationSec = int.tryParse(rawDuration?.toString() ?? '') ?? 0;
-
-      final parsedTrack = Track(
-        id: 'saavn_$trackId',
-        sourceId: 'saavn_$trackId',
-        title: _cleanTitle(trackName),
-        artist: _decodeHtml(artistName),
-        album: albumName,
-        duration: Duration(seconds: durationSec),
-        coverUrl: highResCover,
-        matchConfidence: 1.0,
-      );
-
-      if (!_isJunkOrMashup(parsedTrack)) {
-        tracks.add(parsedTrack);
-      }
-      if (tracks.length >= limit) break;
-    }
-    return tracks;
   }
 
   static final _junkTitleRegex = RegExp(
@@ -1761,28 +1065,6 @@ class KeylessYouTubeCatalog implements ICatalogRepository {
   }
 
   Future<String?> _detectTrackGenre(Track track) async {
-    try {
-      final query = Uri.encodeComponent('${track.title} ${track.artist}');
-      final uri = Uri.parse(
-        'https://itunes.apple.com/search?term=$query&entity=song&limit=1',
-      );
-      final request =
-          await _httpClient.getUrl(uri).timeout(const Duration(seconds: 4));
-      request.headers.set('User-Agent', 'Softify/1.0 (Mobile Android)');
-      final response =
-          await request.close().timeout(const Duration(seconds: 4));
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final json = jsonDecode(body) as Map<String, dynamic>;
-        final results = json['results'] as List<dynamic>?;
-        if (results != null && results.isNotEmpty) {
-          final genre = results[0]['primaryGenreName'] as String?;
-          if (genre != null && genre.trim().isNotEmpty) {
-            return genre.trim();
-          }
-        }
-      }
-    } catch (_) {}
     return null;
   }
 
