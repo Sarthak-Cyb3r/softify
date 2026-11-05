@@ -86,7 +86,7 @@ class AutoEqProfile {
       8000.0,
       16000.0,
     ];
-    final tempEq = ParametricEqualizer(sampleRate: sampleRate);
+    final tempEq = ParametricEqualizer(sampleRate: sampleRate.toDouble());
     tempEq.setBands(bands, preampDb: 0.0);
 
     final result = <EqBand>[];

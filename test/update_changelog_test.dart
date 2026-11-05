@@ -40,7 +40,9 @@ void main() {
       // Verify v4.0.1 consumer-friendly cards
       expect(find.text('Real-Time Audio Quality Switching'), findsOneWidget);
       expect(find.text('Language-Personalized Moods'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Spotify Catalog & Fast Search'), 150);
       expect(find.text('Spotify Catalog & Fast Search'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Kinetic Synced Lyrics'), 150);
       expect(find.text('Kinetic Synced Lyrics'), findsOneWidget);
 
       // Verify simple consumer-friendly cards

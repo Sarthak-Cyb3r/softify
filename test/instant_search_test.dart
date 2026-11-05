@@ -43,6 +43,8 @@ class FakeLibraryRepository implements ILibraryRepository {
   @override
   Stream<List<Track>> watchLikedTracks() => const Stream.empty();
   @override
+  Stream<Set<String>> watchLikedTrackIds() => const Stream.empty();
+  @override
   Future<List<Track>> getLikedTracks() async => [];
   @override
   Future<Playlist> createPlaylist(String name, {String? description, bool isImported = false, String? sourceUrl}) async =>
