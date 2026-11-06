@@ -87,14 +87,14 @@ class SaavnStreamResolver implements IStreamResolver {
         .trim();
 
     final queriesToTry = <String>{
-      if (cleanAlbumQuery.isNotEmpty && primaryArtist.isNotEmpty)
-        '${track.title} $primaryArtist $cleanAlbumQuery'.trim(),
-      if (cleanAlbumQuery.isNotEmpty)
-        '${track.title} $cleanAlbumQuery'.trim(),
-      if (cleanArtistQuery.isNotEmpty)
-        '${track.title} $cleanArtistQuery'.trim(),
-      if (primaryArtist.isNotEmpty && primaryArtist != track.artist)
+      if (primaryArtist.isNotEmpty)
         '${track.title} $primaryArtist'.trim(),
+      if (cleanAlbumQuery.isNotEmpty && primaryArtist.isNotEmpty && cleanAlbumQuery.toLowerCase() != cleanTitle.toLowerCase())
+        '${track.title} $primaryArtist $cleanAlbumQuery'.trim(),
+      if (cleanArtistQuery.isNotEmpty && cleanArtistQuery != primaryArtist)
+        '${track.title} $cleanArtistQuery'.trim(),
+      if (cleanAlbumQuery.isNotEmpty && cleanAlbumQuery.toLowerCase() != cleanTitle.toLowerCase())
+        '${track.title} $cleanAlbumQuery'.trim(),
       track.title.trim(),
     }.toList();
 
@@ -135,25 +135,73 @@ class SaavnStreamResolver implements IStreamResolver {
 
       final moreInfo = r['more_info'] as Map<String, dynamic>?;
       final rawCandTitle = (r['title'] ?? r['song'] ?? '').toString().toLowerCase();
+      final candSubtitle = (r['subtitle'] ?? '').toString().toLowerCase();
+      final rawCandAlbum = ((moreInfo?['album'] ?? r['more_info']?['album'] ?? r['subtitle'] ?? '')).toString().toLowerCase();
       final candTitle = _normalize(rawCandTitle);
       final candLanguage = (r['language'] ?? '').toString().toLowerCase();
 
-      // Extract candidate artists from primary_artists in artistMap, music, subtitle, or singers
+      // Extract candidate artists across primary_artists, artists, music, subtitle, or singers
       final primaryArtistsList = (moreInfo?['artistMap']?['primary_artists'] as List<dynamic>?)
           ?.map((a) => (a['name'] ?? '').toString())
           .join(', ');
+      final allArtistsList = (moreInfo?['artistMap']?['artists'] as List<dynamic>?)
+          ?.map((a) => (a['name'] ?? '').toString())
+          .join(', ');
       final candSingers = _normalize(
-        (primaryArtistsList != null && primaryArtistsList.isNotEmpty)
-            ? primaryArtistsList
-            : (moreInfo?['music'] ?? r['subtitle'] ?? r['singers'] ?? r['primary_artists'] ?? '').toString(),
+        '$primaryArtistsList $allArtistsList ${moreInfo?['music']} ${r['subtitle']} ${r['singers']} ${r['primary_artists']}',
       );
+
+      // 0. Hard Disqualification: Unwanted Remixes, DJ cuts, Covers, Lofi, Slowed, Acoustic, Karaoke
+      final targetTitleLower = track.title.toLowerCase();
+      final targetAlbumLower = (track.album ?? '').toLowerCase();
+
+      const unwantedKeywords = [
+        'remix', 're-mix', 'mix', 'mashup', 'mash-up', 'dj ', 'dj-', 'club',
+        'lofi', 'lo-fi', 'slowed', 'reverb', 'sped up', 'speed up', 'speedup',
+        'acoustic', 'unplugged', 'cover', 'instrumental', 'karaoke',
+        'tribute', 'rework', 'flip', 'recreated', 'recreation', 'rendition',
+        '8d audio', 'bass boosted', 'reprise',
+      ];
+
+      bool isDisqualifiedVariant = false;
+      for (final kw in unwantedKeywords) {
+        if (!targetTitleLower.contains(kw) && !targetAlbumLower.contains(kw)) {
+          // Allow 'original mix'
+          if (kw == 'mix' && (rawCandTitle.contains('original mix') || candSubtitle.contains('original mix'))) {
+            continue;
+          }
+          if (rawCandTitle.contains(kw) || candSubtitle.contains(kw) || rawCandAlbum.contains(kw)) {
+            isDisqualifiedVariant = true;
+            break;
+          }
+        }
+      }
+      if (isDisqualifiedVariant) continue;
+
+      // 1. Hard Disqualification: Unrelated artist cover
+      final targetWords = cleanArtist.split(' ').where((w) => w.length > 2).toSet();
+      if (candSingers.isNotEmpty && targetWords.isNotEmpty) {
+        final hasArtistOverlap = targetWords.any((w) => candSingers.contains(w));
+        if (!hasArtistOverlap) {
+          continue; // Disqualify track by unrelated singer
+        }
+      }
+
+      // 2. Hard Disqualification: Major duration discrepancy (> 20s from official duration)
+      final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
+      if (track.duration > Duration.zero && candDurSec > 0) {
+        final diffSec = (track.duration.inSeconds - candDurSec).abs();
+        if (diffSec > 20) {
+          continue; // Reject radio cuts or completely wrong tracks
+        }
+      }
 
       double score = 0.0;
 
       final cleanSimple = _phoneticSimplify(cleanTitle);
       final candSimple = _phoneticSimplify(candTitle);
 
-      // 1. Title match
+      // 3. Title match
       if (candTitle == cleanTitle || (candSimple.isNotEmpty && candSimple == cleanSimple)) {
         score += 60.0;
       } else if (candTitle.contains(cleanTitle) ||
@@ -167,69 +215,33 @@ class SaavnStreamResolver implements IStreamResolver {
         if (tWords.isNotEmpty) {
           final inter = tWords.intersection(cWords).length;
           if (inter == 0) {
-            // Unrelated song title from same soundtrack -> heavy penalty to trigger fallback
-            score -= 200.0;
+            continue;
           } else {
             score += 40.0 * (inter / tWords.length);
           }
         } else {
-          score -= 200.0;
+          continue;
         }
       }
 
-      // 2. Strict Filter for Unwanted Remix, Unplugged, Cover, Lofi, Instrumental, Slowed
-      final targetTitleLower = track.title.toLowerCase();
-      if (!targetTitleLower.contains('remix') && rawCandTitle.contains('remix')) {
-        score -= 150.0;
-      }
-      if (!targetTitleLower.contains('unplugged') && rawCandTitle.contains('unplugged')) {
-        score -= 150.0;
-      }
-      if (!targetTitleLower.contains('lofi') && !targetTitleLower.contains('lo-fi') && (rawCandTitle.contains('lofi') || rawCandTitle.contains('lo-fi'))) {
-        score -= 150.0;
-      }
-      if (!targetTitleLower.contains('cover') && rawCandTitle.contains('cover')) {
-        score -= 150.0;
-      }
-      if (!targetTitleLower.contains('instrumental') && rawCandTitle.contains('instrumental')) {
-        score -= 150.0;
-      }
-      if (!targetTitleLower.contains('slowed') && (rawCandTitle.contains('slowed') || rawCandTitle.contains('reverb'))) {
-        score -= 150.0;
-      }
-      if (!targetTitleLower.contains('mashup') && rawCandTitle.contains('mashup')) {
-        score -= 150.0;
-      }
-
-      // 3. Language preservation:
-      // If target title/artist doesn't explicitly mention regional languages, penalize regional dubbed editions
+      // 4. Language preservation
       const regionalLangs = ['telugu', 'tamil', 'bhojpuri', 'kannada', 'malayalam', 'marathi', 'bengali'];
       final targetLower = '${track.title.toLowerCase()} ${track.artist.toLowerCase()}';
       if (regionalLangs.contains(candLanguage) && !targetLower.contains(candLanguage)) {
         score -= 40.0;
       }
 
-      // 4. Prefer Hindi / English / Punjabi original tracks if candidate language matches or is primary
+      // 5. Prefer Hindi / English / Punjabi original tracks
       if (candLanguage == 'hindi' || candLanguage == 'english' || candLanguage == 'punjabi') {
         score += 15.0;
       }
 
-      // 5. Strict singer / artist verification:
-      // A cover or recreation by an unrelated artist (e.g. Avinash Gupta) must NEVER be matched
-      final targetWords = cleanArtist.split(' ').where((w) => w.length > 2).toSet();
-      final candWords = candSingers.split(' ').where((w) => w.length > 2).toSet();
-      final hasArtistOverlap = targetWords.any((w) => candWords.contains(w) || candSingers.contains(w));
-
+      // 6. Singer / artist bonus
       if (candSingers.isNotEmpty && cleanArtist.isNotEmpty) {
-        if (hasArtistOverlap) {
-          score += 35.0;
-        } else {
-          // Unrelated artist singing a track with same title -> heavy penalty to trigger fallback
-          score -= 120.0;
-        }
+        score += 35.0;
       }
 
-      // 6. Album / Soundtrack verification
+      // 7. Album / Soundtrack verification
       final targetAlbum = _normalize(track.album ?? '');
       final candAlbum = _normalize((moreInfo?['album'] ?? r['subtitle'] ?? '').toString());
       if (targetAlbum.isNotEmpty && candAlbum.isNotEmpty) {
@@ -238,18 +250,15 @@ class SaavnStreamResolver implements IStreamResolver {
         }
       }
 
-      // 7. Strict Duration Proximity
-      final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
+      // 8. Strict Duration Proximity
       if (track.duration > Duration.zero && candDurSec > 0) {
         final diffSec = (track.duration.inSeconds - candDurSec).abs();
-        if (diffSec <= 6) {
-          score += 30.0;
-        } else if (diffSec <= 15) {
-          score += 15.0;
-        } else if (diffSec > 35) {
-          score -= 150.0; // Major discrepancy (remix, cut, or completely wrong song)
-        } else if (diffSec > 20) {
-          score -= 40.0;
+        if (diffSec <= 4) {
+          score += 45.0; // High confidence original studio master match
+        } else if (diffSec <= 10) {
+          score += 25.0;
+        } else if (diffSec <= 18) {
+          score += 10.0;
         }
       }
 

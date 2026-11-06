@@ -880,13 +880,22 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     }
 
     if (bestCandidate != null && highestScore >= 0.50) {
-      final finalCover = (bestCandidate.coverUrl != null &&
-              bestCandidate.coverUrl!.isNotEmpty &&
-              !bestCandidate.coverUrl!.contains('hqdefault'))
-          ? bestCandidate.coverUrl
-          : (spotifyTrack.coverUrl ?? bestCandidate.coverUrl);
-      return bestCandidate.copyWith(
-        coverUrl: finalCover,
+      final spotifyTrackId = spotifyTrack.spotifyUri.startsWith('spotify:track:')
+          ? spotifyTrack.spotifyUri.replaceFirst('spotify:track:', '')
+          : (spotifyTrack.spotifyUri.isNotEmpty ? spotifyTrack.spotifyUri : null);
+
+      return Track(
+        id: spotifyTrackId != null ? 'spotify_$spotifyTrackId' : bestCandidate.id,
+        sourceId: spotifyTrackId != null ? 'spotify_$spotifyTrackId' : bestCandidate.sourceId,
+        title: spotifyTrack.title,
+        artist: spotifyTrack.artist,
+        album: spotifyTrack.album ?? bestCandidate.album,
+        duration: spotifyTrack.duration > Duration.zero ? spotifyTrack.duration : bestCandidate.duration,
+        coverUrl: (spotifyTrack.coverUrl != null &&
+                spotifyTrack.coverUrl!.isNotEmpty &&
+                !spotifyTrack.coverUrl!.contains('hqdefault'))
+            ? spotifyTrack.coverUrl
+            : bestCandidate.coverUrl,
         matchConfidence: highestScore,
       );
     }
@@ -916,6 +925,13 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     final cleanTargetArtist = _normalizeString(target.artist);
     final cleanCandArtist = _normalizeString(candidate.artist);
 
+    if (cleanTargetArtist.isNotEmpty && cleanCandArtist.isNotEmpty) {
+      final targetWords = cleanTargetArtist.split(' ').where((w) => w.length > 2).toSet();
+      if (targetWords.isNotEmpty && !targetWords.any((w) => cleanCandArtist.contains(w))) {
+        return 0.0; // Completely unrelated artist -> reject to prevent wrong track
+      }
+    }
+
     if (cleanCandArtist == cleanTargetArtist) {
       score += 0.35;
     } else if (cleanCandArtist.contains(cleanTargetArtist) || cleanTargetArtist.contains(cleanCandArtist)) {
@@ -935,42 +951,43 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         score += 0.20;
       } else if (diff <= 15) {
         score += 0.15;
-      } else if (diff <= 30) {
-        score += 0.10;
-      } else if (diff > 50) {
-        score -= 0.35;
-      } else if (diff > 35) {
-        score -= 0.20;
+      } else if (diff <= 25) {
+        score += 0.05;
+      } else {
+        return 0.0; // Discrepancy > 25s indicates wrong cut or radio edit
       }
     } else {
       score += 0.10;
     }
 
-    // Penalize variant mismatch (remix, unplugged, cover, lofi, slowed, instrumental) when target is original recording
+    // Strict disqualification of unwanted variant versions when target is original recording
     final rawTargetTitle = target.title.toLowerCase();
     final rawCandTitle = candidate.title.toLowerCase();
 
     final targetHasRemix = rawTargetTitle.contains('remix') || rawTargetTitle.contains('mashup');
     final targetHasCover = rawTargetTitle.contains('cover');
-    final targetHasUnplugged = rawTargetTitle.contains('unplugged');
+    final targetHasUnplugged = rawTargetTitle.contains('unplugged') || rawTargetTitle.contains('acoustic');
     final targetHasLofi = rawTargetTitle.contains('lofi') || rawTargetTitle.contains('lo-fi');
     final targetHasSlowed = rawTargetTitle.contains('slowed');
     final targetHasInstrumental = rawTargetTitle.contains('instrumental') || rawTargetTitle.contains('karaoke');
 
-    if (!targetHasRemix && (rawCandTitle.contains('remix') || rawCandTitle.contains('mashup') || rawCandTitle.contains('dj '))) {
-      score -= 0.40;
+    if (!targetHasRemix && (rawCandTitle.contains('remix') || rawCandTitle.contains('mashup') || rawCandTitle.contains('dj ') || rawCandTitle.contains('club mix') || rawCandTitle.contains('dance mix'))) {
+      return 0.0;
     }
     if (!targetHasCover && rawCandTitle.contains('cover')) {
-      score -= 0.40;
+      return 0.0;
     }
-    if (!targetHasUnplugged && rawCandTitle.contains('unplugged')) {
-      score -= 0.30;
+    if (!targetHasUnplugged && (rawCandTitle.contains('unplugged') || rawCandTitle.contains('acoustic'))) {
+      return 0.0;
     }
-    if (!targetHasLofi && (rawCandTitle.contains('lofi') || rawCandTitle.contains('lo-fi') || rawCandTitle.contains('slowed'))) {
-      score -= 0.35;
+    if (!targetHasLofi && (rawCandTitle.contains('lofi') || rawCandTitle.contains('lo-fi'))) {
+      return 0.0;
+    }
+    if (!targetHasSlowed && (rawCandTitle.contains('slowed') || rawCandTitle.contains('reverb') || rawCandTitle.contains('sped up') || rawCandTitle.contains('speed up'))) {
+      return 0.0;
     }
     if (!targetHasInstrumental && (rawCandTitle.contains('instrumental') || rawCandTitle.contains('karaoke'))) {
-      score -= 0.40;
+      return 0.0;
     }
 
     return score.clamp(0.0, 1.0);

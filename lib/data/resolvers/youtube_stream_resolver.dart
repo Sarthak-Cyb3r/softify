@@ -74,15 +74,14 @@ class YoutubeStreamResolver implements IStreamResolver {
         try {
           final ytmTracks = await _innertubeService.searchMusic(query);
           if (ytmTracks.isNotEmpty) {
-            final scored = ytmTracks.toList();
-            scored.sort((a, b) {
-              final sA = _scoreYtmCandidate(targetTrack: track, candidate: a);
-              final sB = _scoreYtmCandidate(targetTrack: track, candidate: b);
-              return sB.compareTo(sA);
-            });
-            for (final c in scored) {
-              if (!candidateIds.contains(c.videoId)) {
-                candidateIds.add(c.videoId);
+            final scored = ytmTracks
+                .map((c) => (candidate: c, score: _scoreYtmCandidate(targetTrack: track, candidate: c)))
+                .where((pair) => pair.score >= 50)
+                .toList();
+            scored.sort((a, b) => b.score.compareTo(a.score));
+            for (final pair in scored) {
+              if (!candidateIds.contains(pair.candidate.videoId)) {
+                candidateIds.add(pair.candidate.videoId);
               }
             }
           }
@@ -95,12 +94,14 @@ class YoutubeStreamResolver implements IStreamResolver {
             final altQuery = '${track.title} $primaryArtist'.trim();
             final altTracks = await _innertubeService.searchMusic(altQuery);
             if (altTracks.isNotEmpty) {
-              altTracks.sort((a, b) =>
-                  _scoreYtmCandidate(targetTrack: track, candidate: b)
-                      .compareTo(_scoreYtmCandidate(targetTrack: track, candidate: a)));
-              for (final c in altTracks) {
-                if (!candidateIds.contains(c.videoId)) {
-                  candidateIds.add(c.videoId);
+              final scoredAlt = altTracks
+                  .map((c) => (candidate: c, score: _scoreYtmCandidate(targetTrack: track, candidate: c)))
+                  .where((pair) => pair.score >= 50)
+                  .toList();
+              scoredAlt.sort((a, b) => b.score.compareTo(a.score));
+              for (final pair in scoredAlt) {
+                if (!candidateIds.contains(pair.candidate.videoId)) {
+                  candidateIds.add(pair.candidate.videoId);
                 }
               }
             }
@@ -113,26 +114,24 @@ class YoutubeStreamResolver implements IStreamResolver {
             final searchResults =
                 await _yt.search.search(query).timeout(const Duration(seconds: 5));
             if (searchResults.isNotEmpty) {
-              final scored = searchResults.take(10).toList();
-              scored.sort((a, b) {
-                final sA = _scoreCandidate(
-                  targetTitle: track.title,
-                  targetArtist: track.artist,
-                  targetDuration: track.duration,
-                  candidate: a,
-                );
-                final sB = _scoreCandidate(
-                  targetTitle: track.title,
-                  targetArtist: track.artist,
-                  targetDuration: track.duration,
-                  candidate: b,
-                );
-                return sB.compareTo(sA);
-              });
+              final scored = searchResults
+                  .take(10)
+                  .map((v) => (
+                        video: v,
+                        score: _scoreCandidate(
+                          targetTitle: track.title,
+                          targetArtist: track.artist,
+                          targetDuration: track.duration,
+                          candidate: v,
+                        ),
+                      ))
+                  .where((pair) => pair.score >= 50)
+                  .toList();
+              scored.sort((a, b) => b.score.compareTo(a.score));
 
-              for (final v in scored) {
-                if (!candidateIds.contains(v.id.value)) {
-                  candidateIds.add(v.id.value);
+              for (final pair in scored) {
+                if (!candidateIds.contains(pair.video.id.value)) {
+                  candidateIds.add(pair.video.id.value);
                 }
               }
             }
@@ -161,10 +160,10 @@ class YoutubeStreamResolver implements IStreamResolver {
                 final candLengthSec = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
                 final candDuration = Duration(seconds: candLengthSec);
 
-                // Reject if candidate duration deviates widely from target (e.g. > 45s discrepancy, or < 30s teaser)
+                // Reject if candidate duration deviates widely from target (e.g. > 20s discrepancy, or < 30s teaser)
                 if (track.duration > const Duration(seconds: 30) && candDuration > Duration.zero) {
                   final diff = (candDuration.inSeconds - track.duration.inSeconds).abs();
-                  if (diff > 45 || candDuration.inSeconds < 30) {
+                  if (diff > 20 || candDuration.inSeconds < 30) {
                     continue;
                   }
                 }
@@ -182,24 +181,24 @@ class YoutubeStreamResolver implements IStreamResolver {
                 final targetLower = track.title.toLowerCase();
                 final targetHasRemix = targetLower.contains('remix') || targetLower.contains('mashup');
                 final targetHasCover = targetLower.contains('cover');
-                final targetHasUnplugged = targetLower.contains('unplugged');
+                final targetHasUnplugged = targetLower.contains('unplugged') || targetLower.contains('acoustic');
                 final targetHasLofi = targetLower.contains('lofi') || targetLower.contains('lo-fi');
                 final targetHasSlowed = targetLower.contains('slowed');
                 final targetHasInstrumental = targetLower.contains('instrumental') || targetLower.contains('karaoke');
 
-                if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj '))) {
+                if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
                   continue;
                 }
                 if (!targetHasCover && candTitle.contains('cover')) {
                   continue;
                 }
-                if (!targetHasUnplugged && candTitle.contains('unplugged')) {
+                if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
                   continue;
                 }
                 if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
                   continue;
                 }
-                if (!targetHasSlowed && candTitle.contains('slowed')) {
+                if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
                   continue;
                 }
                 if (!targetHasInstrumental && (candTitle.contains('instrumental') || candTitle.contains('karaoke'))) {
@@ -422,43 +421,49 @@ class YoutubeStreamResolver implements IStreamResolver {
       }
     }
 
-    // 4. Variant penalties (reject remixes, covers, etc. when target is original recording)
+    // 4. Strict Variant Disqualification
     final rawTargetTitle = targetTrack.title.toLowerCase();
     final targetHasRemix = rawTargetTitle.contains('remix') || rawTargetTitle.contains('mashup');
     final targetHasCover = rawTargetTitle.contains('cover');
-    final targetHasUnplugged = rawTargetTitle.contains('unplugged');
+    final targetHasUnplugged = rawTargetTitle.contains('unplugged') || rawTargetTitle.contains('acoustic');
     final targetHasLofi = rawTargetTitle.contains('lofi') || rawTargetTitle.contains('lo-fi');
     final targetHasSlowed = rawTargetTitle.contains('slowed');
+    final targetHasInstrumental = rawTargetTitle.contains('instrumental') || rawTargetTitle.contains('karaoke');
 
-    if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj '))) {
-      score -= 150;
+    if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
+      return -9999;
     }
     if (!targetHasCover && candTitle.contains('cover')) {
-      score -= 150;
+      return -9999;
     }
-    if (!targetHasUnplugged && candTitle.contains('unplugged')) {
-      score -= 120;
+    if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
+      return -9999;
     }
     if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
-      score -= 120;
+      return -9999;
     }
-    if (!targetHasSlowed && candTitle.contains('slowed')) {
-      score -= 120;
+    if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
+      return -9999;
+    }
+    if (!targetHasInstrumental && (candTitle.contains('instrumental') || candTitle.contains('karaoke'))) {
+      return -9999;
     }
 
-    // 5. Duration proximity
+    // 5. Strict Artist match
+    if (cleanArtistWords.isNotEmpty && !cleanArtistWords.any((w) => candArtist.contains(w))) {
+      return -9999;
+    }
+
+    // 6. Strict Duration proximity
     if (targetTrack.duration > Duration.zero && candidate.duration > Duration.zero) {
       final diff = (targetTrack.duration.inSeconds - candidate.duration.inSeconds).abs();
+      if (diff > 20) {
+        return -9999;
+      }
       if (diff <= 5) {
         score += 40;
-      } else if (diff <= 15) {
+      } else if (diff <= 12) {
         score += 20;
-      } else if (diff <= 30) {
-        score += 10;
-      } else if (diff > 50) {
-        score -= 150;
-      } else if (diff > 35) {
-        score -= 80;
       }
     }
 
@@ -579,21 +584,21 @@ class YoutubeStreamResolver implements IStreamResolver {
     for (final neg in negativeKeywords) {
       if (candTitle.contains(neg)) {
         if (neg == 'cover' && targetHasCover) continue;
-        score -= 150;
+        return -9999;
       }
     }
 
-    if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj '))) {
-      score -= 150;
+    if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
+      return -9999;
     }
-    if (!targetHasUnplugged && candTitle.contains('unplugged')) {
-      score -= 120;
+    if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
+      return -9999;
     }
     if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
-      score -= 120;
+      return -9999;
     }
-    if (!targetHasSlowed && candTitle.contains('slowed')) {
-      score -= 120;
+    if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
+      return -9999;
     }
 
     // 5. Heavy penalty for video versions that contain dialogue, film skits, or sound effects
@@ -670,16 +675,13 @@ class YoutubeStreamResolver implements IStreamResolver {
     // 9. Proximity to official track duration
     if (targetDuration > Duration.zero && candDuration > Duration.zero) {
       final diff = (targetDuration.inSeconds - candDuration.inSeconds).abs();
+      if (diff > 20) {
+        return -9999;
+      }
       if (diff <= 5) {
         score += 40;
-      } else if (diff <= 15) {
+      } else if (diff <= 12) {
         score += 20;
-      } else if (diff <= 30) {
-        score += 10;
-      } else if (diff > 50) {
-        score -= 150;
-      } else if (diff > 35) {
-        score -= 80;
       }
     }
 

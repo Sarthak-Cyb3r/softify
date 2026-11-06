@@ -339,6 +339,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
             sourceId: 'spotify_$trackId',
             title: item.title,
             artist: item.artist,
+            album: item.album,
             duration: item.duration,
             coverUrl: item.coverUrl,
           );
@@ -376,24 +377,45 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
             : 'https://open.spotify.com/playlist/${currentPlaylist.id}',
       );
 
-      final matchedEntries = currentPlaylist.tracks
-          .where((t) => t.isMatched && t.matchedTrack != null)
-          .toList();
-      final matchedTracks = matchedEntries.map((t) => t.matchedTrack!).toList();
-      final originalMeta = matchedEntries
-          .map((t) => (title: t.title, artist: t.artist))
-          .toList();
+      final List<Track> tracksToInsert = [];
+      final List<({String title, String artist})> originalMeta = [];
+
+      for (final t in currentPlaylist.tracks) {
+        if (!t.isMatched || t.matchedTrack == null) continue;
+        final cleanTrackId = t.spotifyUri.startsWith('spotify:track:')
+            ? t.spotifyUri.replaceFirst('spotify:track:', '')
+            : (t.spotifyUri.isNotEmpty
+                ? t.spotifyUri
+                : '${t.title}_${t.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_'));
+
+        final canonicalTrack = Track(
+          id: 'spotify_$cleanTrackId',
+          sourceId: 'spotify_$cleanTrackId',
+          title: t.title,
+          artist: t.artist,
+          album: t.album ?? t.matchedTrack?.album,
+          duration: t.duration > Duration.zero
+              ? t.duration
+              : (t.matchedTrack?.duration ?? Duration.zero),
+          coverUrl: (t.coverUrl != null && !t.coverUrl!.contains('hqdefault'))
+              ? t.coverUrl
+              : (t.matchedTrack?.coverUrl ?? t.coverUrl),
+          matchConfidence: t.confidence,
+        );
+        tracksToInsert.add(canonicalTrack);
+        originalMeta.add((title: t.title, artist: t.artist));
+      }
 
       // Atomic single-transaction batch insert with original Spotify titles & artists
       await _libraryRepo.addTracksToPlaylist(
         newPlaylist.id,
-        matchedTracks,
+        tracksToInsert,
         originalMetadata: originalMeta,
       );
 
       // If importing Spotify Liked Songs, also mark each track as Liked in Softify's favorites table
       if (currentPlaylist.id == 'me_liked_songs') {
-        for (final track in matchedTracks) {
+        for (final track in tracksToInsert) {
           try {
             await _libraryRepo.setLiked(track.id, true, track: track);
           } catch (_) {}

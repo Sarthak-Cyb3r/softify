@@ -31,6 +31,7 @@ class SpotifyTrackItem {
   final String spotifyUri;
   final String title;
   final String artist;
+  final String? album;
   final Duration duration;
   final String? coverUrl;
   final Track? matchedTrack;
@@ -41,6 +42,7 @@ class SpotifyTrackItem {
     required this.spotifyUri,
     required this.title,
     required this.artist,
+    this.album,
     required this.duration,
     this.coverUrl,
     this.matchedTrack,
@@ -52,6 +54,7 @@ class SpotifyTrackItem {
     String? spotifyUri,
     String? title,
     String? artist,
+    String? album,
     Duration? duration,
     String? coverUrl,
     Track? matchedTrack,
@@ -62,6 +65,7 @@ class SpotifyTrackItem {
       spotifyUri: spotifyUri ?? this.spotifyUri,
       title: title ?? this.title,
       artist: artist ?? this.artist,
+      album: album ?? this.album,
       duration: duration ?? this.duration,
       coverUrl: coverUrl ?? this.coverUrl,
       matchedTrack: matchedTrack ?? this.matchedTrack,

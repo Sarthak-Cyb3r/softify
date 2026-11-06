@@ -558,6 +558,32 @@ class SpotifyApiService {
     final uri = _normalizeSpotifyArtistUri(artistUriOrId);
     if (uri.isEmpty) return const [];
 
+    if (await _isUserLoggedIn()) {
+      try {
+        final artistId = _extract22CharId(artistUriOrId);
+        final token = await getValidToken();
+        final resp = await _client.get(
+          Uri.parse('https://api.spotify.com/v1/artists/$artistId/top-tracks?market=from_token'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'User-Agent': _defaultUserAgent,
+          },
+        ).timeout(const Duration(seconds: 10));
+        if (resp.statusCode == 200) {
+          final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final items = json['tracks'] as List<dynamic>? ?? [];
+          final List<Track> tracks = [];
+          for (final it in items) {
+            if (it is! Map<String, dynamic>) continue;
+            final t = _parseWebApiTrackEntity(it);
+            if (t != null) tracks.add(t);
+          }
+          if (tracks.isNotEmpty) return tracks;
+        }
+      } catch (_) {}
+    }
+
     try {
       final variables = {'uri': uri};
       final data = await _executePathfinder(
@@ -585,6 +611,36 @@ class SpotifyApiService {
     final uri = _normalizeSpotifyAlbumUri(albumUriOrId);
     if (uri.isEmpty) return const [];
 
+    if (await _isUserLoggedIn()) {
+      try {
+        final albumId = _extract22CharId(albumUriOrId);
+        final token = await getValidToken();
+        final resp = await _client.get(
+          Uri.parse('https://api.spotify.com/v1/albums/$albumId'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'User-Agent': _defaultUserAgent,
+          },
+        ).timeout(const Duration(seconds: 10));
+        if (resp.statusCode == 200) {
+          final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final albumName = (json['name'] as String?) ?? 'Unknown Album';
+          final items = json['tracks']?['items'] as List<dynamic>? ?? [];
+          final List<Track> tracks = [];
+          for (final it in items) {
+            if (it is! Map<String, dynamic>) continue;
+            final t = _parseWebApiTrackEntity({
+              ...it,
+              'album': {'name': albumName, 'images': json['images']},
+            });
+            if (t != null) tracks.add(t);
+          }
+          if (tracks.isNotEmpty) return tracks;
+        }
+      } catch (_) {}
+    }
+
     try {
       final variables = {'uri': uri, 'offset': 0, 'limit': 100};
       final data = await _executePathfinder(
@@ -600,7 +656,7 @@ class SpotifyApiService {
       String? cover;
       final coverSources = albumUnion['coverArt']?['sources'] as List<dynamic>?;
       if (coverSources != null && coverSources.isNotEmpty) {
-        cover = coverSources.first['url'] as String?;
+        cover = _extractLargestImage(coverSources);
       }
 
       final items = albumUnion['tracksV2']?['items'] as List<dynamic>? ?? [];
@@ -778,6 +834,26 @@ class SpotifyApiService {
     final uri = _normalizeSpotifyTrackUri(trackUriOrId);
     if (uri.isEmpty) return null;
 
+    if (await _isUserLoggedIn()) {
+      try {
+        final trackId = _extract22CharId(trackUriOrId);
+        final token = await getValidToken();
+        final resp = await _client.get(
+          Uri.parse('https://api.spotify.com/v1/tracks/$trackId'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'User-Agent': _defaultUserAgent,
+          },
+        ).timeout(const Duration(seconds: 8));
+        if (resp.statusCode == 200) {
+          final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+          final parsed = _parseWebApiTrackEntity(json);
+          if (parsed != null) return parsed;
+        }
+      } catch (_) {}
+    }
+
     try {
       final variables = {'uri': uri};
       final data = await _executePathfinder(
@@ -925,7 +1001,7 @@ class SpotifyApiService {
     String? cover = fallbackCover;
     final coverSources = item['albumOfTrack']?['coverArt']?['sources'] as List<dynamic>?;
     if (coverSources != null && coverSources.isNotEmpty) {
-      cover = coverSources.first['url'] as String?;
+      cover = _extractLargestImage(coverSources) ?? coverSources.first['url'] as String?;
     }
 
     // Duration
@@ -1333,6 +1409,29 @@ class SpotifyApiService {
     );
   }
 
+  static String? _extractLargestImage(List<dynamic>? sources) {
+    if (sources == null || sources.isEmpty) return null;
+    int maxWidth = -1;
+    String? bestUrl;
+    for (final s in sources) {
+      if (s is Map<String, dynamic>) {
+        final url = s['url'] as String?;
+        final width = (s['width'] as num?)?.toInt() ?? (s['height'] as num?)?.toInt() ?? 0;
+        if (url != null && url.isNotEmpty) {
+          if (width > maxWidth) {
+            maxWidth = width;
+            bestUrl = url;
+          } else if (bestUrl == null) {
+            bestUrl = url;
+          }
+        }
+      }
+    }
+    if (bestUrl != null) return bestUrl;
+    final first = sources.first;
+    return first is Map ? (first['url'] as String?) : null;
+  }
+
   SpotifyTrackItem? _parseWebApiTrack(Map<String, dynamic> trackMap) {
     final name = trackMap['name'] as String?;
     if (name == null || name.trim().isEmpty) return null;
@@ -1351,17 +1450,14 @@ class SpotifyApiService {
 
     final durationMs = (trackMap['duration_ms'] as num?)?.toInt() ?? 0;
     final albumMap = trackMap['album'] as Map<String, dynamic>?;
-    String? coverUrl;
-    final images = albumMap?['images'] as List<dynamic>?;
-    if (images != null && images.isNotEmpty) {
-      final firstImg = images.first as Map<String, dynamic>?;
-      coverUrl = firstImg?['url'] as String?;
-    }
+    final album = albumMap?['name'] as String?;
+    final coverUrl = _extractLargestImage(albumMap?['images'] as List<dynamic>?);
 
     return SpotifyTrackItem(
       spotifyUri: cleanUri,
       title: name.trim(),
       artist: artist.trim(),
+      album: album?.trim(),
       duration: Duration(milliseconds: durationMs),
       coverUrl: coverUrl,
     );
@@ -1381,11 +1477,7 @@ class SpotifyApiService {
 
     final albumMap = item['album'] as Map<String, dynamic>?;
     final album = albumMap?['name'] as String?;
-    String? cover;
-    final images = albumMap?['images'] as List<dynamic>?;
-    if (images != null && images.isNotEmpty) {
-      cover = (images.first as Map<String, dynamic>?)?['url'] as String?;
-    }
+    final cover = _extractLargestImage(albumMap?['images'] as List<dynamic>?);
 
     final durationMs = (item['duration_ms'] as num?)?.toInt() ?? 0;
 
