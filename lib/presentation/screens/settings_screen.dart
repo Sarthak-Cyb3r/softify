@@ -29,6 +29,8 @@ import 'debug_metrics_screen.dart';
 import 'equalizer_screen.dart';
 import 'music_screensaver_screen.dart';
 import 'onboarding_screen.dart';
+import '../providers/spotify_import_providers.dart';
+import 'spotify_import_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -401,6 +403,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () => _showEditNameDialog(context),
             ),
           ),
+          const SizedBox(height: 14),
+
+          // Section 0.1: Connected Accounts
+          _buildSectionHeader('Connected Services'),
+          _buildSpotifyAccountCard(context, tokens),
           const SizedBox(height: 24),
 
           // Section 0.5: Appearance
@@ -1562,6 +1569,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Material(
         color: Colors.transparent,
         child: child,
+      ),
+    );
+  }
+
+  Widget _buildSpotifyAccountCard(BuildContext context, AppTokens tokens) {
+    final authState = ref.watch(spotifyAuthStateProvider);
+    final userProfile = ref.watch(spotifyUserProfileProvider);
+    final isLoggedIn = authState.value?.isLoggedIn ?? false;
+    final userName = userProfile.value?.displayName ?? authState.value?.userName;
+
+    return _buildCard(
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1DB954).withValues(alpha: 0.18),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFF1DB954).withValues(alpha: 0.4),
+            ),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.music_note,
+              color: Color(0xFF1DB954),
+              size: 22,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            const Text(
+              'Spotify Account',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isLoggedIn
+                    ? const Color(0xFF1DB954).withValues(alpha: 0.2)
+                    : tokens.surfaceHighlight,
+                borderRadius: BorderRadius.circular(tokens.radiusPill),
+              ),
+              child: Text(
+                isLoggedIn ? 'CONNECTED' : 'NOT LINKED',
+                style: TextStyle(
+                  color: isLoggedIn ? const Color(0xFF1DB954) : tokens.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          isLoggedIn
+              ? 'Connected as $userName • Tap to view library & import'
+              : 'Connect to extract authentic metadata & import your library',
+          style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SpotifyImportScreen()),
+          );
+        },
       ),
     );
   }

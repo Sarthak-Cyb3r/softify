@@ -114,3 +114,103 @@ class SpotifyImportPlaylist {
     );
   }
 }
+
+class SpotifyUserProfile {
+  final String id;
+  final String displayName;
+  final String? email;
+  final String? avatarUrl;
+  final String? product; // e.g. 'premium', 'free'
+  final String? country;
+  final int? totalPlaylists;
+
+  const SpotifyUserProfile({
+    required this.id,
+    required this.displayName,
+    this.email,
+    this.avatarUrl,
+    this.product,
+    this.country,
+    this.totalPlaylists,
+  });
+
+  bool get isPremium => product?.toLowerCase() == 'premium';
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'display_name': displayName,
+      'email': email,
+      'avatar_url': avatarUrl,
+      'product': product,
+      'country': country,
+      'total_playlists': totalPlaylists,
+    };
+  }
+
+  factory SpotifyUserProfile.fromMap(Map<String, dynamic> map) {
+    return SpotifyUserProfile(
+      id: map['id'] as String? ?? '',
+      displayName: map['display_name'] as String? ?? 'Spotify User',
+      email: map['email'] as String?,
+      avatarUrl: map['avatar_url'] as String?,
+      product: map['product'] as String?,
+      country: map['country'] as String?,
+      totalPlaylists: (map['total_playlists'] as num?)?.toInt(),
+    );
+  }
+}
+
+class SpotifyUserPlaylistSummary {
+  final String id;
+  final String name;
+  final String? description;
+  final String? coverUrl;
+  final int trackCount;
+  final String? ownerName;
+  final bool isPublic;
+  final bool isCollaborative;
+  final String? snapshotId;
+
+  const SpotifyUserPlaylistSummary({
+    required this.id,
+    required this.name,
+    this.description,
+    this.coverUrl,
+    required this.trackCount,
+    this.ownerName,
+    this.isPublic = true,
+    this.isCollaborative = false,
+    this.snapshotId,
+  });
+
+  String get spotifyUrl => 'https://open.spotify.com/playlist/$id';
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'cover_url': coverUrl,
+      'track_count': trackCount,
+      'owner_name': ownerName,
+      'is_public': isPublic,
+      'is_collaborative': isCollaborative,
+      'snapshot_id': snapshotId,
+    };
+  }
+
+  factory SpotifyUserPlaylistSummary.fromMap(Map<String, dynamic> map) {
+    return SpotifyUserPlaylistSummary(
+      id: map['id'] as String? ?? '',
+      name: map['name'] as String? ?? 'Untitled Playlist',
+      description: map['description'] as String?,
+      coverUrl: map['cover_url'] as String?,
+      trackCount: (map['track_count'] as num?)?.toInt() ?? 0,
+      ownerName: map['owner_name'] as String?,
+      isPublic: (map['is_public'] as bool?) ?? true,
+      isCollaborative: (map['is_collaborative'] as bool?) ?? false,
+      snapshotId: map['snapshot_id'] as String?,
+    );
+  }
+}

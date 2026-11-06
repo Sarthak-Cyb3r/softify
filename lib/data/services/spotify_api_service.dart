@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../domain/entities/spotify_import.dart';
 import '../../domain/entities/track.dart';
 import '../search/text_normalizer.dart';
 import 'spotify_auth_service.dart';
@@ -173,6 +174,19 @@ class SpotifyApiService {
     final cacheKey = '${clean.toLowerCase()}_${limit}_$offset';
     if (_searchCache.containsKey(cacheKey)) {
       return _searchCache[cacheKey]!;
+    }
+
+    // Fast-path: When user is authenticated via Spotify PKCE, query the official Spotify Web API
+    // for direct, 100% accurate catalog data without anonymous rate limit risks.
+    if (await _isUserLoggedIn()) {
+      try {
+        final webResult = await _searchWebApi(clean, limit: limit, offset: offset);
+        if (webResult.tracks.isNotEmpty || webResult.artists.isNotEmpty) {
+          if (_searchCache.length >= 60) _searchCache.remove(_searchCache.keys.first);
+          _searchCache[cacheKey] = webResult;
+          return webResult;
+        }
+      } catch (_) {}
     }
 
     try {
@@ -964,5 +978,425 @@ class SpotifyApiService {
     final match = RegExp(r'[a-zA-Z0-9]{22}').firstMatch(clean);
     if (match != null) return match.group(0)!;
     return clean;
+  }
+
+  // --- Authenticated Spotify Web API User Library & Data Extraction ---
+
+  Future<bool> _isUserLoggedIn() async {
+    try {
+      return (await _authService?.isLoggedIn()) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Retrieves user's playlists directly via official Spotify Web API (`GET /v1/me/playlists`).
+  Future<List<SpotifyUserPlaylistSummary>> getCurrentUserPlaylists({
+    int limit = 50,
+    int offset = 0,
+    int maxPlaylists = 200,
+  }) async {
+    final List<SpotifyUserPlaylistSummary> playlists = [];
+    int currentOffset = offset;
+
+    try {
+      final token = await getValidToken();
+
+      while (playlists.length < maxPlaylists) {
+        final url = Uri.parse('https://api.spotify.com/v1/me/playlists').replace(
+          queryParameters: {
+            'limit': limit.toString(),
+            'offset': currentOffset.toString(),
+          },
+        );
+
+        final resp = await _client.get(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'User-Agent': _defaultUserAgent,
+          },
+        ).timeout(const Duration(seconds: 12));
+
+        if (resp.statusCode != 200) break;
+
+        final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+        final items = json['items'] as List<dynamic>? ?? [];
+        if (items.isEmpty) break;
+
+        for (final item in items) {
+          if (item is! Map<String, dynamic>) continue;
+          final id = item['id'] as String? ?? '';
+          final name = item['name'] as String? ?? 'Untitled Playlist';
+          final desc = item['description'] as String?;
+          final isPublic = item['public'] as bool? ?? true;
+          final isCollab = item['collaborative'] as bool? ?? false;
+          final snapshotId = item['snapshot_id'] as String?;
+          final owner = item['owner'] as Map<String, dynamic>?;
+          final ownerName =
+              owner?['display_name'] as String? ?? owner?['id'] as String?;
+          final tracksObj = item['tracks'] as Map<String, dynamic>?;
+          final totalTracks = (tracksObj?['total'] as num?)?.toInt() ?? 0;
+
+          String? coverUrl;
+          final images = item['images'] as List<dynamic>?;
+          if (images != null && images.isNotEmpty) {
+            final firstImg = images.first as Map<String, dynamic>?;
+            coverUrl = firstImg?['url'] as String?;
+          }
+
+          if (id.isNotEmpty) {
+            playlists.add(
+              SpotifyUserPlaylistSummary(
+                id: id,
+                name: name,
+                description: desc,
+                coverUrl: coverUrl,
+                trackCount: totalTracks,
+                ownerName: ownerName,
+                isPublic: isPublic,
+                isCollaborative: isCollab,
+                snapshotId: snapshotId,
+              ),
+            );
+          }
+        }
+
+        currentOffset += items.length;
+        final next = json['next'] as String?;
+        if (next == null || items.length < limit) break;
+      }
+
+      return playlists;
+    } catch (_) {
+      return playlists;
+    }
+  }
+
+  /// Retrieves user's Liked / Saved Tracks directly from Spotify Web API (`GET /v1/me/tracks`).
+  Future<SpotifyImportPlaylist> getCurrentUserLikedTracks({
+    int limit = 50,
+    int maxTracks = 5000,
+    void Function(int loaded, int total)? onProgress,
+  }) async {
+    final List<SpotifyTrackItem> allTracks = [];
+    int offset = 0;
+    int total = 0;
+
+    try {
+      final token = await getValidToken();
+
+      while (allTracks.length < maxTracks) {
+        final url = Uri.parse('https://api.spotify.com/v1/me/tracks').replace(
+          queryParameters: {
+            'limit': limit.toString(),
+            'offset': offset.toString(),
+          },
+        );
+
+        final resp = await _client.get(
+          url,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'User-Agent': _defaultUserAgent,
+          },
+        ).timeout(const Duration(seconds: 12));
+
+        if (resp.statusCode != 200) break;
+
+        final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+        total = (json['total'] as num?)?.toInt() ?? total;
+        final items = json['items'] as List<dynamic>? ?? [];
+        if (items.isEmpty) break;
+
+        for (final item in items) {
+          final tMap = item['track'] as Map<String, dynamic>?;
+          if (tMap == null) continue;
+          final parsed = _parseWebApiTrack(tMap);
+          if (parsed != null) allTracks.add(parsed);
+        }
+
+        offset += items.length;
+        onProgress?.call(allTracks.length, total);
+
+        final next = json['next'] as String?;
+        if (next == null || items.length < limit) break;
+      }
+
+      return SpotifyImportPlaylist(
+        id: 'me_liked_songs',
+        name: 'Liked Songs (Spotify)',
+        description: 'Imported from your Spotify Saved Tracks',
+        coverUrl: 'https://misc.scdn.co/liked-songs/liked-songs-300.png',
+        tracks: allTracks,
+      );
+    } catch (e) {
+      return SpotifyImportPlaylist(
+        id: 'me_liked_songs',
+        name: 'Liked Songs',
+        tracks: allTracks,
+        notice: 'Failed to fetch some liked songs: $e',
+      );
+    }
+  }
+
+  /// Retrieves full playlist metadata and all tracks directly via Spotify Web API.
+  Future<SpotifyImportPlaylist> getPlaylistWithTracksWebApi(
+    String playlistId, {
+    int maxTracks = 5000,
+    void Function(int loaded, int total)? onProgress,
+  }) async {
+    final cleanId = _extract22CharId(playlistId);
+    final List<SpotifyTrackItem> allTracks = [];
+    int total = 0;
+    String name = 'Imported Playlist';
+    String? desc;
+    String? coverUrl;
+
+    try {
+      final token = await getValidToken();
+
+      // 1. Fetch playlist metadata
+      final metaUrl = Uri.parse('https://api.spotify.com/v1/playlists/$cleanId');
+      final metaResp = await _client.get(
+        metaUrl,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'User-Agent': _defaultUserAgent,
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      if (metaResp.statusCode == 200) {
+        final metaJson = jsonDecode(utf8.decode(metaResp.bodyBytes)) as Map<String, dynamic>;
+        name = metaJson['name'] as String? ?? 'Imported Playlist';
+        desc = metaJson['description'] as String?;
+        final images = metaJson['images'] as List<dynamic>?;
+        if (images != null && images.isNotEmpty) {
+          final firstImg = images.first as Map<String, dynamic>?;
+          coverUrl = firstImg?['url'] as String?;
+        }
+        final tracksObj = metaJson['tracks'] as Map<String, dynamic>?;
+        total = (tracksObj?['total'] as num?)?.toInt() ?? 0;
+      }
+
+      // 2. Paginate tracks
+      int offset = 0;
+      const int pageSize = 100;
+
+      while (allTracks.length < maxTracks) {
+        final tracksUrl =
+            Uri.parse('https://api.spotify.com/v1/playlists/$cleanId/tracks').replace(
+          queryParameters: {
+            'limit': pageSize.toString(),
+            'offset': offset.toString(),
+          },
+        );
+
+        final tracksResp = await _client.get(
+          tracksUrl,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+            'User-Agent': _defaultUserAgent,
+          },
+        ).timeout(const Duration(seconds: 12));
+
+        if (tracksResp.statusCode != 200) break;
+
+        final tracksJson =
+            jsonDecode(utf8.decode(tracksResp.bodyBytes)) as Map<String, dynamic>;
+        total = (tracksJson['total'] as num?)?.toInt() ?? total;
+        final items = tracksJson['items'] as List<dynamic>? ?? [];
+        if (items.isEmpty) break;
+
+        for (final item in items) {
+          final tMap = item['track'] as Map<String, dynamic>?;
+          if (tMap == null) continue;
+          final parsed = _parseWebApiTrack(tMap);
+          if (parsed != null) allTracks.add(parsed);
+        }
+
+        offset += items.length;
+        onProgress?.call(allTracks.length, total);
+
+        final next = tracksJson['next'] as String?;
+        if (next == null || items.length < pageSize) break;
+      }
+
+      return SpotifyImportPlaylist(
+        id: cleanId,
+        name: name,
+        description: desc,
+        coverUrl: coverUrl,
+        tracks: allTracks,
+      );
+    } catch (e) {
+      return SpotifyImportPlaylist(
+        id: cleanId,
+        name: name,
+        description: desc,
+        coverUrl: coverUrl,
+        tracks: allTracks,
+        notice: 'Playlist tracks partially loaded: $e',
+      );
+    }
+  }
+
+  /// Official Spotify Web API search with authenticated Bearer token.
+  Future<SpotifySearchResult> _searchWebApi(
+    String query, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final token = await getValidToken();
+    final url = Uri.parse('https://api.spotify.com/v1/search').replace(queryParameters: {
+      'q': query,
+      'type': 'track,artist,album',
+      'limit': limit.toString(),
+      'offset': offset.toString(),
+    });
+
+    final resp = await _client.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'User-Agent': _defaultUserAgent,
+      },
+    ).timeout(const Duration(seconds: 8));
+
+    if (resp.statusCode != 200) {
+      return const SpotifySearchResult();
+    }
+
+    final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+
+    // 1. Tracks
+    final tracksJson = json['tracks']?['items'] as List<dynamic>? ?? [];
+    final List<Track> tracks = [];
+    for (final it in tracksJson) {
+      if (it is! Map<String, dynamic>) continue;
+      final t = _parseWebApiTrackEntity(it);
+      if (t != null) tracks.add(t);
+    }
+
+    // 2. Artists
+    final artistsJson = json['artists']?['items'] as List<dynamic>? ?? [];
+    final List<SpotifyArtistRef> artists = [];
+    for (final it in artistsJson) {
+      if (it is! Map<String, dynamic>) continue;
+      final id = it['id'] as String? ?? '';
+      final uri = it['uri'] as String? ?? (id.isNotEmpty ? 'spotify:artist:$id' : '');
+      final name = it['name'] as String? ?? '';
+      String? img;
+      final images = it['images'] as List<dynamic>?;
+      if (images != null && images.isNotEmpty) {
+        img = (images.first as Map<String, dynamic>?)?['url'] as String?;
+      }
+      if (name.isNotEmpty) {
+        artists.add(SpotifyArtistRef(id: id, uri: uri, name: name, imageUrl: img));
+      }
+    }
+
+    // 3. Albums
+    final albumsJson = json['albums']?['items'] as List<dynamic>? ?? [];
+    final List<SpotifyAlbumRef> albums = [];
+    for (final it in albumsJson) {
+      if (it is! Map<String, dynamic>) continue;
+      final id = it['id'] as String? ?? '';
+      final uri = it['uri'] as String? ?? (id.isNotEmpty ? 'spotify:album:$id' : '');
+      final name = it['name'] as String? ?? '';
+      final artistsList = it['artists'] as List<dynamic>?;
+      final artistName = artistsList
+          ?.map((a) => (a as Map<String, dynamic>?)?['name'] as String?)
+          .whereType<String>()
+          .join(', ');
+      String? cover;
+      final images = it['images'] as List<dynamic>?;
+      if (images != null && images.isNotEmpty) {
+        cover = (images.first as Map<String, dynamic>?)?['url'] as String?;
+      }
+      if (name.isNotEmpty) {
+        albums.add(SpotifyAlbumRef(
+            id: id, uri: uri, name: name, artist: artistName, coverUrl: cover));
+      }
+    }
+
+    return SpotifySearchResult(
+      tracks: tracks,
+      artists: artists,
+      albums: albums,
+      topResultTitles: tracks.take(3).map((t) => t.title).toList(),
+    );
+  }
+
+  SpotifyTrackItem? _parseWebApiTrack(Map<String, dynamic> trackMap) {
+    final name = trackMap['name'] as String?;
+    if (name == null || name.trim().isEmpty) return null;
+
+    final uri = trackMap['uri'] as String? ?? '';
+    final id = trackMap['id'] as String? ?? '';
+    final cleanUri =
+        uri.isNotEmpty ? uri : (id.isNotEmpty ? 'spotify:track:$id' : '');
+
+    final artistsList = trackMap['artists'] as List<dynamic>?;
+    final artist = artistsList
+            ?.map((a) => (a as Map<String, dynamic>?)?['name'] as String?)
+            .whereType<String>()
+            .join(', ') ??
+        'Unknown Artist';
+
+    final durationMs = (trackMap['duration_ms'] as num?)?.toInt() ?? 0;
+    final albumMap = trackMap['album'] as Map<String, dynamic>?;
+    String? coverUrl;
+    final images = albumMap?['images'] as List<dynamic>?;
+    if (images != null && images.isNotEmpty) {
+      final firstImg = images.first as Map<String, dynamic>?;
+      coverUrl = firstImg?['url'] as String?;
+    }
+
+    return SpotifyTrackItem(
+      spotifyUri: cleanUri,
+      title: name.trim(),
+      artist: artist.trim(),
+      duration: Duration(milliseconds: durationMs),
+      coverUrl: coverUrl,
+    );
+  }
+
+  Track? _parseWebApiTrackEntity(Map<String, dynamic> item) {
+    final title = (item['name'] as String?)?.trim();
+    if (title == null || title.isEmpty) return null;
+
+    final id = item['id'] as String? ?? '';
+    final artistsList = item['artists'] as List<dynamic>?;
+    final artist = artistsList
+            ?.map((a) => (a as Map<String, dynamic>?)?['name'] as String?)
+            .whereType<String>()
+            .join(', ') ??
+        'Unknown Artist';
+
+    final albumMap = item['album'] as Map<String, dynamic>?;
+    final album = albumMap?['name'] as String?;
+    String? cover;
+    final images = albumMap?['images'] as List<dynamic>?;
+    if (images != null && images.isNotEmpty) {
+      cover = (images.first as Map<String, dynamic>?)?['url'] as String?;
+    }
+
+    final durationMs = (item['duration_ms'] as num?)?.toInt() ?? 0;
+
+    return Track(
+      id: id.isNotEmpty ? 'spotify_$id' : 'spotify_${title}_$artist',
+      sourceId: id.isNotEmpty ? 'spotify_$id' : 'spotify_${title}_$artist',
+      title: title,
+      artist: artist,
+      album: album,
+      duration: Duration(milliseconds: durationMs),
+      coverUrl: cover,
+    );
   }
 }

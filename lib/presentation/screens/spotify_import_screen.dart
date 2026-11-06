@@ -44,6 +44,9 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
         .loadAndMatchPlaylist(_urlController.text);
   }
 
+  bool _isBatchImporting = false;
+  String? _batchImportStatus;
+
   Future<void> _connectSpotify() async {
     final authService = ref.read(spotifyAuthServiceProvider);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -54,6 +57,8 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     );
     final success = await authService.login();
     ref.invalidate(spotifyAuthStateProvider);
+    ref.invalidate(spotifyUserProfileProvider);
+    ref.invalidate(spotifyUserPlaylistsProvider);
     if (!mounted) return;
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,10 +83,57 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     final authService = ref.read(spotifyAuthServiceProvider);
     await authService.logout();
     ref.invalidate(spotifyAuthStateProvider);
+    ref.invalidate(spotifyUserProfileProvider);
+    ref.invalidate(spotifyUserPlaylistsProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Disconnected Spotify account.')),
     );
+  }
+
+  Future<void> _importAllPlaylists(List<SpotifyUserPlaylistSummary> playlists) async {
+    if (playlists.isEmpty) return;
+    setState(() {
+      _isBatchImporting = true;
+      _batchImportStatus = 'Starting batch import...';
+    });
+
+    try {
+      final count = await ref
+          .read(spotifyImportNotifierProvider.notifier)
+          .batchImportUserPlaylists(
+            playlists,
+            onProgress: (done, total, name) {
+              if (mounted) {
+                setState(() {
+                  _batchImportStatus = 'Importing $done of $total: "$name"...';
+                });
+              }
+            },
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully imported $count Spotify playlists into Softify!'),
+            backgroundColor: AppTheme.accent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Batch import error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBatchImporting = false;
+          _batchImportStatus = null;
+        });
+      }
+    }
   }
 
   @override
@@ -506,45 +558,9 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                 ),
               )
             else if (importState.status == SpotifyImportStatus.idle)
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: tokens.card,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.playlist_play,
-                          size: 48,
-                          color: tokens.accent,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Ready to Import',
-                        style: TextStyle(
-                          color: tokens.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Paste any public Spotify playlist URL above\nto stream and save your songs offline.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: tokens.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              isLoggedIn
+                  ? _buildConnectedUserLibrary(tokens)
+                  : _buildUnconnectedPrompt(tokens),
           ],
         ),
       ),
@@ -1082,6 +1098,447 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildConnectedUserLibrary(ThemeTokens tokens) {
+    final userPlaylistsAsync = ref.watch(spotifyUserPlaylistsProvider);
+    final userProfileAsync = ref.watch(spotifyUserProfileProvider);
+
+    return Expanded(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+        children: [
+          if (_isBatchImporting)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: tokens.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(tokens.radiusCard),
+                border: Border.all(color: tokens.accent.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: tokens.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _batchImportStatus ?? 'Importing playlists...',
+                      style: TextStyle(
+                        color: tokens.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // User Profile Card
+          userProfileAsync.when(
+            data: (profile) {
+              if (profile == null) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: tokens.card,
+                  borderRadius: BorderRadius.circular(tokens.radiusCard),
+                  border: Border.all(color: tokens.surfaceHighlight),
+                ),
+                child: Row(
+                  children: [
+                    if (profile.avatarUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: AppNetworkImage(
+                          url: profile.avatarUrl!,
+                          width: 40,
+                          height: 40,
+                        ),
+                      )
+                    else
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: tokens.accent,
+                        child: Text(
+                          profile.displayName.isNotEmpty
+                              ? profile.displayName[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  profile.displayName,
+                                  style: TextStyle(
+                                    color: tokens.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: tokens.accent.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(tokens.radiusPill),
+                                ),
+                                child: Text(
+                                  profile.isPremium ? 'PREMIUM' : 'CONNECTED',
+                                  style: TextStyle(
+                                    color: tokens.accent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (profile.email != null)
+                            Text(
+                              profile.email!,
+                              style: TextStyle(
+                                color: tokens.textSecondary,
+                                fontSize: 11,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Disconnect Account',
+                      icon: const Icon(Icons.logout, size: 18, color: Colors.redAccent),
+                      onPressed: _disconnectSpotify,
+                    ),
+                  ],
+                ),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+
+          // Liked Songs Quick Import Tile
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF450af5).withValues(alpha: 0.35),
+                  const Color(0xFF8e8ee5).withValues(alpha: 0.15),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(tokens.radiusCard),
+              border: Border.all(
+                color: const Color(0xFF450af5).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF450af5), Color(0xFF8e8ee5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(tokens.radiusCard),
+                  ),
+                  child: const Icon(Icons.favorite, color: Colors.white, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Liked Songs',
+                        style: TextStyle(
+                          color: tokens.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Import your saved tracks directly into Softify',
+                        style: TextStyle(
+                          color: tokens.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: tokens.accent,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(tokens.radiusPill),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    ref.read(spotifyImportNotifierProvider.notifier).loadUserLikedSongs();
+                  },
+                  child: const Text(
+                    'Import',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Playlists Header
+          userPlaylistsAsync.when(
+            data: (playlists) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Your Playlists (${playlists.length})',
+                        style: TextStyle(
+                          color: tokens.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: AppTheme.fontDisplay,
+                        ),
+                      ),
+                      if (playlists.isNotEmpty)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: tokens.accent,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.download, size: 16),
+                          label: const Text('Import All', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: _isBatchImporting
+                              ? null
+                              : () => _importAllPlaylists(playlists),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (playlists.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'No playlists found in your Spotify account.',
+                          style: TextStyle(color: tokens.textSecondary, fontSize: 13),
+                        ),
+                      ),
+                    )
+                  else
+                    ...playlists.map((playlist) => _buildUserPlaylistTile(playlist, tokens)),
+                ],
+              );
+            },
+            loading: () => Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: CircularProgressIndicator(color: tokens.accent, strokeWidth: 2),
+              ),
+            ),
+            error: (err, _) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'Failed to load playlists: $err',
+                  style: TextStyle(color: tokens.error, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserPlaylistTile(
+    SpotifyUserPlaylistSummary playlist,
+    ThemeTokens tokens,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tokens.card,
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+        border: Border.all(color: tokens.surfaceHighlight),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: playlist.coverUrl != null
+                ? AppNetworkImage(
+                    url: playlist.coverUrl!,
+                    width: 48,
+                    height: 48,
+                  )
+                : Container(
+                    width: 48,
+                    height: 48,
+                    color: tokens.surfaceHighlight,
+                    child: Icon(Icons.music_note, color: tokens.textMuted, size: 24),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  playlist.name,
+                  style: TextStyle(
+                    color: tokens.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${playlist.trackCount} tracks • ${playlist.ownerName ?? 'Spotify'}',
+                  style: TextStyle(
+                    color: tokens.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: tokens.accent,
+              side: BorderSide(color: tokens.accent.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusPill),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () {
+              ref.read(spotifyImportNotifierProvider.notifier).loadUserPlaylist(playlist);
+            },
+            child: const Text('Import', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnconnectedPrompt(ThemeTokens tokens) {
+    return Expanded(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: tokens.accent.withValues(alpha: 0.4), width: 1.5),
+                ),
+                child: Icon(
+                  Icons.sync,
+                  size: 36,
+                  color: tokens.accent,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Connect Your Spotify',
+                style: TextStyle(
+                  color: tokens.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: AppTheme.fontDisplay,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Link your Spotify account to extract authentic metadata directly through Spotify and import your personal playlists and liked songs into Softify with zero ads or limits.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: tokens.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: tokens.accent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  ),
+                ),
+                icon: const Icon(Icons.account_circle, size: 20),
+                label: const Text(
+                  'Connect Spotify Account',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                onPressed: _connectSpotify,
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: Colors.white10),
+              const SizedBox(height: 12),
+              Text(
+                'Or paste any public Spotify playlist URL in the search field above.',
+                style: TextStyle(
+                  color: tokens.textMuted,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

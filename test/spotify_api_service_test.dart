@@ -407,5 +407,103 @@ void main() {
       expect(tracks.first.artist, equals('Pritam, Arijit Singh'));
       expect(tracks.last.title, equals('Dil Diyan Gallan'));
     });
+
+    test('getCurrentUserPlaylists fetches and parses user playlists from Web API', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.toString() == 'https://open.spotify.com/embed/api/token') {
+          return http.Response(
+            jsonEncode({
+              'accessToken': 'test_token',
+              'accessTokenExpirationTimestampMs':
+                  DateTime.now().millisecondsSinceEpoch + 3600000,
+            }),
+            200,
+          );
+        }
+
+        if (request.url.path == '/v1/me/playlists') {
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'id': 'pl_123',
+                  'name': 'My Chill Mix',
+                  'description': 'Relaxing vibes',
+                  'public': true,
+                  'collaborative': false,
+                  'snapshot_id': 'snap123',
+                  'images': [{'url': 'https://cover.art/pl123.jpg'}],
+                  'owner': {'display_name': 'Test User', 'id': 'user_1'},
+                  'tracks': {'total': 25},
+                }
+              ],
+              'total': 1,
+              'next': null,
+            }),
+            200,
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final service = SpotifyApiService(client: mockClient);
+      final playlists = await service.getCurrentUserPlaylists();
+
+      expect(playlists.length, equals(1));
+      expect(playlists.first.id, equals('pl_123'));
+      expect(playlists.first.name, equals('My Chill Mix'));
+      expect(playlists.first.trackCount, equals(25));
+      expect(playlists.first.coverUrl, equals('https://cover.art/pl123.jpg'));
+    });
+
+    test('getCurrentUserLikedTracks fetches saved tracks with original metadata', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.toString() == 'https://open.spotify.com/embed/api/token') {
+          return http.Response(
+            jsonEncode({
+              'accessToken': 'test_token',
+              'accessTokenExpirationTimestampMs':
+                  DateTime.now().millisecondsSinceEpoch + 3600000,
+            }),
+            200,
+          );
+        }
+
+        if (request.url.path == '/v1/me/tracks') {
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'track': {
+                    'id': 'track_liked_1',
+                    'uri': 'spotify:track:track_liked_1',
+                    'name': 'Kesariya',
+                    'artists': [{'name': 'Arijit Singh'}, {'name': 'Pritam'}],
+                    'album': {
+                      'name': 'Brahmastra',
+                      'images': [{'url': 'https://cover.art/kesariya.jpg'}],
+                    },
+                    'duration_ms': 268000,
+                  }
+                }
+              ],
+              'total': 1,
+              'next': null,
+            }),
+            200,
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final service = SpotifyApiService(client: mockClient);
+      final likedPlaylist = await service.getCurrentUserLikedTracks();
+
+      expect(likedPlaylist.id, equals('me_liked_songs'));
+      expect(likedPlaylist.tracks.length, equals(1));
+      expect(likedPlaylist.tracks.first.title, equals('Kesariya'));
+      expect(likedPlaylist.tracks.first.artist, equals('Arijit Singh, Pritam'));
+      expect(likedPlaylist.tracks.first.coverUrl, equals('https://cover.art/kesariya.jpg'));
+    });
   });
 }

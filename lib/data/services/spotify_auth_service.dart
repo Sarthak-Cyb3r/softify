@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../domain/entities/spotify_import.dart';
 import '../database/app_database.dart';
 
 /// Service managing Spotify OAuth 2.0 PKCE authentication.
@@ -28,6 +29,11 @@ class SpotifyAuthService {
   static const String _keyRefreshToken = 'spotify_refresh_token';
   static const String _keyExpiresAt = 'spotify_token_expires_at';
   static const String _keyUserName = 'spotify_user_name';
+  static const String _keyUserId = 'spotify_user_id';
+  static const String _keyUserEmail = 'spotify_user_email';
+  static const String _keyUserImage = 'spotify_user_image';
+  static const String _keyUserProduct = 'spotify_user_product';
+  static const String _keyUserCountry = 'spotify_user_country';
 
   static const String _tokenEndpoint = 'https://accounts.spotify.com/api/token';
   static const String _authorizeEndpoint = 'https://accounts.spotify.com/authorize';
@@ -45,12 +51,63 @@ class SpotifyAuthService {
     return token != null && token.isNotEmpty;
   }
 
+  /// Watches login state reactively from SQLite settings table.
+  Stream<bool> watchIsLoggedIn() {
+    return (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyAccessToken)))
+        .watchSingleOrNull()
+        .map((row) => row != null && row.value.isNotEmpty);
+  }
+
   /// Returns the cached Spotify display name or user ID, if logged in.
   Future<String?> getConnectedUserName() async {
     final row = await (_db.select(_db.settings)
           ..where((t) => t.key.equals(_keyUserName)))
         .getSingleOrNull();
     return row?.value;
+  }
+
+  /// Returns the full cached Spotify profile, fetching from Spotify if missing.
+  Future<SpotifyUserProfile?> getConnectedUserProfile() async {
+    final token = await getValidAccessToken();
+    if (token == null || token.isEmpty) return null;
+
+    final nameRow = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyUserName)))
+        .getSingleOrNull();
+    final idRow = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyUserId)))
+        .getSingleOrNull();
+    final imageRow = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyUserImage)))
+        .getSingleOrNull();
+    final emailRow = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyUserEmail)))
+        .getSingleOrNull();
+    final productRow = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyUserProduct)))
+        .getSingleOrNull();
+    final countryRow = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyUserCountry)))
+        .getSingleOrNull();
+
+    if (idRow == null || idRow.value.isEmpty) {
+      await _fetchAndStoreUserProfile();
+      final freshIdRow = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals(_keyUserId)))
+          .getSingleOrNull();
+      if (freshIdRow == null || freshIdRow.value.isEmpty) return null;
+      return getConnectedUserProfile();
+    }
+
+    return SpotifyUserProfile(
+      id: idRow.value,
+      displayName: nameRow?.value.isNotEmpty == true ? nameRow!.value : 'Spotify User',
+      email: emailRow?.value,
+      avatarUrl: imageRow?.value,
+      product: productRow?.value,
+      country: countryRow?.value,
+    );
   }
 
   /// Retrieves a valid Bearer access token, refreshing it if expired.
@@ -191,7 +248,8 @@ class SpotifyAuthService {
       'code_challenge_method': 'S256',
       'code_challenge': challenge,
       'state': expectedState,
-      'scope': 'playlist-read-private playlist-read-collaborative user-library-read',
+      'scope':
+          'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read user-top-read user-follow-read',
     });
 
     final launched = await launchUrl(authUri, mode: LaunchMode.externalApplication);
@@ -229,6 +287,11 @@ class SpotifyAuthService {
                 _keyRefreshToken,
                 _keyExpiresAt,
                 _keyUserName,
+                _keyUserId,
+                _keyUserEmail,
+                _keyUserImage,
+                _keyUserProduct,
+                _keyUserCountry,
               ])))
         .go();
   }
@@ -331,9 +394,45 @@ class SpotifyAuthService {
       if (response.statusCode == 200) {
         final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         final displayName = (json['display_name'] as String?) ?? (json['id'] as String?);
+        final userId = json['id'] as String?;
+        final email = json['email'] as String?;
+        final product = json['product'] as String?;
+        final country = json['country'] as String?;
+        String? avatarUrl;
+        final images = json['images'] as List<dynamic>?;
+        if (images != null && images.isNotEmpty) {
+          final first = images.first as Map<String, dynamic>?;
+          avatarUrl = first?['url'] as String?;
+        }
+
         if (displayName != null && displayName.isNotEmpty) {
           await _db.into(_db.settings).insertOnConflictUpdate(
                 SettingRow(key: _keyUserName, value: displayName),
+              );
+        }
+        if (userId != null && userId.isNotEmpty) {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                SettingRow(key: _keyUserId, value: userId),
+              );
+        }
+        if (email != null && email.isNotEmpty) {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                SettingRow(key: _keyUserEmail, value: email),
+              );
+        }
+        if (product != null && product.isNotEmpty) {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                SettingRow(key: _keyUserProduct, value: product),
+              );
+        }
+        if (country != null && country.isNotEmpty) {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                SettingRow(key: _keyUserCountry, value: country),
+              );
+        }
+        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                SettingRow(key: _keyUserImage, value: avatarUrl),
               );
         }
       }
