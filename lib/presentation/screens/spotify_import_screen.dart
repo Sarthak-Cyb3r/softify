@@ -1101,7 +1101,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     );
   }
 
-  Widget _buildConnectedUserLibrary(ThemeTokens tokens) {
+  Widget _buildConnectedUserLibrary(AppTokens tokens) {
     final userPlaylistsAsync = ref.watch(spotifyUserPlaylistsProvider);
     final userProfileAsync = ref.watch(spotifyUserProfileProvider);
 
@@ -1161,7 +1161,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(20),
                         child: AppNetworkImage(
-                          url: profile.avatarUrl!,
+                          imageUrl: profile.avatarUrl!,
                           width: 40,
                           height: 40,
                         ),
@@ -1391,7 +1391,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
 
   Widget _buildUserPlaylistTile(
     SpotifyUserPlaylistSummary playlist,
-    ThemeTokens tokens,
+    AppTokens tokens,
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1407,7 +1407,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
             borderRadius: BorderRadius.circular(6),
             child: playlist.coverUrl != null
                 ? AppNetworkImage(
-                    url: playlist.coverUrl!,
+                    imageUrl: playlist.coverUrl!,
                     width: 48,
                     height: 48,
                   )
@@ -1465,7 +1465,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     );
   }
 
-  Widget _buildUnconnectedPrompt(ThemeTokens tokens) {
+  Widget _buildUnconnectedPrompt(AppTokens tokens) {
     return Expanded(
       child: Center(
         child: SingleChildScrollView(
