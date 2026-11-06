@@ -1,9 +1,6 @@
 name: Release Build (iOS)
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       upload_release:

@@ -35,43 +35,19 @@ void main() {
       // Verify header and badge
       expect(find.text("What's New"), findsOneWidget);
       expect(find.text('v3.0.9'), findsOneWidget);
-      expect(find.text('Fresh looks, living artwork & smoother music'), findsOneWidget);
+      expect(find.text('Spotify account sync, pure studio audio & high-res art'), findsOneWidget);
 
-      // Verify v4.0.1 consumer-friendly cards
+      // Verify v4.0.2 consumer-friendly cards
+      expect(find.text('Spotify Library & Playlists Import'), findsOneWidget);
+      expect(find.text('High-Resolution Spotify Metadata'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Studio Audio & Anti-Remix Shield'), 150);
+      expect(find.text('Studio Audio & Anti-Remix Shield'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Real-Time Audio Quality Switching'), 150);
       expect(find.text('Real-Time Audio Quality Switching'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Language-Personalized Moods'), 150);
       expect(find.text('Language-Personalized Moods'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Spotify Catalog & Fast Search'), 150);
-      expect(find.text('Spotify Catalog & Fast Search'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Kinetic Synced Lyrics'), 150);
       expect(find.text('Kinetic Synced Lyrics'), findsOneWidget);
-
-      // Verify simple consumer-friendly cards
-      await tester.scrollUntilVisible(find.text('Accurate Audio Matching'), 150);
-      expect(find.text('Accurate Audio Matching'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Multi-Provider Lyrics Engine'), 150);
-      expect(find.text('Multi-Provider Lyrics Engine'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Listen Together Rooms'), 150);
-      expect(find.text('Listen Together Rooms'), findsOneWidget);
-
-      await tester.scrollUntilVisible(find.text('Instant Liked Songs'), 150);
-      expect(find.text('Instant Liked Songs'), findsOneWidget);
-
-      // Scroll to verify remaining cards
-      await tester.scrollUntilVisible(find.text('Living Motion Album Artwork'), 150);
-      expect(find.text('Living Motion Album Artwork'), findsOneWidget);
-
-      await tester.scrollUntilVisible(find.text('Cinematic Blurred Lyrics'), 150);
-      expect(find.text('Cinematic Blurred Lyrics'), findsOneWidget);
-
-      // Scroll to verify remaining cards
-      await tester.scrollUntilVisible(find.text('Liquid Glass Interface'), 150);
-      expect(find.text('Liquid Glass Interface'), findsOneWidget);
-
-      await tester.scrollUntilVisible(find.text('Smooth & Safe App Updates'), 150);
-      expect(find.text('Smooth & Safe App Updates'), findsOneWidget);
-
-      await tester.scrollUntilVisible(find.text('Faster & More Stable'), 150);
-      expect(find.text('Faster & More Stable'), findsOneWidget);
 
       // Verify bottom action button
       expect(find.text("Got It, Let's Play!"), findsOneWidget);
@@ -83,7 +59,7 @@ void main() {
       expect(find.text("What's New"), findsNothing);
     });
 
-    testWidgets('UpdateChangelogSheet defaults to version 4.0.1', (tester) async {
+    testWidgets('UpdateChangelogSheet defaults to version 4.0.2', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -101,8 +77,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text("What's New"), findsOneWidget);
-      expect(find.text('v4.0.1'), findsOneWidget);
-      expect(find.text('Real-Time Audio Quality Switching'), findsOneWidget);
+      expect(find.text('v4.0.2'), findsOneWidget);
+      expect(find.text('Spotify Library & Playlists Import'), findsOneWidget);
     });
   });
 

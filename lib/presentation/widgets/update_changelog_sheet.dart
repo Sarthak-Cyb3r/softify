@@ -11,11 +11,11 @@ class UpdateChangelogSheet extends StatelessWidget {
 
   const UpdateChangelogSheet({
     super.key,
-    this.version = '4.0.1',
+    this.version = '4.0.2',
   });
 
   /// Displays the changelog modal sheet.
-  static Future<void> show(BuildContext context, {String version = '4.0.1'}) {
+  static Future<void> show(BuildContext context, {String version = '4.0.2'}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -154,7 +154,7 @@ class UpdateChangelogSheet extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Fresh looks, living artwork & smoother music',
+                                  'Spotify account sync, pure studio audio & high-res art',
                                   style: TextStyle(
                                     color: tokens.textSecondary,
                                     fontSize: 12.5,
@@ -183,6 +183,33 @@ class UpdateChangelogSheet extends StatelessWidget {
                         children: [
                           _buildChangelogCard(
                             context: context,
+                            icon: Icons.sync_alt_rounded,
+                            iconColor: const Color(0xFF1DB954),
+                            title: 'Spotify Library & Playlists Import',
+                            description:
+                                'Connect your Spotify account with 1-tap PKCE login to view and import your Liked Songs and personal playlists directly into Softify.',
+                            badge: 'Spotify Sync',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.album_rounded,
+                            iconColor: const Color(0xFF40C4FF),
+                            title: 'High-Resolution Spotify Metadata',
+                            description:
+                                'Track titles, verified artists, albums, and authentic 640x640 album covers are borrowed directly from Spotify, eliminating low-res video thumbnails.',
+                            badge: 'Metadata',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.verified_rounded,
+                            iconColor: const Color(0xFF69F0AE),
+                            title: 'Studio Audio & Anti-Remix Shield',
+                            description:
+                                'Strict studio audio matching rejects unwanted remixes, covers, lofi, and karaoke cuts, preserving authentic 320 Kbps studio master playback.',
+                            badge: 'Audio Engine',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
                             icon: Icons.graphic_eq_rounded,
                             iconColor: const Color(0xFF4EDEA3),
                             title: 'Real-Time Audio Quality Switching',
@@ -196,17 +223,8 @@ class UpdateChangelogSheet extends StatelessWidget {
                             iconColor: const Color(0xFF40C4FF),
                             title: 'Language-Personalized Moods',
                             description:
-                                'Mood shelves now automatically learn your listening language (Hindi, Punjabi, Tamil, Spanish, etc.) and bring songs in your favorite regional sounds.',
+                                'Mood shelves automatically learn your listening language (Hindi, Punjabi, Tamil, Spanish, etc.) and bring songs in your favorite regional sounds.',
                             badge: 'Taste Engine',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.search_rounded,
-                            iconColor: const Color(0xFF00E676),
-                            title: 'Spotify Catalog & Fast Search',
-                            description:
-                                'Search results now extract authentic Spotify catalog metadata with instantaneous artist profile appearance and working category filters.',
-                            badge: 'Search',
                           ),
                           _buildChangelogCard(
                             context: context,
@@ -216,105 +234,6 @@ class UpdateChangelogSheet extends StatelessWidget {
                             description:
                                 'Synchronized karaoke lyrics track along with every beat with multi-catalog fallback to prevent plain text lyrics.',
                             badge: 'Lyrics',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.graphic_eq_rounded,
-                            iconColor: const Color(0xFF4EDEA3),
-                            title: 'Accurate Audio Matching',
-                            description:
-                                'Song titles are now verified with strict word matching and phonetic transliteration, completely eliminating incorrect track substitutions on movie soundtracks.',
-                            badge: 'Audio Engine',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.subtitles_rounded,
-                            iconColor: const Color(0xFFFFB74D),
-                            title: 'Multi-Provider Lyrics Engine',
-                            description:
-                                'Lyrics now load reliably across multiple global catalogs with multi-artist and subtitle extraction, eliminating blank lyric screens.',
-                            badge: 'Lyrics',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.group_rounded,
-                            iconColor: const Color(0xFF00E676),
-                            title: 'Listen Together Rooms',
-                            description:
-                                'Track switches and playback now sync smoothly across mobile and desktop devices in shared rooms with precise sub-second clock alignment.',
-                            badge: 'Social',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.favorite_rounded,
-                            iconColor: const Color(0xFFFF4081),
-                            title: 'Instant Liked Songs',
-                            description:
-                                'Favorites save instantly across search, playlists, and full-screen player, staying permanently preserved across app restarts.',
-                            badge: 'Library',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.music_note_rounded,
-                            iconColor: const Color(0xFFFF5252),
-                            title: 'Apple Music Style Player',
-                            description:
-                                'Choose between Softify Classic and modern Apple Music style player with a floating bottom control dock, repeat toggle, and handy volume slider.',
-                            badge: 'New Style',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.tune_rounded,
-                            iconColor: const Color(0xFF40C4FF),
-                            title: 'Edge-to-Edge Navigation',
-                            description:
-                                'Mood filter chips scroll cleanly with mouse drag support on desktop and full edge-to-edge flow on mobile screens.',
-                            badge: 'UI/UX',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.movie_filter_rounded,
-                            iconColor: const Color(0xFF4EDEA3),
-                            title: 'Living Motion Album Artwork',
-                            description:
-                                'Album covers now come alive with smooth, high-definition video artwork that loops seamlessly while you listen — no login needed.',
-                            badge: 'Visuals',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.subtitles_rounded,
-                            iconColor: const Color(0xFFFFB74D),
-                            title: 'Cinematic Blurred Lyrics',
-                            description:
-                                'Active lyric lines stay sharp in the spotlight while past and upcoming lines gently soften with a natural optical blur.',
-                            badge: 'Lyrics',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.blur_on_rounded,
-                            iconColor: const Color(0xFF40C4FF),
-                            title: 'Liquid Glass Interface',
-                            description:
-                                'Enjoy an eye-catching frosted-glass design featuring glossy highlights and ambient reflections in the Aurora Glass theme.',
-                            badge: 'Theme',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.verified_user_rounded,
-                            iconColor: const Color(0xFF69F0AE),
-                            title: 'Smooth & Safe App Updates',
-                            description:
-                                'Fixed Play Protect warnings and streamlined background updates so staying on the latest version is completely hassle-free.',
-                            badge: 'Reliability',
-                          ),
-                          _buildChangelogCard(
-                            context: context,
-                            icon: Icons.bolt_rounded,
-                            iconColor: const Color(0xFFFFD54F),
-                            title: 'Faster & More Stable',
-                            description:
-                                'Smoother audio crossfades, faster search responses, reduced battery usage, and overall playback improvements.',
-                            badge: 'Performance',
                           ),
                         ],
                       ),

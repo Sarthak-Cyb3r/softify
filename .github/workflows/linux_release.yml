@@ -80,5 +80,6 @@ jobs:
         with:
           tag_name: ${{ inputs.target_tag || github.ref_name }}
           files: Softify-Linux-x64.tar.gz
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
