@@ -15,7 +15,7 @@ on:
 jobs:
   build-linux:
     name: Build Linux x64 Bundle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 45
     permissions:
       contents: write
@@ -25,13 +25,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Linux Build Dependencies
+        timeout-minutes: 6
         env:
           DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
         run: |
-          sudo -E apt-get clean || true
-          sudo -E apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -qq
-          sudo -E apt-get install -y -qq --no-install-recommends \
-            -o Acquire::Retries=3 -o Acquire::http::Timeout=15 \
+          echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev \
             liblzma-dev \
             libasound2-dev \
