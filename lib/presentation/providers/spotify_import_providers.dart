@@ -7,6 +7,7 @@ import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_spotify_importer.dart';
 import 'player_providers.dart';
 
+import '../../data/services/spotify_api_service.dart';
 import '../../data/services/spotify_auth_service.dart';
 
 final spotifyAuthServiceProvider = Provider<SpotifyAuthService>((ref) {
