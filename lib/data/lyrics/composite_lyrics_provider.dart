@@ -8,6 +8,7 @@ import 'kugou_lyrics_provider.dart';
 import 'lrclib_lyrics_provider.dart';
 import 'netease_lyrics_provider.dart';
 import 'saavn_lyrics_provider.dart';
+import 'spotify_lyrics_synchronizer.dart';
 
 /// Multi-source lyrics engine combining Softify Verified Studio Master (Tier 0),
 /// Spotify Color-Lyrics v2 (Primary), LRCLIB, NetEase, Kugou, JioSaavn, and Genius catalogs.
@@ -272,23 +273,48 @@ class CompositeLyricsProvider implements ILyricsProvider {
 
   SyncedLyrics? _sanitize(SyncedLyrics? lyrics, Track track) {
     if (lyrics == null) return null;
-    if (!lyrics.isSynced || lyrics.lines.isEmpty) return lyrics;
+    final targetDuration = track.duration;
+    final targetSec = targetDuration.inSeconds;
 
-    final targetSec = track.duration.inSeconds;
-    if (targetSec <= 60) return lyrics;
-
-    final lastTs = lyrics.lines.last.timestamp.inSeconds;
-    if (lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
-      final plain = lyrics.plainLyrics ??
-          lyrics.lines.map((l) => l.text).where((t) => t.trim().isNotEmpty).join('\n');
-      return SyncedLyrics(
-        trackId: lyrics.trackId,
-        lines: const [],
-        plainLyrics: plain.trim().isNotEmpty ? plain : null,
-        syncType: 'UNSYNCED',
-        providerName: '${lyrics.providerName} (Truncated->Unsynced)',
-      );
+    // 1. If lyrics has synced lines, but was truncated (e.g. radio cut on extended live recording)
+    if (lyrics.isSynced && lyrics.lines.isNotEmpty && targetSec > 60) {
+      final lastTs = lyrics.lines.last.timestamp.inSeconds;
+      if (lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
+        final adapted = SpotifyLyricsSynchronizer.adaptLrcToDuration(
+          lyrics.lines,
+          targetDuration,
+        );
+        return SyncedLyrics(
+          trackId: lyrics.trackId,
+          lines: adapted,
+          plainLyrics: lyrics.plainLyrics,
+          rawLrc: lyrics.rawLrc,
+          syncType: 'LINE_SYNCED',
+          providerName: '${lyrics.providerName} (Time-Adapted)',
+        );
+      }
     }
+
+    // 2. If lyrics is unsynced (only plain text), synthesize paced lines so Apple Music kinetic view works
+    if ((!lyrics.isSynced || lyrics.lines.isEmpty) &&
+        lyrics.plainLyrics != null &&
+        lyrics.plainLyrics!.trim().isNotEmpty &&
+        targetSec > 10) {
+      final pacedLines = SpotifyLyricsSynchronizer.synthesizePacedLines(
+        lyrics.plainLyrics!,
+        targetDuration,
+      );
+      if (pacedLines.isNotEmpty) {
+        return SyncedLyrics(
+          trackId: lyrics.trackId,
+          lines: pacedLines,
+          plainLyrics: lyrics.plainLyrics,
+          syncType: 'LINE_SYNCED',
+          providerName: '${lyrics.providerName} (Kinetic Paced)',
+        );
+      }
+    }
+
     return lyrics;
   }
 

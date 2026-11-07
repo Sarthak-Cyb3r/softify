@@ -368,4 +368,59 @@ class SpotifyLyricsSynchronizer {
     final secondOctet = int.tryParse(parts[1]);
     return secondOctet != null && secondOctet >= 16 && secondOctet <= 31;
   }
+
+  /// Proportionally adapts premature / radio-cut LRC lines across an extended track recording.
+  /// Preserves relative cadence while avoiding dead pauses or premature truncation.
+  static List<LyricLine> adaptLrcToDuration(
+    List<LyricLine> lines,
+    Duration targetDuration,
+  ) {
+    if (lines.isEmpty) return const [];
+    final targetSec = targetDuration.inSeconds.toDouble();
+    if (targetSec <= 60) return lines;
+
+    final origLastSec = lines.last.timestamp.inSeconds.toDouble();
+    if (origLastSec <= 0 || origLastSec >= targetSec * 0.75) return lines;
+
+    final scale = (targetSec * 0.95) / origLastSec;
+
+    return lines.map((l) {
+      final scaledMs = (l.timestamp.inMilliseconds * scale).round();
+      return LyricLine(
+        timestamp: Duration(milliseconds: scaledMs),
+        text: l.text,
+        agent: l.agent,
+      );
+    }).toList();
+  }
+
+  /// Synthesizes progressive kinetic line timestamps for plain lyrics across the track duration.
+  /// Enables full kinetic optical-blur animation, active highlighting, and auto-scrolling
+  /// even when a track only has unsynced plain lyrics.
+  static List<LyricLine> synthesizePacedLines(
+    String plainText,
+    Duration trackDuration,
+  ) {
+    final rawLines = plainText
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && !l.startsWith('[') && !l.endsWith(']'))
+        .toList();
+    if (rawLines.isEmpty) return const [];
+
+    final totalSec = trackDuration.inSeconds > 15 ? trackDuration.inSeconds.toDouble() : 180.0;
+    // Standard musical intro of ~6-8% of track (min 3s, max 30s)
+    final introSec = (totalSec * 0.08).clamp(3.0, 30.0);
+    final outroSec = (totalSec * 0.05).clamp(2.0, 25.0);
+    final vocalSec = totalSec - introSec - outroSec;
+    final stepSec = vocalSec / math.max(1, rawLines.length);
+
+    return List.generate(rawLines.length, (i) {
+      final lineSec = introSec + (i * stepSec);
+      return LyricLine(
+        timestamp: Duration(milliseconds: (lineSec * 1000).round()),
+        text: rawLines[i],
+      );
+    });
+  }
 }

@@ -178,30 +178,41 @@ class LrclibLyricsProvider implements ILyricsProvider {
           return null;
         }
 
-        final durationMismatch =
-            targetSec > 30 && candDur > 0 && !isDurationAcceptable(candDur, targetSec);
-
-        if (syncedLrc != null && syncedLrc.trim().isNotEmpty && !durationMismatch) {
+        if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
           final lines = parseLrc(syncedLrc);
-          if (lines.isNotEmpty && isLrcCoverageValid(lines, targetSec)) {
+          if (lines.isNotEmpty) {
+            final isValid = isLrcCoverageValid(lines, targetSec) &&
+                (candDur <= 0 || isDurationAcceptable(candDur, targetSec));
+            final adaptedLines = isValid
+                ? lines
+                : SpotifyLyricsSynchronizer.adaptLrcToDuration(
+                    lines,
+                    Duration(seconds: targetSec.round()),
+                  );
             return SyncedLyrics(
               trackId: trackId,
-              lines: lines,
+              lines: adaptedLines,
               plainLyrics: plainLyrics,
               rawLrc: syncedLrc,
               syncType: 'LINE_SYNCED',
-              providerName: 'LRCLIB',
+              providerName: isValid ? 'LRCLIB' : 'LRCLIB (Time-Adapted)',
             );
           }
         }
 
         if (plainLyrics != null && plainLyrics.trim().isNotEmpty) {
+          final pacedLines = targetSec > 10
+              ? SpotifyLyricsSynchronizer.synthesizePacedLines(
+                  plainLyrics.trim(),
+                  Duration(seconds: targetSec.round()),
+                )
+              : const <LyricLine>[];
           return SyncedLyrics(
             trackId: trackId,
-            lines: const [],
+            lines: pacedLines,
             plainLyrics: plainLyrics.trim(),
-            syncType: 'UNSYNCED',
-            providerName: 'LRCLIB (Plain)',
+            syncType: 'LINE_SYNCED',
+            providerName: 'LRCLIB (Paced Plain)',
           );
         }
       }
@@ -258,27 +269,32 @@ class LrclibLyricsProvider implements ILyricsProvider {
                 }).toList()
               : syncedCandidates;
 
-          if (targetSec > 30 && viable.isNotEmpty) {
-            viable.sort((a, b) {
+          final candidateList = viable.isNotEmpty ? viable : syncedCandidates;
+          if (targetSec > 30) {
+            candidateList.sort((a, b) {
               final durA = (a['duration'] as num?)?.toDouble() ?? 0.0;
               final durB = (b['duration'] as num?)?.toDouble() ?? 0.0;
               return (durA - targetSec).abs().compareTo((durB - targetSec).abs());
             });
           }
 
-          for (final cand in viable) {
+          for (final cand in candidateList) {
             final syncedLrc = cand['syncedLyrics'] as String?;
             final plainLyrics = cand['plainLyrics'] as String?;
             if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
               final lines = parseLrc(syncedLrc);
-              if (lines.isNotEmpty && isLrcCoverageValid(lines, targetSec)) {
+              if (lines.isNotEmpty) {
+                final isValid = isLrcCoverageValid(lines, targetSec) && viable.isNotEmpty;
+                final adaptedLines = isValid
+                    ? lines
+                    : SpotifyLyricsSynchronizer.adaptLrcToDuration(lines, track.duration);
                 return SyncedLyrics(
                   trackId: track.id,
-                  lines: lines,
+                  lines: adaptedLines,
                   plainLyrics: plainLyrics,
                   rawLrc: syncedLrc,
                   syncType: 'LINE_SYNCED',
-                  providerName: 'LRCLIB (Search)',
+                  providerName: isValid ? 'LRCLIB (Search)' : 'LRCLIB (Search Time-Adapted)',
                 );
               }
             }
@@ -289,12 +305,15 @@ class LrclibLyricsProvider implements ILyricsProvider {
         for (final item in matchingItems) {
           final plain = item['plainLyrics'] as String?;
           if (plain != null && plain.trim().isNotEmpty) {
+            final pacedLines = targetSec > 10
+                ? SpotifyLyricsSynchronizer.synthesizePacedLines(plain.trim(), track.duration)
+                : const <LyricLine>[];
             plainCandidate ??= SyncedLyrics(
               trackId: track.id,
-              lines: const [],
+              lines: pacedLines,
               plainLyrics: plain.trim(),
-              syncType: 'UNSYNCED',
-              providerName: 'LRCLIB (Plain)',
+              syncType: 'LINE_SYNCED',
+              providerName: 'LRCLIB (Paced Plain)',
             );
             break;
           }

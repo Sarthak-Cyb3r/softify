@@ -306,18 +306,21 @@ final trackLyricsProvider =
     if (cached.syncedLrc != null && cached.syncedLrc!.trim().isNotEmpty) {
       final lines = LrclibLyricsProvider.parseLrc(cached.syncedLrc!);
       if (lines.isNotEmpty) {
-        // Guard: Reject cached lyrics whose duration diverges significantly from the playing track
+        // Guard: If cached lyrics duration diverges from track, adapt proportionally across duration
         final targetSec = track.duration.inSeconds.toDouble();
         final lastTs = lines.last.timestamp.inSeconds.toDouble();
         if (targetSec > 60 && lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
-          // Truncated / mismatched cache entry detected (e.g. 5m edit on 18m live track)
-          await libraryRepo.cacheLyrics(track.id, syncedLrc: null, plainText: cached.plainText);
+          final adapted = SpotifyLyricsSynchronizer.adaptLrcToDuration(
+            lines,
+            track.duration,
+          );
           return SyncedLyrics(
             trackId: track.id,
-            lines: const [],
+            lines: adapted,
             plainLyrics: cached.plainText ?? lines.map((l) => l.text).join('\n'),
-            syncType: 'UNSYNCED',
-            providerName: 'Local Cache (Unsynced)',
+            rawLrc: cached.syncedLrc,
+            syncType: 'LINE_SYNCED',
+            providerName: 'Local Cache (Time-Adapted)',
           );
         }
 
@@ -328,6 +331,21 @@ final trackLyricsProvider =
           rawLrc: cached.syncedLrc,
           syncType: 'LINE_SYNCED',
           providerName: 'Local Cache',
+        );
+      }
+    } else if (cached.plainText != null && cached.plainText!.trim().isNotEmpty) {
+      // Synthesize progressive kinetic lines from plain lyrics so Apple Music animations work
+      final paced = SpotifyLyricsSynchronizer.synthesizePacedLines(
+        cached.plainText!,
+        track.duration,
+      );
+      if (paced.isNotEmpty) {
+        return SyncedLyrics(
+          trackId: track.id,
+          lines: paced,
+          plainLyrics: cached.plainText,
+          syncType: 'LINE_SYNCED',
+          providerName: 'Local Cache (Kinetic Paced)',
         );
       }
     }

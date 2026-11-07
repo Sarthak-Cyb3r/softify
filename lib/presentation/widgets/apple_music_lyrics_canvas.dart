@@ -322,29 +322,7 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
               ),
             ),
             data: (lyrics) {
-              if (lyrics == null || lyrics.lines.isEmpty) {
-                if (lyrics?.plainLyrics != null &&
-                    lyrics!.plainLyrics!.trim().isNotEmpty) {
-                  return SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 32,
-                    ),
-                    child: Text(
-                      romanizeEnabled
-                          ? RomanizationService.romanize(lyrics.plainLyrics!)
-                          : lyrics.plainLyrics!,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        height: 1.5,
-                      ),
-                    ),
-                  );
-                }
+              if (lyrics == null) {
                 return Center(
                   child: Text(
                     'No lyrics found for this song',
@@ -357,7 +335,28 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                 );
               }
 
-              final lines = lyrics.lines;
+              final lines = lyrics.lines.isNotEmpty
+                  ? lyrics.lines
+                  : (lyrics.plainLyrics != null && lyrics.plainLyrics!.trim().isNotEmpty
+                      ? SpotifyLyricsSynchronizer.synthesizePacedLines(
+                          lyrics.plainLyrics!,
+                          widget.track.duration,
+                        )
+                      : const <LyricLine>[]);
+
+              if (lines.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No lyrics found for this song',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontUi,
+                      fontSize: 15,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                );
+              }
+
               final activeIdx =
                   SpotifyLyricsSynchronizer.findActiveLineIndex(lines, effectivePosition);
 

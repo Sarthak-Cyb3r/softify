@@ -537,8 +537,14 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                         );
                       }
 
-                      // Unsynced plain lyrics sheet
-                      if (!lyrics.isSynced) {
+                      // Karaoke Synced Lyrics View (or synthesized progressive lines)
+                      final lines = lyrics.lines.isNotEmpty
+                          ? lyrics.lines
+                          : (lyrics.plainLyrics != null && lyrics.plainLyrics!.trim().isNotEmpty
+                              ? SpotifyLyricsSynchronizer.synthesizePacedLines(lyrics.plainLyrics!, widget.track.duration)
+                              : const <LyricLine>[]);
+
+                      if (lines.isEmpty) {
                         final rawLyrics = lyrics.plainLyrics ?? '';
                         final displayLyrics = _romanizeLyrics ? RomanizationService.romanize(rawLyrics) : rawLyrics;
                         return NotificationListener<UserScrollNotification>(
@@ -573,9 +579,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           ),
                         );
                       }
-
-                      // Karaoke Synced Lyrics View
-                      final lines = lyrics.lines;
                       final activeIndex = _lastActiveIndex >= 0 && _lastActiveIndex < lines.length
                           ? _lastActiveIndex
                           : _findActiveLineIndex(lines, effectivePos);
