@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide StreamInfo;
 
 import '../../domain/entities/audio_quality_preset.dart';
