@@ -159,94 +159,107 @@ class YoutubeStreamResolver implements IStreamResolver {
         }
       }
  
-      // Priority 0: Instant InnerTube direct audio resolution (bypasses watch-page scraping & IP rate limits)
-      for (final candId in candidateIds) {
-        try {
-          final data = await _innertubeService.queryPlayer(candId);
-          if (data != null) {
-            // Guard against wrong track mismatch when candidate was resolved from search
-            if (candId != rawSourceId) {
-              final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
-              if (videoDetails != null) {
-                if (videoDetails['isLiveContent'] == true) {
-                  continue;
-                }
+      // Priority 0: Desktop Native Stream Resolver (yt-dlp bypasses YouTube throttling and PO-tokens on Linux/macOS/Windows)
+      if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+        for (final candId in candidateIds) {
+          final stream = await _resolveViaDesktopYtDlp(candId);
+          if (stream != null) {
+            _cache[cacheKey] = stream;
+            return stream;
+          }
+        }
+      }
 
-                final candTitle = (videoDetails['title'] as String? ?? '').toLowerCase();
-                final candLengthSec = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
-                final candDuration = Duration(seconds: candLengthSec);
+      // Priority 1: Instant InnerTube direct audio resolution on mobile platforms
+      if (!Platform.isLinux) {
+        for (final candId in candidateIds) {
+          try {
+            final data = await _innertubeService.queryPlayer(candId);
+            if (data != null) {
+              // Guard against wrong track mismatch when candidate was resolved from search
+              if (candId != rawSourceId) {
+                final videoDetails = data['videoDetails'] as Map<String, dynamic>?;
+                if (videoDetails != null) {
+                  if (videoDetails['isLiveContent'] == true) {
+                    continue;
+                  }
 
-                // Reject if candidate duration deviates widely from target (e.g. > 120s discrepancy or > 2.5x ratio, or < 30s teaser)
-                if (track.duration > const Duration(seconds: 30) && candDuration > Duration.zero) {
-                  final diff = (candDuration.inSeconds - track.duration.inSeconds).abs();
-                  final maxSec = candDuration.inSeconds > track.duration.inSeconds ? candDuration.inSeconds : track.duration.inSeconds;
-                  final minSec = candDuration.inSeconds < track.duration.inSeconds ? candDuration.inSeconds : track.duration.inSeconds;
-                  if (diff > 120 || (minSec > 0 && maxSec / minSec > 2.5) || candDuration.inSeconds < 30) {
+                  final candTitle = (videoDetails['title'] as String? ?? '').toLowerCase();
+                  final candLengthSec = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
+                  final candDuration = Duration(seconds: candLengthSec);
+
+                  // Reject if candidate duration deviates widely from target (e.g. > 120s discrepancy or > 2.5x ratio, or < 30s teaser)
+                  if (track.duration > const Duration(seconds: 30) && candDuration > Duration.zero) {
+                    final diff = (candDuration.inSeconds - track.duration.inSeconds).abs();
+                    final maxSec = candDuration.inSeconds > track.duration.inSeconds ? candDuration.inSeconds : track.duration.inSeconds;
+                    final minSec = candDuration.inSeconds < track.duration.inSeconds ? candDuration.inSeconds : track.duration.inSeconds;
+                    if (diff > 120 || (minSec > 0 && maxSec / minSec > 2.5) || candDuration.inSeconds < 30) {
+                      continue;
+                    }
+                  }
+
+                  // Reject if promotional ads, trailers, movie scenes, or reaction videos
+                  const junkKeywords = [
+                    'carvaan', 'teaser', 'trailer', 'reaction', 'review',
+                    'interview', 'full movie', 'making of', 'behind the scenes',
+                  ];
+                  if (junkKeywords.any((k) => candTitle.contains(k))) {
+                    continue;
+                  }
+
+                  // Reject unwanted remixes, covers, unplugged, lofi, or instrumental versions when target is original
+                  final targetLower = track.title.toLowerCase();
+                  final targetHasRemix = targetLower.contains('remix') || targetLower.contains('mashup');
+                  final targetHasCover = targetLower.contains('cover');
+                  final targetHasUnplugged = targetLower.contains('unplugged') || targetLower.contains('acoustic');
+                  final targetHasLofi = targetLower.contains('lofi') || targetLower.contains('lo-fi');
+                  final targetHasSlowed = targetLower.contains('slowed');
+                  final targetHasInstrumental = targetLower.contains('instrumental') || targetLower.contains('karaoke');
+
+                  if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
+                    continue;
+                  }
+                  if (!targetHasCover && candTitle.contains('cover')) {
+                    continue;
+                  }
+                  if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
+                    continue;
+                  }
+                  if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
+                    continue;
+                  }
+                  if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
+                    continue;
+                  }
+                  if (!targetHasInstrumental && (candTitle.contains('instrumental') || candTitle.contains('karaoke'))) {
+                    continue;
+                  }
+
+                  // Reject if candidate title shares NO significant words (length >= 3) with target title
+                  final targetWords = track.title
+                      .toLowerCase()
+                      .replaceAll(RegExp(r'[^\p{L}\p{N} ]', unicode: true), '')
+                      .split(' ')
+                      .where((w) => w.length >= 3)
+                      .toList();
+                  if (targetWords.isNotEmpty && !targetWords.any((w) => candTitle.contains(w))) {
                     continue;
                   }
                 }
+              }
 
-                // Reject if promotional ads, trailers, movie scenes, or reaction videos
-                const junkKeywords = [
-                  'carvaan', 'teaser', 'trailer', 'reaction', 'review',
-                  'interview', 'full movie', 'making of', 'behind the scenes',
-                ];
-                if (junkKeywords.any((k) => candTitle.contains(k))) {
-                  continue;
-                }
-
-                // Reject unwanted remixes, covers, unplugged, lofi, or instrumental versions when target is original
-                final targetLower = track.title.toLowerCase();
-                final targetHasRemix = targetLower.contains('remix') || targetLower.contains('mashup');
-                final targetHasCover = targetLower.contains('cover');
-                final targetHasUnplugged = targetLower.contains('unplugged') || targetLower.contains('acoustic');
-                final targetHasLofi = targetLower.contains('lofi') || targetLower.contains('lo-fi');
-                final targetHasSlowed = targetLower.contains('slowed');
-                final targetHasInstrumental = targetLower.contains('instrumental') || targetLower.contains('karaoke');
-
-                if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
-                  continue;
-                }
-                if (!targetHasCover && candTitle.contains('cover')) {
-                  continue;
-                }
-                if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
-                  continue;
-                }
-                if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
-                  continue;
-                }
-                if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
-                  continue;
-                }
-                if (!targetHasInstrumental && (candTitle.contains('instrumental') || candTitle.contains('karaoke'))) {
-                  continue;
-                }
-
-                // Reject if candidate title shares NO significant words (length >= 3) with target title
-                final targetWords = track.title
-                    .toLowerCase()
-                    .replaceAll(RegExp(r'[^\p{L}\p{N} ]', unicode: true), '')
-                    .split(' ')
-                    .where((w) => w.length >= 3)
-                    .toList();
-                if (targetWords.isNotEmpty && !targetWords.any((w) => candTitle.contains(w))) {
-                  continue;
-                }
+              final stream = _innertubeService.extractStream(
+                candId,
+                data,
+                quality: quality,
+              );
+              if (stream != null) {
+                _cache[cacheKey] = stream;
+                return stream;
               }
             }
-
-            final stream = _innertubeService.extractStream(
-              candId,
-              data,
-              quality: quality,
-            );
-            if (stream != null) {
-              _cache[cacheKey] = stream;
-              return stream;
-            }
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
       }
 
       StreamManifest? manifest;
@@ -708,6 +721,33 @@ class YoutubeStreamResolver implements IStreamResolver {
     }
 
     return score;
+  }
+
+  Future<StreamInfo?> _resolveViaDesktopYtDlp(String videoId) async {
+    try {
+      final res = await Process.run(
+        'yt-dlp',
+        ['-g', '-f', 'ba/b', 'https://www.youtube.com/watch?v=$videoId'],
+      ).timeout(const Duration(seconds: 6));
+      if (res.exitCode == 0) {
+        final urlStr = (res.stdout as String).trim();
+        if (urlStr.startsWith('http')) {
+          final uri = Uri.parse(urlStr);
+          return StreamInfo(
+            url: uri,
+            container: urlStr.contains('.webm') ? 'webm' : 'm4a',
+            bitrate: 160000,
+            codec: urlStr.contains('.webm') ? 'opus' : 'aac',
+            expiresAt: DateTime.now().add(const Duration(hours: 4)),
+            providerName: 'yt_dlp (desktop)',
+            headers: const {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   void close() {

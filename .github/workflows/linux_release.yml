@@ -65,6 +65,14 @@ jobs:
           flutter build linux --release
           ls -la build/linux/x64/release/bundle/
 
+      - name: Build and Package Rust Native Engine
+        run: |
+          cd rust
+          cargo build --release
+          mkdir -p ../build/linux/x64/release/bundle/lib/
+          cp target/release/libsoftify_native.so ../build/linux/x64/release/bundle/lib/ || true
+          ls -lh ../build/linux/x64/release/bundle/lib/
+
       - name: Package Release Tarball
         run: |
           # Create distributable archive with bundle and assets
