@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/ports/i_lyrics_provider.dart';
 import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';

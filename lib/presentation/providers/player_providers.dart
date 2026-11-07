@@ -18,6 +18,7 @@ import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/lyrics/composite_lyrics_provider.dart';
 import '../../data/lyrics/lrclib_lyrics_provider.dart';
 import '../../data/lyrics/spotify_lyrics_provider.dart';
+import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../services/lyrics/better_lyrics_provider.dart';
 import '../../services/lyrics/lyrics_provider_registry.dart';
 import '../../services/lyrics/paxsenix_lyrics_provider.dart';
