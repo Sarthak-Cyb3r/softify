@@ -379,7 +379,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
     // Listen to player state events and broadcast to audio_service
     _playbackEventSubscription = _player.playbackEventStream.listen(
       _broadcastPlaybackState,
-      onError: (_) {
+      onError: (err) {
+        _log('[SoftifyAudioHandler] playbackEventStream error: $err');
+        if (currentTrack != null && !_isTransitioningTrack) {
+          final currentPos = _player.position;
+          unawaited(_playCurrentIndex(forceFresh: true, initialPosition: currentPos));
+        }
         _broadcastPlaybackState();
       },
     );
@@ -499,17 +504,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  void _broadcastPlaybackState([PlaybackEvent? event]) {
+  void _broadcastPlaybackState([PlaybackEvent? _]) {
     _checkBufferingWatchdog();
-    if (event != null && (event.errorCode != null || event.errorMessage != null)) {
-      _log('[SoftifyAudioHandler] Native player stream error: ${event.errorMessage} (code: ${event.errorCode})');
-      if (currentTrack != null && !_isTransitioningTrack) {
-        _log('[SoftifyAudioHandler] Attempting transparent recovery with fresh stream resolution...');
-        final currentPos = _player.position;
-        unawaited(_playCurrentIndex(forceFresh: true, initialPosition: currentPos));
-        return;
-      }
-    }
     final clampedPosition =
         _player.position < Duration.zero ? Duration.zero : _player.position;
     final clampedBuffered = _player.bufferedPosition < clampedPosition
