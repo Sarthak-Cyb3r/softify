@@ -236,13 +236,23 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
             : const <LyricLine>[]);
 
     String? currentLine;
+    double lineProgress = 0.0;
     if (effectiveLines.isNotEmpty) {
       final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(
         effectiveLines,
         effectivePosition,
       );
       if (activeIdx >= 0 && activeIdx < effectiveLines.length) {
-        currentLine = effectiveLines[activeIdx].text;
+        final activeLine = effectiveLines[activeIdx];
+        currentLine = activeLine.text;
+        final rawDuration = (activeIdx + 1 < effectiveLines.length)
+            ? (effectiveLines[activeIdx + 1].timestamp - activeLine.timestamp)
+            : const Duration(seconds: 4);
+        final effectiveDuration = rawDuration.inMilliseconds < 500
+            ? const Duration(milliseconds: 3000)
+            : rawDuration;
+        final elapsed = (effectivePosition - activeLine.timestamp).inMilliseconds;
+        lineProgress = (elapsed / effectiveDuration.inMilliseconds).clamp(0.0, 1.0);
       } else {
         // Instrumental intro before vocal commences: do not display premature lyric
         currentLine = null;
@@ -256,6 +266,42 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
       return const SizedBox(height: 24);
     }
 
+    Widget textWidget = Text(
+      currentLine,
+      key: ValueKey(currentLine),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontFamily: AppTheme.fontDisplay,
+        fontSize: 16.5,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+        letterSpacing: -0.2,
+      ),
+    );
+
+    if (lineProgress > 0.0 && lineProgress < 1.0) {
+      textWidget = ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) {
+          final stopLeft = (lineProgress - 0.08).clamp(0.0, 1.0);
+          final stopRight = (lineProgress + 0.02).clamp(0.0, 1.0);
+          return LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.white,
+              Colors.white,
+              Colors.white.withValues(alpha: 0.38),
+              Colors.white.withValues(alpha: 0.38),
+            ],
+            stops: [0.0, stopLeft, stopRight, 1.0],
+          ).createShader(bounds);
+        },
+        child: textWidget,
+      );
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -267,20 +313,23 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: Text(
-              currentLine,
-              key: ValueKey(currentLine),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: AppTheme.fontDisplay,
-                fontSize: 16.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -0.2,
-              ),
-            ),
+            duration: const Duration(milliseconds: 280),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.30),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              );
+            },
+            child: textWidget,
           ),
         ),
       ),

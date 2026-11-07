@@ -68,95 +68,72 @@ class YoutubeStreamResolver implements IStreamResolver {
           !rawSourceId.startsWith('itunes_')) {
         candidateIds.add(rawSourceId);
       } else {
-        final query = '${track.title} ${track.artist}'.trim();
+        final cleanTitle = cleanSongTitle(track.title);
+        final primaryArtist = track.artist.split(RegExp(r'[,/&]')).first.trim();
+
+        final searchQueries = <String>[
+          '$cleanTitle $primaryArtist'.trim(),
+          if (track.artist != primaryArtist) '$cleanTitle ${track.artist}'.trim(),
+          if (cleanTitle != track.title) '${track.title} $primaryArtist'.trim(),
+          if (track.album != null && track.album!.isNotEmpty && track.album != track.title)
+            '$cleanTitle ${track.album}'.trim(),
+        ];
 
         // Priority 0: YouTube Music (WEB_REMIX) official tracks & Topic releases.
-        // Pure studio master recordings with zero movie dialogue, zero promo voiceovers (e.g. Saregama Carvaan ads).
-        try {
-          final ytmTracks = await _innertubeService.searchMusic(query);
-          if (ytmTracks.isNotEmpty) {
-            final scored = ytmTracks
-                .map((c) => (candidate: c, score: _scoreYtmCandidate(targetTrack: track, candidate: c)))
-                .where((pair) => pair.score >= 50)
-                .toList();
-            scored.sort((a, b) => b.score.compareTo(a.score));
-            for (final pair in scored) {
-              if (!candidateIds.contains(pair.candidate.videoId)) {
-                candidateIds.add(pair.candidate.videoId);
-              }
-            }
-          }
-        } catch (_) {}
-
-        // Fallback 1: Primary artist YT Music query if multi-artist query was too restrictive
-        if (candidateIds.isEmpty && track.artist.contains(',')) {
+        for (final q in searchQueries) {
           try {
-            final primaryArtist = track.artist.split(',').first.trim();
-            final altQuery = '${track.title} $primaryArtist'.trim();
-            final altTracks = await _innertubeService.searchMusic(altQuery);
-            if (altTracks.isNotEmpty) {
-              final scoredAlt = altTracks
+            final ytmTracks = await _innertubeService.searchMusic(q);
+            if (ytmTracks.isNotEmpty) {
+              final scored = ytmTracks
                   .map((c) => (candidate: c, score: _scoreYtmCandidate(targetTrack: track, candidate: c)))
-                  .where((pair) => pair.score >= 50)
+                  .where((pair) => pair.score >= 70)
                   .toList();
-              scoredAlt.sort((a, b) => b.score.compareTo(a.score));
-              for (final pair in scoredAlt) {
+              scored.sort((a, b) => b.score.compareTo(a.score));
+              for (final pair in scored) {
                 if (!candidateIds.contains(pair.candidate.videoId)) {
                   candidateIds.add(pair.candidate.videoId);
                 }
               }
             }
           } catch (_) {}
+          if (candidateIds.isNotEmpty) break;
         }
 
-        // Fallback 2: YouTube video catalog fallback only if YouTube Music yielded zero candidates
+        // Fallback 1: YouTube video catalog fallback only if YouTube Music yielded zero verified candidates
         if (candidateIds.isEmpty) {
-          try {
-            final searchResults =
-                await _yt.search.search(query).timeout(const Duration(seconds: 5));
-            if (searchResults.isNotEmpty) {
-              final scored = searchResults
-                  .take(10)
-                  .map((v) => (
-                        video: v,
-                        score: _scoreCandidate(
-                          targetTitle: track.title,
-                          targetArtist: track.artist,
-                          targetDuration: track.duration,
-                          candidate: v,
-                        ),
-                      ))
-                  .where((pair) => pair.score >= 50)
-                  .toList();
-              scored.sort((a, b) => b.score.compareTo(a.score));
+          for (final q in searchQueries.take(2)) {
+            try {
+              final searchResults =
+                  await _yt.search.search(q).timeout(const Duration(seconds: 5));
+              if (searchResults.isNotEmpty) {
+                final scored = searchResults
+                    .take(10)
+                    .map((v) => (
+                          video: v,
+                          score: _scoreCandidate(
+                            targetTitle: track.title,
+                            targetArtist: track.artist,
+                            targetDuration: track.duration,
+                            candidate: v,
+                          ),
+                        ))
+                    .where((pair) => pair.score >= 70)
+                    .toList();
+                scored.sort((a, b) => b.score.compareTo(a.score));
 
-              for (final pair in scored) {
-                if (!candidateIds.contains(pair.video.id.value)) {
-                  candidateIds.add(pair.video.id.value);
+                for (final pair in scored) {
+                  if (!candidateIds.contains(pair.video.id.value)) {
+                    candidateIds.add(pair.video.id.value);
+                  }
                 }
               }
-            }
-          } catch (_) {}
+            } catch (_) {}
+            if (candidateIds.isNotEmpty) break;
+          }
         }
 
         if (candidateIds.isEmpty) {
-          // Safety net fallback: broad search with track title and primary artist
-          try {
-            final primaryArtist = track.artist.split(RegExp(r'[,&/]')).first.trim();
-            final broadQuery = '${track.title} $primaryArtist'.trim();
-            final searchResults = await _yt.search.search(broadQuery).timeout(const Duration(seconds: 4));
-            for (final v in searchResults.take(6)) {
-              if (v.duration != null && v.duration!.inSeconds >= 30) {
-                if (!candidateIds.contains(v.id.value)) {
-                  candidateIds.add(v.id.value);
-                }
-              }
-            }
-          } catch (_) {}
-        }
-
-        if (candidateIds.isEmpty) {
-          throw Exception('No playable audio candidates found for "$query"');
+          throw Exception('No verified audio candidates found for "${track.title}" by ${track.artist}');
         }
       }
  
@@ -413,38 +390,137 @@ class YoutubeStreamResolver implements IStreamResolver {
     }
   }
 
+  static final List<RegExp> _disqualifyPatterns = [
+    RegExp(r'\bremix\b', caseSensitive: false),
+    RegExp(r'\bre-mix\b', caseSensitive: false),
+    RegExp(r'\bmix\b', caseSensitive: false),
+    RegExp(r'\bclub mix\b', caseSensitive: false),
+    RegExp(r'\bdance mix\b', caseSensitive: false),
+    RegExp(r'\bdhol mix\b', caseSensitive: false),
+    RegExp(r'\bdholak mix\b', caseSensitive: false),
+    RegExp(r'\bdj\b', caseSensitive: false),
+    RegExp(r'\bdj\s+[a-z0-9]+', caseSensitive: false),
+    RegExp(r'\bmashup\b', caseSensitive: false),
+    RegExp(r'\bmash-up\b', caseSensitive: false),
+    RegExp(r'\bmedley\b', caseSensitive: false),
+    RegExp(r'\blofi\b', caseSensitive: false),
+    RegExp(r'\blo-fi\b', caseSensitive: false),
+    RegExp(r'\bslowed\b', caseSensitive: false),
+    RegExp(r'\breverb\b', caseSensitive: false),
+    RegExp(r'\bsped up\b', caseSensitive: false),
+    RegExp(r'\bspeed up\b', caseSensitive: false),
+    RegExp(r'\b8d\b', caseSensitive: false),
+    RegExp(r'\b16d\b', caseSensitive: false),
+    RegExp(r'\bbass boosted\b', caseSensitive: false),
+    RegExp(r'\bboosted\b', caseSensitive: false),
+    RegExp(r'\bcover\b', caseSensitive: false),
+    RegExp(r'\btribute\b', caseSensitive: false),
+    RegExp(r'\brendition\b', caseSensitive: false),
+    RegExp(r'\bunplugged\b', caseSensitive: false),
+    RegExp(r'\bacoustic\b', caseSensitive: false),
+    RegExp(r'\bkaraoke\b', caseSensitive: false),
+    RegExp(r'\binstrumental\b', caseSensitive: false),
+    RegExp(r'\bringtone\b', caseSensitive: false),
+    RegExp(r'\bstatus\b', caseSensitive: false),
+  ];
+
+  static String cleanSongTitle(String title) {
+    var t = title.replaceAll(RegExp(r'[\(\[\{].*?[\)\]\}]'), '');
+    t = t.replaceAll(
+      RegExp(
+        r'\s*-\s*(coke studio|live|remastered|mono|stereo|from\s.*).*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    return t.trim();
+  }
+
+  static bool isDisqualifiedVariant(String rawTargetTitle, String candTitle) {
+    final tClean = cleanSongTitle(rawTargetTitle).toLowerCase();
+    final cLower = candTitle.toLowerCase();
+    for (final pat in _disqualifyPatterns) {
+      if (pat.hasMatch(cLower) && !pat.hasMatch(tClean)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool hasTitleMatch(String targetTitle, String candTitle) {
+    final tClean = cleanSongTitle(targetTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').trim();
+    final cClean = cleanSongTitle(candTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').trim();
+    if (tClean.isEmpty || cClean.isEmpty) return false;
+    if (tClean == cClean || cClean.contains(tClean) || tClean.contains(cClean)) return true;
+    final tTokens = tClean.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
+    final cTokens = cClean.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
+    if (tTokens.isEmpty) return true;
+    final overlap = tTokens.intersection(cTokens);
+    return (overlap.length / tTokens.length) >= 0.60;
+  }
+
+  static bool hasArtistMatch(String targetArtist, String candArtist) {
+    final tNorm = targetArtist.toLowerCase().replaceAll('\u00A0', ' ');
+    final cNorm = candArtist.toLowerCase().replaceAll('\u00A0', ' ');
+    final targetArtists = tNorm.split(RegExp(r'[,/&]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final candArtists = cNorm.split(RegExp(r'[,/&•]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    for (final ta in targetArtists) {
+      if (cNorm.contains(ta)) return true;
+      for (final ca in candArtists) {
+        if (ca.contains(ta) || ta.contains(ca)) return true;
+      }
+    }
+    for (final ta in targetArtists) {
+      final tokens = RegExp(r'[a-z0-9]{3,}').allMatches(ta).map((m) => m.group(0)!).toList();
+      if (tokens.isNotEmpty && tokens.every((tok) => cNorm.contains(tok))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   int _scoreYtmCandidate({
     required Track targetTrack,
     required YtmTrackCandidate candidate,
   }) {
+    // 0. Hard disqualification: title match check
+    if (!hasTitleMatch(targetTrack.title, candidate.title)) {
+      return -9999;
+    }
+
+    // 1. Hard disqualification: variant check (remix, mashup, dj, cover, lofi, etc.)
+    if (isDisqualifiedVariant(targetTrack.title, candidate.title)) {
+      return -9999;
+    }
+
+    // 2. Hard disqualification: artist match check
+    if (!hasArtistMatch(targetTrack.artist, candidate.artist)) {
+      return -9999;
+    }
+
+    // 3. Hard disqualification: duration discrepancy (>90s and >35%)
+    if (targetTrack.duration > const Duration(seconds: 30) && candidate.duration > Duration.zero) {
+      final diff = (targetTrack.duration.inSeconds - candidate.duration.inSeconds).abs();
+      if (diff > 90 && diff > (targetTrack.duration.inSeconds * 0.35)) {
+        return -9999;
+      }
+    }
+
     int score = 100; // Base bonus for being an official YouTube Music track
     final candTitle = candidate.title.toLowerCase();
     final candArtist = candidate.artist.toLowerCase();
     final candAlbum = candidate.album?.toLowerCase();
 
-    // 1. Title match
-    final cleanTargetTitle = targetTrack.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
-    final cleanCandTitle = candTitle.replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    // 4. Exact / close title bonus
+    final cleanTargetTitle = cleanSongTitle(targetTrack.title).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    final cleanCandTitle = cleanSongTitle(candTitle).replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
     if (cleanCandTitle == cleanTargetTitle) {
       score += 60;
     } else if (cleanCandTitle.contains(cleanTargetTitle) || cleanTargetTitle.contains(cleanCandTitle)) {
       score += 35;
     }
 
-    // 2. Artist match
-    final cleanArtistWords = targetTrack.artist
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
-        .split(RegExp(r'\s+'))
-        .where((w) => w.length > 2)
-        .toList();
-    for (final w in cleanArtistWords) {
-      if (candArtist.contains(w)) {
-        score += 25;
-      }
-    }
-
-    // 3. Album match bonus
+    // 5. Album match bonus
     if (targetTrack.album != null && candAlbum != null) {
       final cleanTargetAlbum = targetTrack.album!.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
       final cleanCandAlbum = candAlbum.replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
@@ -453,45 +529,9 @@ class YoutubeStreamResolver implements IStreamResolver {
       }
     }
 
-    // 4. Strict Variant Disqualification
-    final rawTargetTitle = targetTrack.title.toLowerCase();
-    final targetHasRemix = rawTargetTitle.contains('remix') || rawTargetTitle.contains('mashup');
-    final targetHasCover = rawTargetTitle.contains('cover');
-    final targetHasUnplugged = rawTargetTitle.contains('unplugged') || rawTargetTitle.contains('acoustic');
-    final targetHasLofi = rawTargetTitle.contains('lofi') || rawTargetTitle.contains('lo-fi');
-    final targetHasSlowed = rawTargetTitle.contains('slowed');
-    final targetHasInstrumental = rawTargetTitle.contains('instrumental') || rawTargetTitle.contains('karaoke');
-
-    if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
-      return -9999;
-    }
-    if (!targetHasCover && candTitle.contains('cover')) {
-      return -9999;
-    }
-    if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
-      return -9999;
-    }
-    if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
-      return -9999;
-    }
-    if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
-      return -9999;
-    }
-    if (!targetHasInstrumental && (candTitle.contains('instrumental') || candTitle.contains('karaoke'))) {
-      return -9999;
-    }
-
-    // 5. Strict Artist match
-    if (cleanArtistWords.isNotEmpty && !cleanArtistWords.any((w) => candArtist.contains(w))) {
-      return -9999;
-    }
-
-    // 6. Duration proximity
+    // 6. Duration proximity bonus
     if (targetTrack.duration > Duration.zero && candidate.duration > Duration.zero) {
       final diff = (targetTrack.duration.inSeconds - candidate.duration.inSeconds).abs();
-      if (diff > 120) {
-        return -9999;
-      }
       if (diff <= 6) {
         score += 40;
       } else if (diff <= 15) {
@@ -510,13 +550,29 @@ class YoutubeStreamResolver implements IStreamResolver {
     required Duration targetDuration,
     required Video candidate,
   }) {
+    // 0. Hard disqualifications
+    if (!hasTitleMatch(targetTitle, candidate.title)) {
+      return -9999;
+    }
+    if (isDisqualifiedVariant(targetTitle, candidate.title)) {
+      return -9999;
+    }
+    if (!hasArtistMatch(targetArtist, candidate.author)) {
+      return -9999;
+    }
+    final candDuration = candidate.duration ?? Duration.zero;
+    if (targetDuration > const Duration(seconds: 30) && candDuration > Duration.zero) {
+      final diff = (targetDuration.inSeconds - candDuration.inSeconds).abs();
+      if (diff > 90 && diff > (targetDuration.inSeconds * 0.35)) {
+        return -9999;
+      }
+    }
+
     int score = 0;
     final candTitle = candidate.title.toLowerCase();
     final candAuthor = candidate.author.toLowerCase();
-    final candDuration = candidate.duration ?? Duration.zero;
 
     // 1. Topic channel (official distributor master audio)
-    // ONLY award bonus if the channel author matches the target artist!
     final cleanArtistWords = targetArtist
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
@@ -531,14 +587,11 @@ class YoutubeStreamResolver implements IStreamResolver {
       if (authorMatchesTarget) {
         score += 80;
       } else {
-        // Heavy penalty if topic channel belongs to an unrelated artist
-        // (e.g. "Khushboo Jain - Topic" when target is "Khushboo Grewal")
         score -= 100;
       }
     }
 
     // 2. Official Record Label / VEVO
-    // (Note: 'saregama' video channel excluded because their video uploads embed Carvaan audio promo ads)
     const officialLabels = [
       'vevo',
       't-series',
@@ -580,76 +633,7 @@ class YoutubeStreamResolver implements IStreamResolver {
       score -= 500;
     }
 
-    // 5. Negative junk keywords
-    const negativeKeywords = [
-      'carvaan',
-      'saregama carvaan',
-      'promo',
-      'advertisement',
-      'bumper',
-      'reaction',
-      'review',
-      'teaser',
-      'trailer',
-      'cover',
-      'karaoke',
-      'instrumental',
-      'slowed',
-      'reverb',
-      'bass boosted',
-      'status',
-      'short',
-      'shorts',
-      'ringtone',
-      'tutorial',
-      'behind the scenes',
-      'making of',
-      'interview',
-      'full movie',
-      'parody',
-      'dance performance',
-    ];
-    final targetHasCover = targetTitle.toLowerCase().contains('cover');
-    final targetHasRemix = targetTitle.toLowerCase().contains('remix') || targetTitle.toLowerCase().contains('mashup');
-    final targetHasUnplugged = targetTitle.toLowerCase().contains('unplugged');
-    final targetHasLofi = targetTitle.toLowerCase().contains('lofi') || targetTitle.toLowerCase().contains('lo-fi');
-    final targetHasSlowed = targetTitle.toLowerCase().contains('slowed');
-
-    for (final neg in negativeKeywords) {
-      if (candTitle.contains(neg)) {
-        if (neg == 'cover' && targetHasCover) continue;
-        return -9999;
-      }
-    }
-
-    if (!targetHasRemix && (candTitle.contains('remix') || candTitle.contains('mashup') || candTitle.contains('dj ') || candTitle.contains('club mix') || candTitle.contains('dance mix'))) {
-      return -9999;
-    }
-    if (!targetHasUnplugged && (candTitle.contains('unplugged') || candTitle.contains('acoustic'))) {
-      return -9999;
-    }
-    if (!targetHasLofi && (candTitle.contains('lofi') || candTitle.contains('lo-fi'))) {
-      return -9999;
-    }
-    if (!targetHasSlowed && (candTitle.contains('slowed') || candTitle.contains('reverb') || candTitle.contains('sped up') || candTitle.contains('speed up'))) {
-      return -9999;
-    }
-
-    // 5. Heavy penalty for video versions that contain dialogue, film skits, or sound effects
-    const videoDialogueKeywords = [
-      'full video',
-      'video song',
-      'music video',
-      'official video',
-    ];
-    for (final v in videoDialogueKeywords) {
-      if (candTitle.contains(v)) {
-        score -= 50;
-        break;
-      }
-    }
-
-    // 6. Heavy bonus for pure studio audio / album cuts (Spotify equivalents)
+    // 5. Heavy bonus for pure studio audio / album cuts
     const pureAudioKeywords = [
       'official audio',
       'audio song',
@@ -666,52 +650,9 @@ class YoutubeStreamResolver implements IStreamResolver {
       }
     }
 
-    // 7. Language mismatch: penalize alternate regional dubs
-    // (e.g. telugu, tamil, bhojpuri, marathi, bengali) when target is Hindi / English
-    const regionalLangs = [
-      'tamil',
-      'telugu',
-      'bhojpuri',
-      'marathi',
-      'bengali',
-      'kannada',
-      'malayalam',
-      'gujarati',
-    ];
-    final targetCombined =
-        '${targetTitle.toLowerCase()} ${targetArtist.toLowerCase()}';
-    for (final lang in regionalLangs) {
-      if (candTitle.contains(lang) && !targetCombined.contains(lang)) {
-        score -= 100;
-      }
-    }
-
-    // 8. Title keywords
-    final cleanTitle = targetTitle
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
-        .trim();
-    if (cleanTitle.isNotEmpty && candTitle.contains(cleanTitle)) {
-      score += 25;
-    }
-
-    // Heavy penalty if candidate title shares zero words with target song title
-    final targetWords = targetTitle
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
-        .split(RegExp(r'\s+'))
-        .where((w) => w.length >= 2)
-        .toList();
-    if (targetWords.isNotEmpty && !targetWords.any((w) => candTitle.contains(w))) {
-      score -= 300;
-    }
-
-    // 9. Proximity to official track duration
+    // 6. Proximity to official track duration
     if (targetDuration > Duration.zero && candDuration > Duration.zero) {
       final diff = (targetDuration.inSeconds - candDuration.inSeconds).abs();
-      if (diff > 120) {
-        return -9999;
-      }
       if (diff <= 6) {
         score += 40;
       } else if (diff <= 15) {
