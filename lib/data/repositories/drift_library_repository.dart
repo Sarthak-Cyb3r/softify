@@ -421,26 +421,28 @@ class DriftLibraryRepository implements ILibraryRepository {
 
   @override
   Future<void> addTrackToPlaylist(String playlistId, Track track) async {
-    await upsertTrack(track);
+    await _db.transaction(() async {
+      await upsertTrack(track);
 
-    // Determine max position
-    final maxPosExp = _db.playlistTracks.position.max();
-    final query = _db.selectOnly(_db.playlistTracks)
-      ..addColumns([maxPosExp])
-      ..where(_db.playlistTracks.playlistId.equals(playlistId));
-    final maxPos = await query.map((row) => row.read(maxPosExp)).getSingleOrNull();
-    final nextPos = (maxPos ?? -1) + 1;
+      // Determine max position
+      final maxPosExp = _db.playlistTracks.position.max();
+      final query = _db.selectOnly(_db.playlistTracks)
+        ..addColumns([maxPosExp])
+        ..where(_db.playlistTracks.playlistId.equals(playlistId));
+      final maxPos = await query.map((row) => row.read(maxPosExp)).getSingleOrNull();
+      final nextPos = (maxPos ?? -1) + 1;
 
-    await _db.into(_db.playlistTracks).insert(
-          PlaylistTracksCompanion.insert(
-            playlistId: playlistId,
-            position: nextPos,
-            trackId: Value(track.id),
-            originalTitle: track.title,
-            originalArtist: track.artist,
-            matchStatus: MatchStatus.matched.toDbString(),
-          ),
-        );
+      await _db.into(_db.playlistTracks).insert(
+            PlaylistTracksCompanion.insert(
+              playlistId: playlistId,
+              position: nextPos,
+              trackId: Value(track.id),
+              originalTitle: track.title,
+              originalArtist: track.artist,
+              matchStatus: MatchStatus.matched.toDbString(),
+            ),
+          );
+    });
 
     _db.notifyUpdates({
       TableUpdate.onTable(_db.playlists),
@@ -684,24 +686,47 @@ class DriftLibraryRepository implements ILibraryRepository {
     Duration position,
   ) async {
     await _db.transaction(() async {
-      // Upsert all tracks first
-      for (final t in queue) {
-        await upsertTrack(t);
-      }
+      final now = DateTime.now().millisecondsSinceEpoch;
 
-      // Replace queue items
+      // Upsert tracks in batch
+      await _db.batch((batch) {
+        for (final t in queue) {
+          batch.insert(
+            _db.tracks,
+            TracksCompanion(
+              id: Value(t.id),
+              sourceId: Value(t.sourceId.isNotEmpty ? t.sourceId : t.id),
+              title: Value(t.title),
+              artist: Value(t.artist),
+              album: Value(t.album),
+              durationMs: Value(t.duration.inMilliseconds),
+              coverUrl: Value(t.coverUrl),
+              matchConfidence: Value(t.matchConfidence),
+              isLiked: Value(t.isLiked),
+              isUnavailable: Value(t.isUnavailable),
+              createdAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+
+      // Replace queue items in batch
       await _db.delete(_db.queueItems).go();
 
-      final now = DateTime.now().millisecondsSinceEpoch;
-      for (int i = 0; i < queue.length; i++) {
-        await _db.into(_db.queueItems).insert(
-              QueueItemsCompanion.insert(
-                position: Value(i),
-                trackId: queue[i].id,
-                addedAt: now,
-              ),
-            );
-      }
+      await _db.batch((batch) {
+        for (int i = 0; i < queue.length; i++) {
+          batch.insert(
+            _db.queueItems,
+            QueueItemsCompanion.insert(
+              position: Value(i),
+              trackId: queue[i].id,
+              addedAt: now,
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
 
       // Upsert playback state
       await _db.into(_db.playbackStates).insertOnConflictUpdate(

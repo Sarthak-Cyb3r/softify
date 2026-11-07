@@ -384,14 +384,20 @@ class SoftifyAudioHandler extends BaseAudioHandler
       },
     );
 
-    // Listen to completion of tracks
+    // Listen to completion of tracks and recover from unexpected stream errors
     _playerStateSubscription = _player.playerStateStream.listen(
       (state) {
         if (state.processingState == ProcessingState.completed) {
           _onTrackCompleted();
         }
       },
-      onError: (_) {},
+      onError: (err) {
+        _log('[SoftifyAudioHandler] playerStateStream error: $err');
+        if (currentTrack != null && !_isTransitioningTrack) {
+          final currentPos = _player.position;
+          unawaited(_playCurrentIndex(forceFresh: true, initialPosition: currentPos));
+        }
+      },
     );
 
     // Listen to position for automatic DJ crossfade & speculative standby pre-warming
@@ -493,8 +499,17 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  void _broadcastPlaybackState([PlaybackEvent? _]) {
+  void _broadcastPlaybackState([PlaybackEvent? event]) {
     _checkBufferingWatchdog();
+    if (event != null && (event.errorCode != null || event.errorMessage != null)) {
+      _log('[SoftifyAudioHandler] Native player stream error: ${event.errorMessage} (code: ${event.errorCode})');
+      if (currentTrack != null && !_isTransitioningTrack) {
+        _log('[SoftifyAudioHandler] Attempting transparent recovery with fresh stream resolution...');
+        final currentPos = _player.position;
+        unawaited(_playCurrentIndex(forceFresh: true, initialPosition: currentPos));
+        return;
+      }
+    }
     final clampedPosition =
         _player.position < Duration.zero ? Duration.zero : _player.position;
     final clampedBuffered = _player.bufferedPosition < clampedPosition

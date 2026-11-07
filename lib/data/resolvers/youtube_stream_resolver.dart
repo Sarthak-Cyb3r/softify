@@ -148,9 +148,8 @@ class YoutubeStreamResolver implements IStreamResolver {
         }
       }
 
-      // Priority 1: Instant InnerTube direct audio resolution on mobile platforms
-      if (!Platform.isLinux) {
-        for (final candId in candidateIds) {
+      // Priority 1: Instant InnerTube direct audio resolution (universal fallback on desktop, primary on mobile)
+      for (final candId in candidateIds) {
           try {
             final data = await _innertubeService.queryPlayer(candId);
             if (data != null) {
@@ -238,7 +237,6 @@ class YoutubeStreamResolver implements IStreamResolver {
             }
           } catch (_) {}
         }
-      }
 
       StreamManifest? manifest;
       String? resolvedVideoId;
