@@ -139,6 +139,22 @@ class YoutubeStreamResolver implements IStreamResolver {
         }
 
         if (candidateIds.isEmpty) {
+          // Safety net fallback: broad search with track title and primary artist
+          try {
+            final primaryArtist = track.artist.split(RegExp(r'[,&/]')).first.trim();
+            final broadQuery = '${track.title} $primaryArtist'.trim();
+            final searchResults = await _yt.search.search(broadQuery).timeout(const Duration(seconds: 4));
+            for (final v in searchResults.take(6)) {
+              if (v.duration != null && v.duration!.inSeconds >= 30) {
+                if (!candidateIds.contains(v.id.value)) {
+                  candidateIds.add(v.id.value);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (candidateIds.isEmpty) {
           throw Exception('No playable audio candidates found for "$query"');
         }
       }
@@ -160,10 +176,12 @@ class YoutubeStreamResolver implements IStreamResolver {
                 final candLengthSec = int.tryParse(videoDetails['lengthSeconds']?.toString() ?? '0') ?? 0;
                 final candDuration = Duration(seconds: candLengthSec);
 
-                // Reject if candidate duration deviates widely from target (e.g. > 20s discrepancy, or < 30s teaser)
+                // Reject if candidate duration deviates widely from target (e.g. > 120s discrepancy or > 2.5x ratio, or < 30s teaser)
                 if (track.duration > const Duration(seconds: 30) && candDuration > Duration.zero) {
                   final diff = (candDuration.inSeconds - track.duration.inSeconds).abs();
-                  if (diff > 20 || candDuration.inSeconds < 30) {
+                  final maxSec = candDuration.inSeconds > track.duration.inSeconds ? candDuration.inSeconds : track.duration.inSeconds;
+                  final minSec = candDuration.inSeconds < track.duration.inSeconds ? candDuration.inSeconds : track.duration.inSeconds;
+                  if (diff > 120 || (minSec > 0 && maxSec / minSec > 2.5) || candDuration.inSeconds < 30) {
                     continue;
                   }
                 }
@@ -454,16 +472,18 @@ class YoutubeStreamResolver implements IStreamResolver {
       return -9999;
     }
 
-    // 6. Strict Duration proximity
+    // 6. Duration proximity
     if (targetTrack.duration > Duration.zero && candidate.duration > Duration.zero) {
       final diff = (targetTrack.duration.inSeconds - candidate.duration.inSeconds).abs();
-      if (diff > 20) {
+      if (diff > 120) {
         return -9999;
       }
-      if (diff <= 5) {
+      if (diff <= 6) {
         score += 40;
-      } else if (diff <= 12) {
-        score += 20;
+      } else if (diff <= 15) {
+        score += 25;
+      } else if (diff <= 45) {
+        score += 10;
       }
     }
 
@@ -675,13 +695,15 @@ class YoutubeStreamResolver implements IStreamResolver {
     // 9. Proximity to official track duration
     if (targetDuration > Duration.zero && candDuration > Duration.zero) {
       final diff = (targetDuration.inSeconds - candDuration.inSeconds).abs();
-      if (diff > 20) {
+      if (diff > 120) {
         return -9999;
       }
-      if (diff <= 5) {
+      if (diff <= 6) {
         score += 40;
-      } else if (diff <= 12) {
-        score += 20;
+      } else if (diff <= 15) {
+        score += 25;
+      } else if (diff <= 45) {
+        score += 10;
       }
     }
 

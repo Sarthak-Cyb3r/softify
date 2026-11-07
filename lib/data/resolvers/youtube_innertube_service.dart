@@ -115,7 +115,51 @@ class YoutubeInnertubeService {
   /// Fetches video metadata and direct stream info via YouTube's InnerTube API.
   /// Completely bypasses web watch-page HTML scraping and bot-detection rate limits.
   Future<Map<String, dynamic>?> queryPlayer(String videoId) async {
-    // 1. Priority 0: Apple VisionOS Client with visitorData (unthrottled, zero JS cipher, zero PO-token, HTTP 200)
+    // 1. Priority 0: iOS Client (supports unthrottled direct playback with User-Agent header)
+    final iosData = await _postPlayer(
+      videoId: videoId,
+      userAgent: iosUserAgent,
+      clientContext: {
+        'clientName': 'IOS',
+        'clientVersion': '20.10.4',
+        'deviceMake': 'Apple',
+        'deviceModel': 'iPhone16,2',
+        'osName': 'IOS',
+        'osVersion': '18.1.0.22B83',
+        'hl': 'en',
+        'timeZone': 'UTC',
+        'utcOffsetMinutes': 0,
+      },
+    );
+
+    if (iosData != null && _isPlayable(iosData)) {
+      iosData['_clientUserAgent'] = iosUserAgent;
+      iosData['_clientName'] = 'IOS';
+      return iosData;
+    }
+
+    // 2. Fallback to Android Client
+    final androidData = await _postPlayer(
+      videoId: videoId,
+      userAgent: androidUserAgent,
+      clientContext: {
+        'clientName': 'ANDROID',
+        'clientVersion': '20.10.38',
+        'osName': 'Android',
+        'osVersion': '11',
+        'hl': 'en',
+        'timeZone': 'UTC',
+        'utcOffsetMinutes': 0,
+      },
+    );
+
+    if (androidData != null && _isPlayable(androidData)) {
+      androidData['_clientUserAgent'] = androidUserAgent;
+      androidData['_clientName'] = 'ANDROID';
+      return androidData;
+    }
+
+    // 3. Fallback to Apple VisionOS Client with visitorData
     try {
       final visitor = await _getVisitorData();
       final visionosData = await _postPlayer(
@@ -135,47 +179,13 @@ class YoutubeInnertubeService {
       );
 
       if (visionosData != null && _isPlayable(visionosData)) {
+        visionosData['_clientUserAgent'] = visionosUserAgent;
+        visionosData['_clientName'] = 'VISIONOS';
         return visionosData;
       }
     } catch (_) {}
 
-    // 2. Fallback to Android Client
-    final androidData = await _postPlayer(
-      videoId: videoId,
-      userAgent: androidUserAgent,
-      clientContext: {
-        'clientName': 'ANDROID',
-        'clientVersion': '20.10.38',
-        'osName': 'Android',
-        'osVersion': '11',
-        'hl': 'en',
-        'timeZone': 'UTC',
-        'utcOffsetMinutes': 0,
-      },
-    );
-
-    if (androidData != null && _isPlayable(androidData)) return androidData;
-
-    // 3. Fallback to iOS Client
-    final iosData = await _postPlayer(
-      videoId: videoId,
-      userAgent: iosUserAgent,
-      clientContext: {
-        'clientName': 'IOS',
-        'clientVersion': '20.10.4',
-        'deviceMake': 'Apple',
-        'deviceModel': 'iPhone16,2',
-        'osName': 'IOS',
-        'osVersion': '18.1.0.22B83',
-        'hl': 'en',
-        'timeZone': 'UTC',
-        'utcOffsetMinutes': 0,
-      },
-    );
-
-    if (iosData != null && _isPlayable(iosData)) return iosData;
-
-    return androidData ?? iosData;
+    return iosData ?? androidData;
   }
 
   Future<Map<String, dynamic>?> _postPlayer({
@@ -383,6 +393,8 @@ class YoutubeInnertubeService {
     final streamUrl = Uri.parse(selected['url'] as String);
     final bitrate = (selected['bitrate'] as num?)?.toInt() ?? 128000;
     final itag = selected['itag'];
+    final clientUa = data['_clientUserAgent'] as String? ?? iosUserAgent;
+    final clientName = data['_clientName'] as String? ?? 'IOS';
 
     return StreamInfo(
       url: streamUrl,
@@ -390,8 +402,11 @@ class YoutubeInnertubeService {
       bitrate: bitrate,
       codec: streamCodec,
       expiresAt: DateTime.now().add(const Duration(hours: 4)),
-      providerName: 'innertube_android (itag $itag)',
-      headers: null,
+      providerName: 'innertube_${clientName.toLowerCase()} (itag $itag)',
+      headers: {
+        'User-Agent': clientUa,
+        'Referer': 'https://www.youtube.com/',
+      },
       sizeBytes: (selected['contentLength'] as String?) != null
           ? int.tryParse(selected['contentLength'] as String)
           : null,

@@ -187,12 +187,14 @@ class SaavnStreamResolver implements IStreamResolver {
         }
       }
 
-      // 2. Hard Disqualification: Major duration discrepancy (> 20s from official duration)
+      // 2. Duration Guard: Reject extreme duration discrepancy (> 120s or 2.5x ratio)
       final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
       if (track.duration > Duration.zero && candDurSec > 0) {
         final diffSec = (track.duration.inSeconds - candDurSec).abs();
-        if (diffSec > 20) {
-          continue; // Reject radio cuts or completely wrong tracks
+        final maxDur = track.duration.inSeconds > candDurSec ? track.duration.inSeconds : candDurSec;
+        final minDur = track.duration.inSeconds < candDurSec ? track.duration.inSeconds : candDurSec;
+        if (diffSec > 120 || (minDur > 0 && maxDur / minDur > 2.5)) {
+          continue; // Reject completely wrong tracks or mislabeled media
         }
       }
 
@@ -250,15 +252,17 @@ class SaavnStreamResolver implements IStreamResolver {
         }
       }
 
-      // 8. Strict Duration Proximity
+      // 8. Duration Proximity
       if (track.duration > Duration.zero && candDurSec > 0) {
         final diffSec = (track.duration.inSeconds - candDurSec).abs();
-        if (diffSec <= 4) {
+        if (diffSec <= 6) {
           score += 45.0; // High confidence original studio master match
-        } else if (diffSec <= 10) {
+        } else if (diffSec <= 15) {
           score += 25.0;
-        } else if (diffSec <= 18) {
-          score += 10.0;
+        } else if (diffSec <= 45) {
+          score += 15.0;
+        } else if (diffSec <= 90) {
+          score += 5.0;
         }
       }
 
@@ -268,8 +272,8 @@ class SaavnStreamResolver implements IStreamResolver {
       }
     }
 
-    // Require at least 65 points confidence to prevent erroneous matches
-    if (bestScore >= 65.0 && bestPid != null) {
+    // Require at least 50 points confidence to prevent erroneous matches
+    if (bestScore >= 50.0 && bestPid != null) {
       _pidCache[cacheKey] = bestPid;
       return bestPid;
     }

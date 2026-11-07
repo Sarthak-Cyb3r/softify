@@ -124,14 +124,21 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
       _lastScrolledIndex = index;
       final key = _lineKeys[index];
       final ctx = key?.currentContext;
-      if (ctx != null) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.easeOutCubic,
-          alignment: 0.22,
-        );
-      } else {
+      if (ctx != null && ctx.mounted) {
+        final renderObj = ctx.findRenderObject();
+        if (renderObj is RenderBox && renderObj.hasSize && renderObj.attached) {
+          try {
+            Scrollable.ensureVisible(
+              ctx,
+              duration: const Duration(milliseconds: 380),
+              curve: Curves.easeOutCubic,
+              alignment: 0.22,
+            );
+            return;
+          } catch (_) {}
+        }
+      }
+      if (_scrollController.hasClients && _scrollController.position.hasContentDimensions) {
         final targetOffset =
             (index * 68.0).clamp(0.0, _scrollController.position.maxScrollExtent);
         _scrollController.animateTo(
