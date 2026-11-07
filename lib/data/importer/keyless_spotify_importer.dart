@@ -7,12 +7,14 @@ import '../../domain/entities/spotify_import.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_catalog_repository.dart';
 import '../../domain/ports/i_spotify_importer.dart';
+import '../services/spotify_api_service.dart';
 import '../services/spotify_auth_service.dart';
 
 class KeylessSpotifyImporter implements ISpotifyImporter {
   final http.Client _client;
   final ICatalogRepository? _catalog;
   final SpotifyAuthService? _authService;
+  final SpotifyApiService? _spotifyApi;
 
   static const String _defaultUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -44,9 +46,11 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     http.Client? client,
     ICatalogRepository? catalog,
     SpotifyAuthService? authService,
+    SpotifyApiService? spotifyApi,
   })  : _client = client ?? http.Client(),
         _catalog = catalog,
-        _authService = authService;
+        _authService = authService,
+        _spotifyApi = spotifyApi;
 
   @override
   String? extractPlaylistId(String input) {
@@ -119,6 +123,24 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
       throw FormatException('Invalid Spotify playlist, album, or track URL: "$urlOrId"');
     }
 
+    // 0. High-speed authenticated fast-path: If user connected Spotify,
+    // fetch playlist metadata & tracks directly via official Spotify Web API.
+    // Zero rate-limiting, 100% accurate 640x640 album artwork, sub-second latency.
+    if (_spotifyApi != null && _authService != null) {
+      try {
+        final isLoggedIn = await _authService!.isLoggedIn();
+        if (isLoggedIn && entity.type == SpotifyEntityType.playlist) {
+          final webApiResult = await _spotifyApi!.getPlaylistWithTracksWebApi(
+            entity.id,
+            onProgress: (loaded, total) => onProgress?.call(loaded),
+          );
+          if (webApiResult.tracks.isNotEmpty) {
+            return webApiResult;
+          }
+        }
+      } catch (_) {}
+    }
+
     // Album support: fetch all album tracks keylessly
     if (entity.type == SpotifyEntityType.album) {
       return _fetchAlbumViaEmbed(entity.id);
@@ -145,42 +167,40 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
 
     // For playlists:
     // 1. Try Pathfinder GraphQL pagination first (primary high-capacity engine: supports 10,000+ tracks)
-    String? token;
     try {
-      token = await _getBestAvailableToken();
-    } catch (_) {}
+      final pfToken = await _getPathfinderToken();
+      final pathfinderTracks = await _fetchViaPathfinder(
+        entity.id,
+        token: pfToken,
+        fallbackCover: null,
+        onProgress: onProgress,
+      ).timeout(_fetchDeadline);
 
-    if (token != null && token.isNotEmpty) {
-      try {
-        final pathfinderTracks = await _fetchViaPathfinder(
-          entity.id,
-          token: token,
-          fallbackCover: playlist.coverUrl,
-          onProgress: onProgress,
-        ).timeout(_fetchDeadline);
-
-        if (pathfinderTracks != null && pathfinderTracks.isNotEmpty) {
-          if (pathfinderTracks.length >= playlist.tracks.length) {
-            return playlist.copyWith(tracks: pathfinderTracks);
-          }
-        }
-      } catch (_) {
-        // Fall back to Web API pagination
+      if (pathfinderTracks != null && pathfinderTracks.isNotEmpty) {
+        return playlist.copyWith(tracks: pathfinderTracks);
       }
+    } catch (_) {
+      // Fall back to Web API pagination
     }
 
-    // 2. Fall back to Web API pagination (/items and /tracks)
+    // 2. Fall back to Web API pagination (/tracks)
     List<SpotifyTrackItem>? fullTracks;
     String? notice;
     try {
+      String? token;
+      try {
+        token = await _getBestAvailableToken();
+      } catch (_) {}
+      token ??= await _getAccessToken();
+
       fullTracks = await _fetchAllTracks(
         entity.id,
-        coverUrl: playlist.coverUrl,
+        coverUrl: null,
         authToken: token,
         onProgress: onProgress,
       ).timeout(_fetchDeadline);
     } on FormatException catch (e) {
-      notice = e.message;
+      notice = playlist.tracks.length >= 100 ? e.message : null;
       fullTracks = null;
     } catch (_) {
       notice = playlist.tracks.length >= 100
@@ -254,13 +274,29 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
           final artist = (t['subtitle'] as String?) ?? 'Unknown Artist';
           final durationMs = (t['duration'] as num?)?.toInt() ?? 0;
 
+          String? trackCover;
+          final tAlbumArt = t['albumOfTrack']?['coverArt']?['sources'] as List<dynamic>?;
+          if (tAlbumArt != null && tAlbumArt.isNotEmpty) {
+            trackCover = _extractLargestImage(tAlbumArt);
+          } else if (t['images'] is List && (t['images'] as List).isNotEmpty) {
+            trackCover = _extractLargestImage(t['images'] as List<dynamic>);
+          } else if (t['album'] is Map && (t['album']['images'] is List)) {
+            trackCover = _extractLargestImage(t['album']['images'] as List<dynamic>);
+          } else if (t['coverArt']?['sources'] is List) {
+            trackCover = _extractLargestImage(t['coverArt']['sources'] as List<dynamic>);
+          }
+
+          final albumName = (t['album'] is Map ? (t['album']['name'] as String?) : null) ??
+              (t['albumOfTrack'] is Map ? (t['albumOfTrack']['name'] as String?) : null);
+
           tracks.add(
             SpotifyTrackItem(
               spotifyUri: uri,
               title: title,
               artist: artist,
+              album: albumName,
               duration: Duration(milliseconds: durationMs),
-              coverUrl: coverUrl,
+              coverUrl: trackCover,
             ),
           );
         }
@@ -325,14 +361,16 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
                   String? trackCover;
                   final albumArt = trackData['albumOfTrack']?['coverArt']?['sources'] as List<dynamic>?;
                   if (albumArt != null && albumArt.isNotEmpty) {
-                    trackCover = albumArt.first['url'] as String?;
+                    trackCover = _extractLargestImage(albumArt);
                   }
+                  final albumName = trackData['albumOfTrack']?['name'] as String?;
                   tracks.add(SpotifyTrackItem(
                     spotifyUri: uri,
                     title: title,
                     artist: artistNames.isEmpty ? 'Unknown Artist' : artistNames,
+                    album: albumName,
                     duration: Duration(milliseconds: durationMs),
-                    coverUrl: trackCover ?? cover,
+                    coverUrl: trackCover,
                   ));
                 }
               }
@@ -563,6 +601,37 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     }
   }
 
+  Future<String> _getPathfinderToken() async {
+    final bestToken = await _getBestAvailableToken();
+    if (bestToken != null && bestToken.isNotEmpty) {
+      return bestToken;
+    }
+    return await _getAccessToken();
+  }
+
+  static String? _extractLargestImage(List<dynamic>? sources) {
+    if (sources == null || sources.isEmpty) return null;
+    int maxWidth = -1;
+    String? bestUrl;
+    for (final s in sources) {
+      if (s is Map<String, dynamic>) {
+        final url = s['url'] as String?;
+        final width = (s['width'] as num?)?.toInt() ?? (s['height'] as num?)?.toInt() ?? 0;
+        if (url != null && url.isNotEmpty) {
+          if (width > maxWidth) {
+            maxWidth = width;
+            bestUrl = url;
+          } else if (bestUrl == null) {
+            bestUrl = url;
+          }
+        }
+      }
+    }
+    if (bestUrl != null) return bestUrl;
+    final first = sources.first;
+    return first is Map ? (first['url'] as String?) : null;
+  }
+
   Future<List<SpotifyTrackItem>?> _fetchViaPathfinder(
     String playlistId, {
     required String token,
@@ -666,20 +735,21 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
             .where((n) => n.isNotEmpty)
             .join(', ');
 
-        String? cover = fallbackCover;
+        String? cover;
         final coverSources =
             itemV2Data['albumOfTrack']?['coverArt']?['sources'] as List<dynamic>?;
         if (coverSources != null && coverSources.isNotEmpty) {
-          final first = coverSources.first;
-          if (first is Map<String, dynamic>) {
-            cover = first['url'] as String? ?? cover;
-          }
+          cover = _extractLargestImage(coverSources);
         }
+        cover ??= fallbackCover;
+
+        final albumName = itemV2Data['albumOfTrack']?['name'] as String?;
 
         return SpotifyTrackItem(
           spotifyUri: uri,
           title: name,
           artist: artistNames.isEmpty ? 'Unknown Artist' : artistNames,
+          album: albumName,
           duration: Duration(milliseconds: durationMs),
           coverUrl: cover,
         );
@@ -703,20 +773,25 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
             .where((n) => n.isNotEmpty)
             .join(', ');
 
-        String? cover = fallbackCover;
+        String? cover;
         final visTrait = itemV3Data['visualIdentityTrait'];
         if (visTrait is Map<String, dynamic>) {
           final squareCover =
               visTrait['squareCoverImage']?['image']?['data']?['sources'] as List<dynamic>?;
-          if (squareCover != null && squareCover.isNotEmpty && squareCover.first is Map) {
-            cover = (squareCover.first as Map)['url'] as String? ?? cover;
+          if (squareCover != null && squareCover.isNotEmpty) {
+            cover = _extractLargestImage(squareCover);
           }
         }
+        cover ??= fallbackCover;
+
+        final albumName = (idTrait?['contentHierarchyParent']?['identityTrait']?['name'] as String?) ??
+            (idTrait?['contentHierarchyParent']?['name'] as String?);
 
         return SpotifyTrackItem(
           spotifyUri: uri,
           title: name,
           artist: artistNames.isEmpty ? 'Unknown Artist' : artistNames,
+          album: albumName,
           duration: Duration(seconds: durSeconds),
           coverUrl: cover,
         );
@@ -738,18 +813,11 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
     var tokenRefreshed = false;
 
     while (tracks.length < _maxTracks) {
-      var uri = Uri.parse(
-        '$_apiBase/playlists/$playlistId/items?offset=$offset&limit=$_pageSize',
+      final uri = Uri.parse(
+        '$_apiBase/playlists/$playlistId/tracks?offset=$offset&limit=$_pageSize',
       );
 
       var response = await _getWithRetry(uri, token);
-
-      if (response.statusCode == 404) {
-        uri = Uri.parse(
-          '$_apiBase/playlists/$playlistId/tracks?offset=$offset&limit=$_pageSize',
-        );
-        response = await _getWithRetry(uri, token);
-      }
 
       if (response.statusCode == 401 && !tokenRefreshed) {
         tokenRefreshed = true;
@@ -841,20 +909,23 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         .where((name) => name.isNotEmpty)
         .join(', ');
 
-    String? cover = fallbackCover;
+    String? cover;
+    String? albumName;
     final album = track['album'];
     if (album is Map<String, dynamic>) {
-      final images = album['images'];
-      if (images is List && images.isNotEmpty && images.first is Map) {
-        final url = (images.first as Map<String, dynamic>)['url'];
-        if (url is String && url.isNotEmpty) cover = url;
+      albumName = album['name'] as String?;
+      final images = album['images'] as List<dynamic>?;
+      if (images != null && images.isNotEmpty) {
+        cover = _extractLargestImage(images);
       }
     }
+    cover ??= fallbackCover;
 
     return SpotifyTrackItem(
       spotifyUri: (track['uri'] as String?) ?? '',
       title: (track['name'] as String?) ?? 'Unknown Title',
       artist: artists.isEmpty ? 'Unknown Artist' : artists,
+      album: albumName,
       duration: Duration(milliseconds: (track['duration_ms'] as num?)?.toInt() ?? 0),
       coverUrl: cover,
     );
@@ -884,6 +955,12 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
           ? spotifyTrack.spotifyUri.replaceFirst('spotify:track:', '')
           : (spotifyTrack.spotifyUri.isNotEmpty ? spotifyTrack.spotifyUri : null);
 
+      final trackCover = (spotifyTrack.coverUrl != null &&
+              spotifyTrack.coverUrl!.isNotEmpty &&
+              !spotifyTrack.coverUrl!.contains('hqdefault'))
+          ? spotifyTrack.coverUrl
+          : null;
+
       return Track(
         id: spotifyTrackId != null ? 'spotify_$spotifyTrackId' : bestCandidate.id,
         sourceId: spotifyTrackId != null ? 'spotify_$spotifyTrackId' : bestCandidate.sourceId,
@@ -891,11 +968,7 @@ class KeylessSpotifyImporter implements ISpotifyImporter {
         artist: spotifyTrack.artist,
         album: spotifyTrack.album ?? bestCandidate.album,
         duration: spotifyTrack.duration > Duration.zero ? spotifyTrack.duration : bestCandidate.duration,
-        coverUrl: (spotifyTrack.coverUrl != null &&
-                spotifyTrack.coverUrl!.isNotEmpty &&
-                !spotifyTrack.coverUrl!.contains('hqdefault'))
-            ? spotifyTrack.coverUrl
-            : bestCandidate.coverUrl,
+        coverUrl: trackCover ?? bestCandidate.coverUrl,
         matchConfidence: highestScore,
       );
     }

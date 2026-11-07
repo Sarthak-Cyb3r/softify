@@ -384,7 +384,7 @@ void main() {
 
       expect(playlist.tracks.length, equals(100));
       expect(playlist.tracks.first.title, equals('Embed Track 0'));
-      expect(playlist.tracks.first.coverUrl, equals('https://i.scdn.co/image/playlist-cover'));
+      expect(playlist.tracks.first.coverUrl, isNull);
     });
 
     test('retries with backoff when Spotify returns 429', () async {

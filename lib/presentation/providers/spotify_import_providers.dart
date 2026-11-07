@@ -18,9 +18,11 @@ final spotifyAuthServiceProvider = Provider<SpotifyAuthService>((ref) {
 final spotifyImporterProvider = Provider<ISpotifyImporter>((ref) {
   final catalog = ref.watch(catalogRepositoryProvider);
   final authService = ref.watch(spotifyAuthServiceProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return KeylessSpotifyImporter(
     catalog: catalog,
     authService: authService,
+    spotifyApi: spotifyApi,
   );
 });
 
@@ -150,7 +152,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         return;
       }
 
-      await _matchPlaylistItems(playlist);
+      await _prepareAndQuickMatchPlaylist(playlist);
     } catch (e) {
       state = state.copyWith(
         status: SpotifyImportStatus.error,
@@ -184,7 +186,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         return;
       }
 
-      await _matchPlaylistItems(playlist);
+      await _prepareAndQuickMatchPlaylist(playlist);
     } catch (e) {
       state = state.copyWith(
         status: SpotifyImportStatus.error,
@@ -226,7 +228,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         return;
       }
 
-      await _matchPlaylistItems(playlist);
+      await _prepareAndQuickMatchPlaylist(playlist);
     } catch (e) {
       final cleanMessage = e
           .toString()
@@ -239,8 +241,10 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
     }
   }
 
-  Future<void> _matchPlaylistItems(SpotifyImportPlaylist playlist) async {
+  Future<void> _prepareAndQuickMatchPlaylist(SpotifyImportPlaylist playlist) async {
     final total = playlist.tracks.length;
+    final playlistCover = playlist.coverUrl;
+
     state = state.copyWith(
       status: SpotifyImportStatus.matchingTracks,
       playlist: playlist,
@@ -248,45 +252,53 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
       totalToMatch: total,
     );
 
-    final List<SpotifyTrackItem> results = List<SpotifyTrackItem>.from(playlist.tracks);
-    int completed = 0;
+    final List<SpotifyTrackItem> preparedTracks = [];
+    for (int i = 0; i < total; i++) {
+      final item = playlist.tracks[i];
+      final trackId = item.spotifyUri.startsWith('spotify:track:')
+          ? item.spotifyUri.replaceFirst('spotify:track:', '')
+          : (item.spotifyUri.isNotEmpty
+              ? item.spotifyUri
+              : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_'));
 
-    // Match tracks in parallel chunks of 5 for ultra-fast throughput
-    const chunkSize = 5;
-    for (int i = 0; i < total; i += chunkSize) {
-      final end = (i + chunkSize < total) ? i + chunkSize : total;
-      final chunkIndices = List.generate(end - i, (k) => i + k);
+      // Ensure track cover is NEVER the playlist's overall cover art
+      final itemCover = (item.coverUrl != null &&
+              item.coverUrl != playlistCover &&
+              !item.coverUrl!.contains('hqdefault'))
+          ? item.coverUrl
+          : null;
 
-      await Future.wait(
-        chunkIndices.map((idx) async {
-          final item = playlist.tracks[idx];
-          Track? matchedTrack;
-          try {
-            matchedTrack = await _importer.matchTrack(item);
-          } catch (_) {
-            matchedTrack = null;
-          }
-
-          results[idx] = item.copyWith(
-            matchedTrack: matchedTrack,
-            isMatched: matchedTrack != null,
-            confidence: matchedTrack?.matchConfidence ?? 0.0,
-          );
-          completed++;
-        }),
+      final canonicalTrack = Track(
+        id: 'spotify_$trackId',
+        sourceId: 'spotify_$trackId',
+        title: item.title,
+        artist: item.artist,
+        album: item.album,
+        duration: item.duration,
+        coverUrl: itemCover,
+        matchConfidence: 1.0,
       );
 
-      state = state.copyWith(
-        matchedProgress: completed,
-        playlist: playlist.copyWith(tracks: List.from(results)),
+      preparedTracks.add(
+        item.copyWith(
+          coverUrl: itemCover,
+          matchedTrack: canonicalTrack,
+          isMatched: true,
+          confidence: 1.0,
+        ),
       );
     }
 
     state = state.copyWith(
       status: SpotifyImportStatus.matched,
       matchedProgress: total,
-      playlist: playlist.copyWith(tracks: results),
+      totalToMatch: total,
+      playlist: playlist.copyWith(tracks: preparedTracks),
     );
+  }
+
+  Future<void> _matchPlaylistItems(SpotifyImportPlaylist playlist) async {
+    await _prepareAndQuickMatchPlaylist(playlist);
   }
 
   void updateTrackMatch(int index, Track newTrack) {
@@ -330,11 +342,19 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         final List<Track> tracksToInsert = [];
         final List<({String title, String artist})> meta = [];
 
+        final playlistCover = playlist.coverUrl;
         for (final item in playlist.tracks) {
           final trackId = item.spotifyUri.startsWith('spotify:track:')
               ? item.spotifyUri.replaceFirst('spotify:track:', '')
               : '${item.title}_${item.artist}'
                   .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+
+          final itemCover = (item.coverUrl != null &&
+                  item.coverUrl != playlistCover &&
+                  !item.coverUrl!.contains('hqdefault'))
+              ? item.coverUrl
+              : null;
+
           final track = Track(
             id: 'spotify_$trackId',
             sourceId: 'spotify_$trackId',
@@ -342,7 +362,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
             artist: item.artist,
             album: item.album,
             duration: item.duration,
-            coverUrl: item.coverUrl,
+            coverUrl: itemCover,
           );
           tracksToInsert.add(track);
           meta.add((title: item.title, artist: item.artist));
@@ -380,14 +400,29 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
 
       final List<Track> tracksToInsert = [];
       final List<({String title, String artist})> originalMeta = [];
+      final playlistCover = currentPlaylist.coverUrl;
 
       for (final t in currentPlaylist.tracks) {
-        if (!t.isMatched || t.matchedTrack == null) continue;
         final cleanTrackId = t.spotifyUri.startsWith('spotify:track:')
             ? t.spotifyUri.replaceFirst('spotify:track:', '')
             : (t.spotifyUri.isNotEmpty
                 ? t.spotifyUri
                 : '${t.title}_${t.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_'));
+
+        // Never let playlist artwork bleed onto individual tracks
+        String? finalCover = (t.coverUrl != null &&
+                t.coverUrl != playlistCover &&
+                !t.coverUrl!.contains('hqdefault'))
+            ? t.coverUrl
+            : null;
+        if (finalCover == null || finalCover.contains('hqdefault')) {
+          final candidateCover = t.matchedTrack?.coverUrl;
+          if (candidateCover != null &&
+              candidateCover != playlistCover &&
+              !candidateCover.contains('hqdefault')) {
+            finalCover = candidateCover;
+          }
+        }
 
         final canonicalTrack = Track(
           id: 'spotify_$cleanTrackId',
@@ -398,10 +433,8 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
           duration: t.duration > Duration.zero
               ? t.duration
               : (t.matchedTrack?.duration ?? Duration.zero),
-          coverUrl: (t.coverUrl != null && !t.coverUrl!.contains('hqdefault'))
-              ? t.coverUrl
-              : (t.matchedTrack?.coverUrl ?? t.coverUrl),
-          matchConfidence: t.confidence,
+          coverUrl: finalCover,
+          matchConfidence: t.confidence > 0 ? t.confidence : 1.0,
         );
         tracksToInsert.add(canonicalTrack);
         originalMeta.add((title: t.title, artist: t.artist));
@@ -575,30 +608,58 @@ class SpotifyPlaylistSyncService {
         return 0;
       }
 
-      // 4. Match new tracks and guard against duplicate YouTube matches
+      // 4. Match new tracks with duplicate protection & fallback canonical tracks
       final matchedTracks = <Track>[];
       final newMetadata = <({String title, String artist})>[];
       final newMatchedSourceIds = <String>{};
+      final playlistCover = remotePlaylist.coverUrl;
 
       for (final item in newItems) {
+        Track? matched;
         try {
-          final matched = await _importer.matchTrack(item);
-          if (matched != null) {
-            final mSourceId = matched.sourceId.toLowerCase().trim();
-            final mId = matched.id.toLowerCase().trim();
-
-            // Guard: Never add a track whose YouTube sourceId is already in the playlist
-            if (existingSourceIds.contains(mSourceId) ||
-                existingTrackIds.contains(mId) ||
-                newMatchedSourceIds.contains(mSourceId)) {
-              continue;
-            }
-
-            newMatchedSourceIds.add(mSourceId);
-            matchedTracks.add(matched);
-            newMetadata.add((title: item.title, artist: item.artist));
-          }
+          matched = await _importer.matchTrack(item);
         } catch (_) {}
+
+        if (matched != null) {
+          final mSourceId = matched.sourceId.toLowerCase().trim();
+          final mId = matched.id.toLowerCase().trim();
+
+          // Guard: Never add a track whose sourceId is already in the playlist
+          if (existingSourceIds.contains(mSourceId) ||
+              existingTrackIds.contains(mId) ||
+              newMatchedSourceIds.contains(mSourceId)) {
+            continue;
+          }
+
+          newMatchedSourceIds.add(mSourceId);
+          matchedTracks.add(matched);
+          newMetadata.add((title: item.title, artist: item.artist));
+          continue;
+        }
+
+        final trackId = item.spotifyUri.startsWith('spotify:track:')
+            ? item.spotifyUri.replaceFirst('spotify:track:', '')
+            : '${item.title}_${item.artist}'
+                .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+
+        final itemCover = (item.coverUrl != null &&
+                item.coverUrl != playlistCover &&
+                !item.coverUrl!.contains('hqdefault'))
+            ? item.coverUrl
+            : null;
+
+        final track = Track(
+          id: 'spotify_$trackId',
+          sourceId: 'spotify_$trackId',
+          title: item.title,
+          artist: item.artist,
+          album: item.album,
+          duration: item.duration,
+          coverUrl: itemCover,
+          matchConfidence: 1.0,
+        );
+        matchedTracks.add(track);
+        newMetadata.add((title: item.title, artist: item.artist));
       }
 
       if (matchedTracks.isEmpty) {
