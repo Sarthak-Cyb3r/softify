@@ -62,8 +62,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   DateTime _lastPlayerReceipt = DateTime.now();
   bool _isPlaying = false;
 
-  // Track-calibrated sync offset (persisted in Drift SQLite)
-  int _syncOffsetMs = 0;
   LyricFontSize _lyricFontSize = LyricFontSize.normal;
   bool _romanizeLyrics = false;
 
@@ -75,8 +73,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   DateTime _lastFrameTime = DateTime.now();
 
   Duration _calculateEffectivePosition(DateTime now) {
+    final offsetMs = ref.read(lyricsOffsetProvider(widget.track.id));
     if (!_isPlaying) {
-      final pausedMs = _lastPlayerPosition.inMilliseconds + _syncOffsetMs;
+      final pausedMs = _lastPlayerPosition.inMilliseconds + offsetMs;
       _filteredPositionMs = pausedMs.toDouble();
       return Duration(milliseconds: pausedMs < 0 ? 0 : pausedMs);
     }
@@ -86,7 +85,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final safeElapsedMs = elapsedMs.clamp(0, 10000);
     final targetMs = _lastPlayerPosition.inMilliseconds +
         safeElapsedMs +
-        _syncOffsetMs;
+        offsetMs;
 
     final frameDt = now.difference(_lastFrameTime).inMilliseconds.clamp(1, 100);
     _lastFrameTime = now;
@@ -162,17 +161,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   Future<void> _loadSavedOffset() async {
     try {
       final db = ref.read(databaseProvider);
-      final key = 'lyrics_offset_${widget.track.id}';
-      final row = await (db.select(db.settings)..where((t) => t.key.equals(key))).getSingleOrNull();
-      if (row != null && mounted) {
-        final val = int.tryParse(row.value);
-        if (val != null) {
-          setState(() {
-            _syncOffsetMs = val;
-          });
-        }
-      }
-
       final fontRow = await (db.select(db.settings)..where((t) => t.key.equals('lyrics_font_size'))).getSingleOrNull();
       if (fontRow != null && mounted) {
         final idx = int.tryParse(fontRow.value);

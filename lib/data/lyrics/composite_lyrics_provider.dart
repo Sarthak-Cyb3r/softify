@@ -86,7 +86,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   Future<SyncedLyrics?> _resolveLyrics(Track track) async {
     // Tier 0 (Gold Standard): Query Softify verified studio master catalog (0ms)
     try {
-      final curatedResult = await _curated.getLyrics(track);
+      final curatedResult = _sanitize(await _curated.getLyrics(track), track);
       if (curatedResult != null &&
           curatedResult.isSynced &&
           curatedResult.lines.isNotEmpty) {
@@ -132,11 +132,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
 
     try {
       final fastResults = await fastTierFuture;
-      lrclibResult = fastResults[0];
-      neteaseResult = fastResults[1];
-      kugouResult = fastResults[2];
-      paxResult = fastResults[3];
-      betterResult = fastResults[4];
+      lrclibResult = _sanitize(fastResults[0], track);
+      neteaseResult = _sanitize(fastResults[1], track);
+      kugouResult = _sanitize(fastResults[2], track);
+      paxResult = _sanitize(fastResults[3], track);
+      betterResult = _sanitize(fastResults[4], track);
 
       // 1. Syllable/Karaoke sync preference (Paxsenix Apple Music or BetterLyrics)
       if (paxResult != null &&
@@ -189,10 +189,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
-        spotifyResult = await _spotify!.getLyrics(track).timeout(
+        final rawSpotify = await _spotify!.getLyrics(track).timeout(
               const Duration(milliseconds: 2000),
               onTimeout: () => null,
             );
+        spotifyResult = _sanitize(rawSpotify, track);
         if (spotifyResult != null &&
             spotifyResult.isSynced &&
             spotifyResult.lines.isNotEmpty) {
@@ -267,6 +268,28 @@ class CompositeLyricsProvider implements ILyricsProvider {
     }
 
     return null;
+  }
+
+  SyncedLyrics? _sanitize(SyncedLyrics? lyrics, Track track) {
+    if (lyrics == null) return null;
+    if (!lyrics.isSynced || lyrics.lines.isEmpty) return lyrics;
+
+    final targetSec = track.duration.inSeconds;
+    if (targetSec <= 60) return lyrics;
+
+    final lastTs = lyrics.lines.last.timestamp.inSeconds;
+    if (lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
+      final plain = lyrics.plainLyrics ??
+          lyrics.lines.map((l) => l.text).where((t) => t.trim().isNotEmpty).join('\n');
+      return SyncedLyrics(
+        trackId: lyrics.trackId,
+        lines: const [],
+        plainLyrics: plain.trim().isNotEmpty ? plain : null,
+        syncType: 'UNSYNCED',
+        providerName: '${lyrics.providerName} (Truncated->Unsynced)',
+      );
+    }
+    return lyrics;
   }
 
   void _addToCache(String key, SyncedLyrics? value) {

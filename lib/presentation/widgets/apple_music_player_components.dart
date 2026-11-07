@@ -221,22 +221,37 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lyricsAsync = ref.watch(trackLyricsProvider(track));
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
+    final offsetMs = ref.watch(lyricsOffsetProvider(track.id));
+    final effectivePosition = Duration(
+      milliseconds: (position.inMilliseconds + offsetMs).clamp(0, 99999999),
+    );
     final romanizeEnabled = ref.watch(lyricsRomanizeProvider);
     final lyrics = lyricsAsync.valueOrNull;
 
     String? currentLine;
-    if (lyrics != null && lyrics.lines.isNotEmpty) {
+    if (lyrics != null && lyrics.isSynced && lyrics.lines.isNotEmpty) {
       final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(
         lyrics.lines,
-        position,
+        effectivePosition,
       );
       if (activeIdx >= 0 && activeIdx < lyrics.lines.length) {
         currentLine = lyrics.lines[activeIdx].text;
       } else {
-        currentLine = lyrics.lines.first.text;
+        // Instrumental intro before vocal commences: do not display premature lyric
+        currentLine = null;
       }
-      if (romanizeEnabled && currentLine.isNotEmpty) {
+      if (romanizeEnabled && currentLine != null && currentLine.isNotEmpty) {
         currentLine = RomanizationService.romanize(currentLine);
+      }
+    } else if (lyrics != null &&
+        lyrics.plainLyrics != null &&
+        lyrics.plainLyrics!.trim().isNotEmpty) {
+      final firstLine = lyrics.plainLyrics!.trim().split('\n').firstWhere(
+            (l) => l.trim().isNotEmpty,
+            orElse: () => '',
+          );
+      if (firstLine.isNotEmpty) {
+        currentLine = romanizeEnabled ? RomanizationService.romanize(firstLine) : firstLine;
       }
     }
 

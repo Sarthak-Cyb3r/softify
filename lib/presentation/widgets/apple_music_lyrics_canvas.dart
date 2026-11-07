@@ -49,12 +49,10 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
   int _lastScrolledIndex = -1;
   bool _userIsScrolling = false;
   Timer? _userScrollTimer;
-  int _syncOffsetMs = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedOffset();
   }
 
   @override
@@ -64,7 +62,6 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
       _lastActiveIndex = -1;
       _lastScrolledIndex = -1;
       _lineKeys.clear();
-      _loadSavedOffset();
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(0.0);
       }
@@ -78,31 +75,8 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
     super.dispose();
   }
 
-  Future<void> _loadSavedOffset() async {
-    try {
-      final db = ref.read(databaseProvider);
-      final key = 'lyrics_offset_${widget.track.id}';
-      final row = await (db.select(db.settings)..where((t) => t.key.equals(key)))
-          .getSingleOrNull();
-      if (row != null && mounted) {
-        setState(() {
-          _syncOffsetMs = int.tryParse(row.value) ?? 0;
-        });
-      }
-    } catch (_) {}
-  }
-
   Future<void> _saveOffset(int newOffsetMs) async {
-    setState(() {
-      _syncOffsetMs = newOffsetMs;
-    });
-    try {
-      final db = ref.read(databaseProvider);
-      final key = 'lyrics_offset_${widget.track.id}';
-      await db.into(db.settings).insertOnConflictUpdate(
-            SettingRow(key: key, value: newOffsetMs.toString()),
-          );
-    } catch (_) {}
+    ref.read(lyricsOffsetProvider(widget.track.id).notifier).setOffset(newOffsetMs);
   }
 
   GlobalKey _getKeyForIndex(int index) {
@@ -177,8 +151,9 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final currentOffset = ref.watch(lyricsOffsetProvider(widget.track.id));
             return Container(
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
@@ -209,7 +184,7 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Current offset: ${_syncOffsetMs >= 0 ? "+" : ""}${_syncOffsetMs}ms',
+                      'Current offset: ${currentOffset >= 0 ? "+" : ""}${currentOffset}ms',
                       style: const TextStyle(
                         fontFamily: AppTheme.fontUi,
                         fontSize: 14,
@@ -223,24 +198,19 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                       alignment: WrapAlignment.center,
                       children: [
                         _offsetButton('-500ms', () {
-                          _saveOffset(_syncOffsetMs - 500);
-                          setSheetState(() {});
+                          _saveOffset(currentOffset - 500);
                         }),
                         _offsetButton('-100ms', () {
-                          _saveOffset(_syncOffsetMs - 100);
-                          setSheetState(() {});
+                          _saveOffset(currentOffset - 100);
                         }),
                         _offsetButton('Reset (0ms)', () {
                           _saveOffset(0);
-                          setSheetState(() {});
                         }),
                         _offsetButton('+100ms', () {
-                          _saveOffset(_syncOffsetMs + 100);
-                          setSheetState(() {});
+                          _saveOffset(currentOffset + 100);
                         }),
                         _offsetButton('+500ms', () {
-                          _saveOffset(_syncOffsetMs + 500);
-                          setSheetState(() {});
+                          _saveOffset(currentOffset + 500);
                         }),
                       ],
                     ),
@@ -315,8 +285,9 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
   Widget build(BuildContext context) {
     final lyricsAsync = ref.watch(trackLyricsProvider(widget.track));
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
+    final offsetMs = ref.watch(lyricsOffsetProvider(widget.track.id));
     final effectivePosition = Duration(
-      milliseconds: (position.inMilliseconds + _syncOffsetMs).clamp(0, 9999999),
+      milliseconds: (position.inMilliseconds + offsetMs).clamp(0, 9999999),
     );
     final reduceEffects = ref.watch(shouldReduceEffectsProvider);
     final romanizeEnabled = ref.watch(lyricsRomanizeProvider);
