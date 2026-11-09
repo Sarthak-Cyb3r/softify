@@ -6,6 +6,8 @@ import '../../domain/entities/spotify_import.dart';
 import '../../domain/entities/track.dart';
 import '../providers/player_providers.dart';
 import '../providers/spotify_import_providers.dart';
+import '../providers/diversity_providers.dart';
+import '../providers/shelf_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared/app_network_image.dart';
 import 'playlist_detail_screen.dart';
@@ -59,8 +61,15 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     ref.invalidate(spotifyAuthStateProvider);
     ref.invalidate(spotifyUserProfileProvider);
     ref.invalidate(spotifyUserPlaylistsProvider);
+    ref.invalidate(spotifyUserTopTracksProvider);
+    ref.invalidate(spotifyUserRecentlyPlayedProvider);
+    ref.invalidate(spotifyUserTopArtistsProvider);
+    ref.invalidate(spotifyUserSavedAlbumsProvider);
+    ref.invalidate(homeShelvesProvider);
     if (!mounted) return;
     if (success) {
+      // Automatically seed taste profile from connected Spotify account
+      ref.read(coldStartSeederProvider).seedFromSpotifyAccount();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Successfully connected to Spotify!'),
@@ -85,6 +94,11 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     ref.invalidate(spotifyAuthStateProvider);
     ref.invalidate(spotifyUserProfileProvider);
     ref.invalidate(spotifyUserPlaylistsProvider);
+    ref.invalidate(spotifyUserTopTracksProvider);
+    ref.invalidate(spotifyUserRecentlyPlayedProvider);
+    ref.invalidate(spotifyUserTopArtistsProvider);
+    ref.invalidate(spotifyUserSavedAlbumsProvider);
+    ref.invalidate(homeShelvesProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Disconnected Spotify account.')),
@@ -1314,6 +1328,120 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                   child: const Text(
                     'Import',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Quick Spotify Mixes Row (Top Tracks & Recent Streams)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(tokens.radiusCard),
+                    onTap: () {
+                      ref.read(spotifyImportNotifierProvider.notifier).loadUserTopTracksAsPlaylist();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: tokens.card,
+                        borderRadius: BorderRadius.circular(tokens.radiusCard),
+                        border: Border.all(color: tokens.surfaceHighlight),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(tokens.radiusSm),
+                            ),
+                            child: const Icon(Icons.whatshot_rounded, color: Colors.orange, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Heavy Rotation',
+                                  style: TextStyle(
+                                    color: tokens.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Top tracks',
+                                  style: TextStyle(
+                                    color: tokens.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(tokens.radiusCard),
+                    onTap: () {
+                      ref.read(spotifyImportNotifierProvider.notifier).loadUserRecentlyPlayedAsPlaylist();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: tokens.card,
+                        borderRadius: BorderRadius.circular(tokens.radiusCard),
+                        border: Border.all(color: tokens.surfaceHighlight),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.teal.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(tokens.radiusSm),
+                            ),
+                            child: const Icon(Icons.history_rounded, color: Colors.teal, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recent Streams',
+                                  style: TextStyle(
+                                    color: tokens.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Recently played',
+                                  style: TextStyle(
+                                    color: tokens.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],

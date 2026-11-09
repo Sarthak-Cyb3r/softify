@@ -16,6 +16,7 @@ import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../widgets/wrapped_insights_dialog.dart';
 import '../widgets/spotify_logo_badge.dart';
+import '../providers/spotify_import_providers.dart';
 import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
@@ -56,9 +57,64 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isScanningLocalAudio = false;
+  bool _isSyncingAllSpotify = false;
   LibrarySortOrder _likedSort = LibrarySortOrder.recentlyAdded;
   LibrarySortOrder _downloadsSort = LibrarySortOrder.recentlyAdded;
   LibrarySortOrder _deviceMusicSort = LibrarySortOrder.recentlyAdded;
+
+  Widget _buildSyncAllSpotifyButton(AppTokens tokens) {
+    return AppPillButton(
+      label: _isSyncingAllSpotify ? 'Syncing...' : 'Sync Spotify',
+      icon: _isSyncingAllSpotify
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: tokens.accent,
+              ),
+            )
+          : const SpotifyLogoBadge(size: 16, hasShadow: false),
+      variant: AppPillButtonVariant.secondary,
+      height: 32,
+      onPressed: _isSyncingAllSpotify
+          ? null
+          : () async {
+              setState(() => _isSyncingAllSpotify = true);
+              try {
+                final result = await ref
+                    .read(spotifyPlaylistSyncServiceProvider)
+                    .syncAllPlaylists();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const SpotifyLogoBadge(size: 16, hasShadow: false),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              result.totalNewTracks > 0
+                                  ? 'Synced: Added ${result.totalNewTracks} new tracks across ${result.updatedPlaylists} playlists'
+                                  : 'All imported Spotify playlists are up to date',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: tokens.surfaceElevated,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => _isSyncingAllSpotify = false);
+                }
+              }
+            },
+    );
+  }
 
   List<Track> _sortTracks(List<Track> list, LibrarySortOrder sort) {
     if (sort == LibrarySortOrder.recentlyAdded) return list;
@@ -490,31 +546,44 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               _buildSmartPlaylistsSection(tokens),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                child: Row(
-                  children: [
-                    AppPillButton(
-                      label: 'New Playlist',
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      variant: AppPillButtonVariant.secondary,
-                      height: 32,
-                      onPressed: () => _showCreatePlaylistDialog(context),
-                    ),
-                    const SizedBox(width: 10),
-                    AppPillButton(
-                      label: 'Import Spotify',
-                      icon: const Icon(Icons.cloud_download_rounded, size: 16),
-                      variant: AppPillButtonVariant.secondary,
-                      height: 32,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SpotifyImportScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      AppPillButton(
+                        label: 'New Playlist',
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => _showCreatePlaylistDialog(context),
+                      ),
+                      const SizedBox(width: 10),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final auth = ref.watch(spotifyAuthStateProvider).valueOrNull;
+                          final isLinked = auth?.isLoggedIn ?? false;
+                          return AppPillButton(
+                            label: isLinked ? 'Spotify Hub' : 'Import Spotify',
+                            icon: isLinked
+                                ? const SpotifyLogoBadge(size: 16, hasShadow: false)
+                                : const Icon(Icons.cloud_download_rounded, size: 16),
+                            variant: isLinked
+                                ? AppPillButtonVariant.primary
+                                : AppPillButtonVariant.secondary,
+                            height: 32,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SpotifyImportScreen(),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Expanded(
@@ -546,31 +615,48 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             _buildSmartPlaylistsSection(tokens),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-              child: Row(
-                children: [
-                  AppPillButton(
-                    label: 'New Playlist',
-                    icon: const Icon(Icons.add_rounded, size: 16),
-                    variant: AppPillButtonVariant.secondary,
-                    height: 32,
-                    onPressed: () => _showCreatePlaylistDialog(context),
-                  ),
-                  const SizedBox(width: 10),
-                  AppPillButton(
-                    label: 'Import Spotify',
-                    icon: const Icon(Icons.cloud_download_rounded, size: 16),
-                    variant: AppPillButtonVariant.secondary,
-                    height: 32,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const SpotifyImportScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    AppPillButton(
+                      label: 'New Playlist',
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () => _showCreatePlaylistDialog(context),
+                    ),
+                    const SizedBox(width: 10),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final auth = ref.watch(spotifyAuthStateProvider).valueOrNull;
+                        final isLinked = auth?.isLoggedIn ?? false;
+                        return AppPillButton(
+                          label: isLinked ? 'Spotify Hub' : 'Import Spotify',
+                          icon: isLinked
+                              ? const SpotifyLogoBadge(size: 16, hasShadow: false)
+                              : const Icon(Icons.cloud_download_rounded, size: 16),
+                          variant: isLinked
+                              ? AppPillButtonVariant.primary
+                              : AppPillButtonVariant.secondary,
+                          height: 32,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SpotifyImportScreen(),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    if (playlists.any((p) => p.isImported)) ...[
+                      const SizedBox(width: 10),
+                      _buildSyncAllSpotifyButton(tokens),
+                    ],
+                  ],
+                ),
               ),
             ),
             Expanded(

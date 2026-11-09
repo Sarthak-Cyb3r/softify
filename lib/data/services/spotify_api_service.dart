@@ -1058,11 +1058,199 @@ class SpotifyApiService {
 
   // --- Authenticated Spotify Web API User Library & Data Extraction ---
 
-  Future<bool> _isUserLoggedIn() async {
+  Future<bool> isUserLoggedIn() async {
     try {
       return (await _authService?.isLoggedIn()) ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<bool> _isUserLoggedIn() => isUserLoggedIn();
+
+  /// Retrieves user's top tracks via official Spotify Web API (`GET /v1/me/top/tracks`).
+  ///
+  /// [timeRange] can be `short_term` (~4 weeks), `medium_term` (~6 months), or `long_term` (years).
+  Future<List<Track>> getUserTopTracks({
+    String timeRange = 'short_term',
+    int limit = 20,
+  }) async {
+    try {
+      final token = await getValidToken();
+      final url = Uri.parse('https://api.spotify.com/v1/me/top/tracks').replace(
+        queryParameters: {
+          'time_range': timeRange,
+          'limit': limit.clamp(1, 50).toString(),
+        },
+      );
+
+      final resp = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'User-Agent': _defaultUserAgent,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) return const [];
+
+      final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final items = json['items'] as List<dynamic>? ?? [];
+      final List<Track> tracks = [];
+
+      for (final item in items) {
+        if (item is! Map<String, dynamic>) continue;
+        final t = _parseWebApiTrackEntity(item);
+        if (t != null) tracks.add(t);
+      }
+      return tracks;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Retrieves user's top artists via official Spotify Web API (`GET /v1/me/top/artists`).
+  Future<List<SpotifyArtistRef>> getUserTopArtists({
+    String timeRange = 'medium_term',
+    int limit = 20,
+  }) async {
+    try {
+      final token = await getValidToken();
+      final url = Uri.parse('https://api.spotify.com/v1/me/top/artists').replace(
+        queryParameters: {
+          'time_range': timeRange,
+          'limit': limit.clamp(1, 50).toString(),
+        },
+      );
+
+      final resp = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'User-Agent': _defaultUserAgent,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) return const [];
+
+      final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final items = json['items'] as List<dynamic>? ?? [];
+      final List<SpotifyArtistRef> artists = [];
+
+      for (final it in items) {
+        if (it is! Map<String, dynamic>) continue;
+        final id = it['id'] as String? ?? '';
+        final uri = it['uri'] as String? ?? (id.isNotEmpty ? 'spotify:artist:$id' : '');
+        final name = it['name'] as String? ?? '';
+        final img = _extractLargestImage(it['images'] as List<dynamic>?);
+        if (name.isNotEmpty) {
+          artists.add(SpotifyArtistRef(id: id, uri: uri, name: name, imageUrl: img));
+        }
+      }
+      return artists;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Retrieves user's recently played tracks via official Spotify Web API (`GET /v1/me/player/recently-played`).
+  Future<List<Track>> getUserRecentlyPlayed({int limit = 30}) async {
+    try {
+      final token = await getValidToken();
+      final url = Uri.parse('https://api.spotify.com/v1/me/player/recently-played').replace(
+        queryParameters: {
+          'limit': limit.clamp(1, 50).toString(),
+        },
+      );
+
+      final resp = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'User-Agent': _defaultUserAgent,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) return const [];
+
+      final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final items = json['items'] as List<dynamic>? ?? [];
+      final List<Track> tracks = [];
+      final seenIds = <String>{};
+
+      for (final item in items) {
+        if (item is! Map<String, dynamic>) continue;
+        final tMap = item['track'] as Map<String, dynamic>?;
+        if (tMap == null) continue;
+        final t = _parseWebApiTrackEntity(tMap);
+        if (t != null && seenIds.add(t.id)) {
+          tracks.add(t);
+        }
+      }
+      return tracks;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Retrieves user's saved albums via official Spotify Web API (`GET /v1/me/albums`).
+  Future<List<SpotifyAlbumRef>> getUserSavedAlbums({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final token = await getValidToken();
+      final url = Uri.parse('https://api.spotify.com/v1/me/albums').replace(
+        queryParameters: {
+          'limit': limit.clamp(1, 50).toString(),
+          'offset': offset.toString(),
+        },
+      );
+
+      final resp = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'User-Agent': _defaultUserAgent,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) return const [];
+
+      final json = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      final items = json['items'] as List<dynamic>? ?? [];
+      final List<SpotifyAlbumRef> albums = [];
+
+      for (final it in items) {
+        if (it is! Map<String, dynamic>) continue;
+        final albumMap = it['album'] as Map<String, dynamic>?;
+        if (albumMap == null) continue;
+        final id = albumMap['id'] as String? ?? '';
+        final uri = albumMap['uri'] as String? ?? (id.isNotEmpty ? 'spotify:album:$id' : '');
+        final name = albumMap['name'] as String? ?? '';
+        final artistsList = albumMap['artists'] as List<dynamic>?;
+        final artistName = artistsList
+            ?.map((a) => (a as Map<String, dynamic>?)?['name'] as String?)
+            .whereType<String>()
+            .join(', ');
+        final cover = _extractLargestImage(albumMap['images'] as List<dynamic>?);
+        if (name.isNotEmpty) {
+          albums.add(SpotifyAlbumRef(
+            id: id,
+            uri: uri,
+            name: name,
+            artist: artistName,
+            coverUrl: cover,
+          ));
+        }
+      }
+      return albums;
+    } catch (_) {
+      return const [];
     }
   }
 

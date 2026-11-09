@@ -49,6 +49,42 @@ final spotifyUserPlaylistsProvider =
   return await spotifyApi.getCurrentUserPlaylists();
 });
 
+final spotifyUserTopTracksProvider =
+    FutureProvider.autoDispose.family<List<Track>, String>((ref, timeRange) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserTopTracks(timeRange: timeRange, limit: 25);
+});
+
+final spotifyUserRecentlyPlayedProvider =
+    FutureProvider.autoDispose<List<Track>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserRecentlyPlayed(limit: 30);
+});
+
+final spotifyUserTopArtistsProvider =
+    FutureProvider.autoDispose<List<SpotifyArtistRef>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserTopArtists(limit: 20);
+});
+
+final spotifyUserSavedAlbumsProvider =
+    FutureProvider.autoDispose<List<SpotifyAlbumRef>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserSavedAlbums(limit: 20);
+});
+
 enum SpotifyImportStatus {
   idle,
   fetchingPlaylist,
@@ -157,6 +193,98 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
       state = state.copyWith(
         status: SpotifyImportStatus.error,
         errorMessage: 'Failed to load Spotify Liked Songs: $e',
+      );
+    }
+  }
+
+  Future<void> loadUserTopTracksAsPlaylist({String timeRange = 'short_term'}) async {
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: 'spotify:user:top-tracks',
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final tracks = await _spotifyApi.getUserTopTracks(timeRange: timeRange, limit: 50);
+      if (tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No top tracks found in your connected Spotify account.',
+        );
+        return;
+      }
+
+      final items = tracks.map((t) => SpotifyTrackItem(
+        spotifyUri: t.id.startsWith('spotify_')
+            ? 'spotify:track:${t.id.replaceFirst('spotify_', '')}'
+            : 'spotify:track:${t.id}',
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        duration: t.duration,
+        coverUrl: t.coverUrl,
+      )).toList();
+
+      final playlist = SpotifyImportPlaylist(
+        id: 'me_top_tracks',
+        name: 'Spotify Heavy Rotation',
+        description: 'Your top played tracks imported from Spotify',
+        coverUrl: tracks.firstOrNull?.coverUrl,
+        tracks: items,
+      );
+
+      await _prepareAndQuickMatchPlaylist(playlist);
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Failed to load Spotify Top Tracks: $e',
+      );
+    }
+  }
+
+  Future<void> loadUserRecentlyPlayedAsPlaylist() async {
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: 'spotify:user:recently-played',
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final tracks = await _spotifyApi.getUserRecentlyPlayed(limit: 50);
+      if (tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No recently played tracks found in your connected Spotify account.',
+        );
+        return;
+      }
+
+      final items = tracks.map((t) => SpotifyTrackItem(
+        spotifyUri: t.id.startsWith('spotify_')
+            ? 'spotify:track:${t.id.replaceFirst('spotify_', '')}'
+            : 'spotify:track:${t.id}',
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        duration: t.duration,
+        coverUrl: t.coverUrl,
+      )).toList();
+
+      final playlist = SpotifyImportPlaylist(
+        id: 'me_recently_played',
+        name: 'Recently Played (Spotify)',
+        description: 'Tracks streamed recently on Spotify',
+        coverUrl: tracks.firstOrNull?.coverUrl,
+        tracks: items,
+      );
+
+      await _prepareAndQuickMatchPlaylist(playlist);
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Failed to load Spotify Recently Played: $e',
       );
     }
   }
@@ -694,6 +822,30 @@ class SpotifyPlaylistSyncService {
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Syncs all imported Spotify playlists in the library with their remote source.
+  Future<({int updatedPlaylists, int totalNewTracks})> syncAllPlaylists({
+    void Function(int current, int total, String playlistName)? onProgress,
+  }) async {
+    final playlists = await _libraryRepo.getPlaylists();
+    final imported = playlists.where((p) => p.isImported).toList();
+    int updatedCount = 0;
+    int totalAdded = 0;
+
+    for (int i = 0; i < imported.length; i++) {
+      final p = imported[i];
+      onProgress?.call(i + 1, imported.length, p.name);
+      try {
+        final added = await syncPlaylist(p.id);
+        if (added > 0) {
+          updatedCount++;
+          totalAdded += added;
+        }
+      } catch (_) {}
+    }
+
+    return (updatedPlaylists: updatedCount, totalNewTracks: totalAdded);
   }
 }
 

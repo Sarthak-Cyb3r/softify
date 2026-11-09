@@ -68,6 +68,24 @@ class ShelfEngine implements IShelfRepository {
 
     final shelves = <Shelf>[];
 
+    // If user is connected to Spotify via OAuth, inject personalized Spotify shelves at top!
+    if (await _spotifyApi.isUserLoggedIn()) {
+      final spotifyRotation = await _buildSpotifyHeavyRotationShelf();
+      if (spotifyRotation != null && spotifyRotation.tracks.isNotEmpty) {
+        shelves.add(spotifyRotation);
+      }
+
+      final spotifyRecent = await _buildSpotifyRecentlyPlayedShelf();
+      if (spotifyRecent != null && spotifyRecent.tracks.isNotEmpty) {
+        shelves.add(spotifyRecent);
+      }
+
+      final spotifyInspired = await _buildSpotifyInspiredByShelf();
+      if (spotifyInspired != null && spotifyInspired.tracks.isNotEmpty) {
+        shelves.add(spotifyInspired);
+      }
+    }
+
     for (final def in definitions) {
       Shelf? shelf;
       switch (def.rule) {
@@ -599,6 +617,63 @@ class ShelfEngine implements IShelfRepository {
         rule: def.rule,
         tracks: const [],
       );
+    }
+  }
+
+  Future<Shelf?> _buildSpotifyHeavyRotationShelf() async {
+    try {
+      final tracks = await _spotifyApi.getUserTopTracks(timeRange: 'short_term', limit: 15);
+      final valid = tracks.where((t) => !_isExcludedTrack(t)).toList();
+      if (valid.isEmpty) return null;
+      return Shelf(
+        id: 'spotify_heavy_rotation',
+        title: 'Spotify Heavy Rotation',
+        subtitle: 'Your most played tracks on Spotify',
+        rule: 'spotify_heavy_rotation',
+        tracks: valid,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Shelf?> _buildSpotifyRecentlyPlayedShelf() async {
+    try {
+      final tracks = await _spotifyApi.getUserRecentlyPlayed(limit: 15);
+      final valid = tracks.where((t) => !_isExcludedTrack(t)).toList();
+      if (valid.isEmpty) return null;
+      return Shelf(
+        id: 'spotify_recently_played',
+        title: 'Recently Played on Spotify',
+        subtitle: 'From your recent Spotify sessions',
+        rule: 'spotify_recently_played',
+        tracks: valid,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Shelf?> _buildSpotifyInspiredByShelf() async {
+    try {
+      final topArtists = await _spotifyApi.getUserTopArtists(limit: 1);
+      if (topArtists.isEmpty) return null;
+      final artist = topArtists.first;
+      var tracks = await _spotifyApi.getArtistRadio(artist.id);
+      if (tracks.isEmpty) {
+        tracks = await _spotifyApi.getArtistTopTracks(artist.id);
+      }
+      final valid = tracks.where((t) => !_isExcludedTrack(t)).take(15).toList();
+      if (valid.isEmpty) return null;
+      return Shelf(
+        id: 'spotify_inspired_by_${artist.id}',
+        title: 'Inspired by ${artist.name}',
+        subtitle: 'Based on your Spotify favorites',
+        rule: 'spotify_inspired_by',
+        tracks: valid,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

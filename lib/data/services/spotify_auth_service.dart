@@ -249,7 +249,7 @@ class SpotifyAuthService {
       'code_challenge': challenge,
       'state': expectedState,
       'scope':
-          'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read user-top-read user-follow-read',
+          'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read user-top-read user-follow-read user-read-recently-played',
     });
 
     final launched = await launchUrl(authUri, mode: LaunchMode.externalApplication);

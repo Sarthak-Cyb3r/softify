@@ -3,16 +3,20 @@ import 'package:drift/drift.dart';
 import '../../domain/ports/i_cold_start_seeder.dart';
 import '../../domain/ports/i_spotify_importer.dart';
 import '../database/app_database.dart';
+import '../services/spotify_api_service.dart';
 
 class ColdStartSeeder implements IColdStartSeeder {
   final AppDatabase _db;
   final ISpotifyImporter? _spotifyImporter;
+  final SpotifyApiService? _spotifyApi;
 
   ColdStartSeeder({
     required AppDatabase db,
     ISpotifyImporter? spotifyImporter,
+    SpotifyApiService? spotifyApi,
   })  : _db = db,
-        _spotifyImporter = spotifyImporter;
+        _spotifyImporter = spotifyImporter,
+        _spotifyApi = spotifyApi;
 
   @override
   Future<void> seedFromInitialArtists(List<String> artistIds) async {
@@ -66,5 +70,39 @@ class ColdStartSeeder implements IColdStartSeeder {
         );
       }
     } catch (_) {}
+  }
+
+  @override
+  Future<int> seedFromSpotifyAccount() async {
+    final api = _spotifyApi;
+    if (api == null) return 0;
+    try {
+      final loggedIn = await api.isUserLoggedIn();
+      if (!loggedIn) return 0;
+
+      final topArtists = await api.getUserTopArtists(timeRange: 'medium_term', limit: 25);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      int count = 0;
+
+      for (int i = 0; i < topArtists.length; i++) {
+        final artist = topArtists[i].name.trim();
+        if (artist.isEmpty) continue;
+        // Top ranked artists get highest weight (2.0 down to 1.2)
+        final weight = 2.0 - (i / topArtists.length) * 0.8;
+        await _db.into(_db.tasteProfiles).insertOnConflictUpdate(
+          TasteProfilesCompanion(
+            entityType: const Value('artist'),
+            entityId: Value(artist),
+            slowWeight: Value(weight),
+            fastWeight: Value(weight),
+            updatedAt: Value(now),
+          ),
+        );
+        count++;
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
   }
 }
