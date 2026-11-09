@@ -131,7 +131,8 @@ class DriftLibraryRepository implements ILibraryRepository {
           t.sourceId.equals(trackId) |
           (track != null
               ? (t.sourceId.equals(track.sourceId) | t.id.equals(track.id))
-              : const Constant(false)));
+              : const Constant(false)))
+      ..limit(1);
     final existing = await query.getSingleOrNull();
 
     if (existing != null) {
@@ -403,7 +404,8 @@ class DriftLibraryRepository implements ILibraryRepository {
           t = await (_db.select(_db.tracks)
                 ..where((tbl) =>
                     tbl.id.equals(pt.trackId!) |
-                    tbl.sourceId.equals(pt.trackId!)))
+                    tbl.sourceId.equals(pt.trackId!))
+                ..limit(1))
               .getSingleOrNull();
         }
 
@@ -414,7 +416,8 @@ class DriftLibraryRepository implements ILibraryRepository {
           t = await (_db.select(_db.tracks)
                 ..where((tbl) =>
                     tbl.title.lower().equals(nTitle) &
-                    tbl.artist.lower().equals(nArtist)))
+                    tbl.artist.lower().equals(nArtist))
+                ..limit(1))
               .getSingleOrNull();
         }
 

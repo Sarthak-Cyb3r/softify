@@ -32,14 +32,16 @@ enum LibrarySortOrder {
 
 final playlistFirstTrackCoverProvider =
     FutureProvider.family<String?, String>((ref, playlistId) async {
-  final playlist = await ref
-      .watch(libraryRepositoryProvider)
-      .getPlaylistWithTracks(playlistId);
-  for (final entry in playlist?.entries ?? []) {
-    if (entry.track?.coverUrl != null && entry.track!.coverUrl!.isNotEmpty) {
-      return entry.track!.coverUrl;
+  try {
+    final playlist = await ref
+        .watch(libraryRepositoryProvider)
+        .getPlaylistWithTracks(playlistId);
+    for (final entry in playlist?.entries ?? []) {
+      if (entry.track?.coverUrl != null && entry.track!.coverUrl!.isNotEmpty) {
+        return entry.track!.coverUrl;
+      }
     }
-  }
+  } catch (_) {}
   return null;
 });
 
@@ -265,7 +267,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     final playlistsAsync = ref.watch(playlistsStreamProvider);
     final localTracksAsync = ref.watch(localTracksStreamProvider);
     final audioHandler = ref.watch(audioHandlerProvider);
-    final currentTrack = ref.watch(currentTrackProvider).value;
+    final currentTrack = ref.watch(currentTrackProvider).valueOrNull;
     final isPlaying = ref.watch(isPlayingProvider);
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
@@ -425,8 +427,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         child: Text('Error: $e', style: TextStyle(color: tokens.textSecondary, fontFamily: AppTheme.fontUi, fontSize: 13)),
       ),
       data: (playlists) {
-        final likedTracks = likedAsync.value ?? const <Track>[];
-        final completedDownloads = (downloadsAsync.value ?? const <DownloadItem>[])
+        final likedTracks = likedAsync.valueOrNull ?? const <Track>[];
+        final completedDownloads = (downloadsAsync.valueOrNull ?? const <DownloadItem>[])
             .where((d) => d.isCompleted)
             .toList();
         final downloadedTracks =
@@ -588,7 +590,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                           builder: (context, ref, _) {
                             final coverUrl = ref
                                 .watch(playlistFirstTrackCoverProvider(pl.id))
-                                .value;
+                                .valueOrNull;
                             return MediaCard(
                               title: pl.name,
                               subtitle:
@@ -684,7 +686,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     builder: (context, ref, _) {
                                       final coverUrl = ref
                                           .watch(playlistFirstTrackCoverProvider(pl.id))
-                                          .value;
+                                          .valueOrNull;
                                       return Stack(
                                         clipBehavior: Clip.none,
                                         children: [
