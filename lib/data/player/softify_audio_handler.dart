@@ -22,6 +22,7 @@ import '../../domain/ports/i_taste_profile_repository.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import '../../services/audio_clock_service.dart';
 import '../../services/voice/voice_search_matcher.dart';
+import '../lyrics/spotify_lyrics_synchronizer.dart';
 
 import 'softify_audio_player.dart';
 
