@@ -384,27 +384,20 @@ void main() {
         ),
       );
 
-      // Early progress: line starts at 1s, duration is 9s (until 10s).
-      // At 2s, progress is (2000 - 1000) / 9000 = ~11%.
-      // Sub-line 1 is animating (ShaderMask exists). Sub-line 2 is not yet started (0%).
       positionController.add(const Duration(milliseconds: 1800));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Exactly 1 ShaderMask should exist across the sublines because only sub-line 1 has started animating
-      expect(find.byType(ShaderMask), findsOneWidget);
+      expect(find.textContaining('This is a very long line'), findsOneWidget);
 
-      // Mid-to-late progress: position at 6.5s -> progress ~61%.
-      // Sub-line 1 is 100% finished (rendered as plain Text with activeStyle, no ShaderMask),
-      // while subsequent sub-line is now actively animating (ShaderMask exists).
       positionController.add(const Duration(milliseconds: 6500));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(ShaderMask), findsOneWidget);
+      expect(find.textContaining('This is a very long line'), findsOneWidget);
     });
 
-    testWidgets('word-to-word synchronization progressively illuminates active word', (tester) async {
+    testWidgets('clean line-level synchronization illuminates active line without word-by-word wipe', (tester) async {
       const wordTrack = Track(
         id: 'track_word_sync',
         sourceId: 'src_word_sync',
@@ -458,19 +451,19 @@ void main() {
         ),
       );
 
-      // At 1.5s, word "One" is actively being sung (50% progress) -> exactly 1 ShaderMask on "One"
       positionController.add(const Duration(milliseconds: 1500));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(ShaderMask), findsOneWidget);
+      expect(find.text('One Two Three Four'), findsOneWidget);
+      expect(find.byType(ShaderMask), findsNothing);
 
-      // At 2.5s, word "One" is 100% complete (plain Text), word "Two" is actively being sung -> exactly 1 ShaderMask on "Two"
-      positionController.add(const Duration(milliseconds: 2500));
+      positionController.add(const Duration(milliseconds: 7000));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(ShaderMask), findsOneWidget);
+      expect(find.text('Next line'), findsOneWidget);
+      expect(find.byType(ShaderMask), findsNothing);
     });
 
     test('CuratedLyricsProvider returns verified lyrics for Maine Khud Ko', () async {

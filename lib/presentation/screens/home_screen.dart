@@ -16,7 +16,6 @@ import '../widgets/metrolist_navigation_title.dart';
 import '../widgets/metrolist_speed_dial_item.dart';
 import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
-import 'listen_together_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 import 'artist_discography_screen.dart';
@@ -301,20 +300,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     child: Icon(Icons.insights_rounded, size: 22, color: tokens.textSecondary),
-                  ),
-                ),
-                BouncingScaleButton(
-                  scaleFactor: 0.9,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ListenTogetherScreen(),
-                      ),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Icon(Icons.group_outlined, size: 22, color: tokens.textSecondary),
                   ),
                 ),
                 BouncingScaleButton(

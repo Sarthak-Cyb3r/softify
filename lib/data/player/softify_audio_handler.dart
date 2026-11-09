@@ -25,16 +25,8 @@ import '../../services/voice/voice_search_matcher.dart';
 
 import 'softify_audio_player.dart';
 
-abstract class IPlaybackSyncDelegate {
-  void onHostTrackChanged(Track track);
-  void onHostPlay(Duration position);
-  void onHostPause(Duration position);
-  void onHostSeek(Duration position);
-}
-
 class SoftifyAudioHandler extends BaseAudioHandler
     with SeekHandler, QueueHandler {
-  IPlaybackSyncDelegate? syncDelegate;
   final ISoftifyAudioPlayer _player;
   final IStreamResolver _streamResolver;
   final ILibraryRepository _libraryRepo;
@@ -433,16 +425,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
       // 3. Real-time synchronized lyrics broadcast for lockscreen & notification panel
       final synced = _currentSyncedLyrics;
       if (synced != null && synced.lines.isNotEmpty) {
-        final lines = synced.lines;
-        int activeIdx = -1;
-        for (int i = 0; i < lines.length; i++) {
-          if (lines[i].timestamp <= pos) {
-            activeIdx = i;
-          } else {
-            break;
-          }
-        }
-        final lineText = activeIdx >= 0 ? lines[activeIdx].text.trim() : null;
+        final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(synced.lines, pos);
+        final lineText = activeIdx >= 0 ? synced.lines[activeIdx].text.trim() : null;
         if (lineText != _lastBroadcastLyric) {
           _lastBroadcastLyric = lineText;
           _activeLyricSubject.add(lineText);
@@ -646,9 +630,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
     } else {
       await _player.play();
     }
-    try {
-      syncDelegate?.onHostPlay(_player.position);
-    } catch (_) {}
   }
 
   @override
@@ -665,9 +646,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
             : AudioProcessingState.idle,
       ),
     );
-    try {
-      syncDelegate?.onHostPause(_player.position);
-    } catch (_) {}
   }
 
   @override
@@ -695,9 +673,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
   @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
-    try {
-      syncDelegate?.onHostSeek(position);
-    } catch (_) {}
   }
 
   Track? _peekNextTrack() {
@@ -1295,9 +1270,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
           _debouncedSaveQueue();
           unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
           unawaited(_prefetchNextTrackStream());
-          try {
-            syncDelegate?.onHostTrackChanged(track);
-          } catch (_) {}
           return;
         } catch (downloadErr) {
           if (requestId != _activePlayRequestId) return;
@@ -1340,9 +1312,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
       unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
       unawaited(_prefetchNextTrackStream());
       _checkAndPrefetchRecommendations();
-      try {
-        syncDelegate?.onHostTrackChanged(track);
-      } catch (_) {}
     } catch (e, st) {
       if (requestId != _activePlayRequestId) {
         // Superseded by newer track selection; discard cleanly without retry or error.

@@ -62,10 +62,12 @@ class DriftLibraryRepository implements ILibraryRepository {
             sourceId: Value(track.sourceId.isNotEmpty ? track.sourceId : targetId),
             title: Value(track.title),
             artist: Value(track.artist),
-            album: Value(track.album),
-            durationMs: Value(track.duration.inMilliseconds),
-            coverUrl: Value(track.coverUrl),
-            matchConfidence: Value(track.matchConfidence),
+            album: Value(track.album ?? existing?.album),
+            durationMs: Value(track.duration.inMilliseconds > 0
+                ? track.duration.inMilliseconds
+                : (existing?.durationMs ?? 0)),
+            coverUrl: Value(track.coverUrl ?? existing?.coverUrl),
+            matchConfidence: Value(track.matchConfidence ?? existing?.matchConfidence),
             isLiked: Value(effectiveIsLiked),
             isUnavailable: Value(track.isUnavailable),
             createdAt: Value(existing?.createdAt ?? DateTime.now().millisecondsSinceEpoch),
@@ -393,17 +395,87 @@ class DriftLibraryRepository implements ILibraryRepository {
 
     for (final r in rows) {
       final pt = r.readTable(_db.playlistTracks);
-      final t = r.readTableOrNull(_db.tracks);
+      var t = r.readTableOrNull(_db.tracks);
 
-      entries.add(PlaylistEntry(
-        playlistId: pt.playlistId,
-        position: pt.position,
-        trackId: pt.trackId,
-        track: t != null ? _trackFromRow(t) : null,
-        originalTitle: pt.originalTitle,
-        originalArtist: pt.originalArtist,
-        matchStatus: MatchStatus.fromString(pt.matchStatus),
-      ));
+      if (t == null) {
+        // Recovery 1: Try lookup by trackId matching sourceId or id
+        if (pt.trackId != null && pt.trackId!.isNotEmpty) {
+          t = await (_db.select(_db.tracks)
+                ..where((tbl) =>
+                    tbl.id.equals(pt.trackId!) |
+                    tbl.sourceId.equals(pt.trackId!)))
+              .getSingleOrNull();
+        }
+
+        // Recovery 2: Try lookup by normalized title and artist
+        if (t == null && pt.originalTitle.isNotEmpty) {
+          final nTitle = pt.originalTitle.toLowerCase().trim();
+          final nArtist = pt.originalArtist.toLowerCase().trim();
+          t = await (_db.select(_db.tracks)
+                ..where((tbl) =>
+                    tbl.title.lower().equals(nTitle) &
+                    tbl.artist.lower().equals(nArtist)))
+              .getSingleOrNull();
+        }
+
+        final fallbackId = (pt.trackId != null && pt.trackId!.isNotEmpty)
+            ? pt.trackId!
+            : (t?.id ?? 'spotify_${pt.playlistId}_${pt.position}');
+
+        final effectiveTrack = t != null
+            ? _trackFromRow(t)
+            : Track(
+                id: fallbackId,
+                sourceId: fallbackId,
+                title: pt.originalTitle,
+                artist: pt.originalArtist,
+                duration: Duration.zero,
+                matchConfidence: 1.0,
+              );
+
+        if (t == null) {
+          // Self-heal tracks table so subsequent joins succeed
+          try {
+            await _db.into(_db.tracks).insertOnConflictUpdate(
+                  TracksCompanion(
+                    id: Value(fallbackId),
+                    sourceId: Value(fallbackId),
+                    title: Value(pt.originalTitle),
+                    artist: Value(pt.originalArtist),
+                    durationMs: const Value(0),
+                    createdAt: Value(DateTime.now().millisecondsSinceEpoch),
+                  ),
+                );
+            if (pt.trackId != fallbackId) {
+              await (_db.update(_db.playlistTracks)
+                    ..where((row) =>
+                        row.playlistId.equals(pt.playlistId) &
+                        row.position.equals(pt.position)))
+                  .write(PlaylistTracksCompanion(trackId: Value(fallbackId)));
+            }
+          } catch (_) {}
+        }
+
+        entries.add(PlaylistEntry(
+          playlistId: pt.playlistId,
+          position: pt.position,
+          trackId: pt.trackId ?? fallbackId,
+          track: effectiveTrack,
+          originalTitle: pt.originalTitle,
+          originalArtist: pt.originalArtist,
+          matchStatus: MatchStatus.fromString(pt.matchStatus),
+        ));
+      } else {
+        entries.add(PlaylistEntry(
+          playlistId: pt.playlistId,
+          position: pt.position,
+          trackId: pt.trackId,
+          track: _trackFromRow(t),
+          originalTitle: pt.originalTitle,
+          originalArtist: pt.originalArtist,
+          matchStatus: MatchStatus.fromString(pt.matchStatus),
+        ));
+      }
     }
 
     final playlist = Playlist(
@@ -422,7 +494,35 @@ class DriftLibraryRepository implements ILibraryRepository {
   @override
   Future<void> addTrackToPlaylist(String playlistId, Track track) async {
     await _db.transaction(() async {
-      await upsertTrack(track);
+      final existingBySource = await (_db.select(_db.tracks)
+            ..where((t) => t.sourceId.equals(track.sourceId)))
+          .getSingleOrNull();
+
+      final existingById = existingBySource == null
+          ? await (_db.select(_db.tracks)..where((t) => t.id.equals(track.id))).getSingleOrNull()
+          : null;
+
+      final existing = existingBySource ?? existingById;
+      final targetId = existing?.id ?? track.id;
+      final effectiveIsLiked = (existing?.isLiked ?? false) || track.isLiked;
+
+      await _db.into(_db.tracks).insertOnConflictUpdate(
+            TracksCompanion(
+              id: Value(targetId),
+              sourceId: Value(track.sourceId.isNotEmpty ? track.sourceId : targetId),
+              title: Value(track.title),
+              artist: Value(track.artist),
+              album: Value(track.album ?? existing?.album),
+              durationMs: Value(track.duration.inMilliseconds > 0
+                  ? track.duration.inMilliseconds
+                  : (existing?.durationMs ?? 0)),
+              coverUrl: Value(track.coverUrl ?? existing?.coverUrl),
+              matchConfidence: Value(track.matchConfidence ?? existing?.matchConfidence),
+              isLiked: Value(effectiveIsLiked),
+              isUnavailable: Value(track.isUnavailable),
+              createdAt: Value(existing?.createdAt ?? DateTime.now().millisecondsSinceEpoch),
+            ),
+          );
 
       // Determine max position
       final maxPosExp = _db.playlistTracks.position.max();
@@ -436,7 +536,7 @@ class DriftLibraryRepository implements ILibraryRepository {
             PlaylistTracksCompanion.insert(
               playlistId: playlistId,
               position: nextPos,
-              trackId: Value(track.id),
+              trackId: Value(targetId),
               originalTitle: track.title,
               originalArtist: track.artist,
               matchStatus: MatchStatus.matched.toDbString(),
@@ -460,22 +560,39 @@ class DriftLibraryRepository implements ILibraryRepository {
 
     await _db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
+      final resolvedTrackIds = <String>[];
+
       for (final track in tracks) {
+        final existingBySource = await (_db.select(_db.tracks)
+              ..where((t) => t.sourceId.equals(track.sourceId)))
+            .getSingleOrNull();
+
+        final existingById = existingBySource == null
+            ? await (_db.select(_db.tracks)..where((t) => t.id.equals(track.id))).getSingleOrNull()
+            : null;
+
+        final existing = existingBySource ?? existingById;
+        final targetId = existing?.id ?? track.id;
+        final effectiveIsLiked = (existing?.isLiked ?? false) || track.isLiked;
+
         await _db.into(_db.tracks).insertOnConflictUpdate(
               TracksCompanion(
-                id: Value(track.id),
-                sourceId: Value(track.sourceId),
+                id: Value(targetId),
+                sourceId: Value(track.sourceId.isNotEmpty ? track.sourceId : targetId),
                 title: Value(track.title),
                 artist: Value(track.artist),
-                album: Value(track.album),
-                durationMs: Value(track.duration.inMilliseconds),
-                coverUrl: Value(track.coverUrl),
-                matchConfidence: Value(track.matchConfidence),
-                isLiked: Value(track.isLiked),
+                album: Value(track.album ?? existing?.album),
+                durationMs: Value(track.duration.inMilliseconds > 0
+                    ? track.duration.inMilliseconds
+                    : (existing?.durationMs ?? 0)),
+                coverUrl: Value(track.coverUrl ?? existing?.coverUrl),
+                matchConfidence: Value(track.matchConfidence ?? existing?.matchConfidence),
+                isLiked: Value(effectiveIsLiked),
                 isUnavailable: Value(track.isUnavailable),
-                createdAt: Value(now),
+                createdAt: Value(existing?.createdAt ?? now),
               ),
             );
+        resolvedTrackIds.add(targetId);
       }
 
       final maxPosExp = _db.playlistTracks.position.max();
@@ -487,6 +604,7 @@ class DriftLibraryRepository implements ILibraryRepository {
 
       for (int i = 0; i < tracks.length; i++) {
         final track = tracks[i];
+        final actualTrackId = resolvedTrackIds[i];
         final origTitle = (originalMetadata != null && i < originalMetadata.length)
             ? originalMetadata[i].title
             : track.title;
@@ -498,7 +616,7 @@ class DriftLibraryRepository implements ILibraryRepository {
               PlaylistTracksCompanion.insert(
                 playlistId: playlistId,
                 position: currentPos++,
-                trackId: Value(track.id),
+                trackId: Value(actualTrackId),
                 originalTitle: origTitle,
                 originalArtist: origArtist,
                 matchStatus: MatchStatus.matched.toDbString(),
@@ -688,28 +806,37 @@ class DriftLibraryRepository implements ILibraryRepository {
     await _db.transaction(() async {
       final now = DateTime.now().millisecondsSinceEpoch;
 
-      // Upsert tracks in batch
-      await _db.batch((batch) {
-        for (final t in queue) {
-          batch.insert(
-            _db.tracks,
-            TracksCompanion(
-              id: Value(t.id),
-              sourceId: Value(t.sourceId.isNotEmpty ? t.sourceId : t.id),
-              title: Value(t.title),
-              artist: Value(t.artist),
-              album: Value(t.album),
-              durationMs: Value(t.duration.inMilliseconds),
-              coverUrl: Value(t.coverUrl),
-              matchConfidence: Value(t.matchConfidence),
-              isLiked: Value(t.isLiked),
-              isUnavailable: Value(t.isUnavailable),
-              createdAt: Value(now),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-        }
-      });
+      // Upsert tracks avoiding REPLACE which triggers foreign key ON DELETE SET NULL
+      final resolvedQueueTrackIds = <String>[];
+      for (final t in queue) {
+        final existingBySource = await (_db.select(_db.tracks)
+              ..where((tbl) => tbl.sourceId.equals(t.sourceId)))
+            .getSingleOrNull();
+        final existingById = existingBySource == null
+            ? await (_db.select(_db.tracks)..where((tbl) => tbl.id.equals(t.id))).getSingleOrNull()
+            : null;
+        final existing = existingBySource ?? existingById;
+        final targetId = existing?.id ?? t.id;
+
+        await _db.into(_db.tracks).insertOnConflictUpdate(
+              TracksCompanion(
+                id: Value(targetId),
+                sourceId: Value(t.sourceId.isNotEmpty ? t.sourceId : targetId),
+                title: Value(t.title),
+                artist: Value(t.artist),
+                album: Value(t.album ?? existing?.album),
+                durationMs: Value(t.duration.inMilliseconds > 0
+                    ? t.duration.inMilliseconds
+                    : (existing?.durationMs ?? 0)),
+                coverUrl: Value(t.coverUrl ?? existing?.coverUrl),
+                matchConfidence: Value(t.matchConfidence ?? existing?.matchConfidence),
+                isLiked: Value((existing?.isLiked ?? false) || t.isLiked),
+                isUnavailable: Value(t.isUnavailable),
+                createdAt: Value(existing?.createdAt ?? now),
+              ),
+            );
+        resolvedQueueTrackIds.add(targetId);
+      }
 
       // Replace queue items in batch
       await _db.delete(_db.queueItems).go();
@@ -720,7 +847,7 @@ class DriftLibraryRepository implements ILibraryRepository {
             _db.queueItems,
             QueueItemsCompanion.insert(
               position: Value(i),
-              trackId: queue[i].id,
+              trackId: resolvedQueueTrackIds[i],
               addedAt: now,
             ),
             mode: InsertMode.insertOrReplace,

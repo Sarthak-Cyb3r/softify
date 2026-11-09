@@ -2,6 +2,26 @@
 
 All notable changes to the Softify project are documented in this file.
 
+## [4.0.2] - 2026-11-09
+
+### 🟢 Spotify Account Sync & Anti-Loss Library Engine
+- **1-Tap Spotify Connection & PKCE Auth**: Direct connection to official Spotify accounts via secure PKCE login flow.
+- **Import User Liked Songs & Playlists**: View, quick-match, and import personal Spotify libraries with authentic 640x640 album artwork.
+- **Zero-Loss Self-Healing Database**: Fixed issue where imported Spotify playlist tracks were auto-removed due to SQLite foreign key cascades on queue replace (`mode: InsertMode.insertOrReplace`) and unmatched track drops (`.whereType<Track>()`). Added automated canonical track synthesis and database self-healing.
+- **Sanitized Spotify URI Extraction**: Sanitized query parameters (`?si=...`) and non-alphanumeric URI formats across imports and sync routines.
+
+### ⚡ Seamless Zero-Delay Track Transitions
+- **Preloaded Standby Audio Handoff**: Eliminated lag and transition delays between songs with lookahead pre-fetching and dual-channel player preloading.
+- **JIT Audio Error Recovery**: Hardened stream resolution with transparent JIT fallback retries and InnerTube backup resolvers to prevent playback stalls.
+- **Transactional Queue State Snapshots**: Hardened background queue persistence to eliminate database lock contention during fast skips.
+
+### 🎤 Refined Line-by-Line Lyrics Tracking
+- **Focused Line-by-Line Lyrics**: Streamlined lyrics presentation to smooth line-by-line kinetic tracking, removing disruptive word-by-word animations.
+- **Synchronized Timestamp Calibration**: Fine-tuned lyric synchronization offset for natural, on-tempo vocal alignment.
+
+### 🧹 Streamlined Experience
+- **Listen Together Feature Removal**: Cleaned up legacy Listen Together tabs, player dock icons, socket protocols, and fleet server endpoints for a cleaner, faster app.
+
 ## [4.0.1] - 2026-11-06
 
 ### 🎛️ Audio Quality Engine & Dynamic Bitrate Switching

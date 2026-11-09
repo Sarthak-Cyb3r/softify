@@ -87,17 +87,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         safeElapsedMs +
         offsetMs;
 
-    final frameDt = now.difference(_lastFrameTime).inMilliseconds.clamp(1, 100);
     _lastFrameTime = now;
-
-    // Discontinuity snap (>200ms jump e.g. seek, initial load, test playback injection)
-    if ((targetMs - _filteredPositionMs).abs() > 200) {
-      _filteredPositionMs = targetMs.toDouble();
-    } else {
-      // 150ms spring relaxation constant for smooth frame-clock sweep playhead
-      final alpha = 1.0 - math.exp(-frameDt / 150.0);
-      _filteredPositionMs += (targetMs - _filteredPositionMs) * alpha;
-    }
+    _filteredPositionMs = targetMs.toDouble();
 
     final clampedMs = (widget.track.duration.inMilliseconds > 0)
         ? _filteredPositionMs.round().clamp(0, widget.track.duration.inMilliseconds)
@@ -1256,15 +1247,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
               child: isMusicSymbol
                   ? _buildInstrumentalIndicator(isActive, accentColor)
                   : (() {
-                      final hasWordLevelTiming =
-                          line.words != null && line.words!.isNotEmpty;
-                      final rawDuration = (index + 1 < lines.length)
-                          ? (lines[index + 1].timestamp - line.timestamp)
-                          : const Duration(seconds: 4);
-                      final effectiveDuration = rawDuration.inMilliseconds < 500
-                          ? const Duration(milliseconds: 3000)
-                          : rawDuration;
-
                       Widget lineContent = AnimatedSlide(
                         offset: isActive ? Offset.zero : (isAppleLyrics ? Offset.zero : const Offset(-0.02, 0)),
                         duration: const Duration(milliseconds: 280),
@@ -1273,59 +1255,31 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                           scale: isAppleLyrics ? 1.0 : (isActive ? 1.05 : 1.0),
                           duration: const Duration(milliseconds: 260),
                           curve: Curves.easeOutBack,
-                          child: hasWordLevelTiming
-                              ? _buildSyllableKaraokeLine(
-                                  line: line,
-                                  words: line.words!,
-                                  isActive: isActive,
-                                  lineOpacity: isAppleLyrics ? appleAlpha : lineOpacity,
-                                  tokens: tokens,
-                                  accentColor: accentColor,
-                                  alignment: alignment,
-                                  textAlign: textAlign,
-                                  isDuetV2: isDuetV2,
-                                  isAppleLyrics: isAppleLyrics,
-                                )
-                              : _SpicetifyProgressiveLyricsLine(
-                                  displayText: displayText,
-                                  lineStart: line.timestamp,
-                                  lineDuration: effectiveDuration,
-                                  positionNotifier: _positionNotifier,
-                                  textAlign: textAlign,
-                                  alignment: alignment,
-                                  activeStyle: TextStyle(
-                                    fontFamily: AppTheme.fontUi,
-                                    fontSize: activeFontSize,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    height: isAppleLyrics ? 1.25 : 1.45,
-                                    letterSpacing: isAppleLyrics ? -0.5 : -0.4,
-                                    shadows: const [
-                                      Shadow(
-                                        color: Colors.black87,
-                                        blurRadius: 14,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  inactiveStyle: TextStyle(
-                                    fontFamily: AppTheme.fontUi,
-                                    fontSize: inactiveFontSize,
-                                    fontWeight: isAppleLyrics ? FontWeight.w700 : FontWeight.w600,
-                                    color: Colors.white.withValues(
+                          child: Text(
+                            displayText,
+                            textAlign: textAlign,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: isActive ? activeFontSize : inactiveFontSize,
+                              fontWeight: isActive
+                                  ? FontWeight.w800
+                                  : (isAppleLyrics ? FontWeight.w700 : FontWeight.w600),
+                              color: isActive
+                                  ? Colors.white
+                                  : Colors.white.withValues(
                                       alpha: isAppleLyrics ? 0.90 : lineOpacity.clamp(0.25, 0.45),
                                     ),
-                                    height: isAppleLyrics ? 1.25 : 1.45,
-                                    letterSpacing: isAppleLyrics ? -0.5 : -0.4,
-                                    shadows: const [
-                                      Shadow(
-                                        color: Colors.black45,
-                                        blurRadius: 6,
-                                        offset: Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
+                              height: isAppleLyrics ? 1.25 : 1.45,
+                              letterSpacing: isAppleLyrics ? -0.5 : -0.4,
+                              shadows: [
+                                Shadow(
+                                  color: isActive ? Colors.black87 : Colors.black45,
+                                  blurRadius: isActive ? 14 : 6,
+                                  offset: isActive ? const Offset(0, 2) : const Offset(0, 1),
                                 ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
 
@@ -1366,143 +1320,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     }
 
     return lineWidget;
-  }
-
-  Widget _buildSyllableKaraokeLine({
-    required LyricLine line,
-    required List<LyricWord> words,
-    required bool isActive,
-    required double lineOpacity,
-    required AppTokens tokens,
-    required Color accentColor,
-    required Alignment alignment,
-    required TextAlign textAlign,
-    required bool isDuetV2,
-    bool isAppleLyrics = false,
-  }) {
-    final displayText =
-        _romanizeLyrics ? RomanizationService.romanize(line.text) : line.text;
-
-    final double activeWordSize = isAppleLyrics ? 28.0 : (_lyricFontSize.activeSize * 1.18);
-    final double inactiveLineSize = isAppleLyrics ? 28.0 : _lyricFontSize.inactiveSize;
-    final Color inactiveWordColor = isAppleLyrics ? const Color(0xFF8E8E8E) : Colors.white.withValues(alpha: 0.38);
-
-    if (!isActive) {
-      return Text(
-        displayText,
-        textAlign: textAlign,
-        style: TextStyle(
-          fontFamily: AppTheme.fontUi,
-          fontStyle: FontStyle.normal,
-          fontSize: inactiveLineSize,
-          fontWeight: isAppleLyrics ? FontWeight.w700 : FontWeight.w600,
-          color: Colors.white.withValues(alpha: isAppleLyrics ? 0.90 : lineOpacity.clamp(0.25, 0.45)),
-          height: isAppleLyrics ? 1.25 : 1.45,
-          letterSpacing: isAppleLyrics ? -0.5 : -0.4,
-          shadows: const [
-            Shadow(
-              color: Colors.black45,
-              blurRadius: 6,
-              offset: Offset(0, 1),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ValueListenableBuilder<Duration>(
-      valueListenable: _positionNotifier,
-      builder: (context, pos, _) {
-        return Stack(
-          alignment: alignment,
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: 0.0,
-                  child: Text(
-                    displayText,
-                    style: const TextStyle(fontSize: 0.01),
-                  ),
-                ),
-              ),
-            ),
-            Wrap(
-              alignment: textAlign == TextAlign.center
-                  ? WrapAlignment.center
-                  : (textAlign == TextAlign.right
-                      ? WrapAlignment.end
-                      : WrapAlignment.start),
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (int w = 0; w < words.length; w++) ...[
-                  () {
-                    final word = words[w];
-                    final wordText = _romanizeLyrics
-                        ? RomanizationService.romanize(word.text)
-                        : word.text;
-                    final paddedText = (w < words.length - 1 && !wordText.endsWith(' '))
-                        ? '$wordText '
-                        : wordText;
-
-                    final wordDuration = word.duration ??
-                        (w + 1 < words.length
-                            ? (words[w + 1].timestamp - word.timestamp)
-                            : const Duration(milliseconds: 350));
-
-                    final wordProgress = SpotifyLyricsSynchronizer.calculateWordProgress(
-                      wordStart: word.timestamp,
-                      wordDuration: wordDuration,
-                      currentPosition: pos,
-                    );
-
-                    return _WordKaraokeSpanWidget(
-                      text: paddedText,
-                      progress: wordProgress,
-                      isCurrentWord: wordProgress > 0.0 && wordProgress < 1.0,
-                      activeStyle: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontStyle: FontStyle.normal,
-                        fontSize: activeWordSize,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        height: isAppleLyrics ? 1.25 : 1.45,
-                        letterSpacing: isAppleLyrics ? -0.5 : -0.4,
-                        shadows: const [
-                          Shadow(
-                            color: Colors.black87,
-                            blurRadius: 14,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      inactiveStyle: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontStyle: FontStyle.normal,
-                        fontSize: activeWordSize,
-                        fontWeight: FontWeight.w700,
-                        color: inactiveWordColor,
-                        height: isAppleLyrics ? 1.25 : 1.45,
-                        letterSpacing: isAppleLyrics ? -0.5 : -0.4,
-                        shadows: const [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 8,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    );
-                  }(),
-                ],
-              ],
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Widget _buildInstrumentalIndicator(bool isActive, Color accentColor) {
@@ -1684,288 +1501,3 @@ class _SoloCountdownIndicator extends StatelessWidget {
   }
 }
 
-/// Individual Word-to-Word progressive karaoke word widget with left-to-right wipe
-/// and gentle spring scale while being actively sung.
-class _WordKaraokeSpanWidget extends StatelessWidget {
-  final String text;
-  final double progress;
-  final bool isCurrentWord;
-  final TextStyle activeStyle;
-  final TextStyle inactiveStyle;
-
-  const _WordKaraokeSpanWidget({
-    required this.text,
-    required this.progress,
-    required this.isCurrentWord,
-    required this.activeStyle,
-    required this.inactiveStyle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (progress <= 0.0) {
-      return Text(text, style: inactiveStyle);
-    }
-    if (progress >= 1.0) {
-      return Text(text, style: activeStyle);
-    }
-
-    final activeColor = activeStyle.color ?? Colors.white;
-    final inactiveColor = inactiveStyle.color ?? Colors.white.withValues(alpha: 0.38);
-
-    final wobbleScale = 1.0 + (math.sin(progress * math.pi) * 0.05);
-
-    return Transform.scale(
-      scale: wobbleScale,
-      alignment: Alignment.centerLeft,
-      child: ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (bounds) {
-          final stopLeft = (progress - 0.06).clamp(0.0, 1.0);
-          final stopRight = (progress + 0.02).clamp(0.0, 1.0);
-          return LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              activeColor,
-              activeColor,
-              inactiveColor,
-              inactiveColor,
-            ],
-            stops: [
-              0.0,
-              stopLeft,
-              stopRight,
-              1.0,
-            ],
-          ).createShader(bounds);
-        },
-        child: Text(
-          text,
-          style: activeStyle.copyWith(color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
-
-/// Spicetify / Apple Music progressive left-to-right fade-in / wipe lyrics line.
-/// When a line wraps into 2 or 3 sub-lines on the user's screen, animation
-/// progresses line by line sequentially: subsequent lines stay completely inactive
-/// until the preceding line has finished wiping.
-class _SpicetifyProgressiveLyricsLine extends StatelessWidget {
-  final String displayText;
-  final Duration lineStart;
-  final Duration lineDuration;
-  final ValueNotifier<Duration> positionNotifier;
-  final TextStyle activeStyle;
-  final TextStyle inactiveStyle;
-  final TextAlign textAlign;
-  final Alignment alignment;
-
-  const _SpicetifyProgressiveLyricsLine({
-    required this.displayText,
-    required this.lineStart,
-    required this.lineDuration,
-    required this.positionNotifier,
-    required this.activeStyle,
-    required this.inactiveStyle,
-    this.textAlign = TextAlign.center,
-    this.alignment = Alignment.center,
-  });
-
-  static List<String> _splitIntoLines(
-    String text,
-    TextStyle style,
-    double maxWidth,
-    TextAlign textAlign,
-  ) {
-    final cleanText = text.trim();
-    if (cleanText.isEmpty || maxWidth <= 0 || maxWidth.isInfinite) {
-      return [cleanText];
-    }
-
-    if (cleanText.contains('\n')) {
-      final rawLines = cleanText.split('\n');
-      final result = <String>[];
-      for (final raw in rawLines) {
-        final trimmed = raw.trim();
-        if (trimmed.isNotEmpty) {
-          result.addAll(_splitIntoLines(trimmed, style, maxWidth, textAlign));
-        }
-      }
-      return result.isEmpty ? [cleanText] : result;
-    }
-
-    final painter = TextPainter(
-      text: TextSpan(text: cleanText, style: style),
-      textAlign: textAlign,
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: maxWidth);
-
-    final metrics = painter.computeLineMetrics();
-    if (metrics.length <= 1) {
-      return [cleanText];
-    }
-
-    final lines = <String>[];
-    int offset = 0;
-    while (offset < cleanText.length) {
-      final boundary = painter.getLineBoundary(TextPosition(offset: offset));
-      if (boundary.start >= boundary.end || boundary.end <= offset) {
-        final rem = cleanText.substring(offset).trim();
-        if (rem.isNotEmpty) lines.add(rem);
-        break;
-      }
-      final lineStr = cleanText.substring(boundary.start, boundary.end).trim();
-      if (lineStr.isNotEmpty) {
-        lines.add(lineStr);
-      }
-      offset = boundary.end;
-      while (offset < cleanText.length &&
-          (cleanText[offset] == ' ' || cleanText[offset] == '\n')) {
-        offset++;
-      }
-    }
-
-    return lines.isEmpty ? [cleanText] : lines;
-  }
-
-  Widget _buildSubLine(String text, double lineProgress) {
-    if (lineProgress <= 0.0) {
-      return Text(
-        text,
-        textAlign: textAlign,
-        style: inactiveStyle,
-      );
-    }
-
-    if (lineProgress >= 1.0) {
-      return Text(
-        text,
-        textAlign: textAlign,
-        style: activeStyle,
-      );
-    }
-
-    final activeColor = activeStyle.color ?? Colors.white;
-    final inactiveColor = inactiveStyle.color ?? Colors.white.withValues(alpha: 0.38);
-
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) {
-        final stopLeft = (lineProgress - 0.08).clamp(0.0, 1.0);
-        final stopRight = (lineProgress + 0.02).clamp(0.0, 1.0);
-        return LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            activeColor,
-            activeColor,
-            inactiveColor,
-            inactiveColor,
-          ],
-          stops: [
-            0.0,
-            stopLeft,
-            stopRight,
-            1.0,
-          ],
-        ).createShader(bounds);
-      },
-      child: Text(
-        text,
-        textAlign: textAlign,
-        style: activeStyle.copyWith(color: Colors.white),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        final subLines = _splitIntoLines(displayText, activeStyle, maxWidth, textAlign);
-
-        if (subLines.length <= 1) {
-          return ValueListenableBuilder<Duration>(
-            valueListenable: positionNotifier,
-            builder: (context, pos, _) {
-              final elapsed = (pos - lineStart).inMilliseconds;
-              final total = lineDuration.inMilliseconds.clamp(500, 16000);
-              final double progress = (elapsed / total).clamp(0.0, 1.0);
-              return _buildSubLine(displayText, progress);
-            },
-          );
-        }
-
-        final totalChars = subLines.fold<int>(0, (sum, l) => sum + l.length);
-        final safeTotalChars = totalChars > 0 ? totalChars : 1;
-        final thresholds = <double>[];
-        double accumulated = 0;
-        for (int i = 0; i < subLines.length; i++) {
-          accumulated += subLines[i].length / safeTotalChars;
-          thresholds.add(accumulated);
-        }
-        if (thresholds.isNotEmpty) {
-          thresholds[thresholds.length - 1] = 1.0;
-        }
-
-        return ValueListenableBuilder<Duration>(
-          valueListenable: positionNotifier,
-          builder: (context, pos, _) {
-            final elapsed = (pos - lineStart).inMilliseconds;
-            final total = lineDuration.inMilliseconds.clamp(500, 16000);
-            final double progress = (elapsed / total).clamp(0.0, 1.0);
-
-            return Stack(
-              alignment: alignment,
-              children: [
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.0,
-                      child: Text(
-                        displayText,
-                        style: const TextStyle(fontSize: 0.01),
-                      ),
-                    ),
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: textAlign == TextAlign.center
-                      ? CrossAxisAlignment.center
-                      : (textAlign == TextAlign.right
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start),
-                  children: [
-                    for (int i = 0; i < subLines.length; i++) ...[
-                      () {
-                        final tPrev = i == 0 ? 0.0 : thresholds[i - 1];
-                        final tCurr = thresholds[i];
-                        final double lineProgress;
-                        if (progress <= tPrev) {
-                          lineProgress = 0.0;
-                        } else if (progress >= tCurr) {
-                          lineProgress = 1.0;
-                        } else {
-                          lineProgress =
-                              ((progress - tPrev) / (tCurr - tPrev)).clamp(0.0, 1.0);
-                        }
-                        return _buildSubLine(subLines[i], lineProgress);
-                      }(),
-                    ],
-                  ],
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}

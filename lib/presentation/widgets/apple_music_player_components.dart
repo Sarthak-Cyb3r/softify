@@ -13,7 +13,6 @@ import '../../domain/ports/i_lyrics_provider.dart';
 import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
-import '../screens/listen_together_screen.dart';
 import '../theme/app_theme.dart';
 import 'audiophile_quality_badge.dart';
 import 'bouncing_scale_button.dart';
@@ -236,7 +235,6 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
             : const <LyricLine>[]);
 
     String? currentLine;
-    double lineProgress = 0.0;
     if (effectiveLines.isNotEmpty) {
       final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(
         effectiveLines,
@@ -245,14 +243,6 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
       if (activeIdx >= 0 && activeIdx < effectiveLines.length) {
         final activeLine = effectiveLines[activeIdx];
         currentLine = activeLine.text;
-        final rawDuration = (activeIdx + 1 < effectiveLines.length)
-            ? (effectiveLines[activeIdx + 1].timestamp - activeLine.timestamp)
-            : const Duration(seconds: 4);
-        final effectiveDuration = rawDuration.inMilliseconds < 500
-            ? const Duration(milliseconds: 3000)
-            : rawDuration;
-        final elapsed = (effectivePosition - activeLine.timestamp).inMilliseconds;
-        lineProgress = (elapsed / effectiveDuration.inMilliseconds).clamp(0.0, 1.0);
       } else {
         // Instrumental intro before vocal commences: do not display premature lyric
         currentLine = null;
@@ -266,7 +256,7 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
       return const SizedBox(height: 24);
     }
 
-    Widget textWidget = Text(
+    final textWidget = Text(
       currentLine,
       key: ValueKey(currentLine),
       maxLines: 1,
@@ -279,28 +269,6 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
         letterSpacing: -0.2,
       ),
     );
-
-    if (lineProgress > 0.0 && lineProgress < 1.0) {
-      textWidget = ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (bounds) {
-          final stopLeft = (lineProgress - 0.08).clamp(0.0, 1.0);
-          final stopRight = (lineProgress + 0.02).clamp(0.0, 1.0);
-          return LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              Colors.white,
-              Colors.white,
-              Colors.white.withValues(alpha: 0.38),
-              Colors.white.withValues(alpha: 0.38),
-            ],
-            stops: [0.0, stopLeft, stopRight, 1.0],
-          ).createShader(bounds);
-        },
-        child: textWidget,
-      );
-    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -530,21 +498,7 @@ class AppleMusicPersistentBottomPanel extends ConsumerWidget {
                       },
                     ),
 
-                    // Item 3: Jam / Listen Together
-                    _dockButton(
-                      icon: Icons.people_alt_rounded,
-                      isActive: false,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ListenTogetherScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Item 4: Repeat Mode Toggle (Off -> Playlist -> One -> Off)
+                    // Item 3: Repeat Mode Toggle (Off -> Playlist -> One -> Off)
                     Tooltip(
                       message: effectiveRepeatMode.label,
                       child: _dockButton(

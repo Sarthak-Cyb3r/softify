@@ -418,20 +418,6 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                           ? RomanizationService.romanize(line.text)
                           : line.text;
 
-                      final rawDuration = (i + 1 < lines.length)
-                          ? (lines[i + 1].timestamp - line.timestamp)
-                          : const Duration(seconds: 4);
-                      final effectiveDuration = rawDuration.inMilliseconds < 500
-                          ? const Duration(milliseconds: 3000)
-                          : rawDuration;
-                      final double lineProgress;
-                      if (isActive && effectiveDuration.inMilliseconds > 0) {
-                        final elapsed = (effectivePosition - line.timestamp).inMilliseconds;
-                        lineProgress = (elapsed / effectiveDuration.inMilliseconds).clamp(0.0, 1.0);
-                      } else {
-                        lineProgress = isActive ? 1.0 : 0.0;
-                      }
-
                       Widget textWidget = Text(
                         lineText,
                         style: TextStyle(
@@ -443,33 +429,6 @@ class _AppleMusicLyricsCanvasState extends ConsumerState<AppleMusicLyricsCanvas>
                           color: Colors.white.withValues(alpha: opacity),
                         ),
                       );
-
-                      if (isActive && lineProgress > 0.0 && lineProgress < 1.0) {
-                        textWidget = ShaderMask(
-                          blendMode: BlendMode.srcIn,
-                          shaderCallback: (bounds) {
-                            final stopLeft = (lineProgress - 0.08).clamp(0.0, 1.0);
-                            final stopRight = (lineProgress + 0.02).clamp(0.0, 1.0);
-                            return LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: [
-                                Colors.white,
-                                Colors.white,
-                                Colors.white.withValues(alpha: 0.35),
-                                Colors.white.withValues(alpha: 0.35),
-                              ],
-                              stops: [
-                                0.0,
-                                stopLeft,
-                                stopRight,
-                                1.0,
-                              ],
-                            ).createShader(bounds);
-                          },
-                          child: textWidget,
-                        );
-                      }
 
                       if (blur > 0.0) {
                         textWidget = ImageFiltered(

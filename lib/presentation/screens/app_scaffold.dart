@@ -22,7 +22,6 @@ import '../../features/youtube/presentation/youtube_page.dart';
 import '../widgets/slim_bottom_nav_bar.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
-import 'listen_together_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'equalizer_screen.dart';
@@ -144,11 +143,10 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     return [
       const HomeScreen(),
       _loadedTabs.contains(1) ? const SearchScreen() : const SizedBox.shrink(),
-      _loadedTabs.contains(2) ? const ListenTogetherScreen() : const SizedBox.shrink(),
-      _loadedTabs.contains(3) ? const LibraryScreen() : const SizedBox.shrink(),
-      _loadedTabs.contains(4) ? const YoutubePage() : const SizedBox.shrink(),
-      _loadedTabs.contains(5) ? const SettingsScreen() : const SizedBox.shrink(),
-      _loadedTabs.contains(6) ? const PodcastPage() : const SizedBox.shrink(),
+      _loadedTabs.contains(2) ? const LibraryScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(3) ? const YoutubePage() : const SizedBox.shrink(),
+      _loadedTabs.contains(4) ? const SettingsScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(5) ? const PodcastPage() : const SizedBox.shrink(),
     ];
   }
 
@@ -161,7 +159,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         if (parsedYt is! InvalidLink) {
           if (mounted) {
             setState(() {
-              _currentIndex = 4; // Switch to YouTube tab
+              _currentIndex = 3; // Switch to YouTube tab
             });
             ref.read(youtubeControllerProvider.notifier).submit(text);
           }
@@ -172,7 +170,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         if (parsedPodcast is! InvalidPodcastLink) {
           if (mounted) {
             setState(() {
-              _currentIndex = 6; // Switch to Podcasts tab
+              _currentIndex = 5; // Switch to Podcasts tab
             });
             ref.read(podcastControllerProvider.notifier).submit(text);
           }
@@ -541,20 +539,20 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         const SingleActivator(LogicalKeyboardKey.keyH, control: true): () {
           setState(() => _currentIndex = 0);
         },
-        // Ctrl + Y: Switch to YouTube
-        const SingleActivator(LogicalKeyboardKey.keyY, control: true): () {
-          setState(() => _currentIndex = 2);
-        },
-        // Ctrl + P: Switch to Podcasts
-        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () {
-          setState(() => _currentIndex = 3);
-        },
         // Ctrl + L: Switch to Library
         const SingleActivator(LogicalKeyboardKey.keyL, control: true): () {
-          setState(() => _currentIndex = 4);
+          setState(() => _currentIndex = 2);
+        },
+        // Ctrl + Y: Switch to YouTube
+        const SingleActivator(LogicalKeyboardKey.keyY, control: true): () {
+          setState(() => _currentIndex = 3);
         },
         // Ctrl + Comma: Switch to Settings
         const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
+          setState(() => _currentIndex = 4);
+        },
+        // Ctrl + P: Switch to Podcasts
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () {
           setState(() => _currentIndex = 5);
         },
         // F11: Ambient Music Screensaver
@@ -736,7 +734,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           _buildHeaderCircleButton(
             icon: Icons.settings_outlined,
             tooltip: 'Settings',
-            onTap: () => setState(() => _currentIndex = 5),
+            onTap: () => setState(() => _currentIndex = 4),
           ),
           const SizedBox(width: 14),
 
@@ -846,7 +844,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 children: [
                   const MiniPlayer(),
                   SlimBottomNavBar(
-                    currentIndex: _currentIndex > 3 ? 0 : _currentIndex,
+                    currentIndex: _currentIndex > 2 ? 0 : _currentIndex,
                     onTap: (index) {
                       setState(() {
                         _currentIndex = index;
@@ -862,11 +860,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         icon: Icons.search_rounded,
                         activeIcon: Icons.search_rounded,
                         label: 'Search',
-                      ),
-                      SlimNavItem(
-                        icon: Icons.groups_outlined,
-                        activeIcon: Icons.groups_rounded,
-                        label: 'Together',
                       ),
                       SlimNavItem(
                         icon: Icons.library_music_outlined,

@@ -340,8 +340,8 @@ All release notes, historical changelogs, and upgrade highlights are preserved i
 
 ## 🤝 Credits & Acknowledgements
 
-- **Metrolist Project**: Architectural patterns, design aesthetics, and the original Listen Together protocol specification (`MetrolistGroup/metroproto`, `MetrolistGroup/metroserver`), licensed under GPL-3.0.
-- **SimpMusic**: Kotlin Multiplatform audio reference and Listen Together protocol client implementation (`org.simpmusic.listentogether`), licensed under GPL-3.0.
+- **Metrolist Project**: Architectural patterns and design aesthetics, licensed under GPL-3.0.
+- **SimpMusic**: Kotlin Multiplatform audio reference implementation, licensed under GPL-3.0.
 - **Flutter & Community**: The open-source Flutter ecosystem, Riverpod, Drift, and just_audio / media_kit contributors.
 
 ---

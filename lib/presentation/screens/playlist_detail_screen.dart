@@ -181,8 +181,15 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
 
           final playlist = data.playlist;
           final tracks = data.entries
-              .map((e) => e.track)
-              .whereType<Track>()
+              .map((e) =>
+                  e.track ??
+                  Track(
+                    id: e.trackId ?? 'spotify_${e.playlistId}_${e.position}',
+                    sourceId: e.trackId ?? 'spotify_${e.playlistId}_${e.position}',
+                    title: e.originalTitle,
+                    artist: e.originalArtist,
+                    duration: Duration.zero,
+                  ))
               .toList();
 
           // Find first available cover URL for artwork header

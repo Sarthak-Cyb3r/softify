@@ -255,11 +255,15 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
     final List<SpotifyTrackItem> preparedTracks = [];
     for (int i = 0; i < total; i++) {
       final item = playlist.tracks[i];
-      final trackId = item.spotifyUri.startsWith('spotify:track:')
-          ? item.spotifyUri.replaceFirst('spotify:track:', '')
-          : (item.spotifyUri.isNotEmpty
-              ? item.spotifyUri
-              : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_'));
+      var rawUri = item.spotifyUri;
+      if (rawUri.contains('?')) {
+        rawUri = rawUri.split('?').first;
+      }
+      final trackId = rawUri.startsWith('spotify:track:')
+          ? rawUri.replaceFirst('spotify:track:', '')
+          : (rawUri.isNotEmpty
+              ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+              : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
 
       // Ensure track cover is NEVER the playlist's overall cover art
       final itemCover = (item.coverUrl != null &&
@@ -344,10 +348,15 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
 
         final playlistCover = playlist.coverUrl;
         for (final item in playlist.tracks) {
-          final trackId = item.spotifyUri.startsWith('spotify:track:')
-              ? item.spotifyUri.replaceFirst('spotify:track:', '')
-              : '${item.title}_${item.artist}'
-                  .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+          var rawUri = item.spotifyUri;
+          if (rawUri.contains('?')) {
+            rawUri = rawUri.split('?').first;
+          }
+          final trackId = rawUri.startsWith('spotify:track:')
+              ? rawUri.replaceFirst('spotify:track:', '')
+              : (rawUri.isNotEmpty
+                  ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                  : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
 
           final itemCover = (item.coverUrl != null &&
                   item.coverUrl != playlistCover &&
@@ -403,11 +412,15 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
       final playlistCover = currentPlaylist.coverUrl;
 
       for (final t in currentPlaylist.tracks) {
-        final cleanTrackId = t.spotifyUri.startsWith('spotify:track:')
-            ? t.spotifyUri.replaceFirst('spotify:track:', '')
-            : (t.spotifyUri.isNotEmpty
-                ? t.spotifyUri
-                : '${t.title}_${t.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_'));
+        var rawUri = t.spotifyUri;
+        if (rawUri.contains('?')) {
+          rawUri = rawUri.split('?').first;
+        }
+        final cleanTrackId = rawUri.startsWith('spotify:track:')
+            ? rawUri.replaceFirst('spotify:track:', '')
+            : (rawUri.isNotEmpty
+                ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                : '${t.title}_${t.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
 
         // Never let playlist artwork bleed onto individual tracks
         String? finalCover = (t.coverUrl != null &&
@@ -637,10 +650,15 @@ class SpotifyPlaylistSyncService {
           continue;
         }
 
-        final trackId = item.spotifyUri.startsWith('spotify:track:')
-            ? item.spotifyUri.replaceFirst('spotify:track:', '')
-            : '${item.title}_${item.artist}'
-                .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+        var rawUri = item.spotifyUri;
+        if (rawUri.contains('?')) {
+          rawUri = rawUri.split('?').first;
+        }
+        final trackId = rawUri.startsWith('spotify:track:')
+            ? rawUri.replaceFirst('spotify:track:', '')
+            : (rawUri.isNotEmpty
+                ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
 
         final itemCover = (item.coverUrl != null &&
                 item.coverUrl != playlistCover &&

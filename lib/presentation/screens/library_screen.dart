@@ -611,8 +611,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     .read(libraryRepositoryProvider)
                                     .getPlaylistWithTracks(pl.id);
                                 final tracks = data?.entries
-                                        .map((e) => e.track)
-                                        .whereType<Track>()
+                                        .map((e) =>
+                                            e.track ??
+                                            Track(
+                                              id: e.trackId ??
+                                                  'spotify_${e.playlistId}_${e.position}',
+                                              sourceId: e.trackId ??
+                                                  'spotify_${e.playlistId}_${e.position}',
+                                              title: e.originalTitle,
+                                              artist: e.originalArtist,
+                                              duration: Duration.zero,
+                                            ))
                                         .toList() ??
                                     [];
                                 if (tracks.isNotEmpty) {
@@ -770,8 +779,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                           .read(libraryRepositoryProvider)
                                           .getPlaylistWithTracks(pl.id);
                                       final tracks = data?.entries
-                                              .map((e) => e.track)
-                                              .whereType<Track>()
+                                              .map((e) =>
+                                                  e.track ??
+                                                  Track(
+                                                    id: e.trackId ??
+                                                        'spotify_${e.playlistId}_${e.position}',
+                                                    sourceId: e.trackId ??
+                                                        'spotify_${e.playlistId}_${e.position}',
+                                                    title: e.originalTitle,
+                                                    artist: e.originalArtist,
+                                                    duration: Duration.zero,
+                                                  ))
                                               .toList() ??
                                           [];
                                       if (tracks.isNotEmpty) {
