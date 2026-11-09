@@ -45,6 +45,9 @@ dev_dependencies:
   drift_dev: ^2.16.0
   build_runner: ^2.4.8
 
+dependency_overrides:
+  sqlite3: ^3.9.1
+
 flutter:
   uses-material-design: true
   assets:
