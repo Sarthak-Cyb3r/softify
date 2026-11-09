@@ -142,16 +142,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         );
 
     final pB = playerB ??
-        (Platform.isLinux
-            ? null
-            : AudioPlayer(
-                audioLoadConfiguration: audioLoadConfiguration,
-                handleAudioSessionActivation: false,
-                handleInterruptions: false,
-                audioPipeline: (eqB != null && loudB != null)
-                    ? AudioPipeline(androidAudioEffects: [loudB, eqB])
-                    : null,
-              ));
+        AudioPlayer(
+          audioLoadConfiguration: audioLoadConfiguration,
+          handleAudioSessionActivation: false,
+          handleInterruptions: false,
+          audioPipeline: (eqB != null && loudB != null)
+              ? AudioPipeline(androidAudioEffects: [loudB, eqB])
+              : null,
+        );
 
     return JustAudioPlayerAdapter._internal(
       playerA: pA,
@@ -278,16 +276,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   AudioPlayer? _getStandbyPlayer() {
     if (_standbyPlayer != null) return _standbyPlayer;
-    if (Platform.isLinux) {
-      try {
-        _standbyPlayer = AudioPlayer(
-          audioLoadConfiguration: defaultAudioLoadConfiguration,
-          handleAudioSessionActivation: false,
-          handleInterruptions: false,
-        );
-      } catch (_) {
-        _standbyPlayer = null;
-      }
+    try {
+      _standbyPlayer = AudioPlayer(
+        audioLoadConfiguration: defaultAudioLoadConfiguration,
+        handleAudioSessionActivation: false,
+        handleInterruptions: false,
+      );
+    } catch (_) {
+      _standbyPlayer = null;
     }
     return _standbyPlayer;
   }
@@ -378,9 +374,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final currentGen = ++_crossfadeGenerationId;
     if (!canCrossfade) {
       _isCrossfading = false;
-      await outgoing.stop();
       await incoming.setVolume(targetVol);
       await incoming.play();
+      unawaited(outgoing.stop());
       return;
     }
 

@@ -409,11 +409,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _crossfadePositionSubscription = _player.positionStream.listen((pos) {
       if (_isTransitioningTrack) return;
       final dur = _player.duration ?? currentTrack?.duration;
-      if (dur != null && dur > const Duration(seconds: 15)) {
-        // 1. Speculative JIT pre-warming (lead time: at least 25s or crossfade duration + 10s)
-        final leadSeconds = max(25, _crossfadeSeconds + 10);
-        final leadTime = Duration(seconds: leadSeconds);
-        if (pos >= dur - leadTime &&
+      if (dur != null) {
+        // 1. Speculative prefetch triggers proactively at pos >= dur - 25s
+        if (pos >= dur - const Duration(seconds: 25) &&
             !_player.hasPreloadedNext &&
             !_isPrefetching) {
           unawaited(_prefetchNextTrackStream());
@@ -721,7 +719,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
   Future<void> skipToNext() async {
     if (_queue.isEmpty) return;
     final previousTrack = currentTrack;
-    _logTrackPlayEvent(previousTrack, isCompleted: false);
+    if (!_isTransitioningTrack) {
+      _logTrackPlayEvent(previousTrack, isCompleted: false);
+    }
 
     if (_currentIndex < _queue.length - 1) {
       if (_player.hasPreloadedNext) {
@@ -1435,49 +1435,52 @@ class SoftifyAudioHandler extends BaseAudioHandler
     final prefetchId = ++_activePrefetchRequestId;
 
     try {
-      // 1. Check if next track is downloaded offline or local file
-      String? downloadedPath =
-          await _downloadRepo.getDownloadedFilePath(nextTrack.id);
-      if (prefetchId != _activePrefetchRequestId) return;
+      await () async {
+        // 1. Check if next track is downloaded offline or local file
+        final isLocalTrack = nextTrack.id.startsWith('local_') ||
+            nextTrack.sourceId.startsWith('/') ||
+            File(nextTrack.sourceId).existsSync();
 
-      if (downloadedPath == null &&
-          (nextTrack.id.startsWith('local_') ||
-           nextTrack.sourceId.startsWith('/') ||
-           File(nextTrack.sourceId).existsSync())) {
-        if (File(nextTrack.sourceId).existsSync()) {
-          downloadedPath = nextTrack.sourceId;
+        String? downloadedPath =
+            await _downloadRepo.getDownloadedFilePath(nextTrack.id);
+        if (prefetchId != _activePrefetchRequestId) return;
+
+        if (downloadedPath == null && isLocalTrack) {
+          if (File(nextTrack.sourceId).existsSync()) {
+            downloadedPath = nextTrack.sourceId;
+          }
         }
-      }
-      if (downloadedPath != null) {
-        if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
-          _preloadedStreamInfo = StreamInfo(
-            url: Uri.file(downloadedPath),
-            container: downloadedPath.endsWith('.flac') ? 'flac' : (downloadedPath.endsWith('.mp3') ? 'mp3' : 'm4a'),
-            bitrate: downloadedPath.endsWith('.flac') ? 1411000 : 320000,
-            codec: downloadedPath.endsWith('.flac') ? 'flac' : 'aac',
-            expiresAt: DateTime.now().add(const Duration(days: 365)),
-            providerName: 'offline_cached',
-          );
-          await _player.preloadNextFilePath(downloadedPath);
+        if (downloadedPath != null) {
+          if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
+            _preloadedStreamInfo = StreamInfo(
+              url: Uri.file(downloadedPath),
+              container: downloadedPath.endsWith('.flac') ? 'flac' : (downloadedPath.endsWith('.mp3') ? 'mp3' : 'm4a'),
+              bitrate: downloadedPath.endsWith('.flac') ? 1411000 : 320000,
+              codec: downloadedPath.endsWith('.flac') ? 'flac' : 'aac',
+              expiresAt: DateTime.now().add(const Duration(days: 365)),
+              providerName: isLocalTrack ? 'local_audio' : 'offline_cached',
+            );
+            await _player.preloadNextFilePath(downloadedPath);
+          }
+          return;
         }
-        return;
-      }
 
-      // 2. Resolve network stream URL in background
-      final streamInfo = await _streamResolver.resolve(
-        nextTrack,
-        quality: _qualityPreset,
-        forceFresh: false,
-      );
-      if (prefetchId != _activePrefetchRequestId) return;
-
-      if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
-        _preloadedStreamInfo = streamInfo;
-        await _player.preloadNextUrl(
-          streamInfo.url.toString(),
-          headers: streamInfo.headers,
+        // 2. Resolve network stream URL in background
+        final streamInfo = await _streamResolver.resolve(
+          nextTrack,
+          quality: _qualityPreset,
+          forceFresh: false,
         );
-      }
+        if (prefetchId != _activePrefetchRequestId) return;
+
+        if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
+          _preloadedStreamInfo = streamInfo;
+          await _player.preloadNextUrl(
+            streamInfo.url.toString(),
+            headers: streamInfo.headers,
+          );
+        }
+      }().timeout(const Duration(seconds: 12));
     } catch (_) {
       // Best-effort prefetch; clear lock so speculative retry or manual trigger can retry
       if (_currentlyPreloadingTrackId == nextTrack.id) {
