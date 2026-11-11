@@ -23,12 +23,13 @@ void main() {
   late MockPrefsStorage mockStorage;
 
   setUp(() {
+    OfflineModeNotifier.resetForTesting();
     mockStorage = MockPrefsStorage();
     OfflineModeNotifier.customStorage = mockStorage;
   });
 
   tearDown(() {
-    OfflineModeNotifier.customStorage = null;
+    OfflineModeNotifier.resetForTesting();
   });
 
   const localTrack1 = Track(

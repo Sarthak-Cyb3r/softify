@@ -451,21 +451,31 @@ class ScreenWakelockScope extends ConsumerStatefulWidget {
 }
 
 class _ScreenWakelockScopeState extends ConsumerState<ScreenWakelockScope> {
+  ScreenWakelockManager? _manager;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _manager = ref.read(screenWakelockProvider.notifier);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(screenWakelockProvider.notifier).acquire(widget.mode);
+        _manager?.acquire(widget.mode);
       }
     });
   }
 
   @override
   void dispose() {
-    try {
-      ref.read(screenWakelockProvider.notifier).release(widget.mode);
-    } catch (_) {}
+    final manager = _manager;
+    final mode = widget.mode;
+    scheduleMicrotask(() {
+      manager?.release(mode);
+    });
     super.dispose();
   }
 

@@ -168,6 +168,7 @@ void main() {
 
       showScope.value = false;
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       expect(manager.state.activeModes.contains(WakelockMode.fullscreenPlayer), isFalse);
       expect(manager.state.isLocked, isFalse);
@@ -202,7 +203,7 @@ void main() {
       expect(find.text('Keep Screen Awake'), findsOneWidget);
 
       // Find the master switch
-      final switchFinder = find.byType(Switch);
+      final switchFinder = find.byType(Switch).first;
       expect(switchFinder, findsOneWidget);
 
       // Toggle off

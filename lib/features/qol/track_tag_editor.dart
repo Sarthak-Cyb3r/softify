@@ -22,7 +22,12 @@ extension TracksTableEditorExtension on $TracksTable {
 /// Service provider for performing track metadata updates and tag persistence.
 final trackTagEditorServiceProvider = Provider<TrackTagEditorService>((ref) {
   final db = ref.watch(databaseProvider);
-  final handler = ref.watch(audioHandlerProvider);
+  dynamic handler;
+  try {
+    handler = ref.watch(audioHandlerProvider);
+  } catch (_) {
+    handler = null;
+  }
   final fts = ref.watch(ftsRepositoryProvider);
   return TrackTagEditorService(db: db, audioHandler: handler, ftsRepository: fts);
 });

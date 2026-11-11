@@ -121,6 +121,14 @@ class OfflineModeNotifier extends StateNotifier<bool> {
   /// Synchronously returns true if global offline-only mode is active.
   static bool get isOffline => _globalOffline;
 
+  /// Visible for testing to reset global static state between test runs.
+  @visibleForTesting
+  static void resetForTesting() {
+    _globalOffline = false;
+    cachedDownloadedTrackIds.clear();
+    customStorage = null;
+  }
+
   /// Cached track IDs currently downloaded offline.
   static Set<String> cachedDownloadedTrackIds = <String>{};
 
@@ -503,17 +511,14 @@ class OfflineModeBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isOffline = ref.watch(isOfflineOnlyModeProvider);
+    if (!isOffline) {
+      return const SizedBox.shrink();
+    }
     final tokens = context.tokens;
 
-    return AnimatedCrossFade(
-      crossFadeState:
-          isOffline ? CrossFadeState.showFirst : CrossFadeState.showSecond,
-      duration: const Duration(milliseconds: 300),
-      firstCurve: Curves.easeOutCubic,
-      secondCurve: Curves.easeInCubic,
-      firstChild: Padding(
-        padding: margin,
-        child: Container(
+    return Padding(
+      padding: margin,
+      child: Container(
           decoration: BoxDecoration(
             color: tokens.card.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(14),
@@ -647,9 +652,7 @@ class OfflineModeBanner extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-      secondChild: const SizedBox.shrink(),
-    );
+      );
   }
 }
 

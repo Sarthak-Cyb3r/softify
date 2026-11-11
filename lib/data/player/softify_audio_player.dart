@@ -216,7 +216,11 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       onError: (_) {},
     );
     _volumeSub = _activePlayer.volumeStream.listen(
-      _volumeSubject.add,
+      (vol) {
+        if (!_isCrossfading) {
+          _volumeSubject.add(vol);
+        }
+      },
       onError: (_) {},
     );
     _speedSub = _activePlayer.speedStream.listen(
@@ -366,7 +370,6 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
     final targetVol = _volumeSubject.value;
     final bool canCrossfade = crossfade > Duration.zero &&
-        !Platform.isLinux &&
         outgoing.playing &&
         outgoing.processingState != ProcessingState.idle &&
         outgoing.processingState != ProcessingState.completed;
@@ -395,7 +398,7 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     double targetVol,
     int generationId,
   ) async {
-    const steps = 20;
+    final int steps = (crossfade.inMilliseconds / 100).clamp(10, 30).round();
     final stepDuration =
         Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
 
@@ -487,15 +490,17 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   @override
   Future<void> setVolume(double volume) async {
     final clamped = volume.clamp(0.0, 1.0);
-    await _activePlayer.setVolume(clamped);
-    if (_standbyPlayer != null) {
-      await _standbyPlayer!.setVolume(clamped);
-    }
     _volumeSubject.add(clamped);
+    if (!_isCrossfading) {
+      await _activePlayer.setVolume(clamped);
+      if (_standbyPlayer != null) {
+        await _standbyPlayer!.setVolume(clamped);
+      }
+    }
   }
 
   @override
-  double get volume => _activePlayer.volume;
+  double get volume => _volumeSubject.value;
 
   @override
   Stream<double> get volumeStream => _volumeSubject.stream;

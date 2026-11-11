@@ -238,7 +238,7 @@ class CrossfadeDurationNotifier extends StateNotifier<int> {
       } catch (_) {}
     }
 
-    if (loadedSeconds != null) {
+    if (!_initialized && loadedSeconds != null) {
       final clamped = loadedSeconds.clamp(kCrossfadeMinSeconds, kCrossfadeMaxSeconds);
       state = clamped;
       if (clamped > 0) {
@@ -255,6 +255,7 @@ class CrossfadeDurationNotifier extends StateNotifier<int> {
   /// Persists change to [SharedPreferences] and [AppDatabase], and updates
   /// the active audio handler.
   Future<void> setCrossfadeDuration(int seconds) async {
+    _initialized = true;
     final clamped = seconds.clamp(kCrossfadeMinSeconds, kCrossfadeMaxSeconds);
     if (clamped > 0) {
       _lastNonZeroDuration = clamped;

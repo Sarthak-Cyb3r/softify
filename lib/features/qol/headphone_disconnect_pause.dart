@@ -307,33 +307,35 @@ class HeadphoneDisconnectPauseHandler {
     _lastPauseTriggerTime = now;
 
     final handler = _getAudioHandler();
-    if (handler == null) return;
-
-    try {
-      bool isPlaying = true;
-      if (_ref != null) {
-        try {
-          isPlaying = _ref.read(isPlayingProvider);
-        } catch (_) {
-          isPlaying = true;
+    if (handler != null) {
+      try {
+        bool isPlaying = true;
+        if (_ref != null) {
+          try {
+            isPlaying = _ref.read(isPlayingProvider);
+          } catch (_) {
+            isPlaying = true;
+          }
+        } else {
+          try {
+            isPlaying = (handler as dynamic).playbackState?.value?.playing ?? true;
+          } catch (_) {
+            isPlaying = true;
+          }
         }
-      } else {
-        try {
-          isPlaying = (handler as dynamic).playbackState?.value?.playing ?? true;
-        } catch (_) {
-          isPlaying = true;
-        }
-      }
 
-      if (isPlaying) {
-        debugPrint(
-          '[HeadphoneDisconnectPauseHandler] Disconnect triggered auto-pause: ${reason.description}',
-        );
-        await handler.pause();
-        onPauseTriggered?.call(reason);
+        if (isPlaying) {
+          debugPrint(
+            '[HeadphoneDisconnectPauseHandler] Disconnect triggered auto-pause: ${reason.description}',
+          );
+          await handler.pause();
+          onPauseTriggered?.call(reason);
+        }
+      } catch (e) {
+        debugPrint('[HeadphoneDisconnectPauseHandler] Error pausing audio: $e');
       }
-    } catch (e) {
-      debugPrint('[HeadphoneDisconnectPauseHandler] Error pausing audio: $e');
+    } else {
+      onPauseTriggered?.call(reason);
     }
   }
 

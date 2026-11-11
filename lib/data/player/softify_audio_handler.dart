@@ -418,7 +418,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
         if (effectiveCrossfade > Duration.zero &&
             pos >= dur - effectiveCrossfade) {
           if (_player.hasPreloadedNext) {
-            _onTrackCompleted();
+            final remaining = dur - pos;
+            final actualFade = (remaining > Duration.zero && remaining < effectiveCrossfade)
+                ? remaining
+                : effectiveCrossfade;
+            _onTrackCompleted(crossfade: actualFade);
           } else if (!_isPrefetching) {
             unawaited(_prefetchNextTrackStream());
           }
@@ -696,7 +700,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> skipToNext() async {
+  Future<void> skipToNext({
+    bool isNaturalTransition = false,
+    Duration? transitionCrossfade,
+  }) async {
     if (_queue.isEmpty) return;
     final previousTrack = currentTrack;
     if (!_isTransitioningTrack) {
@@ -717,7 +724,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
             _preloadedStreamInfo = null;
           }
         }
-        final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
+        final effectiveCrossfade = isNaturalTransition
+            ? (transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack))
+            : (_crossfadeSeconds > 0 ? const Duration(milliseconds: 250) : Duration.zero);
         try {
           await _player.playPreloadedNext(
             crossfade: effectiveCrossfade,
@@ -758,7 +767,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
             _preloadedStreamInfo = null;
           }
         }
-        final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
+        final effectiveCrossfade = isNaturalTransition
+            ? (transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack))
+            : (_crossfadeSeconds > 0 ? const Duration(milliseconds: 250) : Duration.zero);
         try {
           await _player.playPreloadedNext(
             crossfade: effectiveCrossfade,
@@ -1451,7 +1462,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  Future<void> _onTrackCompleted() async {
+  Future<void> _onTrackCompleted({Duration? crossfade}) async {
     if (_isTransitioningTrack) return;
     _isTransitioningTrack = true;
 
@@ -1477,7 +1488,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         return;
       }
 
-      await skipToNext();
+      await skipToNext(isNaturalTransition: true, transitionCrossfade: crossfade);
     } finally {
       _isTransitioningTrack = false;
     }

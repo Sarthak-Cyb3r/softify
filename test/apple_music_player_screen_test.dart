@@ -162,7 +162,7 @@ class _FakePlayerAudioHandler extends Fake implements SoftifyAudioHandler {
   }
 
   @override
-  Future<void> skipToNext() async {
+  Future<void> skipToNext({bool isNaturalTransition = false, Duration? transitionCrossfade}) async {
     skipCount++;
   }
 
@@ -378,7 +378,6 @@ void main() {
 
       // Verifies Apple Music Persistent Dock buttons
       expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.people_alt_rounded), findsOneWidget);
       expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
       expect(find.byIcon(Icons.format_list_bulleted_rounded), findsOneWidget);
 

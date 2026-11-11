@@ -154,6 +154,9 @@ void main() {
 
   group('TrackTagEditorDialog Widget Tests', () {
     testWidgets('renders all fields and quick tag chips correctly', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       final container = ProviderContainer(
         overrides: [
           databaseProvider.overrideWithValue(db),
@@ -198,6 +201,9 @@ void main() {
     });
 
     testWidgets('shows validation error if title is empty', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       final container = ProviderContainer(
         overrides: [
           databaseProvider.overrideWithValue(db),
@@ -233,6 +239,9 @@ void main() {
     });
 
     testWidgets('saving valid form updates database and dismisses dialog', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       final container = ProviderContainer(
         overrides: [
           databaseProvider.overrideWithValue(db),

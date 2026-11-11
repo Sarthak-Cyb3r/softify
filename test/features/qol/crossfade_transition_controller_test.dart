@@ -5,7 +5,7 @@ import 'package:softify/features/qol/crossfade_transition_controller.dart';
 
 void main() {
   setUp(() {
-    SharedPreferences.reset();
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('CrossfadeDurationNotifier tests', () {

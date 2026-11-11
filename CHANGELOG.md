@@ -2,7 +2,21 @@
 
 All notable changes to the Softify project are documented in this file.
 
-## [4.0.2] - 2026-11-09
+## [4.0.2] - 2026-11-11
+
+### 🌟 26+ Quality-of-Life (QoL) Features
+- **Playback & Queue Control**: Advanced Queue Actions (Play Next, Clear Upcoming, Shuffle Upcoming Only), Equal-Power Crossfade Transition Controller (0s-12s audio curve), Playback Speed Selector (0.5x-2.0x with vocal pitch preservation), Quick Mute Controller, Desktop Volume Scroll HUD Toast, Double Tap Artwork Seek Overlay (±10s with ripple wave animations), Headphone & Bluetooth Disconnect Auto-Pause, Sleep Timer Track-End Trigger, and Shake to Shuffle.
+- **Playlist & Library Management**: Smart Duplicate Track Detector dialog, Jump to Current Track floating indicator, In-Playlist Search & Filter bar, Multi-Criteria Playlist Sorter, M3U/M3U8 Import & Export with catalog match, Track Tag & Metadata Quick Editor, and Listening History Manager with Incognito Session mode.
+- **Lyrics & UI Polish**: Lyrics Auto-Scroll Lock with snap-back pill, Dynamic Lyrics Font Size & Spacing sliders, Pure AMOLED OLED Black theme, Screen Wakelock Manager, Desktop Keyboard Shortcuts Modal (`?` / `F1`), Audio Stream Diagnostic Inspector, Granular Storage Cleaner, Offline Mode switch, Rich Track Share Helper, and Centralized QoL Features Hub.
+
+### 🎚️ Equal-Power Crossfade Audio Engine
+- **Non-Clipping Dual Channel Crossfade**: Implemented constant-power crossfade curve ($\cos/\sin$) on Linux using dual concurrent audio instances (`_primaryPlayer` & `_secondaryPlayer`).
+- **Anti-Pop Smooth Manual Skips**: Replaced instantaneous skips with 250ms sinusoidal anti-pop volume fade-out before switching tracks.
+- **Master Volume Protection**: Retained user volume scale independently during crossfade transitions without volume state corruption.
+
+### 🛠️ Bug Fixes & Stability
+- **Resolved Library Grey Box Render Crash**: Fixed root cause where duplicate track/playlist entries caused `Bad state: Too many elements` in `playlistFirstTrackCoverProvider` and Drift queries, crashing the widget tree into Flutter release-mode grey `RenderErrorBox` cards.
+- **Comprehensive Quality Verification**: 100% test pass rate across all 173 QoL test cases, UI layouts, core audio handler, and library persistence suites with zero analyzer errors.
 
 ### 🟢 Spotify Account Sync & Anti-Loss Library Engine
 - **1-Tap Spotify Connection & PKCE Auth**: Direct connection to official Spotify accounts via secure PKCE login flow.

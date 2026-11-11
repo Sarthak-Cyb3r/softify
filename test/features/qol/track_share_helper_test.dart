@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:softify/domain/entities/track.dart';
 import 'package:softify/features/qol/track_share_helper.dart';
@@ -154,15 +155,17 @@ void main() {
 
     testWidgets('showShareModal presents options sheet', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => TrackShareHelper.showShareModal(
-                  context,
-                  testTrackYt,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () => TrackShareHelper.showShareModal(
+                    context,
+                    testTrackYt,
+                  ),
+                  child: const Text('Open Modal'),
                 ),
-                child: const Text('Open Modal'),
               ),
             ),
           ),

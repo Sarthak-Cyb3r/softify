@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:softify/data/player/softify_audio_handler.dart';
+import 'package:softify/domain/entities/track.dart';
 import 'package:softify/features/qol/double_tap_seek_overlay.dart';
+import 'package:softify/presentation/providers/player_providers.dart';
+
+class _FakeAudioHandler extends Fake implements SoftifyAudioHandler {
+  @override
+  Duration get position => const Duration(seconds: 30);
+  @override
+  Track? get currentTrack => const Track(id: '1', sourceId: '1', title: 'T', artist: 'A', duration: Duration(seconds: 180));
+  @override
+  Future<void> seek(Duration position) async {}
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +26,9 @@ void main() {
     bool enabled = true,
   }) {
     return ProviderScope(
+      overrides: [
+        audioHandlerProvider.overrideWithValue(_FakeAudioHandler()),
+      ],
       child: MaterialApp(
         home: Scaffold(
           body: Center(
@@ -151,7 +166,7 @@ void main() {
 
       // 3rd tap while overlay is active
       await tester.tapAt(rightHalfPos);
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 350));
 
       expect(accumulated, 20);
       expect(find.text('+20s'), findsOneWidget);

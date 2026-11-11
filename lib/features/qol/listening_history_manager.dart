@@ -146,7 +146,7 @@ class ListeningHistoryManager {
 
   /// Reads whether private listening session is currently active.
   static bool isPrivateSessionActive(WidgetRef ref) {
-    return ref.read(privateListeningModeProvider);
+    return ref.watch(privateListeningModeProvider);
   }
 
   /// Explicitly sets private listening session state.

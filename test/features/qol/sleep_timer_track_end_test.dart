@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:softify/features/qol/sleep_timer_track_end.dart';
@@ -30,7 +31,9 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: EndOfTrackSleepTile(),
+            body: ProviderScope(
+              child: EndOfTrackSleepTile(),
+            ),
           ),
         ),
       );

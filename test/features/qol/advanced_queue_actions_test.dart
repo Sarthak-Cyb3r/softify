@@ -7,8 +7,8 @@ import 'package:softify/domain/entities/track.dart';
 import 'package:softify/features/qol/advanced_queue_actions.dart';
 import 'package:softify/presentation/providers/player_providers.dart';
 
-class FakeAudioHandler implements SoftifyAudioHandler {
-  List<Track> queue = [];
+class FakeAudioHandler extends Fake implements SoftifyAudioHandler {
+  List<Track> trackQueue = [];
   int index = 0;
   bool playNextCalled = false;
   bool clearUpcomingCalled = false;
@@ -19,32 +19,32 @@ class FakeAudioHandler implements SoftifyAudioHandler {
   dynamic noSuchMethod(Invocation invocation) => null;
 
   @override
-  List<Track> get currentQueue => List.unmodifiable(queue);
+  List<Track> get currentQueue => List.unmodifiable(trackQueue);
 
   @override
   int get currentIndex => index;
 
   @override
-  Stream<List<Track>> get tracksQueueStream => Stream.value(queue);
+  Stream<List<Track>> get tracksQueueStream => Stream.value(trackQueue);
 
   @override
   Future<void> playNext(Track track) async {
     playNextCalled = true;
-    if (queue.isEmpty) {
-      queue.add(track);
+    if (trackQueue.isEmpty) {
+      trackQueue.add(track);
       index = 0;
     } else {
-      queue.insert(index + 1, track);
+      trackQueue.insert(index + 1, track);
     }
   }
 
   @override
   Future<void> clearUpcomingQueue() async {
     clearUpcomingCalled = true;
-    if (index >= 0 && index < queue.length - 1) {
-      queue.removeRange(index + 1, queue.length);
+    if (index >= 0 && index < trackQueue.length - 1) {
+      trackQueue.removeRange(index + 1, trackQueue.length);
     } else if (index < 0) {
-      queue.clear();
+      trackQueue.clear();
     }
   }
 
@@ -52,11 +52,11 @@ class FakeAudioHandler implements SoftifyAudioHandler {
   Future<void> shuffleUpcomingOnly() async {
     shuffleUpcomingCalled = true;
     final startIndex = index >= 0 ? index + 1 : 0;
-    if (startIndex < queue.length - 1) {
-      final upcoming = queue.sublist(startIndex);
+    if (startIndex < trackQueue.length - 1) {
+      final upcoming = trackQueue.sublist(startIndex);
       upcoming.shuffle();
-      queue.removeRange(startIndex, queue.length);
-      queue.addAll(upcoming);
+      trackQueue.removeRange(startIndex, trackQueue.length);
+      trackQueue.addAll(upcoming);
     }
   }
 
@@ -64,10 +64,10 @@ class FakeAudioHandler implements SoftifyAudioHandler {
   Future<void> reverseUpcomingOnly() async {
     reverseUpcomingCalled = true;
     final startIndex = index >= 0 ? index + 1 : 0;
-    if (startIndex < queue.length - 1) {
-      final upcoming = queue.sublist(startIndex);
-      queue.removeRange(startIndex, queue.length);
-      queue.addAll(upcoming.reversed);
+    if (startIndex < trackQueue.length - 1) {
+      final upcoming = trackQueue.sublist(startIndex);
+      trackQueue.removeRange(startIndex, trackQueue.length);
+      trackQueue.addAll(upcoming.reversed);
     }
   }
 }
@@ -111,7 +111,7 @@ void main() {
 
   setUp(() {
     fakeHandler = FakeAudioHandler();
-    fakeHandler.queue = [track1, track2, track3];
+    fakeHandler.trackQueue = [track1, track2, track3];
     fakeHandler.index = 0;
   });
 
@@ -123,15 +123,19 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
           ],
-          child: Consumer(
-            builder: (context, ref, _) {
-              return ElevatedButton(
-                onPressed: () {
-                  AdvancedQueueController.playNext(ref, track4);
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      AdvancedQueueController.playNext(ref, track4);
+                    },
+                    child: const Text('Play Next'),
+                  );
                 },
-                child: const Text('Play Next'),
-              );
-            },
+              ),
+            ),
           ),
         ),
       );
@@ -140,11 +144,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.playNextCalled, true);
-      expect(fakeHandler.queue.length, 4);
-      expect(fakeHandler.queue[0].id, 'track_1');
-      expect(fakeHandler.queue[1].id, 'track_4'); // Inserted right after current track!
-      expect(fakeHandler.queue[2].id, 'track_2');
-      expect(fakeHandler.queue[3].id, 'track_3');
+      expect(fakeHandler.trackQueue.length, 4);
+      expect(fakeHandler.trackQueue[0].id, 'track_1');
+      expect(fakeHandler.trackQueue[1].id, 'track_4'); // Inserted right after current track!
+      expect(fakeHandler.trackQueue[2].id, 'track_2');
+      expect(fakeHandler.trackQueue[3].id, 'track_3');
     });
 
     testWidgets('clearUpcomingQueue removes upcoming tracks while active song continues playing',
@@ -154,15 +158,19 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
           ],
-          child: Consumer(
-            builder: (context, ref, _) {
-              return ElevatedButton(
-                onPressed: () {
-                  AdvancedQueueController.clearUpcomingQueue(ref);
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      AdvancedQueueController.clearUpcomingQueue(ref);
+                    },
+                    child: const Text('Clear Upcoming'),
+                  );
                 },
-                child: const Text('Clear Upcoming'),
-              );
-            },
+              ),
+            ),
           ),
         ),
       );
@@ -171,13 +179,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.clearUpcomingCalled, true);
-      expect(fakeHandler.queue.length, 1);
-      expect(fakeHandler.queue[0].id, 'track_1');
+      expect(fakeHandler.trackQueue.length, 1);
+      expect(fakeHandler.trackQueue[0].id, 'track_1');
     });
 
     testWidgets('shuffleUpcomingOnly reorders upcoming tracks without touching active track',
         (tester) async {
-      fakeHandler.queue = [track1, track2, track3, track4];
+      fakeHandler.trackQueue = [track1, track2, track3, track4];
       fakeHandler.index = 0;
 
       await tester.pumpWidget(
@@ -185,15 +193,19 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
           ],
-          child: Consumer(
-            builder: (context, ref, _) {
-              return ElevatedButton(
-                onPressed: () {
-                  AdvancedQueueController.shuffleUpcomingOnly(ref);
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      AdvancedQueueController.shuffleUpcomingOnly(ref);
+                    },
+                    child: const Text('Shuffle Upcoming'),
+                  );
                 },
-                child: const Text('Shuffle Upcoming'),
-              );
-            },
+              ),
+            ),
           ),
         ),
       );
@@ -202,15 +214,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.shuffleUpcomingCalled, true);
-      expect(fakeHandler.queue.length, 4);
-      expect(fakeHandler.queue[0].id, 'track_1'); // Active track MUST remain unchanged at index 0
-      final upcomingIds = fakeHandler.queue.sublist(1).map((t) => t.id).toSet();
+      expect(fakeHandler.trackQueue.length, 4);
+      expect(fakeHandler.trackQueue[0].id, 'track_1'); // Active track MUST remain unchanged at index 0
+      final upcomingIds = fakeHandler.trackQueue.sublist(1).map((t) => t.id).toSet();
       expect(upcomingIds, {'track_2', 'track_3', 'track_4'});
     });
 
     testWidgets('reverseUpcomingOnly inverts upcoming songs sequence',
         (tester) async {
-      fakeHandler.queue = [track1, track2, track3, track4];
+      fakeHandler.trackQueue = [track1, track2, track3, track4];
       fakeHandler.index = 0;
 
       await tester.pumpWidget(
@@ -218,15 +230,19 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
           ],
-          child: Consumer(
-            builder: (context, ref, _) {
-              return ElevatedButton(
-                onPressed: () {
-                  AdvancedQueueController.reverseUpcomingOnly(ref);
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      AdvancedQueueController.reverseUpcomingOnly(ref);
+                    },
+                    child: const Text('Reverse Upcoming'),
+                  );
                 },
-                child: const Text('Reverse Upcoming'),
-              );
-            },
+              ),
+            ),
           ),
         ),
       );
@@ -235,11 +251,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.reverseUpcomingCalled, true);
-      expect(fakeHandler.queue.length, 4);
-      expect(fakeHandler.queue[0].id, 'track_1');
-      expect(fakeHandler.queue[1].id, 'track_4');
-      expect(fakeHandler.queue[2].id, 'track_3');
-      expect(fakeHandler.queue[3].id, 'track_2');
+      expect(fakeHandler.trackQueue.length, 4);
+      expect(fakeHandler.trackQueue[0].id, 'track_1');
+      expect(fakeHandler.trackQueue[1].id, 'track_4');
+      expect(fakeHandler.trackQueue[2].id, 'track_3');
+      expect(fakeHandler.trackQueue[3].id, 'track_2');
     });
 
     testWidgets('instance methods and provider delegate properly',
@@ -249,16 +265,20 @@ void main() {
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
           ],
-          child: Consumer(
-            builder: (context, ref, _) {
-              final controller = ref.read(advancedQueueControllerProvider);
-              return ElevatedButton(
-                onPressed: () {
-                  controller.clearUpcomingQueue(ref);
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  final controller = ref.read(advancedQueueControllerProvider);
+                  return ElevatedButton(
+                    onPressed: () {
+                      controller.clearUpcomingQueue(ref);
+                    },
+                    child: const Text('Provider Clear'),
+                  );
                 },
-                child: const Text('Provider Clear'),
-              );
-            },
+              ),
+            ),
           ),
         ),
       );
@@ -267,8 +287,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.clearUpcomingCalled, true);
-      expect(fakeHandler.queue.length, 1);
-      expect(fakeHandler.queue.first.id, 'track_1');
+      expect(fakeHandler.trackQueue.length, 1);
+      expect(fakeHandler.trackQueue.first.id, 'track_1');
     });
   });
 
@@ -279,7 +299,7 @@ void main() {
         ProviderScope(
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
-            queueProvider.overrideWith((ref) => Stream.value(fakeHandler.queue)),
+            queueProvider.overrideWith((ref) => Stream.value(fakeHandler.trackQueue)),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -303,7 +323,7 @@ void main() {
         ProviderScope(
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
-            queueProvider.overrideWith((ref) => Stream.value(fakeHandler.queue)),
+            queueProvider.overrideWith((ref) => Stream.value(fakeHandler.trackQueue)),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -319,8 +339,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.clearUpcomingCalled, true);
-      expect(fakeHandler.queue.length, 1);
-      expect(fakeHandler.queue[0].id, 'track_1');
+      expect(fakeHandler.trackQueue.length, 1);
+      expect(fakeHandler.trackQueue[0].id, 'track_1');
     });
 
     testWidgets('triggers Reverse action from widget',
@@ -329,7 +349,7 @@ void main() {
         ProviderScope(
           overrides: [
             audioHandlerProvider.overrideWithValue(fakeHandler),
-            queueProvider.overrideWith((ref) => Stream.value(fakeHandler.queue)),
+            queueProvider.overrideWith((ref) => Stream.value(fakeHandler.trackQueue)),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -345,9 +365,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeHandler.reverseUpcomingCalled, true);
-      expect(fakeHandler.queue[0].id, 'track_1');
-      expect(fakeHandler.queue[1].id, 'track_3');
-      expect(fakeHandler.queue[2].id, 'track_2');
+      expect(fakeHandler.trackQueue[0].id, 'track_1');
+      expect(fakeHandler.trackQueue[1].id, 'track_3');
+      expect(fakeHandler.trackQueue[2].id, 'track_2');
     });
   });
 }

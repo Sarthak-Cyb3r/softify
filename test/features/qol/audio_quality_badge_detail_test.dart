@@ -1,6 +1,8 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:softify/data/database/app_database.dart';
 import 'package:softify/domain/entities/audio_quality_preset.dart';
 import 'package:softify/domain/entities/stream_info.dart';
 import 'package:softify/domain/entities/track.dart';
@@ -10,6 +12,16 @@ import 'package:softify/presentation/providers/settings_providers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  late AppDatabase db;
+
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
 
   const sampleTrack = Track(
     id: 'track-101',
@@ -168,6 +180,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            databaseProvider.overrideWithValue(db),
             currentTrackProvider.overrideWith((ref) => Stream.value(sampleTrack)),
             currentStreamInfoProvider.overrideWith((ref) => Stream.value(stream)),
           ],
@@ -251,6 +264,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            databaseProvider.overrideWithValue(db),
             currentTrackProvider.overrideWith((ref) => Stream.value(sampleTrack)),
             currentStreamInfoProvider.overrideWith((ref) => Stream.value(flacStream)),
           ],

@@ -17,9 +17,7 @@ import '../../presentation/theme/app_theme.dart';
 /// sleep timer is currently active.
 final endOfTrackSleepTimerProvider =
     StateNotifierProvider<EndOfTrackSleepController, bool>((ref) {
-  final controller = EndOfTrackSleepController(ref);
-  ref.onDispose(controller.dispose);
-  return controller;
+  return EndOfTrackSleepController(ref);
 });
 
 /// Computes the exact remaining duration until the currently playing track
