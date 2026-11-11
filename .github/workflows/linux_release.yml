@@ -30,6 +30,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
           NEEDRESTART_MODE: a
         run: |
+          sudo sed -i 's|http://|https://|g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev \
