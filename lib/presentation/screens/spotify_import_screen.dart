@@ -11,6 +11,7 @@ import '../providers/shelf_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared/app_network_image.dart';
 import 'playlist_detail_screen.dart';
+import 'settings_screen.dart';
 
 class SpotifyImportScreen extends ConsumerStatefulWidget {
   const SpotifyImportScreen({super.key});
@@ -158,7 +159,10 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
     final audioHandler = ref.watch(audioHandlerProvider);
     final authState = ref.watch(spotifyAuthStateProvider);
     final isLoggedIn = authState.value?.isLoggedIn ?? false;
-    final userName = authState.value?.userName;
+    final rawName = authState.value?.userName;
+    final userName = (rawName != null && rawName.trim().isNotEmpty && rawName != 'null')
+        ? rawName.trim()
+        : 'Spotify User';
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -213,7 +217,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                     Icon(Icons.check_circle, color: tokens.accent, size: 14),
                     const SizedBox(width: 4),
                     Text(
-                      userName ?? 'Linked',
+                      userName,
                       style: TextStyle(color: tokens.accent, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -225,7 +229,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
               itemBuilder: (context) => [
                 PopupMenuItem(
                   enabled: false,
-                  child: Text('Connected as ${userName ?? "User"}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text('Connected as $userName', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
@@ -471,19 +475,45 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                   borderRadius: BorderRadius.circular(tokens.radiusCard),
                   border: Border.all(color: tokens.error.withValues(alpha: 0.35)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.error_outline, color: tokens.error, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        importState.errorMessage!,
-                        style: TextStyle(
-                          color: tokens.error,
-                          fontSize: 13,
+                    Row(
+                      children: [
+                        Icon(Icons.error_outline, color: tokens.error, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            importState.errorMessage!,
+                            style: TextStyle(
+                              color: tokens.error,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (importState.errorMessage!.contains('Custom') ||
+                        importState.errorMessage!.contains('429') ||
+                        importState.errorMessage!.contains('rate limit')) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.settings, size: 14),
+                          label: const Text('Open Settings for Custom Client ID', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: tokens.accent,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                            );
+                          },
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

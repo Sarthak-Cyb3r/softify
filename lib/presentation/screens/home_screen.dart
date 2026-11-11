@@ -644,10 +644,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final authState = ref.watch(spotifyAuthStateProvider).valueOrNull;
                       final isLoggedIn = authState?.isLoggedIn ?? false;
                       final userName = authState?.userName;
+                      final effectiveName = (userName != null && userName.trim().isNotEmpty && userName != 'null')
+                          ? userName.trim()
+                          : null;
 
                       return AppPillButton(
                         label: isLoggedIn
-                            ? (userName != null ? 'Spotify: $userName' : 'Spotify Connected')
+                            ? (effectiveName != null ? 'Spotify: $effectiveName' : 'Spotify Connected')
                             : 'Connect Spotify',
                         icon: isLoggedIn
                             ? const SpotifyLogoBadge(size: 16, hasShadow: false)

@@ -52,6 +52,18 @@ class SpotifyAlbumRef {
   });
 }
 
+class SpotifyRateLimitException implements Exception {
+  final int? retryAfterSeconds;
+  final String message;
+  const SpotifyRateLimitException({
+    this.retryAfterSeconds,
+    this.message = 'Spotify API rate limit reached (HTTP 429). Tip: configure a free Custom Spotify Client ID in Settings for dedicated quota.',
+  });
+
+  @override
+  String toString() => message;
+}
+
 class ArtistDiscography {
   final String artistName;
   final String artistUri;
@@ -1068,6 +1080,40 @@ class SpotifyApiService {
 
   Future<bool> _isUserLoggedIn() => isUserLoggedIn();
 
+  Future<http.Response> _getWithRateLimitHandling(
+    Uri url,
+    String token, {
+    Duration timeout = const Duration(seconds: 12),
+    int maxRetries = 1,
+  }) async {
+    int attempts = 0;
+    while (true) {
+      attempts++;
+      final resp = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'User-Agent': _defaultUserAgent,
+        },
+      ).timeout(timeout);
+
+      if (resp.statusCode == 429) {
+        final retrySec = int.tryParse(resp.headers['retry-after'] ?? '0') ?? 0;
+        if (attempts <= maxRetries && retrySec > 0 && retrySec <= 3) {
+          await Future.delayed(Duration(seconds: retrySec));
+          continue;
+        }
+        throw SpotifyRateLimitException(
+          retryAfterSeconds: retrySec > 0 ? retrySec : null,
+          message:
+              'Spotify API rate limit reached (HTTP 429). Tip: configure a free Custom Spotify Client ID in Settings for dedicated personal quota.',
+        );
+      }
+      return resp;
+    }
+  }
+
   /// Retrieves user's top tracks via official Spotify Web API (`GET /v1/me/top/tracks`).
   ///
   /// [timeRange] can be `short_term` (~4 weeks), `medium_term` (~6 months), or `long_term` (years).
@@ -1084,14 +1130,7 @@ class SpotifyApiService {
         },
       );
 
-      final resp = await _client.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'User-Agent': _defaultUserAgent,
-        },
-      ).timeout(const Duration(seconds: 10));
+      final resp = await _getWithRateLimitHandling(url, token, timeout: const Duration(seconds: 10));
 
       if (resp.statusCode != 200) return const [];
 
@@ -1124,14 +1163,7 @@ class SpotifyApiService {
         },
       );
 
-      final resp = await _client.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'User-Agent': _defaultUserAgent,
-        },
-      ).timeout(const Duration(seconds: 10));
+      final resp = await _getWithRateLimitHandling(url, token, timeout: const Duration(seconds: 10));
 
       if (resp.statusCode != 200) return const [];
 
@@ -1165,14 +1197,7 @@ class SpotifyApiService {
         },
       );
 
-      final resp = await _client.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'User-Agent': _defaultUserAgent,
-        },
-      ).timeout(const Duration(seconds: 10));
+      final resp = await _getWithRateLimitHandling(url, token, timeout: const Duration(seconds: 10));
 
       if (resp.statusCode != 200) return const [];
 
@@ -1210,14 +1235,7 @@ class SpotifyApiService {
         },
       );
 
-      final resp = await _client.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-          'User-Agent': _defaultUserAgent,
-        },
-      ).timeout(const Duration(seconds: 10));
+      final resp = await _getWithRateLimitHandling(url, token, timeout: const Duration(seconds: 10));
 
       if (resp.statusCode != 200) return const [];
 
@@ -1274,14 +1292,7 @@ class SpotifyApiService {
           },
         );
 
-        final resp = await _client.get(
-          url,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-            'User-Agent': _defaultUserAgent,
-          },
-        ).timeout(const Duration(seconds: 12));
+        final resp = await _getWithRateLimitHandling(url, token, timeout: const Duration(seconds: 12));
 
         if (resp.statusCode != 200) break;
 
@@ -1359,14 +1370,7 @@ class SpotifyApiService {
           },
         );
 
-        final resp = await _client.get(
-          url,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-            'User-Agent': _defaultUserAgent,
-          },
-        ).timeout(const Duration(seconds: 12));
+        final resp = await _getWithRateLimitHandling(url, token, timeout: const Duration(seconds: 12));
 
         if (resp.statusCode != 200) break;
 
@@ -1396,13 +1400,28 @@ class SpotifyApiService {
         coverUrl: 'https://misc.scdn.co/liked-songs/liked-songs-300.png',
         tracks: allTracks,
       );
+    } on SpotifyRateLimitException {
+      if (allTracks.isNotEmpty) {
+        return SpotifyImportPlaylist(
+          id: 'me_liked_songs',
+          name: 'Liked Songs (Spotify)',
+          description: 'Imported from your Spotify Saved Tracks',
+          coverUrl: 'https://misc.scdn.co/liked-songs/liked-songs-300.png',
+          tracks: allTracks,
+          notice: 'Partial import (${allTracks.length} tracks): Spotify API rate limit reached. Configure a Custom Client ID in Settings for full import.',
+        );
+      }
+      rethrow;
     } catch (e) {
-      return SpotifyImportPlaylist(
-        id: 'me_liked_songs',
-        name: 'Liked Songs',
-        tracks: allTracks,
-        notice: 'Failed to fetch some liked songs: $e',
-      );
+      if (allTracks.isNotEmpty) {
+        return SpotifyImportPlaylist(
+          id: 'me_liked_songs',
+          name: 'Liked Songs',
+          tracks: allTracks,
+          notice: 'Failed to fetch some liked songs: $e',
+        );
+      }
+      rethrow;
     }
   }
 

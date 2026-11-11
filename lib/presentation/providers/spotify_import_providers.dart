@@ -40,6 +40,12 @@ final spotifyUserProfileProvider =
   return await authService.getConnectedUserProfile();
 });
 
+final spotifyCustomClientIdProvider =
+    FutureProvider.autoDispose<String?>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  return await authService.getCustomClientId();
+});
+
 final spotifyUserPlaylistsProvider =
     FutureProvider.autoDispose<List<SpotifyUserPlaylistSummary>>((ref) async {
   final authService = ref.watch(spotifyAuthServiceProvider);
@@ -189,6 +195,11 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
       }
 
       await _prepareAndQuickMatchPlaylist(playlist);
+    } on SpotifyRateLimitException catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: e.message,
+      );
     } catch (e) {
       state = state.copyWith(
         status: SpotifyImportStatus.error,

@@ -21,7 +21,8 @@ class SpotifyAuthService {
   final AppDatabase _db;
   final http.Client _client;
 
-  static const String clientId = '65b708073fc0480ea92a077233ca87bd';
+  static const String defaultClientId = '65b708073fc0480ea92a077233ca87bd';
+  static const String clientId = defaultClientId;
   static const int loopbackPort = 8989;
   static const String redirectUri = 'http://127.0.0.1:$loopbackPort/login';
 
@@ -34,6 +35,7 @@ class SpotifyAuthService {
   static const String _keyUserImage = 'spotify_user_image';
   static const String _keyUserProduct = 'spotify_user_product';
   static const String _keyUserCountry = 'spotify_user_country';
+  static const String _keyCustomClientId = 'spotify_custom_client_id';
 
   static const String _tokenEndpoint = 'https://accounts.spotify.com/api/token';
   static const String _authorizeEndpoint = 'https://accounts.spotify.com/authorize';
@@ -44,6 +46,35 @@ class SpotifyAuthService {
     http.Client? client,
   })  : _db = db,
         _client = client ?? http.Client();
+
+  /// Returns the custom Spotify Client ID configured by the user, if any.
+  Future<String?> getCustomClientId() async {
+    final row = await (_db.select(_db.settings)
+          ..where((t) => t.key.equals(_keyCustomClientId)))
+        .getSingleOrNull();
+    final val = row?.value.trim();
+    return (val != null && val.isNotEmpty) ? val : null;
+  }
+
+  /// Sets or clears the custom Spotify Client ID in SQLite.
+  Future<void> setCustomClientId(String? customId) async {
+    final trimmed = customId?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      await (_db.delete(_db.settings)
+            ..where((t) => t.key.equals(_keyCustomClientId)))
+          .go();
+    } else {
+      await _db.into(_db.settings).insertOnConflictUpdate(
+            SettingRow(key: _keyCustomClientId, value: trimmed),
+          );
+    }
+  }
+
+  /// Returns active effective Client ID: user custom ID if configured, otherwise default.
+  Future<String> getEffectiveClientId() async {
+    final custom = await getCustomClientId();
+    return custom ?? defaultClientId;
+  }
 
   /// Checks whether an active or refreshable user session exists.
   Future<bool> isLoggedIn() async {
@@ -64,7 +95,12 @@ class SpotifyAuthService {
     final row = await (_db.select(_db.settings)
           ..where((t) => t.key.equals(_keyUserName)))
         .getSingleOrNull();
-    return row?.value;
+    final val = row?.value.trim();
+    if (val != null && val.isNotEmpty && val != 'null') {
+      return val;
+    }
+    final loggedIn = await isLoggedIn();
+    return loggedIn ? 'Spotify User' : null;
   }
 
   /// Returns the full cached Spotify profile, fetching from Spotify if missing.
@@ -91,18 +127,35 @@ class SpotifyAuthService {
           ..where((t) => t.key.equals(_keyUserCountry)))
         .getSingleOrNull();
 
-    if (idRow == null || idRow.value.isEmpty) {
+    if (idRow == null || idRow.value.isEmpty || idRow.value == 'null' ||
+        nameRow == null || nameRow.value.isEmpty || nameRow.value == 'null') {
       await _fetchAndStoreUserProfile();
       final freshIdRow = await (_db.select(_db.settings)
             ..where((t) => t.key.equals(_keyUserId)))
           .getSingleOrNull();
-      if (freshIdRow == null || freshIdRow.value.isEmpty) return null;
-      return getConnectedUserProfile();
+      final freshNameRow = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals(_keyUserName)))
+          .getSingleOrNull();
+
+      return SpotifyUserProfile(
+        id: freshIdRow?.value.isNotEmpty == true && freshIdRow!.value != 'null'
+            ? freshIdRow!.value
+            : 'spotify_user',
+        displayName: freshNameRow?.value.isNotEmpty == true && freshNameRow!.value != 'null'
+            ? freshNameRow!.value
+            : 'Spotify User',
+        email: emailRow?.value,
+        avatarUrl: imageRow?.value,
+        product: productRow?.value,
+        country: countryRow?.value,
+      );
     }
 
     return SpotifyUserProfile(
       id: idRow.value,
-      displayName: nameRow?.value.isNotEmpty == true ? nameRow!.value : 'Spotify User',
+      displayName: nameRow.value.isNotEmpty && nameRow.value != 'null'
+          ? nameRow.value
+          : 'Spotify User',
       email: emailRow?.value,
       avatarUrl: imageRow?.value,
       product: productRow?.value,
@@ -241,8 +294,10 @@ class SpotifyAuthService {
       }
     });
 
+    final activeClientId = await getEffectiveClientId();
+
     final authUri = Uri.parse(_authorizeEndpoint).replace(queryParameters: {
-      'client_id': clientId,
+      'client_id': activeClientId,
       'response_type': 'code',
       'redirect_uri': redirectUri,
       'code_challenge_method': 'S256',
@@ -272,7 +327,7 @@ class SpotifyAuthService {
     if (authCode == null) return false;
 
     // Exchange code for tokens
-    final success = await _exchangeCodeForTokens(authCode, verifier);
+    final success = await _exchangeCodeForTokens(authCode, verifier, activeClientId);
     if (success) {
       await _fetchAndStoreUserProfile();
     }
@@ -296,14 +351,15 @@ class SpotifyAuthService {
         .go();
   }
 
-  Future<bool> _exchangeCodeForTokens(String code, String verifier) async {
+  Future<bool> _exchangeCodeForTokens(String code, String verifier, [String? activeClientId]) async {
     try {
+      final cid = activeClientId ?? await getEffectiveClientId();
       final response = await _client.post(
         Uri.parse(_tokenEndpoint),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'grant_type': 'authorization_code',
-          'client_id': clientId,
+          'client_id': cid,
           'code': code,
           'redirect_uri': redirectUri,
           'code_verifier': verifier,
@@ -340,12 +396,13 @@ class SpotifyAuthService {
 
   Future<String?> _refreshAccessToken(String refreshToken) async {
     try {
+      final activeClientId = await getEffectiveClientId();
       final response = await _client.post(
         Uri.parse(_tokenEndpoint),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'grant_type': 'refresh_token',
-          'client_id': clientId,
+          'client_id': activeClientId,
           'refresh_token': refreshToken,
         },
       ).timeout(const Duration(seconds: 15));
@@ -383,15 +440,30 @@ class SpotifyAuthService {
       final token = await getValidAccessToken();
       if (token == null) return;
 
-      final response = await _client.get(
-        Uri.parse(_meEndpoint),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 8));
+      int retries = 0;
+      http.Response? response;
 
-      if (response.statusCode == 200) {
+      while (retries < 2) {
+        response = await _client.get(
+          Uri.parse(_meEndpoint),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ).timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 429) {
+          final retrySec = int.tryParse(response.headers['retry-after'] ?? '0') ?? 0;
+          if (retrySec > 0 && retrySec <= 3 && retries == 0) {
+            retries++;
+            await Future.delayed(Duration(seconds: retrySec));
+            continue;
+          }
+        }
+        break;
+      }
+
+      if (response != null && response.statusCode == 200) {
         final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         final displayName = (json['display_name'] as String?) ?? (json['id'] as String?);
         final userId = json['id'] as String?;
@@ -435,8 +507,45 @@ class SpotifyAuthService {
                 SettingRow(key: _keyUserImage, value: avatarUrl),
               );
         }
+      } else {
+        // Fallback placeholder so UI never displays "Connected as null"
+        final existingName = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals(_keyUserName)))
+            .getSingleOrNull();
+        if (existingName == null || existingName.value.isEmpty || existingName.value == 'null') {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                const SettingRow(key: _keyUserName, value: 'Spotify User'),
+              );
+        }
+        final existingId = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals(_keyUserId)))
+            .getSingleOrNull();
+        if (existingId == null || existingId.value.isEmpty || existingId.value == 'null') {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                const SettingRow(key: _keyUserId, value: 'spotify_user'),
+              );
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+      try {
+        final existingName = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals(_keyUserName)))
+            .getSingleOrNull();
+        if (existingName == null || existingName.value.isEmpty || existingName.value == 'null') {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                const SettingRow(key: _keyUserName, value: 'Spotify User'),
+              );
+        }
+        final existingId = await (_db.select(_db.settings)
+              ..where((t) => t.key.equals(_keyUserId)))
+            .getSingleOrNull();
+        if (existingId == null || existingId.value.isEmpty || existingId.value == 'null') {
+          await _db.into(_db.settings).insertOnConflictUpdate(
+                const SettingRow(key: _keyUserId, value: 'spotify_user'),
+              );
+        }
+      } catch (_) {}
+    }
   }
 
   String _generateCodeVerifier([int length = 64]) {
