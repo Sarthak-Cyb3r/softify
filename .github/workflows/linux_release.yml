@@ -15,7 +15,7 @@ on:
 jobs:
   build-linux:
     name: Build Linux x64 Bundle
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: write
@@ -25,13 +25,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Linux Build Dependencies
-        timeout-minutes: 15
+        timeout-minutes: 10
         env:
           DEBIAN_FRONTEND: noninteractive
           NEEDRESTART_MODE: a
         run: |
-          sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/* /etc/apt/apt-mirrors.txt 2>/dev/null || true
-          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev \
             liblzma-dev \
