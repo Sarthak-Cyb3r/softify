@@ -124,8 +124,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
   int _activePrefetchRequestId = 0;
 
   void setCrossfadeSeconds(int seconds) {
-    _crossfadeSeconds = 0;
-    _crossfadeSecondsSubject.add(0);
+    final clamped = seconds.clamp(0, 12);
+    _crossfadeSeconds = clamped;
+    _crossfadeSecondsSubject.add(clamped);
   }
 
   StreamSubscription? _playerStateSubscription;
@@ -174,6 +175,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _logTrackPlayEvent(Track? track, {required bool isCompleted}) {
     if (track == null) return;
+    if (_isPrivateSession) return;
     if (_currentTrackSource == 'youtube_link' ||
         _currentTrackSource == 'podcast' ||
         track.isYoutube ||
@@ -686,9 +688,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
     return null;
   }
 
-  /// Crossfade feature removed: always returns Duration.zero for pure gapless playback.
   Duration _computeEffectiveCrossfade(Track? from, Track? to) {
-    return Duration.zero;
+    if (_crossfadeSuppressed || _crossfadeSeconds <= 0) {
+      return Duration.zero;
+    }
+    return Duration(seconds: _crossfadeSeconds);
   }
 
   @override
@@ -728,7 +732,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         }
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
-        if (nextTrack != null) {
+        if (nextTrack != null && !_isPrivateSession) {
           unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
         }
         unawaited(_prefetchNextTrackStream());
@@ -769,7 +773,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         }
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
-        if (nextTrack != null) {
+        if (nextTrack != null && !_isPrivateSession) {
           unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
         }
         unawaited(_prefetchNextTrackStream());
@@ -1067,6 +1071,29 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
+  void updateTrackMetadata(Track updatedTrack) {
+    bool changed = false;
+    for (int i = 0; i < _queue.length; i++) {
+      if (_queue[i].id == updatedTrack.id || _queue[i].sourceId == updatedTrack.sourceId) {
+        _queue[i] = updatedTrack.copyWith(
+          isLiked: _queue[i].isLiked,
+        );
+        changed = true;
+      }
+    }
+    for (int i = 0; i < _unshuffledQueue.length; i++) {
+      if (_unshuffledQueue[i].id == updatedTrack.id || _unshuffledQueue[i].sourceId == updatedTrack.sourceId) {
+        _unshuffledQueue[i] = updatedTrack.copyWith(
+          isLiked: _unshuffledQueue[i].isLiked,
+        );
+      }
+    }
+    if (changed) {
+      _syncQueueState();
+      _debouncedSaveQueue();
+    }
+  }
+
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
     if (oldIndex < 0 ||
         oldIndex >= _queue.length ||
@@ -1130,6 +1157,76 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _syncQueueState();
     await _player.stop();
     await _libraryRepo.clearQueueState();
+  }
+
+  /// Clears upcoming tracks in the queue while keeping currently playing song active.
+  Future<void> clearUpcomingQueue() async {
+    if (_queue.isEmpty) return;
+
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
+    if (_currentIndex < 0) {
+      _queue.clear();
+      _unshuffledQueue.clear();
+    } else if (_currentIndex < _queue.length - 1) {
+      _queue.removeRange(_currentIndex + 1, _queue.length);
+      final currentTrackId = _queue[_currentIndex].id;
+      final unIdx = _unshuffledQueue.indexWhere((t) => t.id == currentTrackId);
+      if (unIdx >= 0 && unIdx < _unshuffledQueue.length - 1) {
+        _unshuffledQueue.removeRange(unIdx + 1, _unshuffledQueue.length);
+      }
+    } else {
+      return;
+    }
+
+    _syncQueueState();
+    _debouncedSaveQueue();
+  }
+
+  /// Shuffles upcoming tracks only without touching the currently playing track or history.
+  Future<void> shuffleUpcomingOnly() async {
+    if (_queue.isEmpty) return;
+
+    final startIndex = _currentIndex >= 0 ? _currentIndex + 1 : 0;
+    final upcomingCount = _queue.length - startIndex;
+    if (upcomingCount <= 1) return;
+
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
+    final upcoming = _queue.sublist(startIndex);
+    upcoming.shuffle(Random());
+    _queue.removeRange(startIndex, _queue.length);
+    _queue.addAll(upcoming);
+
+    _syncQueueState();
+    _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
+  }
+
+  /// Reverses upcoming tracks only without touching the currently playing track.
+  Future<void> reverseUpcomingOnly() async {
+    if (_queue.isEmpty) return;
+
+    final startIndex = _currentIndex >= 0 ? _currentIndex + 1 : 0;
+    final upcomingCount = _queue.length - startIndex;
+    if (upcomingCount <= 1) return;
+
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
+    final upcoming = _queue.sublist(startIndex);
+    final reversed = upcoming.reversed.toList();
+    _queue.removeRange(startIndex, _queue.length);
+    _queue.addAll(reversed);
+
+    _syncQueueState();
+    _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
   }
 
   @override
@@ -1196,6 +1293,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   double get speed => _player.speed;
   Stream<double> get speedStream => _player.speedStream;
+
+  // Private Listening Session (Incognito)
+  bool _isPrivateSession = false;
+  bool get isPrivateSession => _isPrivateSession;
+  set isPrivateSession(bool value) => _isPrivateSession = value;
+  void setPrivateSession(bool enabled) => _isPrivateSession = enabled;
 
   // Equalizer API
   Future<void> setEqualizerEnabled(bool enabled) => _player.setEqualizerEnabled(enabled);
@@ -1269,7 +1372,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
           if (requestId != _activePlayRequestId) return;
           _consecutiveFailures = 0;
           _debouncedSaveQueue();
-          unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+          if (!_isPrivateSession) {
+            unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+          }
           unawaited(_prefetchNextTrackStream());
           return;
         } catch (downloadErr) {
@@ -1310,7 +1415,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       _log('[SoftifyAudioHandler] Player play() called successfully!');
       _consecutiveFailures = 0;
       _debouncedSaveQueue();
-      unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+      if (!_isPrivateSession) {
+        unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+      }
       unawaited(_prefetchNextTrackStream());
       _checkAndPrefetchRecommendations();
     } catch (e, st) {
@@ -1353,7 +1460,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       if (completed != null) {
         _logTrackPlayEvent(completed, isCompleted: true);
         _currentTrackStartedAt = null;
-        unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
+        if (!_isPrivateSession) {
+          unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
+        }
       }
 
       if (_sleepEndOfTrack) {

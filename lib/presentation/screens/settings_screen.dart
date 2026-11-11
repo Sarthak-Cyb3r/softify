@@ -545,6 +545,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
+          const SizedBox(height: 16),
+          const CrossfadeSettingsCard(),
+
           const SizedBox(height: 24),
 
           // Section 2: Lyrics & Synchronization

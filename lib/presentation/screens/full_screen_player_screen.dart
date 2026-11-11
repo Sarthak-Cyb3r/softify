@@ -8,6 +8,7 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
+import '../../features/qol/track_share_helper.dart';
 import '../providers/animated_artwork_provider.dart';
 import '../providers/player_providers.dart';
 import '../providers/ui_style_provider.dart';
@@ -49,52 +50,7 @@ class _FullScreenPlayerScreenState
   String? _lastExtractedCoverUrl;
 
   void _shareTrack(BuildContext context, Track track) {
-    HapticFeedback.selectionClick();
-    final rawId = track.id.startsWith('yt_')
-        ? track.id.replaceFirst('yt_', '')
-        : (track.sourceId.startsWith('yt_')
-            ? track.sourceId.replaceFirst('yt_', '')
-            : (track.id.length == 11
-                ? track.id
-                : (track.sourceId.length == 11 ? track.sourceId : '')));
-
-    final String shareUrl = rawId.isNotEmpty
-        ? 'https://music.youtube.com/watch?v=$rawId'
-        : 'https://music.youtube.com/search?q=${Uri.encodeComponent('${track.artist} - ${track.title}')}';
-
-    Clipboard.setData(ClipboardData(text: shareUrl));
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.link_rounded, color: Colors.white, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Link copied to clipboard: $shareUrl',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: AppTheme.fontUi,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        backgroundColor: const Color(0xFF1E1E22),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Colors.white24, width: 0.8),
-        ),
-      ),
-    );
+    TrackShareHelper.showShareModal(context, track);
   }
 
   void _extractArtworkPalette(String? coverUrl) {

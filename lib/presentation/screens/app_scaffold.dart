@@ -33,6 +33,9 @@ import '../../data/services/device_control_service.dart';
 import '../widgets/terms_and_conditions_dialog.dart';
 import '../widgets/update_notification_banner.dart';
 import '../widgets/update_changelog_sheet.dart';
+import '../widgets/lyrics_view.dart';
+import '../widgets/queue_bottom_sheet.dart';
+import '../../features/qol/keyboard_shortcuts_dialog.dart';
 import 'device_blocked_screen.dart';
 
 /// Centralized application tab icon registry for consistent styling and quick theme swaps
@@ -127,6 +130,52 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       _isScreensaverOpen = false;
       _resetScreensaverIdleTimer();
     });
+  }
+
+  double _lastVolumeBeforeMute = 1.0;
+
+  void _openDesktopLyrics() {
+    final track = ref.read(currentTrackProvider).value;
+    if (track == null) return;
+    final tokens = context.tokens;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: tokens.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+        child: SizedBox(
+          width: 880,
+          height: 660,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(tokens.radiusCard),
+            child: LyricsView(
+              track: track,
+              onClose: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openDesktopQueue() {
+    final tokens = context.tokens;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: tokens.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(tokens.radiusCard * 2),
+        ),
+      ),
+      builder: (ctx) => const SizedBox(
+        height: 520,
+        child: QueueBottomSheet(),
+      ),
+    );
   }
 
   @override
@@ -510,6 +559,83 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         },
         child: CallbackShortcuts(
           bindings: {
+        // F1 or ?: Keyboard Shortcuts Cheat Sheet Modal
+        const SingleActivator(LogicalKeyboardKey.f1): () {
+          KeyboardShortcutsDialog.show(context);
+        },
+        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
+          KeyboardShortcutsDialog.show(context);
+        },
+        const SingleActivator(LogicalKeyboardKey.question): () {
+          KeyboardShortcutsDialog.show(context);
+        },
+
+        // Playback: Left / Right (Seek ±5s)
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+          final pos = ref.read(audioHandlerProvider).position;
+          final target = pos - const Duration(seconds: 5);
+          ref.read(audioHandlerProvider).seek(target < Duration.zero ? Duration.zero : target);
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+          final pos = ref.read(audioHandlerProvider).position;
+          ref.read(audioHandlerProvider).seek(pos + const Duration(seconds: 5));
+        },
+
+        // Playback: Shift + Left / Right (Seek ±15s)
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () {
+          final pos = ref.read(audioHandlerProvider).position;
+          final target = pos - const Duration(seconds: 15);
+          ref.read(audioHandlerProvider).seek(target < Duration.zero ? Duration.zero : target);
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () {
+          final pos = ref.read(audioHandlerProvider).position;
+          ref.read(audioHandlerProvider).seek(pos + const Duration(seconds: 15));
+        },
+
+        // Playback: J / K (Prev / Next Track)
+        const SingleActivator(LogicalKeyboardKey.keyJ): () {
+          ref.read(audioHandlerProvider).skipToPrevious();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyK): () {
+          ref.read(audioHandlerProvider).skipToNext();
+        },
+
+        // Volume: Up / Down (Volume ±5%)
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+          ref.read(audioHandlerProvider).setVolume((currentVol + 0.05).clamp(0.0, 1.0));
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () {
+          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+          ref.read(audioHandlerProvider).setVolume((currentVol - 0.05).clamp(0.0, 1.0));
+        },
+
+        // Volume: M (Mute / Unmute)
+        const SingleActivator(LogicalKeyboardKey.keyM): () {
+          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+          if (currentVol > 0.0) {
+            _lastVolumeBeforeMute = currentVol;
+            ref.read(audioHandlerProvider).setVolume(0.0);
+          } else {
+            ref.read(audioHandlerProvider).setVolume(_lastVolumeBeforeMute > 0.0 ? _lastVolumeBeforeMute : 0.5);
+          }
+        },
+
+        // Navigation: L (Lyrics)
+        const SingleActivator(LogicalKeyboardKey.keyL): () {
+          _openDesktopLyrics();
+        },
+
+        // Navigation: Q (Queue)
+        const SingleActivator(LogicalKeyboardKey.keyQ): () {
+          _openDesktopQueue();
+        },
+
+        // Navigation: Escape (Close / Back)
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          Navigator.of(context).maybePop();
+        },
+
         // Ctrl + Right: Skip Next
         const SingleActivator(LogicalKeyboardKey.arrowRight, control: true): () {
           ref.read(audioHandlerProvider).skipToNext();

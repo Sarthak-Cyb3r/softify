@@ -7,6 +7,7 @@ import '../screens/equalizer_screen.dart';
 import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'wrapped_insights_dialog.dart';
+import '../../features/qol/keyboard_shortcuts_dialog.dart';
 import 'shared/app_surface.dart';
 
 /// Desktop Sidebar adhering to Content-First Spotify-inspired design:
@@ -294,23 +295,41 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                   const SizedBox(height: 12),
 
                   // Section: SHORTCUTS
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: Text(
-                      'SHORTCUTS',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontSize: 12, // Strict 12px floor
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: tokens.textMuted,
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => KeyboardShortcutsDialog.show(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'SHORTCUTS',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 12, // Strict 12px floor
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                          _buildKbdPill('?'),
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  _buildShortcutRow('Ctrl+K', 'Search'),
-                  _buildShortcutRow('Ctrl+P', 'Podcasts'),
-                  _buildShortcutRow('Space', 'Play / Pause'),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => KeyboardShortcutsDialog.show(context),
+                    child: Column(
+                      children: [
+                        _buildShortcutRow('Ctrl+F', 'Search'),
+                        _buildShortcutRow('Space', 'Play / Pause'),
+                        _buildShortcutRow('J / K', 'Prev / Next Track'),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 16),
                 ],
