@@ -57,7 +57,7 @@ class SpotifyRateLimitException implements Exception {
   final String message;
   const SpotifyRateLimitException({
     this.retryAfterSeconds,
-    this.message = 'Spotify API rate limit reached (HTTP 429). Tip: configure a free Custom Spotify Client ID in Settings for dedicated quota.',
+    this.message = 'Spotify API rate limit reached (HTTP 429). Paste any playlist link directly in the URL bar above for keyless, limit-free import.',
   });
 
   @override
@@ -1107,7 +1107,7 @@ class SpotifyApiService {
         throw SpotifyRateLimitException(
           retryAfterSeconds: retrySec > 0 ? retrySec : null,
           message:
-              'Spotify API rate limit reached (HTTP 429). Tip: configure a free Custom Spotify Client ID in Settings for dedicated personal quota.',
+              'Spotify API rate limit reached (HTTP 429). You can import any playlist directly by pasting its link in the URL box above without API limits.',
         );
       }
       return resp;
@@ -1408,7 +1408,7 @@ class SpotifyApiService {
           description: 'Imported from your Spotify Saved Tracks',
           coverUrl: 'https://misc.scdn.co/liked-songs/liked-songs-300.png',
           tracks: allTracks,
-          notice: 'Partial import (${allTracks.length} tracks): Spotify API rate limit reached. Configure a Custom Client ID in Settings for full import.',
+          notice: 'Partial import (${allTracks.length} tracks): Spotify API rate limit reached. To import all tracks, paste the playlist link directly in the URL box above.',
         );
       }
       rethrow;

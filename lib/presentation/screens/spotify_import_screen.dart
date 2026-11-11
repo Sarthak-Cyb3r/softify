@@ -23,6 +23,7 @@ class SpotifyImportScreen extends ConsumerStatefulWidget {
 
 class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
   final TextEditingController _urlController = TextEditingController();
+  bool _alsoAddToLikedSongs = false;
 
   @override
   void dispose() {
@@ -267,11 +268,20 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Paste a public Spotify playlist link or URI to import tracks into Softify without ads or keys.',
+                  Text(
+                    'Paste any Spotify playlist, album, or track link to import instantly into Softify without ads, keys, or Premium.',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: tokens.textSecondary,
                       fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '💡 Tip: Free Spotify account? To import Liked Songs, open them in Spotify, press Ctrl+A, add to a playlist, and paste the link here.',
+                    style: TextStyle(
+                      color: tokens.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -493,24 +503,31 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                         ),
                       ],
                     ),
-                    if (importState.errorMessage!.contains('Custom') ||
+                    if (importState.errorMessage!.contains('Ctrl+A') ||
                         importState.errorMessage!.contains('429') ||
                         importState.errorMessage!.contains('rate limit')) ...[
                       const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          icon: const Icon(Icons.settings, size: 14),
-                          label: const Text('Open Settings for Custom Client ID', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(
-                            foregroundColor: tokens.accent,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          ),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                            );
-                          },
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: tokens.surfaceHighlight.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(tokens.radiusSm),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: tokens.accent, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Tip: In Spotify (web/desktop), open Liked Songs, press Ctrl+A, add them to a playlist, copy the link, and paste it into the URL bar above for 1-tap import without Premium.',
+                                style: TextStyle(
+                                  color: tokens.textPrimary,
+                                  fontSize: 11,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -685,68 +702,115 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                           ),
                       ],
                     )
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: tokens.accent,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(tokens.radiusPill),
-                          ),
-                        ),
-                        onPressed: importState.status ==
-                                SpotifyImportStatus.importingToDb
-                            ? null
-                            : () async {
-                                final messenger = ScaffoldMessenger.of(context);
-                                final nav = Navigator.of(context);
-                                final playlistId =
-                                    await notifier.commitImportToLibrary();
-                                if (!mounted) return;
-                                if (playlistId != null) {
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: tokens.surfaceElevated,
-                                      content: Text(
-                                        'Imported "${importState.playlist!.name}" into your Library!',
-                                        style: TextStyle(
-                                          color: tokens.textPrimary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      action: SnackBarAction(
-                                        label: 'CLOSE',
-                                        textColor: tokens.accent,
-                                        onPressed: () => nav.pop(),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                        icon: importState.status ==
-                                SpotifyImportStatus.importingToDb
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.black,
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(tokens.radiusSm),
+                            onTap: () {
+                              setState(() {
+                                _alsoAddToLikedSongs = !_alsoAddToLikedSongs;
+                              });
+                            },
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: _alsoAddToLikedSongs,
+                                    activeColor: tokens.accent,
+                                    checkColor: Colors.black,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _alsoAddToLikedSongs = val ?? false;
+                                      });
+                                    },
+                                  ),
                                 ),
-                              )
-                            : const Icon(Icons.playlist_add_check, size: 22),
-                        label: Text(
-                          importState.status ==
-                                  SpotifyImportStatus.importedSuccess
-                              ? 'Imported! (Save Again)'
-                              : 'Import ${importState.playlist!.matchedCount} Tracks to Library',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Also mark all tracks as Liked (add to Favorites)',
+                                    style: TextStyle(
+                                      color: tokens.textSecondary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tokens.accent,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(tokens.radiusPill),
+                              ),
+                            ),
+                            onPressed: importState.status ==
+                                    SpotifyImportStatus.importingToDb
+                                ? null
+                                : () async {
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    final nav = Navigator.of(context);
+                                    final playlistId =
+                                        await notifier.commitImportToLibrary(
+                                      alsoAddToFavorites: _alsoAddToLikedSongs,
+                                    );
+                                    if (!mounted) return;
+                                    if (playlistId != null) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: tokens.surfaceElevated,
+                                          content: Text(
+                                            'Imported "${importState.playlist!.name}" into your Library!',
+                                            style: TextStyle(
+                                              color: tokens.textPrimary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          action: SnackBarAction(
+                                            label: 'CLOSE',
+                                            textColor: tokens.accent,
+                                            onPressed: () => nav.pop(),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: importState.status ==
+                                    SpotifyImportStatus.importingToDb
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.black,
+                                    ),
+                                  )
+                                : const Icon(Icons.playlist_add_check, size: 22),
+                            label: Text(
+                              importState.status ==
+                                      SpotifyImportStatus.importedSuccess
+                                  ? 'Imported! (Save Again)'
+                                  : 'Import ${importState.playlist!.matchedCount} Tracks to Library',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             )
           : null,
@@ -1333,7 +1397,7 @@ class _SpotifyImportScreenState extends ConsumerState<SpotifyImportScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Import your saved tracks directly into Softify',
+                        'Sync via Web API (or paste playlist link above if on Free plan)',
                         style: TextStyle(
                           color: tokens.textSecondary,
                           fontSize: 12,

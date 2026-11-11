@@ -188,22 +188,22 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
       if (playlist.tracks.isEmpty) {
         state = state.copyWith(
           status: SpotifyImportStatus.error,
-          errorMessage: 'No Liked Songs found in your connected Spotify account.',
+          errorMessage: 'No Liked Songs found or Spotify restricted Web API access. Tip: In Spotify, select all your liked tracks (Ctrl+A), add to a playlist, and paste its link above to import in 1 tap without Premium!',
           playlist: playlist,
         );
         return;
       }
 
       await _prepareAndQuickMatchPlaylist(playlist);
-    } on SpotifyRateLimitException catch (e) {
+    } on SpotifyRateLimitException {
       state = state.copyWith(
         status: SpotifyImportStatus.error,
-        errorMessage: e.message,
+        errorMessage: 'Spotify Web API rate-limited this request. Tip: In Spotify, select all liked songs (Ctrl+A), add to a playlist, and paste its link above for instant keyless import!',
       );
     } catch (e) {
       state = state.copyWith(
         status: SpotifyImportStatus.error,
-        errorMessage: 'Failed to load Spotify Liked Songs: $e',
+        errorMessage: 'Spotify API could not access Liked Songs. Easy workaround: In Spotify, select your liked songs (Ctrl+A), add to a playlist, and paste its link above!',
       );
     }
   }
@@ -530,7 +530,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
     return importedCount;
   }
 
-  Future<String?> commitImportToLibrary() async {
+  Future<String?> commitImportToLibrary({bool alsoAddToFavorites = false}) async {
     final currentPlaylist = state.playlist;
     if (currentPlaylist == null) return null;
 
@@ -599,8 +599,8 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         originalMetadata: originalMeta,
       );
 
-      // If importing Spotify Liked Songs, also mark each track as Liked in Softify's favorites table
-      if (currentPlaylist.id == 'me_liked_songs') {
+      // If importing Spotify Liked Songs or user requested adding to favorites, mark each track as Liked in Softify's favorites table
+      if (currentPlaylist.id == 'me_liked_songs' || alsoAddToFavorites) {
         for (final track in tracksToInsert) {
           try {
             await _libraryRepo.setLiked(track.id, true, track: track);

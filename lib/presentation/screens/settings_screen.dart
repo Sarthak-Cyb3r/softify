@@ -1655,7 +1655,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               size: 20,
             ),
             title: Text(
-              'Custom Spotify Client ID',
+              'Custom Spotify Client ID (Advanced / Optional)',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -1665,7 +1665,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: Text(
               customClientId != null
                   ? 'Active: ${customClientId.substring(0, customClientId.length > 8 ? 8 : customClientId.length)}... (Dedicated Quota)'
-                  : 'Default (Shared) • Configure your own to bypass HTTP 429 rate limits',
+                  : 'Optional • Most users do not need this; public playlist links import without keys',
               style: TextStyle(color: tokens.textSecondary, fontSize: 11),
             ),
             trailing: Icon(Icons.edit_outlined, color: tokens.textSecondary, size: 18),
@@ -1704,7 +1704,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'By default, Softify uses a shared public client ID. Because Spotify heavily rate-limits shared client IDs (HTTP 429), creating your own free developer App gives you dedicated, unlimited personal quota.',
+                'Note: Most users do not need this! You can paste and import any Spotify playlist directly into Softify without an account, developer keys, or Premium.\n\nSpotify requires an active Spotify Premium subscription to create new apps in developer.spotify.com/dashboard. If you have an existing Spotify Developer App, you can enter its Client ID here for dedicated Web API quota.',
                 style: TextStyle(color: tokens.textSecondary, fontSize: 12, height: 1.4),
               ),
               const SizedBox(height: 12),
