@@ -603,6 +603,8 @@ void main() {
         ],
       );
 
+      await container.read(recentlyAddedPlaylistStreamProvider.future);
+
       // Trigger play
       final controller = container.read(recentlyAddedPlayControllerProvider);
       await controller.playOrPause();
@@ -635,6 +637,9 @@ void main() {
           currentTrackProvider.overrideWith((ref) => Stream.value(sampleTrack)),
         ],
       );
+
+      await container.read(recentlyAddedPlaylistStreamProvider.future);
+      await container.read(currentTrackProvider.future);
 
       final controller = container.read(recentlyAddedPlayControllerProvider);
       await controller.playOrPause();

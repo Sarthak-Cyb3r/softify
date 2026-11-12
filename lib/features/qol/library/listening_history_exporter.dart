@@ -165,9 +165,9 @@ class ListeningHistoryEntry {
       parsedDate =
           DateTime.tryParse(rawDate) ?? DateTime.fromMillisecondsSinceEpoch(0);
     } else if (rawDate is int) {
-      parsedDate = DateTime.fromMillisecondsSinceEpoch(rawDate);
+      parsedDate = DateTime.fromMillisecondsSinceEpoch(rawDate, isUtc: true);
     } else {
-      parsedDate = DateTime.fromMillisecondsSinceEpoch(0);
+      parsedDate = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
     }
 
     return ListeningHistoryEntry(
@@ -687,7 +687,7 @@ class ListeningHistoryExporter {
   }) async {
     final dir = directory ?? await resolveExportDirectory();
     if (!dir.existsSync()) {
-      await dir.create(recursive: true);
+      dir.createSync(recursive: true);
     }
 
     final name = fileName ?? generateDefaultFileName(format: format);
@@ -697,7 +697,7 @@ class ListeningHistoryExporter {
         ? exportToCsv(entries)
         : exportToJson(entries, pretty: prettyJson);
 
-    await targetFile.writeAsString(content, flush: true, encoding: utf8);
+    targetFile.writeAsStringSync(content, flush: true, encoding: utf8);
     return targetFile;
   }
 
@@ -813,7 +813,8 @@ class HistoryExportNotifier extends StateNotifier<HistoryExportState> {
         content: content,
         copiedToClipboard: false,
       );
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('exportHistory error: $e\n$stack');
       state = state.copyWith(
         isExporting: false,
         errorMessage: e.toString(),

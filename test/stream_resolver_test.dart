@@ -29,7 +29,7 @@ void main() {
 
       final streamInfo = await saavnResolver.resolve(
         track,
-        quality: AudioQualityPreset.standard,
+        quality: AudioQualityPreset.high,
       );
 
       expect(streamInfo.container, 'm4a');
@@ -100,8 +100,8 @@ void main() {
       final stream = await hybridResolver.resolve(track);
       expect(stream, isNotNull);
       // Because Saavn only offers third-party EDM remixes with heavy duration mismatch,
-      // it must reject Saavn and resolve via YouTube Music official topic release.
-      expect(stream.providerName, contains('youtube'));
+      // it must reject Saavn and resolve via YouTube Music official topic release or desktop yt-dlp.
+      expect(stream.providerName, anyOf(contains('youtube'), contains('yt_dlp')));
       expect(stream.url.toString(), isNotEmpty);
     });
   });

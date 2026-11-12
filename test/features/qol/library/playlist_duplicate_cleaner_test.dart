@@ -621,7 +621,8 @@ void main() {
       expect(find.text('No Duplicates Found'), findsOneWidget);
       expect(find.text('All tracks in this playlist are unique.'), findsOneWidget);
       expect(find.text('Close'), findsOneWidget);
-      expect(find.textContaining('Duplicates'), findsNothing);
+      expect(find.textContaining('duplicate entry'), findsNothing);
+      expect(find.widgetWithText(ElevatedButton, 'Clean'), findsNothing);
     });
 
     testWidgets('displays duplicate count, entries, and clean button when duplicates exist',

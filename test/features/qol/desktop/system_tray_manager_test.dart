@@ -7,11 +7,11 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    SharedPreferences.reset();
+    SharedPreferences.setMockInitialValues({});
   });
 
   tearDown(() {
-    SharedPreferences.reset();
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('SharedPreferences In-Memory Tests', () {
@@ -178,6 +178,7 @@ void main() {
 
       expect(manager.status, SystemTrayStatus.uninitialized);
       await manager.initialize();
+      await pumpEventQueue();
 
       expect(manager.status, SystemTrayStatus.active);
       expect(statusEvents, [

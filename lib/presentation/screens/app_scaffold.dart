@@ -545,164 +545,187 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     );
   }
 
+  void _handleDesktopShortcut(SoftifyShortcutType type) {
+    final audioHandler = ref.read(audioHandlerProvider);
+    switch (type) {
+      case SoftifyShortcutType.playPause:
+        final pb = ref.read(playbackStateStreamProvider).value;
+        final isPlaying = pb?.playing ?? false;
+        if (isPlaying) {
+          audioHandler.pause();
+        } else {
+          audioHandler.play();
+        }
+        break;
+      case SoftifyShortcutType.helpDialog:
+        KeyboardShortcutsDialog.show(context);
+        break;
+      case SoftifyShortcutType.seekBack5:
+        final pos = audioHandler.position;
+        final target = pos - const Duration(seconds: 5);
+        audioHandler.seek(target < Duration.zero ? Duration.zero : target);
+        break;
+      case SoftifyShortcutType.seekForward5:
+        final pos = audioHandler.position;
+        audioHandler.seek(pos + const Duration(seconds: 5));
+        break;
+      case SoftifyShortcutType.seekBack15:
+        final pos = audioHandler.position;
+        final target = pos - const Duration(seconds: 15);
+        audioHandler.seek(target < Duration.zero ? Duration.zero : target);
+        break;
+      case SoftifyShortcutType.seekForward15:
+        final pos = audioHandler.position;
+        audioHandler.seek(pos + const Duration(seconds: 15));
+        break;
+      case SoftifyShortcutType.skipPrevious:
+        audioHandler.skipToPrevious();
+        break;
+      case SoftifyShortcutType.skipNext:
+        audioHandler.skipToNext();
+        break;
+      case SoftifyShortcutType.volumeUp5:
+        final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+        audioHandler.setVolume((currentVol + 0.05).clamp(0.0, 1.0));
+        break;
+      case SoftifyShortcutType.volumeDown5:
+        final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+        audioHandler.setVolume((currentVol - 0.05).clamp(0.0, 1.0));
+        break;
+      case SoftifyShortcutType.volumeUp10:
+        final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+        audioHandler.setVolume((currentVol + 0.10).clamp(0.0, 1.0));
+        break;
+      case SoftifyShortcutType.volumeDown10:
+        final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+        audioHandler.setVolume((currentVol - 0.10).clamp(0.0, 1.0));
+        break;
+      case SoftifyShortcutType.toggleMute:
+        final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
+        if (currentVol > 0.0) {
+          _lastVolumeBeforeMute = currentVol;
+          audioHandler.setVolume(0.0);
+        } else {
+          audioHandler.setVolume(_lastVolumeBeforeMute > 0.0 ? _lastVolumeBeforeMute : 0.5);
+        }
+        break;
+      case SoftifyShortcutType.toggleLyrics:
+        _openDesktopLyrics();
+        break;
+      case SoftifyShortcutType.toggleQueue:
+        _openDesktopQueue();
+        break;
+      case SoftifyShortcutType.escape:
+        final focus = FocusManager.instance.primaryFocus;
+        final isText = focus != null &&
+            focus.context != null &&
+            (focus.context!.widget is EditableText ||
+                focus.context!.findAncestorWidgetOfExactType<EditableText>() != null ||
+                focus.context!.findAncestorStateOfType<EditableTextState>() != null);
+        if (isText) {
+          focus.unfocus();
+        } else {
+          Navigator.of(context).maybePop();
+        }
+        break;
+      case SoftifyShortcutType.tabHome:
+        setState(() => _currentIndex = 0);
+        break;
+      case SoftifyShortcutType.tabSearch:
+        setState(() => _currentIndex = 1);
+        break;
+      case SoftifyShortcutType.tabLibrary:
+        setState(() => _currentIndex = 2);
+        break;
+      case SoftifyShortcutType.tabYoutube:
+        setState(() => _currentIndex = 3);
+        break;
+      case SoftifyShortcutType.tabSettings:
+        setState(() => _currentIndex = 4);
+        break;
+      case SoftifyShortcutType.tabPodcasts:
+        setState(() => _currentIndex = 5);
+        break;
+      case SoftifyShortcutType.screensaver:
+        _launchScreensaver();
+        break;
+    }
+  }
+
   Widget _buildDesktopLayout(BuildContext context, AppTokens tokens) {
     return Shortcuts(
       shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.space): PlayPauseIntent(),
+        // F1 or ?: Keyboard Shortcuts Cheat Sheet Modal
+        SingleActivator(LogicalKeyboardKey.f1): SoftifyIntent(SoftifyShortcutType.helpDialog),
+        SingleActivator(LogicalKeyboardKey.slash, shift: true): SoftifyIntent(SoftifyShortcutType.helpDialog),
+        SingleActivator(LogicalKeyboardKey.question): SoftifyIntent(SoftifyShortcutType.helpDialog),
+
+        // Playback: Space
+        SingleActivator(LogicalKeyboardKey.space): SoftifyIntent(SoftifyShortcutType.playPause),
+
+        // Playback: Left / Right (Seek ±5s)
+        SingleActivator(LogicalKeyboardKey.arrowLeft): SoftifyIntent(SoftifyShortcutType.seekBack5),
+        SingleActivator(LogicalKeyboardKey.arrowRight): SoftifyIntent(SoftifyShortcutType.seekForward5),
+
+        // Playback: Shift + Left / Right (Seek ±15s)
+        SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): SoftifyIntent(SoftifyShortcutType.seekBack15),
+        SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): SoftifyIntent(SoftifyShortcutType.seekForward15),
+
+        // Playback: J / K (Prev / Next Track)
+        SingleActivator(LogicalKeyboardKey.keyJ): SoftifyIntent(SoftifyShortcutType.skipPrevious),
+        SingleActivator(LogicalKeyboardKey.keyK): SoftifyIntent(SoftifyShortcutType.skipNext),
+
+        // Ctrl + Left / Right (Prev / Next Track)
+        SingleActivator(LogicalKeyboardKey.arrowLeft, control: true): SoftifyIntent(SoftifyShortcutType.skipPrevious),
+        SingleActivator(LogicalKeyboardKey.arrowRight, control: true): SoftifyIntent(SoftifyShortcutType.skipNext),
+
+        // Volume: Up / Down (Volume ±5%)
+        SingleActivator(LogicalKeyboardKey.arrowUp): SoftifyIntent(SoftifyShortcutType.volumeUp5),
+        SingleActivator(LogicalKeyboardKey.arrowDown): SoftifyIntent(SoftifyShortcutType.volumeDown5),
+
+        // Volume: Ctrl + Up / Down (Volume ±10%)
+        SingleActivator(LogicalKeyboardKey.arrowUp, control: true): SoftifyIntent(SoftifyShortcutType.volumeUp10),
+        SingleActivator(LogicalKeyboardKey.arrowDown, control: true): SoftifyIntent(SoftifyShortcutType.volumeDown10),
+
+        // Volume: M (Mute / Unmute)
+        SingleActivator(LogicalKeyboardKey.keyM): SoftifyIntent(SoftifyShortcutType.toggleMute),
+
+        // Navigation: L (Lyrics)
+        SingleActivator(LogicalKeyboardKey.keyL): SoftifyIntent(SoftifyShortcutType.toggleLyrics),
+
+        // Navigation: Q (Queue)
+        SingleActivator(LogicalKeyboardKey.keyQ): SoftifyIntent(SoftifyShortcutType.toggleQueue),
+
+        // Navigation: Escape (Close / Unfocus)
+        SingleActivator(LogicalKeyboardKey.escape): SoftifyIntent(SoftifyShortcutType.escape, allowInTextInput: true),
+
+        // Tab Navigation: Ctrl + S / F / H / L / Y / Comma / P
+        SingleActivator(LogicalKeyboardKey.keyS, control: true): SoftifyIntent(SoftifyShortcutType.tabSearch),
+        SingleActivator(LogicalKeyboardKey.keyF, control: true): SoftifyIntent(SoftifyShortcutType.tabSearch),
+        SingleActivator(LogicalKeyboardKey.keyH, control: true): SoftifyIntent(SoftifyShortcutType.tabHome),
+        SingleActivator(LogicalKeyboardKey.keyL, control: true): SoftifyIntent(SoftifyShortcutType.tabLibrary),
+        SingleActivator(LogicalKeyboardKey.keyY, control: true): SoftifyIntent(SoftifyShortcutType.tabYoutube),
+        SingleActivator(LogicalKeyboardKey.comma, control: true): SoftifyIntent(SoftifyShortcutType.tabSettings),
+        SingleActivator(LogicalKeyboardKey.keyP, control: true): SoftifyIntent(SoftifyShortcutType.tabPodcasts),
+
+        // F11: Ambient Music Screensaver
+        SingleActivator(LogicalKeyboardKey.f11): SoftifyIntent(SoftifyShortcutType.screensaver),
       },
       child: Actions(
         actions: {
-          PlayPauseIntent: PlayPauseAction(() {
-            final pb = ref.read(playbackStateStreamProvider).value;
-            final isPlaying = pb?.playing ?? false;
-            final audioHandler = ref.read(audioHandlerProvider);
-            if (isPlaying) {
-              audioHandler.pause();
-            } else {
-              audioHandler.play();
-            }
-          }),
+          SoftifyIntent: SoftifyAction((type) => _handleDesktopShortcut(type)),
         },
-        child: CallbackShortcuts(
-          bindings: {
-        // F1 or ?: Keyboard Shortcuts Cheat Sheet Modal
-        const SingleActivator(LogicalKeyboardKey.f1): () {
-          KeyboardShortcutsDialog.show(context);
-        },
-        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
-          KeyboardShortcutsDialog.show(context);
-        },
-        const SingleActivator(LogicalKeyboardKey.question): () {
-          KeyboardShortcutsDialog.show(context);
-        },
-
-        // Playback: Left / Right (Seek ±5s)
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
-          final pos = ref.read(audioHandlerProvider).position;
-          final target = pos - const Duration(seconds: 5);
-          ref.read(audioHandlerProvider).seek(target < Duration.zero ? Duration.zero : target);
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
-          final pos = ref.read(audioHandlerProvider).position;
-          ref.read(audioHandlerProvider).seek(pos + const Duration(seconds: 5));
-        },
-
-        // Playback: Shift + Left / Right (Seek ±15s)
-        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () {
-          final pos = ref.read(audioHandlerProvider).position;
-          final target = pos - const Duration(seconds: 15);
-          ref.read(audioHandlerProvider).seek(target < Duration.zero ? Duration.zero : target);
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () {
-          final pos = ref.read(audioHandlerProvider).position;
-          ref.read(audioHandlerProvider).seek(pos + const Duration(seconds: 15));
-        },
-
-        // Playback: J / K (Prev / Next Track)
-        const SingleActivator(LogicalKeyboardKey.keyJ): () {
-          ref.read(audioHandlerProvider).skipToPrevious();
-        },
-        const SingleActivator(LogicalKeyboardKey.keyK): () {
-          ref.read(audioHandlerProvider).skipToNext();
-        },
-
-        // Volume: Up / Down (Volume ±5%)
-        const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
-          ref.read(audioHandlerProvider).setVolume((currentVol + 0.05).clamp(0.0, 1.0));
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowDown): () {
-          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
-          ref.read(audioHandlerProvider).setVolume((currentVol - 0.05).clamp(0.0, 1.0));
-        },
-
-        // Volume: M (Mute / Unmute)
-        const SingleActivator(LogicalKeyboardKey.keyM): () {
-          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
-          if (currentVol > 0.0) {
-            _lastVolumeBeforeMute = currentVol;
-            ref.read(audioHandlerProvider).setVolume(0.0);
-          } else {
-            ref.read(audioHandlerProvider).setVolume(_lastVolumeBeforeMute > 0.0 ? _lastVolumeBeforeMute : 0.5);
-          }
-        },
-
-        // Navigation: L (Lyrics)
-        const SingleActivator(LogicalKeyboardKey.keyL): () {
-          _openDesktopLyrics();
-        },
-
-        // Navigation: Q (Queue)
-        const SingleActivator(LogicalKeyboardKey.keyQ): () {
-          _openDesktopQueue();
-        },
-
-        // Navigation: Escape (Close / Back)
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          Navigator.of(context).maybePop();
-        },
-
-        // Ctrl + Right: Skip Next
-        const SingleActivator(LogicalKeyboardKey.arrowRight, control: true): () {
-          ref.read(audioHandlerProvider).skipToNext();
-        },
-        // Ctrl + Left: Skip Previous
-        const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true): () {
-          ref.read(audioHandlerProvider).skipToPrevious();
-        },
-        // Ctrl + Up: Volume Up (+10%)
-        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true): () {
-          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
-          ref.read(audioHandlerProvider).setVolume((currentVol + 0.1).clamp(0.0, 1.0));
-        },
-        // Ctrl + Down: Volume Down (-10%)
-        const SingleActivator(LogicalKeyboardKey.arrowDown, control: true): () {
-          final currentVol = ref.read(volumeStreamProvider).value ?? 1.0;
-          ref.read(audioHandlerProvider).setVolume((currentVol - 0.1).clamp(0.0, 1.0));
-        },
-        // Ctrl + S or Ctrl + F: Switch to Search
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
-          setState(() => _currentIndex = 1);
-        },
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
-          setState(() => _currentIndex = 1);
-        },
-        // Ctrl + H: Switch to Home
-        const SingleActivator(LogicalKeyboardKey.keyH, control: true): () {
-          setState(() => _currentIndex = 0);
-        },
-        // Ctrl + L: Switch to Library
-        const SingleActivator(LogicalKeyboardKey.keyL, control: true): () {
-          setState(() => _currentIndex = 2);
-        },
-        // Ctrl + Y: Switch to YouTube
-        const SingleActivator(LogicalKeyboardKey.keyY, control: true): () {
-          setState(() => _currentIndex = 3);
-        },
-        // Ctrl + Comma: Switch to Settings
-        const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
-          setState(() => _currentIndex = 4);
-        },
-        // Ctrl + P: Switch to Podcasts
-        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () {
-          setState(() => _currentIndex = 5);
-        },
-        // F11: Ambient Music Screensaver
-        const SingleActivator(LogicalKeyboardKey.f11): () {
-          _launchScreensaver();
-        },
-      },
-      child: Focus(
-        autofocus: true,
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerHover: (_) => _resetScreensaverIdleTimerThrottled(),
-          onPointerDown: (_) => _resetScreensaverIdleTimerThrottled(),
-          child: Scaffold(
-            backgroundColor:
-                tokens.isGlass ? Colors.transparent : tokens.background,
-          body: Row(
-            children: [
+        child: Focus(
+          autofocus: true,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerHover: (_) => _resetScreensaverIdleTimerThrottled(),
+            onPointerDown: (_) => _resetScreensaverIdleTimerThrottled(),
+            child: Scaffold(
+              backgroundColor:
+                  tokens.isGlass ? Colors.transparent : tokens.background,
+            body: Row(
+              children: [
               // 1. Persistent Desktop Sidebar (256px) with isolated paint layer
               RepaintBoundary(
                 child: DesktopSidebar(
@@ -745,7 +768,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           ),
         ),
       ),
-    ),
     ),
     ),
     );
@@ -1102,16 +1124,45 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   }
 }
 
-class PlayPauseIntent extends Intent {
-  const PlayPauseIntent();
+class SoftifyIntent extends Intent {
+  final SoftifyShortcutType type;
+  final bool allowInTextInput;
+  const SoftifyIntent(this.type, {this.allowInTextInput = false});
 }
 
-class PlayPauseAction extends Action<PlayPauseIntent> {
-  final VoidCallback onToggle;
-  PlayPauseAction(this.onToggle);
+enum SoftifyShortcutType {
+  playPause,
+  seekBack5,
+  seekForward5,
+  seekBack15,
+  seekForward15,
+  skipPrevious,
+  skipNext,
+  volumeUp5,
+  volumeDown5,
+  volumeUp10,
+  volumeDown10,
+  toggleMute,
+  toggleLyrics,
+  toggleQueue,
+  helpDialog,
+  screensaver,
+  tabHome,
+  tabSearch,
+  tabLibrary,
+  tabYoutube,
+  tabSettings,
+  tabPodcasts,
+  escape,
+}
+
+class SoftifyAction extends Action<SoftifyIntent> {
+  final void Function(SoftifyShortcutType type) onExecute;
+  SoftifyAction(this.onExecute);
 
   @override
-  bool isEnabled(PlayPauseIntent intent) {
+  bool isEnabled(SoftifyIntent intent) {
+    if (intent.allowInTextInput) return true;
     final focus = FocusManager.instance.primaryFocus;
     if (focus == null || focus.context == null) return true;
     final ctx = focus.context!;
@@ -1122,8 +1173,8 @@ class PlayPauseAction extends Action<PlayPauseIntent> {
   }
 
   @override
-  Object? invoke(PlayPauseIntent intent) {
-    onToggle();
+  Object? invoke(SoftifyIntent intent) {
+    onExecute(intent.type);
     return null;
   }
 }

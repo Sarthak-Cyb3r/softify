@@ -4,6 +4,18 @@ All notable changes to the Softify project are documented in this file.
 
 ## [4.0.2] - 2026-11-12
 
+### 🐛 Bug Fixes & System Stability
+- **Desktop Keyboard Input Collision Fix (`app_scaffold.dart`)**:
+  - Replaced unconditioned `CallbackShortcuts` with focus-aware `SoftifyAction` that inspects global `primaryFocus`.
+  - When typing in any search bar, playlist renamer, queue filter, or text field, single-key shortcuts (`k`, `j`, `m`, `l`, `q`, space, and arrow keys) are disabled and propagate down directly to the focused `EditableText`.
+  - Fixes the bug where typing the letter `k` in the search bar on Linux skipped to the next song instead of entering the letter.
+- **Precision Stream Resolution & Anti-Mismatch Shield (`saavn_stream_resolver.dart`, `youtube_stream_resolver.dart`)**:
+  - Eliminated the loose candidate matching bug where unrelated tracks matched with false positive points.
+  - Removed movie/album subtitle strings from artist credit extraction to prevent common words ("the", "and", "from", "by") from triggering false artist overlap.
+  - Added strict multi-token artist verification: candidates from unrelated artists are immediately disqualified.
+  - Added word-boundary title matching with stop-word filtering and minimum length threshold.
+  - Raised JioSaavn confidence acceptance threshold to 80.0 points so international and unverified songs cleanly fall back to official YouTube Music / Topic streams, completely eliminating wrong track playback.
+
 ### 🎛️ Primary UI Direct Button Integrations & Missing Controls
 - **In-Playlist Real-Time Search & Actions (`playlist_detail_screen.dart`)**:
   - Collapsible in-playlist search field with Title, Artist, and Album scope chips and instant match counter.

@@ -183,6 +183,24 @@ class UpdateChangelogSheet extends StatelessWidget {
                         children: [
                           _buildChangelogCard(
                             context: context,
+                            icon: Icons.keyboard_rounded,
+                            iconColor: const Color(0xFF69F0AE),
+                            title: 'Zero-Conflict Desktop Shortcuts',
+                            description:
+                                'Typing "k", "j", "m", or arrow keys in search bars, playlist editors, and text fields now never triggers song skips or mutes. Hotkeys are automatically suspended during typing.',
+                            badge: 'Linux / Desktop',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
+                            icon: Icons.track_changes_rounded,
+                            iconColor: const Color(0xFF40C4FF),
+                            title: 'Precision Audio Match & Anti-Mismatch',
+                            description:
+                                'Fixed wrong song stream resolution. Dual-catalog strict artist, title, and duration validation ensures you always hear the exact song selected with instant YouTube Music fallback.',
+                            badge: 'Stream Engine',
+                          ),
+                          _buildChangelogCard(
+                            context: context,
                             icon: Icons.sync_alt_rounded,
                             iconColor: const Color(0xFF1DB954),
                             title: 'Spotify Library & Playlists Import',

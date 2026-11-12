@@ -12,11 +12,10 @@ import 'package:softify/features/qol/dsp/target_lufs_selector.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    SharedPreferences.reset();
   });
 
   tearDown(() {
-    SharedPreferences.reset();
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('LufsPreset standard presets', () {

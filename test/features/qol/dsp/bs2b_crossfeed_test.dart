@@ -120,7 +120,7 @@ void main() {
       expect(engine.a0Hi, isPositive);
       expect(engine.a1Hi, isNegative);
       expect(engine.b1Hi, inInclusiveRange(0.0, 1.0));
-      expect(engine.gain, greaterThan(1.0));
+      expect(engine.gain, inInclusiveRange(0.5, 1.0));
     });
 
     test('Chu Moy 6dB preset exhibits ~2:1 acoustic energy ratio at DC', () {

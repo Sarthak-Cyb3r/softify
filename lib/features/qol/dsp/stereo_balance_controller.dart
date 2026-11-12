@@ -589,7 +589,6 @@ class CenterSnapTick extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      onDoubleTap: onTap,
       child: Tooltip(
         message: 'Center snap (0.0) • Double-tap to reset',
         child: Container(
@@ -832,14 +831,19 @@ class StereoBalanceSlider extends ConsumerWidget {
         ),
         boxShadow: tokens?.cardShadow ?? const [],
       ),
-      child: GestureDetector(
-        key: const Key('stereo_balance_double_tap_detector'),
-        behavior: HitTestBehavior.translucent,
-        onDoubleTap: triggerCenterSnap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              key: const Key('stereo_balance_double_tap_detector'),
+              behavior: HitTestBehavior.translucent,
+              onDoubleTap: triggerCenterSnap,
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // ----------------------------------------------------------------
             // 1. Header (Icon, Title, Readout Badge & Reset Button)
             // ----------------------------------------------------------------
@@ -992,47 +996,45 @@ class StereoBalanceSlider extends ConsumerWidget {
             // ----------------------------------------------------------------
             // 3. Slider Track with Center Snap Tick & Double-Tap Area
             // ----------------------------------------------------------------
-            GestureDetector(
-              key: const Key('stereo_balance_slider_double_tap_area'),
-              behavior: HitTestBehavior.translucent,
-              onDoubleTap: triggerCenterSnap,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Center Snap Tick (Visual notch at 50% slider track)
-                  if (showCenterTick)
-                    CenterSnapTick(
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Material 3 Balance Slider
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4.0,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 18.0),
+                    activeTrackColor: primaryAccent,
+                    inactiveTrackColor: dividerColor.withValues(alpha: 0.25),
+                    thumbColor: isCenter ? textPrimary : primaryAccent,
+                  ),
+                  child: Slider(
+                    key: const Key('stereo_balance_slider'),
+                    value: balance.clamp(kMinBalance, kMaxBalance),
+                    min: kMinBalance,
+                    max: kMaxBalance,
+                    divisions: divisions,
+                    onChanged: (val) {
+                      notifier.setBalance(val, snapNearCenter: true);
+                      onBalanceChanged?.call(val);
+                    },
+                  ),
+                ),
+
+                // Center Snap Tick (Visual notch at 50% slider track)
+                if (showCenterTick)
+                  IgnorePointer(
+                    ignoring: isCenter,
+                    child: CenterSnapTick(
                       key: const Key('stereo_balance_center_tick'),
                       isCenter: isCenter,
                       onTap: triggerCenterSnap,
                     ),
-
-                  // Material 3 Balance Slider
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 4.0,
-                      thumbShape:
-                          const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                      overlayShape:
-                          const RoundSliderOverlayShape(overlayRadius: 18.0),
-                      activeTrackColor: primaryAccent,
-                      inactiveTrackColor: dividerColor.withValues(alpha: 0.25),
-                      thumbColor: isCenter ? textPrimary : primaryAccent,
-                    ),
-                    child: Slider(
-                      key: const Key('stereo_balance_slider'),
-                      value: balance.clamp(kMinBalance, kMaxBalance),
-                      min: kMinBalance,
-                      max: kMaxBalance,
-                      divisions: divisions,
-                      onChanged: (val) {
-                        notifier.setBalance(val, snapNearCenter: true);
-                        onBalanceChanged?.call(val);
-                      },
-                    ),
                   ),
-                ],
-              ),
+              ],
             ),
 
             // ----------------------------------------------------------------
@@ -1077,7 +1079,8 @@ class StereoBalanceSlider extends ConsumerWidget {
               ),
             ],
           ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -221,6 +221,7 @@ class DesktopLockPauseState {
     int? pauseTriggerCount,
     bool? isListening,
     String? lastError,
+    bool clearLastError = false,
   }) {
     return DesktopLockPauseState(
       autoPauseOnLock: autoPauseOnLock ?? this.autoPauseOnLock,
@@ -233,7 +234,7 @@ class DesktopLockPauseState {
       lastEventTime: lastEventTime ?? this.lastEventTime,
       pauseTriggerCount: pauseTriggerCount ?? this.pauseTriggerCount,
       isListening: isListening ?? this.isListening,
-      lastError: lastError ?? this.lastError,
+      lastError: clearLastError ? null : (lastError ?? this.lastError),
     );
   }
 
@@ -535,7 +536,7 @@ class DesktopLockPauseController extends StateNotifier<DesktopLockPauseState> {
   void resetCounters() {
     state = state.copyWith(
       pauseTriggerCount: 0,
-      lastError: null,
+      clearLastError: true,
       wasPlayingBeforePause: false,
     );
   }

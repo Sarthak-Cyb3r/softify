@@ -1039,10 +1039,10 @@ class SystemTrayManager {
       // Hook audio player state if handler available
       _setupAudioHandlerListeners();
 
+      _updateStatus(SystemTrayStatus.active);
+
       // Build and apply initial context menu
       await _syncMenuAndTooltip();
-
-      _updateStatus(SystemTrayStatus.active);
     } catch (e, stack) {
       debugPrint('SystemTrayManager initialization failed: $e\n$stack');
       _state = _state.copyWith(errorMessage: e.toString());
@@ -1428,35 +1428,70 @@ class SystemTrayStateNotifier extends StateNotifier<SystemTrayState> {
   /// Access underlying service instance.
   SystemTrayManager get manager => _manager;
 
-  Future<void> handleAction(TrayMenuAction action) =>
-      _manager.handleAction(action);
+  Future<void> handleAction(TrayMenuAction action) async {
+    await _manager.handleAction(action);
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> togglePlayback() => _manager.togglePlayback();
+  Future<void> togglePlayback() async {
+    await _manager.togglePlayback();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> skipToNext() => _manager.skipToNext();
+  Future<void> skipToNext() async {
+    await _manager.skipToNext();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> skipToPrevious() => _manager.skipToPrevious();
+  Future<void> skipToPrevious() async {
+    await _manager.skipToPrevious();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> toggleMute() => _manager.toggleMute();
+  Future<void> toggleMute() async {
+    await _manager.toggleMute();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> showApp() => _manager.showApp();
+  Future<void> showApp() async {
+    await _manager.showApp();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> hideApp() => _manager.hideApp();
+  Future<void> hideApp() async {
+    await _manager.hideApp();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> toggleWindowVisibility() => _manager.toggleWindowVisibility();
+  Future<void> toggleWindowVisibility() async {
+    await _manager.toggleWindowVisibility();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> quit() => _manager.quit();
+  Future<void> quit() async {
+    await _manager.quit();
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> setEnabled(bool enabled) => _manager.setEnabled(enabled);
+  Future<void> setEnabled(bool enabled) async {
+    await _manager.setEnabled(enabled);
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> setMinimizeToTray(bool value) =>
-      _manager.setMinimizeToTray(value);
+  Future<void> setMinimizeToTray(bool value) async {
+    await _manager.setMinimizeToTray(value);
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> setStartMinimized(bool value) =>
-      _manager.setStartMinimized(value);
+  Future<void> setStartMinimized(bool value) async {
+    await _manager.setStartMinimized(value);
+    if (mounted) state = _manager.state;
+  }
 
-  Future<void> setShowNotifications(bool value) =>
-      _manager.setShowNotifications(value);
+  Future<void> setShowNotifications(bool value) async {
+    await _manager.setShowNotifications(value);
+    if (mounted) state = _manager.state;
+  }
 
   @override
   void dispose() {

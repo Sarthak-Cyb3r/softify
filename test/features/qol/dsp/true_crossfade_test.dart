@@ -256,8 +256,8 @@ void main() {
       expect(audioPort.volumes['Engine-B'], closeTo(1.0, 1e-4));
     });
 
-    test('tick deterministically advances crossfade elapsed time and progress', () {
-      notifier.startCrossfade(duration: const Duration(seconds: 4));
+    test('tick deterministically advances crossfade elapsed time and progress', () async {
+      await notifier.startCrossfade(duration: const Duration(seconds: 4));
 
       // Advance by 1 second (25% progress)
       notifier.tick(const Duration(seconds: 1));
@@ -276,8 +276,8 @@ void main() {
       expect(notifier.state.progress, 1.0);
     });
 
-    test('pauseCrossfade and resumeCrossfade freeze and resume progress ticks', () {
-      notifier.startCrossfade(duration: const Duration(seconds: 4));
+    test('pauseCrossfade and resumeCrossfade freeze and resume progress ticks', () async {
+      await notifier.startCrossfade(duration: const Duration(seconds: 4));
       notifier.tick(const Duration(seconds: 1));
       expect(notifier.state.progress, closeTo(0.25, 1e-3));
 
@@ -460,6 +460,11 @@ void main() {
 
     testWidgets('tapping duration preset chip updates duration setting',
         (tester) async {
+      tester.view.physicalSize = const Size(1000, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
@@ -476,6 +481,7 @@ void main() {
       // Tap 6s chip
       final chipFinder = find.widgetWithText(ChoiceChip, '6s');
       expect(chipFinder, findsOneWidget);
+      await tester.ensureVisible(chipFinder);
       await tester.tap(chipFinder);
       await tester.pumpAndSettle();
 
@@ -485,6 +491,11 @@ void main() {
 
     testWidgets('tapping Simulate Crossfade triggers crossfade and changes phase',
         (tester) async {
+      tester.view.physicalSize = const Size(1000, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
@@ -501,6 +512,7 @@ void main() {
       final simulateButton = find.widgetWithText(ElevatedButton, 'Simulate Crossfade');
       expect(simulateButton, findsOneWidget);
 
+      await tester.ensureVisible(simulateButton);
       await tester.tap(simulateButton);
       await tester.pump();
 
@@ -509,6 +521,7 @@ void main() {
 
       // Reset button restores to IDLE
       final resetButton = find.widgetWithText(OutlinedButton, 'Reset');
+      await tester.ensureVisible(resetButton);
       await tester.tap(resetButton);
       await tester.pump();
 

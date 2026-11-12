@@ -13,7 +13,7 @@ void main() {
   });
 
   tearDown(() {
-    SharedPreferences.reset();
+    SharedPreferences.setMockInitialValues({});
   });
 
   // ==========================================================================

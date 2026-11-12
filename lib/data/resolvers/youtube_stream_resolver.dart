@@ -258,17 +258,18 @@ class YoutubeStreamResolver implements IStreamResolver {
       // If all initial candidates failed manifest (e.g. geo/age restrictions), try fallback search
       if (manifest == null) {
         final query = '${track.title} ${track.artist}'.trim();
-        final fallbackYtm = await _innertubeService.searchMusicTracks(query);
-        for (final altId in fallbackYtm) {
-          if (candidateIds.contains(altId)) continue;
+        final fallbackYtm = await _innertubeService.searchMusic(query);
+        for (final alt in fallbackYtm) {
+          if (candidateIds.contains(alt.videoId)) continue;
+          if (_scoreYtmCandidate(targetTrack: track, candidate: alt) < 70) continue;
           try {
             manifest = await _yt.videos.streamsClient
                 .getManifest(
-                  altId,
+                  alt.videoId,
                   requireWatchPage: false,
                 )
                 .timeout(const Duration(seconds: 5));
-            resolvedVideoId = altId;
+            resolvedVideoId = alt.videoId;
             break;
           } catch (_) {
             continue;
@@ -449,12 +450,34 @@ class YoutubeStreamResolver implements IStreamResolver {
     final tClean = cleanSongTitle(targetTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').trim();
     final cClean = cleanSongTitle(candTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').trim();
     if (tClean.isEmpty || cClean.isEmpty) return false;
-    if (tClean == cClean || cClean.contains(tClean) || tClean.contains(cClean)) return true;
-    final tTokens = tClean.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
-    final cTokens = cClean.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
-    if (tTokens.isEmpty) return true;
-    final overlap = tTokens.intersection(cTokens);
-    return (overlap.length / tTokens.length) >= 0.60;
+    if (tClean == cClean) return true;
+
+    // Word boundary containment for subtitles, artist prefixes, or title extensions
+    final tPadded = ' $tClean ';
+    final cPadded = ' $cClean ';
+    final tWordsList = tClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (cPadded.contains(tPadded)) {
+      if (tWordsList.length > 1 || tClean.length >= 8 || (tClean.length / cClean.length >= 0.70)) {
+        return true;
+      }
+    }
+    if (tPadded.contains(cPadded)) {
+      if (cClean.length / tClean.length >= 0.85) return true;
+    }
+
+    const titleStopWords = {'the', 'a', 'an', 'in', 'on', 'of', 'and', 'to', 'for', 'with', 'from', 'by', 'is', 'it', 'me', 'you'};
+    final tTokens = tClean.split(RegExp(r'\s+')).where((w) => w.length >= 3 && !titleStopWords.contains(w)).toSet();
+    final cTokens = cClean.split(RegExp(r'\s+')).where((w) => w.length >= 3 && !titleStopWords.contains(w)).toSet();
+    if (tTokens.isNotEmpty && cTokens.isNotEmpty) {
+      final overlap = tTokens.intersection(cTokens);
+      if (tTokens.length == 1) {
+        final tWordsAll = tClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+        final cWordsAll = cClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+        if ((tWordsAll - cWordsAll).abs() > 0) return false;
+      }
+      return (overlap.length / tTokens.length) >= 0.60;
+    }
+    return false;
   }
 
   static bool hasArtistMatch(String targetArtist, String candArtist) {
@@ -463,16 +486,23 @@ class YoutubeStreamResolver implements IStreamResolver {
     final targetArtists = tNorm.split(RegExp(r'[,/&]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
     final candArtists = cNorm.split(RegExp(r'[,/&•]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
     for (final ta in targetArtists) {
-      if (cNorm.contains(ta)) return true;
+      if (ta.length >= 3 && cNorm.contains(ta)) return true;
       for (final ca in candArtists) {
-        if (ca.contains(ta) || ta.contains(ca)) return true;
+        if (ca == ta) return true;
+        if (ca.length >= 3 && ta.length >= 3) {
+          if (ca.contains(ta) || ta.contains(ca)) return true;
+        }
       }
     }
-    for (final ta in targetArtists) {
-      final tokens = RegExp(r'[a-z0-9]{3,}').allMatches(ta).map((m) => m.group(0)!).toList();
-      if (tokens.isNotEmpty && tokens.every((tok) => cNorm.contains(tok))) {
-        return true;
-      }
+    const artistStopWords = {
+      'the', 'and', 'feat', 'ft', 'featuring', 'with', 'presents', 'prod', 'by',
+      'music', 'band', 'records', 'official', 'original', 'soundtrack', 'all',
+      'star', 'stars', 'dj', 'vj', 'mr', 'ms', 'mrs', 'dr', 'to', 'in', 'on', 'of',
+    };
+    final tTokens = tNorm.split(RegExp(r'[^a-z0-9]+')).where((w) => w.length >= 3 && !artistStopWords.contains(w)).toSet();
+    final cTokens = cNorm.split(RegExp(r'[^a-z0-9]+')).where((w) => w.length >= 3 && !artistStopWords.contains(w)).toSet();
+    if (tTokens.isNotEmpty && cTokens.isNotEmpty) {
+      if (tTokens.intersection(cTokens).isNotEmpty) return true;
     }
     return false;
   }
@@ -516,6 +546,15 @@ class YoutubeStreamResolver implements IStreamResolver {
       score += 60;
     } else if (cleanCandTitle.contains(cleanTargetTitle) || cleanTargetTitle.contains(cleanCandTitle)) {
       score += 35;
+    }
+
+    // 4.5 Artist match bonus
+    final cleanTargetArtist = targetTrack.artist.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    final cleanCandArtist = candArtist.replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    if (cleanCandArtist.isNotEmpty && cleanTargetArtist.isNotEmpty) {
+      if (cleanCandArtist == cleanTargetArtist || cleanCandArtist.contains(cleanTargetArtist)) {
+        score += 35;
+      }
     }
 
     // 5. Album match bonus

@@ -5,13 +5,13 @@ import 'package:softify/features/qol/qol_features.dart';
 
 void main() {
   group('QoL Features Registry & Barrel Tests', () {
-    test('Registry contains all 26 distinct QoL feature definitions', () {
+    test('Registry contains all distinct QoL feature definitions', () {
       final features = QolFeatureRegistry.features;
-      expect(features.length, 26);
+      expect(features.length, 79);
 
       // Verify all unique IDs
       final ids = features.map((f) => f.id).toSet();
-      expect(ids.length, 26);
+      expect(ids.length, 79);
 
       // Verify expected feature IDs are registered
       expect(ids.contains('lyrics_auto_scroll_lock'), isTrue);
@@ -47,7 +47,7 @@ void main() {
       expect(playback.isNotEmpty, isTrue);
 
       final all = QolFeatureRegistry.getByCategory(QolCategory.all);
-      expect(all.length, 26);
+      expect(all.length, 79);
     });
 
     test('findById retrieves definition correctly', () {

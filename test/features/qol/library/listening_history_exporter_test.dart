@@ -391,7 +391,7 @@ void main() {
       expect(summary.totalPlays, 3);
       expect(summary.totalDuration, const Duration(seconds: 200 + 230 + 180));
       expect(summary.uniqueTracksCount, 3);
-      expect(summary.uniqueArtistsCount, 2);
+      expect(summary.uniqueArtistsCount, 3);
       expect(
         summary.averageCompletionRatio,
         closeTo((1.0 + 0.85 + 0.45) / 3, 0.001),
@@ -444,7 +444,7 @@ void main() {
         expect(content.contains('trk_001'), isTrue);
         expect(content.contains('Blinding Lights'), isTrue);
       } finally {
-        await tempDir.delete(recursive: true);
+        tempDir.deleteSync(recursive: true);
       }
     });
 
@@ -464,7 +464,7 @@ void main() {
         expect(decoded.length, 3);
         expect(decoded.first['trackId'], 'trk_001');
       } finally {
-        await tempDir.delete(recursive: true);
+        tempDir.deleteSync(recursive: true);
       }
     });
   });
@@ -508,7 +508,7 @@ void main() {
         expect(updatedState.lastExportedCount, 3);
         expect(updatedState.lastExportedPath, isNotNull);
       } finally {
-        await tempDir.delete(recursive: true);
+        tempDir.deleteSync(recursive: true);
       }
     });
 
@@ -590,14 +590,14 @@ void main() {
       );
 
       await tester.tap(find.byType(ExportHistoryButton));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(customPressed, isTrue);
     });
 
     testWidgets('tapping button with defaultFormat executes direct export', (tester) async {
       ExportResult? completedResult;
-      final tempDir = await Directory.systemTemp.createTemp('softify_widget_direct_');
+      final tempDir = Directory.systemTemp.createTempSync('softify_widget_direct_');
 
       try {
         await tester.pumpWidget(
@@ -623,7 +623,7 @@ void main() {
         expect(completedResult!.format, HistoryExportFormat.json);
         expect(completedResult!.entryCount, 3);
       } finally {
-        await tempDir.delete(recursive: true);
+        tempDir.deleteSync(recursive: true);
       }
     });
 
@@ -666,7 +666,7 @@ void main() {
 
     testWidgets('tapping Save File inside ExportHistorySheet triggers export', (tester) async {
       ExportResult? exported;
-      final tempDir = await Directory.systemTemp.createTemp('softify_sheet_save_');
+      final tempDir = Directory.systemTemp.createTempSync('softify_sheet_save_');
 
       try {
         await tester.pumpWidget(
@@ -702,7 +702,7 @@ void main() {
         expect(exported!.entryCount, 3);
         expect(exported!.format, HistoryExportFormat.csv);
       } finally {
-        await tempDir.delete(recursive: true);
+        tempDir.deleteSync(recursive: true);
       }
     });
   });

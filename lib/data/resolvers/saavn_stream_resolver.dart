@@ -140,7 +140,7 @@ class SaavnStreamResolver implements IStreamResolver {
       final candTitle = _normalize(rawCandTitle);
       final candLanguage = (r['language'] ?? '').toString().toLowerCase();
 
-      // Extract candidate artists across primary_artists, artists, music, subtitle, or singers
+      // Extract candidate artists across primary_artists, artists, music, or singers (EXCLUDE subtitle/album to avoid noise)
       final primaryArtistsList = (moreInfo?['artistMap']?['primary_artists'] as List<dynamic>?)
           ?.map((a) => (a['name'] ?? '').toString())
           .join(', ');
@@ -148,7 +148,7 @@ class SaavnStreamResolver implements IStreamResolver {
           ?.map((a) => (a['name'] ?? '').toString())
           .join(', ');
       final candSingers = _normalize(
-        '$primaryArtistsList $allArtistsList ${moreInfo?['music']} ${r['subtitle']} ${r['singers']} ${r['primary_artists']}',
+        '$primaryArtistsList $allArtistsList ${moreInfo?['music']} ${r['singers']} ${r['primary_artists']}',
       );
 
       // 0. Hard Disqualification: Unwanted Remixes, DJ cuts, Covers, Lofi, Slowed, Acoustic, Karaoke
@@ -178,22 +178,30 @@ class SaavnStreamResolver implements IStreamResolver {
       }
       if (isDisqualifiedVariant) continue;
 
-      // 1. Hard Disqualification: Unrelated artist cover
-      final targetWords = cleanArtist.split(' ').where((w) => w.length > 2).toSet();
-      if (candSingers.isNotEmpty && targetWords.isNotEmpty) {
+      // 1. Hard Disqualification: Unrelated artist cover / mismatch
+      const artistStopWords = {
+        'the', 'and', 'feat', 'ft', 'featuring', 'with', 'presents', 'prod', 'by',
+        'music', 'band', 'records', 'official', 'original', 'soundtrack', 'all',
+        'star', 'stars', 'dj', 'vj', 'mr', 'ms', 'mrs', 'dr', 'to', 'in', 'on', 'of',
+      };
+      final targetWords = cleanArtist
+          .split(' ')
+          .where((w) => w.length >= 3 && !artistStopWords.contains(w))
+          .toSet();
+      if (cleanArtist.isNotEmpty && targetWords.isNotEmpty) {
         final hasArtistOverlap = targetWords.any((w) => candSingers.contains(w));
         if (!hasArtistOverlap) {
           continue; // Disqualify track by unrelated singer
         }
       }
 
-      // 2. Duration Guard: Reject extreme duration discrepancy (> 120s or 2.5x ratio)
+      // 2. Duration Guard: Reject extreme duration discrepancy (> 90s or 2x ratio)
       final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
-      if (track.duration > Duration.zero && candDurSec > 0) {
+      if (track.duration > const Duration(seconds: 30) && candDurSec > 0) {
         final diffSec = (track.duration.inSeconds - candDurSec).abs();
         final maxDur = track.duration.inSeconds > candDurSec ? track.duration.inSeconds : candDurSec;
         final minDur = track.duration.inSeconds < candDurSec ? track.duration.inSeconds : candDurSec;
-        if (diffSec > 120 || (minDur > 0 && maxDur / minDur > 2.5)) {
+        if (diffSec > 90 || (minDur > 0 && maxDur / minDur > 2.0)) {
           continue; // Reject completely wrong tracks or mislabeled media
         }
       }
@@ -203,27 +211,38 @@ class SaavnStreamResolver implements IStreamResolver {
       final cleanSimple = _phoneticSimplify(cleanTitle);
       final candSimple = _phoneticSimplify(candTitle);
 
-      // 3. Title match
+      // 3. Title match (Disqualify if title does not genuinely match)
+      bool titleMatched = false;
       if (candTitle == cleanTitle || (candSimple.isNotEmpty && candSimple == cleanSimple)) {
-        score += 60.0;
-      } else if (candTitle.contains(cleanTitle) ||
-          cleanTitle.contains(candTitle) ||
-          (candSimple.isNotEmpty &&
-              (candSimple.contains(cleanSimple) || cleanSimple.contains(candSimple)))) {
+        score += 70.0;
+        titleMatched = true;
+      } else if (candTitle.contains(cleanTitle) && (cleanTitle.length >= 4 || cleanTitle.length == candTitle.length)) {
+        score += 50.0;
+        titleMatched = true;
+      } else if (cleanTitle.contains(candTitle) && candTitle.length >= 4 && (candTitle.length / cleanTitle.length >= 0.65)) {
         score += 45.0;
-      } else {
-        final tWords = cleanSimple.split(' ').where((w) => w.length >= 2).toSet();
-        final cWords = candSimple.split(' ').where((w) => w.length >= 2).toSet();
-        if (tWords.isNotEmpty) {
-          final inter = tWords.intersection(cWords).length;
-          if (inter == 0) {
-            continue;
-          } else {
-            score += 40.0 * (inter / tWords.length);
-          }
-        } else {
-          continue;
+        titleMatched = true;
+      } else if (candSimple.isNotEmpty && cleanSimple.isNotEmpty && (candSimple.contains(cleanSimple) || cleanSimple.contains(candSimple))) {
+        if (cleanSimple.length >= 4 && candSimple.length >= 4) {
+          score += 40.0;
+          titleMatched = true;
         }
+      } else {
+        const titleStopWords = {'the', 'a', 'an', 'in', 'on', 'of', 'and', 'to', 'for', 'with', 'from', 'by', 'is', 'it', 'me', 'you'};
+        final tWords = cleanSimple.split(' ').where((w) => w.length >= 3 && !titleStopWords.contains(w)).toSet();
+        final cWords = candSimple.split(' ').where((w) => w.length >= 3 && !titleStopWords.contains(w)).toSet();
+        if (tWords.isNotEmpty && cWords.isNotEmpty) {
+          final inter = tWords.intersection(cWords).length;
+          final ratio = inter / tWords.length;
+          if (ratio >= 0.60) {
+            score += 40.0 * ratio;
+            titleMatched = true;
+          }
+        }
+      }
+
+      if (!titleMatched) {
+        continue; // Disqualify candidate if title does not genuinely match
       }
 
       // 4. Language preservation
@@ -233,14 +252,21 @@ class SaavnStreamResolver implements IStreamResolver {
         score -= 40.0;
       }
 
-      // 5. Prefer Hindi / English / Punjabi original tracks
+      // 5. Prefer Hindi / English / Punjabi original tracks only if matching target context
       if (candLanguage == 'hindi' || candLanguage == 'english' || candLanguage == 'punjabi') {
-        score += 15.0;
+        if (targetLower.contains(candLanguage) || cleanArtist.isEmpty) {
+          score += 10.0;
+        }
       }
 
-      // 6. Singer / artist bonus
-      if (candSingers.isNotEmpty && cleanArtist.isNotEmpty) {
-        score += 35.0;
+      // 6. Singer / artist bonus (proportional to overlap)
+      if (cleanArtist.isNotEmpty && candSingers.isNotEmpty) {
+        if (candSingers.contains(cleanArtist)) {
+          score += 40.0; // Exact artist match
+        } else if (targetWords.isNotEmpty) {
+          final matchedTokens = targetWords.where((t) => candSingers.contains(t)).length;
+          score += 40.0 * (matchedTokens / targetWords.length);
+        }
       }
 
       // 7. Album / Soundtrack verification
@@ -255,14 +281,14 @@ class SaavnStreamResolver implements IStreamResolver {
       // 8. Duration Proximity
       if (track.duration > Duration.zero && candDurSec > 0) {
         final diffSec = (track.duration.inSeconds - candDurSec).abs();
-        if (diffSec <= 6) {
-          score += 45.0; // High confidence original studio master match
+        if (diffSec <= 5) {
+          score += 40.0; // High confidence original studio master match
         } else if (diffSec <= 15) {
           score += 25.0;
-        } else if (diffSec <= 45) {
-          score += 15.0;
-        } else if (diffSec <= 90) {
-          score += 5.0;
+        } else if (diffSec <= 35) {
+          score += 10.0;
+        } else if (diffSec > 60) {
+          score -= 25.0;
         }
       }
 
@@ -272,8 +298,8 @@ class SaavnStreamResolver implements IStreamResolver {
       }
     }
 
-    // Require at least 50 points confidence to prevent erroneous matches
-    if (bestScore >= 50.0 && bestPid != null) {
+    // Require at least 80.0 points confidence to prevent erroneous matches
+    if (bestScore >= 80.0 && bestPid != null) {
       _pidCache[cacheKey] = bestPid;
       return bestPid;
     }

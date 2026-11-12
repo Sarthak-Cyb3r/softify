@@ -687,14 +687,6 @@ class TrueCrossfadeEngineNotifier extends StateNotifier<TrueCrossfadeState> {
     final outTitle = outgoingTrack ?? state.outgoingTrackTitle;
     final inTitle = incomingTrack ?? state.incomingTrackTitle;
 
-    // 1. Prime incoming engine
-    await audioPort.prepare(inEngine, inTitle);
-    await audioPort.setVolume(inEngine, 0.0);
-    await audioPort.setVolume(outEngine, 1.0);
-
-    // 2. Play incoming engine concurrently (simultaneous dual playback)
-    await audioPort.play(inEngine, inTitle);
-
     final initialMetrics = _computeVolumes(0.0, state.curveMode);
 
     state = state.copyWith(
@@ -716,6 +708,18 @@ class TrueCrossfadeEngineNotifier extends StateNotifier<TrueCrossfadeState> {
       isPaused: false,
       startedAt: DateTime.now(),
     );
+
+    // 1. Prime incoming engine
+    await audioPort.prepare(inEngine, inTitle);
+    if (!mounted || state.phase != CrossfadePhase.fading) return;
+    await audioPort.setVolume(inEngine, 0.0);
+    if (!mounted || state.phase != CrossfadePhase.fading) return;
+    await audioPort.setVolume(outEngine, 1.0);
+    if (!mounted || state.phase != CrossfadePhase.fading) return;
+
+    // 2. Play incoming engine concurrently (simultaneous dual playback)
+    await audioPort.play(inEngine, inTitle);
+    if (!mounted || state.phase != CrossfadePhase.fading) return;
 
     // 3. Start high-frequency ticker (approx 30 updates per second)
     const tickInterval = Duration(milliseconds: 33);
@@ -1543,11 +1547,15 @@ class CrossfadeLiveVisualizer extends ConsumerWidget {
     Color outgoingColor,
     Color incomingColor,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 6,
       children: [
         // Outgoing legend
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 10,
@@ -1589,6 +1597,7 @@ class CrossfadeLiveVisualizer extends ConsumerWidget {
 
         // Incoming legend
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 10,
@@ -1773,38 +1782,47 @@ class CrossfadeLiveVisualizer extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(
-                isPreserved ? Icons.verified_rounded : Icons.warning_amber_rounded,
-                color: isPreserved ? const Color(0xFF52B788) : const Color(0xFFFF8592),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Combined Acoustic Power (V_out² + V_in²)',
-                    style: TextStyle(
-                      color: Color(0xFFE6E1E5),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+          Expanded(
+            child: Row(
+              children: [
+                Icon(
+                  isPreserved ? Icons.verified_rounded : Icons.warning_amber_rounded,
+                  color: isPreserved ? const Color(0xFF52B788) : const Color(0xFFFF8592),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Combined Acoustic Power (V_out² + V_in²)',
+                        style: TextStyle(
+                          color: Color(0xFFE6E1E5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        isPreserved
+                            ? 'Equal-power curve preserves unity acoustic energy (0.0 dB flux)'
+                            : 'Power fluctuation detected: ${fluxDb.toStringAsFixed(2)} dB',
+                        style: TextStyle(
+                          color: isPreserved ? const Color(0xFF938F99) : const Color(0xFFFF8592),
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  Text(
-                    isPreserved
-                        ? 'Equal-power curve preserves unity acoustic energy (0.0 dB flux)'
-                        : 'Power fluctuation detected: ${fluxDb.toStringAsFixed(2)} dB',
-                    style: TextStyle(
-                      color: isPreserved ? const Color(0xFF938F99) : const Color(0xFFFF8592),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(

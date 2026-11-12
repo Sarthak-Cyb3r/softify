@@ -1457,7 +1457,9 @@ class _NowPlayingTile extends ConsumerWidget {
           width: 1,
         ),
       ),
-      child: ListTile(
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: ClipRRect(
@@ -1496,6 +1498,7 @@ class _NowPlayingTile extends ConsumerWidget {
           barCount: 4,
         ),
       ),
+      ),
     );
   }
 }
@@ -1530,7 +1533,9 @@ class _PriorityTrackTile extends StatelessWidget {
           width: 0.8,
         ),
       ),
-      child: ListTile(
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         leading: Row(
@@ -1617,6 +1622,7 @@ class _PriorityTrackTile extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -1647,7 +1653,9 @@ class _PlaylistTrackTile extends StatelessWidget {
         color: tokens.surfaceHighlight.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(tokens.radiusSm),
       ),
-      child: ListTile(
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         leading: Row(
@@ -1733,6 +1741,7 @@ class _PlaylistTrackTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
