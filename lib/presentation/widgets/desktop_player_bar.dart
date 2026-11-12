@@ -383,10 +383,10 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
           ),
 
           // ==========================================
-          // 3. Right Section: Speed, Lyrics, Queue, Volume
+          // 3. Right Section: Speed, Lyrics, Queue, QoL, EQ, PiP, Loop, Volume
           // ==========================================
           SizedBox(
-            width: 230,
+            width: 360,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -413,6 +413,92 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     ),
                   ),
 
+                // Quick EQ Cycler
+                Consumer(
+                  builder: (context, ref, _) {
+                    final quickPresetState = ref.watch(quickPresetStateProvider);
+                    return IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: const EdgeInsets.all(4),
+                      ),
+                      iconSize: 18,
+                      tooltip: 'Quick EQ: ${quickPresetState.currentPreset.name}',
+                      icon: const Icon(
+                        Icons.equalizer_rounded,
+                        color: AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
+                        final notifier = ref.read(quickPresetStateProvider.notifier);
+                        notifier.cycleNext();
+                        notifier.showHud();
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(width: 2),
+
+                // A-B Loop Repeater
+                Consumer(
+                  builder: (context, ref, _) {
+                    final isLooping = ref.watch(isAbLoopingActiveProvider);
+                    return IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: const EdgeInsets.all(4),
+                      ),
+                      iconSize: 18,
+                      tooltip: 'A-B Loop Repeater',
+                      icon: Icon(
+                        Icons.repeat_one_on_rounded,
+                        color: isLooping ? tokens.accent : AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
+                        showDialog<void>(
+                          context: context,
+                          barrierColor: Colors.transparent,
+                          builder: (ctx) => Center(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 420),
+                                child: const AbLoopFloatingWidget(),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(width: 2),
+
+                // PiP Floating Mini Player
+                Consumer(
+                  builder: (context, ref, _) {
+                    final isPipActive = ref.watch(isPipActiveProvider);
+                    return IconButton(
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(28, 28),
+                        padding: const EdgeInsets.all(4),
+                      ),
+                      iconSize: 18,
+                      tooltip: 'Picture-in-Picture Mini Player',
+                      icon: Icon(
+                        Icons.picture_in_picture_alt_rounded,
+                        color: isPipActive ? tokens.accent : AppTheme.textSecondary,
+                      ),
+                      onPressed: () {
+                        ref.read(pipMiniPlayerControllerProvider.notifier).toggle();
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(width: 2),
+
                 // Lyrics Modal Launcher
                 IconButton(
                   style: IconButton.styleFrom(
@@ -428,7 +514,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   ),
                   onPressed: () => _openLyricsDialog(context, currentTrack),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
 
                 // Queue Sheet Launcher
                 IconButton(
@@ -445,7 +531,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                   ),
                   onPressed: () => _openQueueModal(context),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
 
                 // QoL Features Hub (50+) Launcher
                 IconButton(
@@ -468,7 +554,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     );
                   },
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
 
                 // Music Screensaver Launcher
                 IconButton(
@@ -495,7 +581,7 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     );
                   },
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
 
                 // Volume Icon & Slider
                 IconButton(

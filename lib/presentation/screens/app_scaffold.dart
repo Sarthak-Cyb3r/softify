@@ -36,6 +36,8 @@ import '../widgets/update_changelog_sheet.dart';
 import '../widgets/lyrics_view.dart';
 import '../widgets/queue_bottom_sheet.dart';
 import '../../features/qol/keyboard_shortcuts_dialog.dart';
+import '../../features/qol/desktop/pip_floating_mini_player.dart' hide SharedPreferences;
+import '../../features/qol/dsp/quick_preset_cycler.dart';
 import 'device_blocked_screen.dart';
 
 /// Centralized application tab icon registry for consistent styling and quick theme swaps
@@ -294,38 +296,42 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     final pendingNotice = deviceState.pendingNotice;
 
     return AuroraBackground(
-      child: Stack(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 800;
+      child: FloatingMiniPlayerOverlay(
+        child: QuickPresetHudOverlay(
+          child: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isDesktop = constraints.maxWidth >= 800;
 
-              if (isDesktop) {
-                return _buildDesktopLayout(context, tokens);
-              } else {
-                return _buildMobileLayout(context, tokens);
-              }
-            },
-          ),
-          if (pendingNotice != null)
-            _buildNoticeBannerModal(context, tokens, pendingNotice),
-          if (_showUpdateBanner)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                child: UpdateNotificationBanner(
-                  version: kAppVersion,
-                  onReadChangelog: () {
-                    _dismissUpdateBanner();
-                    UpdateChangelogSheet.show(context, version: kAppVersion);
-                  },
-                  onDismiss: _dismissUpdateBanner,
-                ),
+                  if (isDesktop) {
+                    return _buildDesktopLayout(context, tokens);
+                  } else {
+                    return _buildMobileLayout(context, tokens);
+                  }
+                },
               ),
-            ),
-        ],
+              if (pendingNotice != null)
+                _buildNoticeBannerModal(context, tokens, pendingNotice),
+              if (_showUpdateBanner)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    child: UpdateNotificationBanner(
+                      version: kAppVersion,
+                      onReadChangelog: () {
+                        _dismissUpdateBanner();
+                        UpdateChangelogSheet.show(context, version: kAppVersion);
+                      },
+                      onDismiss: _dismissUpdateBanner,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

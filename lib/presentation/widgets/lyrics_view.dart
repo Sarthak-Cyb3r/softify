@@ -18,6 +18,9 @@ import '../providers/ui_style_provider.dart';
 import '../theme/app_theme.dart';
 import 'bouncing_scale_button.dart';
 import 'shared/app_surface.dart';
+import '../../features/qol/lyrics/lyrics_sync_offset_slider.dart' hide SharedPreferences;
+import '../../features/qol/lyrics/lyrics_font_switcher.dart' hide SharedPreferences;
+import '../../features/qol/lyrics/lrc_lyrics_exporter.dart';
 
 enum LyricFontSize {
   compact(17.0, 19.0, 'S'),
@@ -1047,6 +1050,133 @@ class _LyricsViewState extends ConsumerState<LyricsView>
                                         : tokens.textSecondary,
                                     fontFamily: AppTheme.fontUi,
                                   ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Interactive Sync Calibration Badge
+                          Tooltip(
+                            message: 'Fine-tune lyric sync timing (±5000ms)',
+                            child: BouncingScaleButton(
+                              scaleFactor: 0.92,
+                              onTap: () {
+                                showModalBottomSheet<void>(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  isScrollControlled: true,
+                                  builder: (_) => const Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: LyricsSyncOffsetSlider(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF222222),
+                                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                  border: Border.all(color: const Color(0xFF1F1F1F), width: 0.9),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.av_timer_rounded, color: activeAccent, size: 12),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'SYNC',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: activeAccent,
+                                        fontFamily: AppTheme.fontUi,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Interactive Typography Picker Badge
+                          Tooltip(
+                            message: 'Change lyrics font style (Sans, Serif, Monospace)',
+                            child: BouncingScaleButton(
+                              scaleFactor: 0.92,
+                              onTap: () {
+                                showModalBottomSheet<void>(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  isScrollControlled: true,
+                                  builder: (_) => const LyricsFontPickerSheet(),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF222222),
+                                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                  border: Border.all(color: const Color(0xFF1F1F1F), width: 0.9),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.font_download_outlined, color: activeAccent, size: 12),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'FONT',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: activeAccent,
+                                        fontFamily: AppTheme.fontUi,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Export LRC / Copy Lyrics Badge
+                          Tooltip(
+                            message: 'Export synced .lrc or copy lyrics',
+                            child: BouncingScaleButton(
+                              scaleFactor: 0.92,
+                              onTap: () {
+                                final lyrics = ref.read(trackLyricsProvider(widget.track)).valueOrNull;
+                                showModalBottomSheet<void>(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  isScrollControlled: true,
+                                  builder: (_) => Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: CopyLyricsButton(lyrics: lyrics, track: widget.track),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF222222),
+                                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                  border: Border.all(color: const Color(0xFF1F1F1F), width: 0.9),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.file_download_outlined, color: activeAccent, size: 12),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'LRC',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: activeAccent,
+                                        fontFamily: AppTheme.fontUi,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

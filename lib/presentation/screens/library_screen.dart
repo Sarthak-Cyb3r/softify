@@ -21,6 +21,10 @@ import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 import 'tracks_list_screen.dart';
+import '../../features/qol/library/library_stats_dashboard.dart' hide SharedPreferences;
+import '../../features/qol/library/listening_history_exporter.dart';
+import '../../features/qol/library/playlist_folder_manager.dart' hide SharedPreferences;
+import '../../features/qol/playlist_m3u_importer.dart';
 
 enum LibrarySortOrder {
   recentlyAdded('Recent'),
@@ -344,6 +348,74 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           ),
         ),
         actions: [
+          // Library Analytics & Stats
+          Tooltip(
+            message: 'Library Analytics & Stats',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.analytics_outlined, size: 22),
+              ),
+            ),
+          ),
+          // Export Listening History
+          Tooltip(
+            message: 'Export Listening History',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () {
+                showExportHistorySheet(
+                  context,
+                  entries: ref.read(allListeningHistoryEntriesProvider),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.history_edu_rounded, size: 22),
+              ),
+            ),
+          ),
+          // Playlist Folders
+          Tooltip(
+            message: 'Playlist Folders',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () {
+                final list = playlistsAsync.valueOrNull ?? const <Playlist>[];
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (ctx) => Container(
+                    height: MediaQuery.of(context).size.height * 0.75,
+                    decoration: BoxDecoration(
+                      color: tokens.surfaceElevated,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    child: PlaylistFolderTreeView(playlists: list),
+                  ),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.folder_special_outlined, size: 22),
+              ),
+            ),
+          ),
+          // Import M3U / Playlist
+          Tooltip(
+            message: 'Import M3U / Playlist',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () => PlaylistM3uImporter.showImportDialog(context),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.playlist_add_outlined, size: 22),
+              ),
+            ),
+          ),
           BouncingScaleButton(
             scaleFactor: 0.9,
             onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,
@@ -534,6 +606,57 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                           );
                         },
                       ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Import M3U',
+                        icon: const Icon(Icons.playlist_add_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => PlaylistM3uImporter.showImportDialog(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Folders',
+                        icon: const Icon(Icons.folder_special_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (ctx) => Container(
+                              height: MediaQuery.of(context).size.height * 0.75,
+                              decoration: BoxDecoration(
+                                color: tokens.surfaceElevated,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              child: const PlaylistFolderTreeView(playlists: []),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Stats',
+                        icon: const Icon(Icons.analytics_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Export History',
+                        icon: const Icon(Icons.history_edu_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showExportHistorySheet(
+                            context,
+                            entries: ref.read(allListeningHistoryEntriesProvider),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -579,6 +702,57 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                 ),
                               );
                             },
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Import M3U',
+                        icon: const Icon(Icons.playlist_add_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => PlaylistM3uImporter.showImportDialog(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Folders',
+                        icon: const Icon(Icons.folder_special_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (ctx) => Container(
+                              height: MediaQuery.of(context).size.height * 0.75,
+                              decoration: BoxDecoration(
+                                color: tokens.surfaceElevated,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              child: const PlaylistFolderTreeView(playlists: []),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Stats',
+                        icon: const Icon(Icons.analytics_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Export History',
+                        icon: const Icon(Icons.history_edu_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showExportHistorySheet(
+                            context,
+                            entries: ref.read(allListeningHistoryEntriesProvider),
                           );
                         },
                       ),
@@ -655,6 +829,57 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       const SizedBox(width: 10),
                       _buildSyncAllSpotifyButton(tokens),
                     ],
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Import M3U',
+                      icon: const Icon(Icons.playlist_add_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () => PlaylistM3uImporter.showImportDialog(context),
+                    ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Folders',
+                      icon: const Icon(Icons.folder_special_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) => Container(
+                            height: MediaQuery.of(context).size.height * 0.75,
+                            decoration: BoxDecoration(
+                              color: tokens.surfaceElevated,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            child: PlaylistFolderTreeView(playlists: playlists),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Stats',
+                      icon: const Icon(Icons.analytics_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+                    ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Export History',
+                      icon: const Icon(Icons.history_edu_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () {
+                        showExportHistorySheet(
+                          context,
+                          entries: ref.read(allListeningHistoryEntriesProvider),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

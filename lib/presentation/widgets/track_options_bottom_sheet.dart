@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/track.dart';
+import '../../features/qol/advanced_queue_actions.dart';
 import '../../features/qol/track_share_helper.dart';
 import '../../features/qol/track_tag_editor.dart';
 import '../providers/player_providers.dart';
@@ -210,6 +211,28 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                           messenger?.showSnackBar(
                             SnackBar(
                               content: Text('Playing "${track.title}" next'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // 3b. Priority Play Next (VIP)
+                      ListTile(
+                        leading: const Icon(Icons.low_priority_rounded, color: AppTheme.textPrimary),
+                        title: const Text('Priority Play Next', style: TextStyle(color: AppTheme.textPrimary)),
+                        subtitle: const Text(
+                          'Place immediately after current track with high priority',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        ),
+                        onTap: () async {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
+                          await AdvancedQueueController.playNext(ref, track);
+                          nav.pop();
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text('Priority: "${track.title}" inserted next'),
                               duration: const Duration(seconds: 2),
                             ),
                           );

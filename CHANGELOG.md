@@ -4,6 +4,30 @@ All notable changes to the Softify project are documented in this file.
 
 ## [4.0.2] - 2026-11-12
 
+### 🎛️ Primary UI Direct Button Integrations & Missing Controls
+- **In-Playlist Real-Time Search & Actions (`playlist_detail_screen.dart`)**:
+  - Collapsible in-playlist search field with Title, Artist, and Album scope chips and instant match counter.
+  - Interactive cover art tap to launch Custom Playlist Cover Editor.
+  - Action buttons and top menu for Playlist Sorter (A-Z, Artist, Duration, Date Added), Duplicate Cleaner, DJ Smart BPM Harmonic Shuffle, Download All, M3U8 Playlist Export, and CSV Spreadsheet Export.
+- **In-Queue Real-Time Search & Queue Operations (`queue_bottom_sheet.dart`)**:
+  - Real-time in-queue search bar filtering queued songs.
+  - Live duration pill showing total remaining playback minutes and exact clock finish time (e.g. `24 min left • Ends at 14:15`).
+  - DJ Smart BPM Harmonic Shuffle button and 1-tap "Save Queue as Playlist" button.
+  - Queue options menu with Shuffle Upcoming Only, Reverse Upcoming Only, Clear Upcoming Only, and Clear Entire Queue.
+- **Synced Lyrics Fine-Tuning & Export Tools (`lyrics_view.dart`)**:
+  - **`SYNC` badge**: Launches interactive microsecond lyric sync offset slider ($\pm 5000\text{ms}$).
+  - **`FONT` badge**: Launches lyrics typography font switcher (Modern Sans, Serif Editorial, Monospace).
+  - **`LRC` badge**: One-click export and copy of standard timecoded `.lrc` synced lyrics.
+- **Library Analytics, History & Folders (`library_screen.dart`)**:
+  - Top AppBar action icons and Playlists tab action pills for **Library Analytics & Stats** (`LibraryStatsDashboardWidget`), **Listening History RFC 4180 CSV/JSON Export** (`ExportHistorySheet`), **Hierarchical Playlist Folders** (`PlaylistFolderTreeView`), and **M3U / Playlist Importer** (`PlaylistM3uImporter`).
+- **Desktop Player Bar Controls (`desktop_player_bar.dart`)**:
+  - **Picture-in-Picture Mini Player button** (`Icons.picture_in_picture_alt_rounded`) with floating draggable mini-player overlay.
+  - **Quick EQ Cycler button** (`Icons.equalizer_rounded`) cycling acoustic presets with floating animated HUD toast.
+  - **A-B Loop Repeater button** (`Icons.repeat_one_on_rounded`) launching the precision point A-B section repeater.
+- **Track Options Context Sheet (`track_options_bottom_sheet.dart`)**:
+  - Added **Priority Play Next (VIP)** inserting tracks immediately after the active song.
+  - Added **Edit tags & metadata** (`TrackTagEditorDialog`) for title, artist, album, and genre tags.
+
 ### 🚀 50+ Brand-New Quality of Life (QoL) Features & Enhancements
 
 #### 🎛️ DSP & Audio Engine Extensions
