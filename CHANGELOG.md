@@ -5,12 +5,71 @@ All notable changes to the Softify project are documented in this file.
 ## [4.0.2] - 2026-11-12
 
 ### 🚀 50+ Brand-New Quality of Life (QoL) Features & Enhancements
-- **DSP & Audio Engine Extensions**: BS2B Bauer Binaural Crossfeed Filter (`bs2b_crossfeed_service`), Mono Downmix Channel Mixer (`mono_downmix_service`), Pitch & Key Shifter (`pitch_shifter`), Quick Audio Preset Cycler (`quick_preset_cycler`), True Overlapping Dual-Engine Crossfade (`true_crossfade_engine`), Silence Trimmer & Intro/Outro Skipper (`silence_trimmer_service`), Stereo Balance Controller (`stereo_balance_controller`), EBU R128 / ReplayGain Target LUFS Selector (`target_lufs_selector`), and PulseAudio/PipeWire Audio Sink Selector (`linux_audio_sink_selector`).
-- **Desktop & System Integration**: Global Command Palette (`command_palette`), Discord RPC Privacy Masker (`discord_privacy_masker`), Global Media Hotkeys (`global_media_hotkeys`), Middle-Click Mouse Quick Mute (`middle_click_mute`), Native Linux MPRIS Seek Handler (`mpris_seek_handler`), Picture-in-Picture Floating Mini-Player (`pip_floating_mini_player`), Linux IPC Single-Instance Guard (`single_instance_guard`), Headless Softify CLI Service (`softify_cli_service`), and Linux System Tray & AppIndicator Manager (`system_tray_manager`).
-- **Lyrics & Visualizer Polish**: Ambient Clock Screensaver (`ambient_clock_screensaver`), Canvas Wave Audio Visualizer (`canvas_wave_visualizer`), Dynamic Cover Color Palette Generator (`dynamic_cover_color_palette`), Instant Multi-Language Lyric Translator (`instant_lyric_translator`), Karaoke Duet Singer Highlighter (`karaoke_duet_highlighter`), LRC Lyrics File Exporter (`lrc_lyrics_exporter`), Dynamic Lyrics Font Switcher (`lyrics_font_switcher`), Millisecond Lyrics Sync Offset Slider (`lyrics_sync_offset_slider`), and Multilingual Transliteration / Romanization Switcher (`transliteration_switcher`).
-- **Library & Smart Playlist Mixes**: Custom Playlist Cover Art Picker (`custom_playlist_cover_picker`), Library Analytics & Stats Dashboard (`library_stats_dashboard`), Listening History Exporter (`listening_history_exporter`), Playlist Duplicate Cleaner & Deduplicator (`playlist_duplicate_cleaner`), Hierarchical Playlist Folder Manager (`playlist_folder_manager`), Smart Forgotten Favorites Playlist (`smart_playlist_forgotten_favorites`), Smart Heavy Rotation Playlist (`smart_playlist_heavy_rotation`), Smart Recently Added Playlist (`smart_playlist_recently_added`), and 25-Track Speed Dial Mix Generator (`smart_playlist_speed_dial`).
-- **Network & Buffer Optimization**: DNS-over-HTTPS (DoH) Selector (`doh_dns_selector`), Exponential Backoff Network Recovery (`exponential_backoff_recovery`), Full Application Database & Settings Backup/Restore (`full_app_backup_restore`), Gradual Sleep Fadeout (`gradual_sleep_fadeout`), Dynamic Lookahead Buffer Slider (`lookahead_buffer_slider`), LRU Cache Quota Manager (`lru_cache_quota_manager`), Metered Network Guard (`metered_connection_guard`), and Real-Time Stream Health & Diagnostic HUD (`stream_health_diagnostic`).
-- **Queue & Timeline Controls**: Point A/B Loop Controller (`ab_loop_controller`), Desktop Lock Screen Auto-Pause Listener (`desktop_lock_pause_listener`), Multi-Track Batch Reorder (`multi_track_batch_reorder`), Priority Play Next Queue Inserter (`priority_play_next`), Live Queue Duration & Completion Time Counter (`queue_duration_counter`), Queue Undo/Redo History Stack (`queue_history_stack`), Real-Time Queue Search & Metadata Filter (`queue_search_filter`), Save Queue as New Playlist (`save_queue_as_playlist`), and Smart BPM Harmonic Shuffle (`smart_bpm_shuffle`).
+
+#### 🎛️ DSP & Audio Engine Extensions
+- **True Overlapping Dual-Engine Crossfade**: Non-stop continuous playback where the outgoing track stays at full volume until the incoming track renders active audio frames, using a synchronized sinusoidal curve ($V_{\text{out}} = \cos(\theta), V_{\text{in}} = \sin(\theta)$) (`lib/features/qol/dsp/true_crossfade_engine.dart`).
+- **BS2B Binaural Crossfeed Filter**: Bauer stereophonic-to-binaural IIR crossfeed filter simulating physical speaker acoustic crosstalk for fatigueless headphone listening (`lib/features/qol/dsp/bs2b_crossfeed_service.dart`).
+- **Mono Downmix Channel Router**: Balanced $(L+R)/2$ downmixing engine with planar and interleaved sample processing for single-speaker and accessibility setups (`lib/features/qol/dsp/mono_downmix_service.dart`).
+- **Dynamic Pitch & Key Shifter**: Real-time semitone pitch shifting ($\pm 12$ semitones) without altering playback speed (`lib/features/qol/dsp/pitch_shifter.dart`).
+- **Quick Audio Preset Cycler**: Hotkey and tray-driven audio preset cycler across Flat, Bass Boost, Vocal Clarity, and Club presets (`lib/features/qol/dsp/quick_preset_cycler.dart`).
+- **Silence Trimmer & Intro/Outro Skipper**: Configurable -60dB to -30dB silence floor detector automatically skipping silent leading and trailing audio frames (`lib/features/qol/dsp/silence_trimmer_service.dart`).
+- **Stereo Balance Controller**: Real-time left/right balance fader with linear pan-law attenuation and persistent storage (`lib/features/qol/dsp/stereo_balance_controller.dart`).
+- **Target LUFS Loudness Selector**: Studio-grade loudness normalizer supporting EBU R128 (-23 LUFS), ReplayGain (-18 LUFS), and Spotify (-14 LUFS) targets (`lib/features/qol/dsp/target_lufs_selector.dart`).
+- **Linux PulseAudio / PipeWire Sink Selector**: Real-time audio output device routing across speakers, headphones, USB DACs, and Bluetooth without restarting playback (`lib/features/qol/dsp/linux_audio_sink_selector.dart`).
+
+#### 🖥️ Desktop & Linux System Integration
+- **Global Command Palette**: Instant `Ctrl+K` / `Cmd+K` keyboard overlay to search songs, trigger actions, toggle settings, and navigate anywhere (`lib/features/qol/desktop/command_palette.dart`).
+- **Discord RPC Privacy Masker**: Configurable presence privacy toggles to redact track titles, artist names, or cover art from Discord status (`lib/features/qol/desktop/discord_privacy_masker.dart`).
+- **Global Media Hotkeys**: System-wide global keyboard hook supporting customizable media keybindings across Linux desktop environments (`lib/features/qol/desktop/global_media_hotkeys.dart`).
+- **Middle-Click Mouse Quick Mute**: Middle-click anywhere on the player bar or system tray to instantly mute/unmute audio (`lib/features/qol/desktop/middle_click_mute.dart`).
+- **Native Linux MPRIS Seek Handler**: Enhanced D-Bus MPRIS-2 implementation supporting precision microsecond timeline seeking and timeline scrubbing from lock screens and shell widgets (`lib/features/qol/desktop/mpris_seek_handler.dart`).
+- **Picture-in-Picture Floating Mini-Player**: Frameless, always-on-top compact mini-player with hover controls, seek bar, and album art (`lib/features/qol/desktop/pip_floating_mini_player.dart`).
+- **Linux IPC Single-Instance Guard**: Unix domain socket / FIFO IPC guard preventing duplicate app instances and focusing the running Softify window (`lib/features/qol/desktop/single_instance_guard.dart`).
+- **Headless Softify CLI Service**: IPC CLI socket daemon enabling terminal scripting via `softify-cli play`, `pause`, `next`, `volume <val>`, etc. (`lib/features/qol/desktop/softify_cli_service.dart`).
+- **Linux System Tray & AppIndicator Manager**: Native desktop system tray indicator with right-click menu, track details, playback controls, and background minimize (`lib/features/qol/desktop/system_tray_manager.dart`).
+
+#### 🎤 Lyrics & Visualizer Polish
+- **Ambient Clock Screensaver**: Minimalist ambient clock and typography screensaver that engages during playback inactivity (`lib/features/qol/lyrics/ambient_clock_screensaver.dart`).
+- **Canvas Wave Audio Visualizer**: 60 FPS real-time audio waveform visualizer rendered via CustomPainter with reactive color matching (`lib/features/qol/lyrics/canvas_wave_visualizer.dart`).
+- **Dynamic Cover Color Palette**: Adaptive Material 3 color palette extraction from album artwork with LRU caching and contrast validation (`lib/features/qol/lyrics/dynamic_cover_color_palette.dart`).
+- **Instant Multi-Language Lyric Translator**: Real-time bilingual lyric translation engine with local caching per track ID (`lib/features/qol/lyrics/instant_lyric_translator.dart`).
+- **Karaoke Duet Singer Highlighter**: Regex vocal part separator and dual-color highlighter distinguishing lead and backing vocals in duet tracks (`lib/features/qol/lyrics/karaoke_duet_highlighter.dart`).
+- **LRC Lyrics File Exporter**: One-click exporter generating standard timecoded `.lrc` files for any loaded track (`lib/features/qol/lyrics/lrc_lyrics_exporter.dart`).
+- **Dynamic Lyrics Font Switcher**: Typography switcher across Modern Sans, Serif Editorial, Monospace, and Display styles (`lib/features/qol/lyrics/lyrics_font_switcher.dart`).
+- **Millisecond Lyrics Sync Offset Slider**: Fine-grained $\pm 5000\text{ms}$ lyric synchronization slider with persistent track offsets (`lib/features/qol/lyrics/lyrics_sync_offset_slider.dart`).
+- **Multilingual Transliteration / Romanization Switcher**: Automated Latin romanization engine for Japanese (Romaji), Korean, Cyrillic, and Indic scripts (`lib/features/qol/lyrics/transliteration_switcher.dart`).
+
+#### 📚 Library & Smart Playlist Mixes
+- **Custom Playlist Cover Art Picker**: Local image file picker and cropper with automatic downscaling and square thumbnail generation (`lib/features/qol/library/custom_playlist_cover_picker.dart`).
+- **Library Analytics & Stats Dashboard**: In-depth listening statistics dashboard with total hours listened, top artists, and genre breakdown charts (`lib/features/qol/library/library_stats_dashboard.dart`).
+- **Listening History Exporter**: Full listening history export into RFC 4180 CSV and JSON formats with timestamps (`lib/features/qol/library/listening_history_exporter.dart`).
+- **Playlist Duplicate Cleaner & Deduplicator**: Interactive duplicate cleaner with 3-tier matching and one-click bulk deduplication (`lib/features/qol/library/playlist_duplicate_cleaner.dart`).
+- **Hierarchical Playlist Folder Manager**: Nested playlist organization folders with drag-and-drop hierarchy and collapse state memory (`lib/features/qol/library/playlist_folder_manager.dart`).
+- **Smart Forgotten Favorites Playlist**: Algorithmic mix generator surfacing previously loved tracks unplayed in over 90 days (`lib/features/qol/library/smart_playlist_forgotten_favorites.dart`).
+- **Smart Heavy Rotation Playlist**: Dynamic top-played playlist updating weekly based on play-count decay (`lib/features/qol/library/smart_playlist_heavy_rotation.dart`).
+- **Smart Recently Added Playlist**: Chronological feed of newly added library and liked tracks (`lib/features/qol/library/smart_playlist_recently_added.dart`).
+- **25-Track Speed Dial Mix Generator**: Instant 1-tap 25-track mix balanced across the user's top 3 musical genres (`lib/features/qol/library/smart_playlist_speed_dial.dart`).
+
+#### 🌐 Network & Buffer Optimization
+- **DNS-over-HTTPS (DoH) Selector**: Encrypted DNS provider selector supporting Cloudflare, Google, and Quad9 to bypass ISP throttling and audio domain blocks (`lib/features/qol/network/doh_dns_selector.dart`).
+- **Exponential Backoff Network Recovery**: Resilient streaming recovery engine with exponential retry intervals on network drops (`lib/features/qol/network/exponential_backoff_recovery.dart`).
+- **Full Application Database & Settings Backup/Restore**: Complete database, playlists, and settings backup engine exporting to unified `.softifybackup` archives (`lib/features/qol/network/full_app_backup_restore.dart`).
+- **Gradual Sleep Fadeout**: Sleep timer volume attenuator that gently fades volume to 0 over the final 60 seconds of a timer (`lib/features/qol/network/gradual_sleep_fadeout.dart`).
+- **Dynamic Lookahead Buffer Slider**: Configurable audio prefetch buffer slider (10s to 60s) for uninterrupted underground and offline subway listening (`lib/features/qol/network/lookahead_buffer_slider.dart`).
+- **LRU Cache Quota Manager**: Granular audio and cover art cache cleaner with configurable size limits (500MB to 10GB) (`lib/features/qol/network/lru_cache_quota_manager.dart`).
+- **Metered Network Guard**: Auto-throttles audio quality to 64/96 kbps and suspends background pre-buffering on metered or cellular connections (`lib/features/qol/network/metered_connection_guard.dart`).
+- **Real-Time Stream Health & Diagnostic HUD**: Live HUD pill and diagnostic dialog displaying current buffer ahead, audio bitrate, and network latency (`lib/features/qol/network/stream_health_diagnostic.dart`).
+
+#### 📜 Queue & Timeline Controls
+- **Point A/B Loop Controller**: Seamless section repeater allowing musicians and listeners to loop specific track sections with millisecond precision (`lib/features/qol/queue/ab_loop_controller.dart`).
+- **Desktop Lock Screen Auto-Pause Listener**: D-Bus listener detecting Linux desktop lock and sleep events to automatically pause playback and resume upon unlock (`lib/features/qol/queue/desktop_lock_pause_listener.dart`).
+- **Multi-Track Batch Reorder**: Multi-select tracks in queue for bulk move-to-top, move-to-bottom, or dragging as a cluster (`lib/features/qol/queue/multi_track_batch_reorder.dart`).
+- **Priority Play Next Queue Inserter**: Urgent queue insertion placing tracks immediately after the active song without disturbing the rest of the queue (`lib/features/qol/queue/priority_play_next.dart`).
+- **Live Queue Duration & Completion Time Counter**: Real-time counter calculating total remaining queue time and exact clock completion time (`lib/features/qol/queue/queue_duration_counter.dart`).
+- **Queue Undo/Redo History Stack**: Full transactional queue history stack to undo accidental queue clears or track removals (`lib/features/qol/queue/queue_history_stack.dart`).
+- **Real-Time Queue Search & Metadata Filter**: Fast in-memory search bar to instantly find and jump to any queued song (`lib/features/qol/queue/queue_search_filter.dart`).
+- **Save Queue as New Playlist**: One-tap action to persist current up-next queue state as a permanent custom playlist (`lib/features/qol/queue/save_queue_as_playlist.dart`).
+- **Smart BPM Harmonic Shuffle**: Camelot wheel and harmonic tempo matcher sequencing tracks with smooth energy and key progression (`lib/features/qol/queue/smart_bpm_shuffle.dart`).
 
 ### 🎚️ True Concurrent Overlapping Crossfade Audio Mixer
 - **Guaranteed Dual-Track Audio Overlap**: Outgoing track continues playback at 100% volume until the incoming track actively renders decoded audio frames, completely eliminating premature volume attenuation, dropouts, or awkward silence.
