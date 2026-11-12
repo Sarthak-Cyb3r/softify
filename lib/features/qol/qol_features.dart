@@ -51,7 +51,7 @@ export 'dsp/true_crossfade_engine.dart';
 // Desktop & System Integration
 export 'desktop/command_palette.dart' hide SharedPreferences;
 export 'desktop/discord_privacy_masker.dart' hide SharedPreferences;
-export 'desktop/global_media_hotkeys.dart' hide VisualKeycap, KeycapComboWidget, SharedPreferences;
+export 'desktop/global_media_hotkeys.dart' hide VisualKeycap, KeycapComboWidget;
 export 'desktop/middle_click_mute.dart' hide SharedPreferences;
 export 'desktop/mpris_seek_handler.dart';
 export 'desktop/pip_floating_mini_player.dart' hide SharedPreferences;
@@ -128,6 +128,70 @@ import 'sleep_timer_track_end.dart';
 import 'track_share_helper.dart';
 import 'track_tag_editor.dart';
 import 'desktop/system_tray_manager.dart' hide SharedPreferences;
+
+// DSP & Audio Engine Extensions
+import 'dsp/linux_audio_sink_selector.dart';
+import 'dsp/bs2b_crossfeed_service.dart';
+import 'dsp/mono_downmix_service.dart';
+import 'dsp/pitch_shifter.dart' hide SharedPreferences;
+import 'dsp/quick_preset_cycler.dart';
+import 'dsp/silence_trimmer_service.dart';
+import 'dsp/stereo_balance_controller.dart' hide SharedPreferences;
+import 'dsp/target_lufs_selector.dart' hide SharedPreferences;
+import 'dsp/true_crossfade_engine.dart';
+
+// Desktop & System Integration
+import 'desktop/command_palette.dart' hide SharedPreferences;
+import 'desktop/discord_privacy_masker.dart' hide SharedPreferences;
+import 'desktop/global_media_hotkeys.dart' hide VisualKeycap, KeycapComboWidget;
+import 'desktop/middle_click_mute.dart' hide SharedPreferences;
+import 'desktop/mpris_seek_handler.dart';
+import 'desktop/pip_floating_mini_player.dart' hide SharedPreferences;
+import 'desktop/single_instance_guard.dart';
+import 'desktop/softify_cli_service.dart';
+
+// Lyrics & Visualizer Enhancements
+import 'lyrics/ambient_clock_screensaver.dart' hide SharedPreferences;
+import 'lyrics/canvas_wave_visualizer.dart' hide SharedPreferences;
+import 'lyrics/dynamic_cover_color_palette.dart';
+import 'lyrics/instant_lyric_translator.dart' hide SharedPreferences;
+import 'lyrics/karaoke_duet_highlighter.dart' hide SharedPreferences;
+import 'lyrics/lrc_lyrics_exporter.dart';
+import 'lyrics/lyrics_font_switcher.dart' hide SharedPreferences;
+import 'lyrics/lyrics_sync_offset_slider.dart' hide SharedPreferences;
+import 'lyrics/transliteration_switcher.dart' hide SharedPreferences;
+
+// Library & Smart Playlists
+import 'library/custom_playlist_cover_picker.dart' hide SharedPreferences;
+import 'library/library_stats_dashboard.dart' hide SharedPreferences;
+import 'library/listening_history_exporter.dart';
+import 'library/playlist_duplicate_cleaner.dart';
+import 'library/playlist_folder_manager.dart' hide SharedPreferences;
+import 'library/smart_playlist_forgotten_favorites.dart';
+import 'library/smart_playlist_heavy_rotation.dart';
+import 'library/smart_playlist_recently_added.dart';
+import 'library/smart_playlist_speed_dial.dart';
+
+// Network & Buffer Optimization
+import 'network/doh_dns_selector.dart';
+import 'network/exponential_backoff_recovery.dart';
+import 'network/full_app_backup_restore.dart';
+import 'network/gradual_sleep_fadeout.dart';
+import 'network/lookahead_buffer_slider.dart' hide SharedPreferences;
+import 'network/lru_cache_quota_manager.dart' hide SharedPreferences;
+import 'network/metered_connection_guard.dart';
+import 'network/stream_health_diagnostic.dart';
+
+// Queue & Timeline Enhancements
+import 'queue/ab_loop_controller.dart' hide SharedPreferences;
+import 'queue/desktop_lock_pause_listener.dart' hide SharedPreferences;
+import 'queue/multi_track_batch_reorder.dart';
+import 'queue/priority_play_next.dart';
+import 'queue/queue_duration_counter.dart';
+import 'queue/queue_history_stack.dart';
+import 'queue/queue_search_filter.dart';
+import 'queue/save_queue_as_playlist.dart';
+import 'queue/smart_bpm_shuffle.dart' hide SharedPreferences;
 
 // ============================================================================
 // QoL Feature Categories
@@ -849,6 +913,1148 @@ class QolFeatureRegistry {
         );
       },
     ),
+
+    // --- 52 Net-New QoL Features ---
+
+    // 28. BS2B Binaural Crossfeed
+    QolFeatureDefinition(
+      id: 'bs2b_crossfeed',
+      name: 'BS2B Binaural Crossfeed',
+      description:
+          'Bauer stereophonic-to-binaural DSP crossfeed algorithm to eliminate headphone listening fatigue.',
+      category: QolCategory.playback,
+      icon: Icons.headphones_rounded,
+      moduleFile: 'dsp/bs2b_crossfeed_service.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: Bs2bCrossfeedSelector(),
+          ),
+        );
+      },
+    ),
+
+    // 29. Linux Audio Sink Selector
+    QolFeatureDefinition(
+      id: 'linux_audio_sink_selector',
+      name: 'Linux Audio Sink Selector',
+      description:
+          'Switch PipeWire and PulseAudio output devices dynamically without restarting playback.',
+      category: QolCategory.playback,
+      icon: Icons.speaker_group_rounded,
+      moduleFile: 'dsp/linux_audio_sink_selector.dart',
+      badge: 'Linux',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const AudioSinkSelectorSheet(),
+        );
+      },
+    ),
+
+    // 30. Mono Audio Downmixing
+    QolFeatureDefinition(
+      id: 'mono_downmix',
+      name: 'Mono Audio Downmixing',
+      description:
+          'Sum stereo channels into balanced mono for single-earbud or accessibility listening.',
+      category: QolCategory.playback,
+      icon: Icons.hearing_rounded,
+      moduleFile: 'dsp/mono_downmix_service.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: MonoAudioToggleCard(),
+          ),
+        );
+      },
+    ),
+
+    // 31. Real-Time Pitch Shifter
+    QolFeatureDefinition(
+      id: 'pitch_shifter',
+      name: 'Real-Time Pitch Shifter',
+      description:
+          'Shift pitch by semitones and fine cents independently from playback tempo.',
+      category: QolCategory.playback,
+      icon: Icons.graphic_eq_rounded,
+      moduleFile: 'dsp/pitch_shifter.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: PitchShifterControl(),
+          ),
+        );
+      },
+    ),
+
+    // 32. Quick EQ Preset Cycler
+    QolFeatureDefinition(
+      id: 'quick_preset_cycler',
+      name: 'Quick EQ Preset Cycler',
+      description:
+          'Instant cycling through Flat, Bass Boost, Vocal, and Treble EQ curves with mini visualizer.',
+      category: QolCategory.playback,
+      icon: Icons.equalizer_rounded,
+      moduleFile: 'dsp/quick_preset_cycler.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: QuickPresetSelectorRow(),
+          ),
+        );
+      },
+    ),
+
+    // 33. Smart Silence Trimmer
+    QolFeatureDefinition(
+      id: 'silence_trimmer',
+      name: 'Smart Silence Trimmer',
+      description:
+          'Automatically skip silent intros and outros based on configurable dB thresholds.',
+      category: QolCategory.playback,
+      icon: Icons.content_cut_rounded,
+      moduleFile: 'dsp/silence_trimmer_service.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: SilenceTrimmerSettingsCard(),
+          ),
+        );
+      },
+    ),
+
+    // 34. Stereo Balance & Pan Slider
+    QolFeatureDefinition(
+      id: 'stereo_balance',
+      name: 'Stereo Balance & Pan Slider',
+      description:
+          'Fine-tune left and right audio balance with center snap haptics.',
+      category: QolCategory.playback,
+      icon: Icons.tune_rounded,
+      moduleFile: 'dsp/stereo_balance_controller.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: StereoBalanceSlider(),
+          ),
+        );
+      },
+    ),
+
+    // 35. Target LUFS Loudness Matcher
+    QolFeatureDefinition(
+      id: 'target_lufs_selector',
+      name: 'Target LUFS Loudness Matcher',
+      description:
+          'Selectable loudness targets (-14 LUFS Spotify, -16 LUFS Apple, -23 LUFS EBU R128).',
+      category: QolCategory.playback,
+      icon: Icons.volume_up_rounded,
+      moduleFile: 'dsp/target_lufs_selector.dart',
+      badge: 'DSP',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: TargetLufsSelectorCard(),
+          ),
+        );
+      },
+    ),
+
+    // 36. Dual-Engine Overlapping Crossfade
+    QolFeatureDefinition(
+      id: 'true_crossfade_engine',
+      name: 'Dual-Engine Overlapping Crossfade',
+      description:
+          'Simultaneous incoming and outgoing audio decrescendo/crescendo with equal-power curves.',
+      category: QolCategory.playback,
+      icon: Icons.merge_type_rounded,
+      moduleFile: 'dsp/true_crossfade_engine.dart',
+      badge: 'Audio',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: CrossfadeLiveVisualizer(),
+          ),
+        );
+      },
+    ),
+
+    // 37. Ctrl+K Omnibar Command Palette
+    QolFeatureDefinition(
+      id: 'command_palette',
+      name: 'Ctrl+K Omnibar Command Palette',
+      description:
+          'Quick-action launcher for navigation, settings, playback commands, and search.',
+      category: QolCategory.convenience,
+      icon: Icons.terminal_rounded,
+      moduleFile: 'desktop/command_palette.dart',
+      badge: 'Desktop',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => const CommandPaletteDialog(),
+        );
+      },
+    ),
+
+    // 38. Discord Streamer Privacy Mode
+    QolFeatureDefinition(
+      id: 'discord_privacy_masker',
+      name: 'Discord Streamer Privacy Mode',
+      description:
+          'Mask private listening activity or customize rich presence details while streaming.',
+      category: QolCategory.convenience,
+      icon: Icons.visibility_off_rounded,
+      moduleFile: 'desktop/discord_privacy_masker.dart',
+      badge: 'Desktop',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: DiscordPrivacySelectorTile(isCard: true, showPreview: true),
+          ),
+        );
+      },
+    ),
+
+    // 39. OS Global Media Hotkeys
+    QolFeatureDefinition(
+      id: 'global_media_hotkeys',
+      name: 'OS Global Media Hotkeys',
+      description:
+          'Hardware media keys and customizable desktop global key combinations.',
+      category: QolCategory.convenience,
+      icon: Icons.keyboard_rounded,
+      moduleFile: 'desktop/global_media_hotkeys.dart',
+      badge: 'Desktop',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: HotkeySettingsCard(),
+          ),
+        );
+      },
+    ),
+
+    // 40. Middle-Click Quick Mute
+    QolFeatureDefinition(
+      id: 'middle_click_mute',
+      name: 'Middle-Click Quick Mute',
+      description:
+          'Click middle mouse button anywhere on the player bar or volume slider to toggle mute.',
+      category: QolCategory.convenience,
+      icon: Icons.mouse_rounded,
+      moduleFile: 'desktop/middle_click_mute.dart',
+      badge: 'Desktop',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: MiddleClickMuteButton(),
+          ),
+        );
+      },
+    ),
+
+    // 41. MPRIS-2 Fractional Seek Handler
+    QolFeatureDefinition(
+      id: 'mpris_seek_handler',
+      name: 'MPRIS-2 Fractional Seek Handler',
+      description:
+          'Seamless D-Bus MPRIS-2 position reporting and fast-forward / rewind controls.',
+      category: QolCategory.convenience,
+      icon: Icons.fast_forward_rounded,
+      moduleFile: 'desktop/mpris_seek_handler.dart',
+      badge: 'Linux',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: MprisSeekCard(),
+          ),
+        );
+      },
+    ),
+
+    // 42. Always-On-Top PiP Mini Player
+    QolFeatureDefinition(
+      id: 'pip_floating_mini_player',
+      name: 'Always-On-Top PiP Mini Player',
+      description:
+          'Compact floating window with album art, scrub bar, and transport controls.',
+      category: QolCategory.interfaceTheme,
+      icon: Icons.picture_in_picture_alt_rounded,
+      moduleFile: 'desktop/pip_floating_mini_player.dart',
+      badge: 'Desktop',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => const AlertDialog(
+            backgroundColor: Colors.transparent,
+            contentPadding: EdgeInsets.zero,
+            content: SizedBox(
+              width: 320,
+              child: CompactFloatingMiniPlayer(),
+            ),
+          ),
+        );
+      },
+    ),
+
+    // 43. Single-Instance Socket Guard
+    QolFeatureDefinition(
+      id: 'single_instance_guard',
+      name: 'Single-Instance Socket Guard',
+      description:
+          'Enforce one running instance and pass command-line arguments to existing window.',
+      category: QolCategory.convenience,
+      icon: Icons.security_rounded,
+      moduleFile: 'desktop/single_instance_guard.dart',
+      badge: 'Linux',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: SingleInstanceStatusCard(),
+          ),
+        );
+      },
+    ),
+
+    // 44. Softify CLI Unix Socket Controller
+    QolFeatureDefinition(
+      id: 'softify_cli_service',
+      name: 'Softify CLI Unix Socket Controller',
+      description:
+          'Terminal IPC controls: softify play, softify next, softify status.',
+      category: QolCategory.convenience,
+      icon: Icons.code_rounded,
+      moduleFile: 'desktop/softify_cli_service.dart',
+      badge: 'CLI',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: SoftifyCliControlCard(),
+          ),
+        );
+      },
+    ),
+
+    // 45. Ambient Clock & Lyrics Screensaver
+    QolFeatureDefinition(
+      id: 'ambient_clock_screensaver',
+      name: 'Ambient Clock & Lyrics Screensaver',
+      description:
+          'OLED-safe full-screen display with typography clock and current track visuals.',
+      category: QolCategory.lyrics,
+      icon: Icons.watch_later_rounded,
+      moduleFile: 'lyrics/ambient_clock_screensaver.dart',
+      badge: 'Display',
+      onTriggerDemo: (context, ref) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => const AmbientClockScreensaverSettingsDialog(),
+        );
+      },
+    ),
+
+    // 46. Canvas Audio Wave Visualizer
+    QolFeatureDefinition(
+      id: 'canvas_wave_visualizer',
+      name: 'Canvas Audio Wave Visualizer',
+      description:
+          'Smooth hardware-accelerated 60 FPS waveform animation beneath active lyrics.',
+      category: QolCategory.lyrics,
+      icon: Icons.waves_rounded,
+      moduleFile: 'lyrics/canvas_wave_visualizer.dart',
+      badge: 'Visuals',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const CanvasWaveVisualizerSheet(),
+        );
+      },
+    ),
+
+    // 47. Dynamic Album Palette Theme
+    QolFeatureDefinition(
+      id: 'dynamic_cover_color_palette',
+      name: 'Dynamic Album Palette Theme',
+      description:
+          'Extract dominant vibrant colors from album artwork to tint background gradients.',
+      category: QolCategory.interfaceTheme,
+      icon: Icons.color_lens_rounded,
+      moduleFile: 'lyrics/dynamic_cover_color_palette.dart',
+      badge: 'Visuals',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: DynamicPalettePreviewCard(),
+          ),
+        );
+      },
+    ),
+
+    // 48. Instant Lyric Translation
+    QolFeatureDefinition(
+      id: 'instant_lyric_translator',
+      name: 'Instant Lyric Translation',
+      description:
+          'Display bilingual or translated subtitles alongside synchronized lyrics.',
+      category: QolCategory.lyrics,
+      icon: Icons.translate_rounded,
+      moduleFile: 'lyrics/instant_lyric_translator.dart',
+      badge: 'Lyrics',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: LyricTranslationToggle(),
+          ),
+        );
+      },
+    ),
+
+    // 49. Karaoke Duet Multi-Color Highlighting
+    QolFeatureDefinition(
+      id: 'karaoke_duet_highlighter',
+      name: 'Karaoke Duet Multi-Color Highlighting',
+      description:
+          'Distinct singer colors for duet tracks with synchronized progressive fill.',
+      category: QolCategory.lyrics,
+      icon: Icons.mic_external_on_rounded,
+      moduleFile: 'lyrics/karaoke_duet_highlighter.dart',
+      badge: 'Lyrics',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const KaraokeDuetSettingsSheet(),
+        );
+      },
+    ),
+
+    // 50. LRC Synced Lyrics Exporter
+    QolFeatureDefinition(
+      id: 'lrc_lyrics_exporter',
+      name: 'LRC Synced Lyrics Exporter',
+      description:
+          'Export synchronized lyrics with precise timestamp tags to clipboard or .lrc file.',
+      category: QolCategory.lyrics,
+      icon: Icons.file_download_rounded,
+      moduleFile: 'lyrics/lrc_lyrics_exporter.dart',
+      badge: 'Lyrics',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: CopyLyricsButton(lyrics: null),
+          ),
+        );
+      },
+    ),
+
+    // 51. Lyrics Typography & Font Selector
+    QolFeatureDefinition(
+      id: 'lyrics_font_switcher',
+      name: 'Lyrics Typography & Font Selector',
+      description:
+          'Switch between Modern Sans, Editorial Serif, and Monospace display fonts.',
+      category: QolCategory.lyrics,
+      icon: Icons.font_download_rounded,
+      moduleFile: 'lyrics/lyrics_font_switcher.dart',
+      badge: 'Lyrics',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const LyricsFontPickerSheet(),
+        );
+      },
+    ),
+
+    // 52. Microsecond Lyrics Sync Calibration
+    QolFeatureDefinition(
+      id: 'lyrics_sync_offset_slider',
+      name: 'Microsecond Lyrics Sync Calibration',
+      description:
+          'Nudge lyric timing offset from -5000ms to +5000ms for perfect karaoke alignment.',
+      category: QolCategory.lyrics,
+      icon: Icons.av_timer_rounded,
+      moduleFile: 'lyrics/lyrics_sync_offset_slider.dart',
+      badge: 'Lyrics',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: LyricsSyncOffsetSlider(),
+          ),
+        );
+      },
+    ),
+
+    // 53. Lyric Transliteration (Romaji / Pinyin)
+    QolFeatureDefinition(
+      id: 'transliteration_switcher',
+      name: 'Lyric Transliteration (Romaji / Pinyin)',
+      description:
+          'Toggle phonetic Latin script for Japanese, Chinese, and Korean lyrics.',
+      category: QolCategory.lyrics,
+      icon: Icons.subtitles_rounded,
+      moduleFile: 'lyrics/transliteration_switcher.dart',
+      badge: 'Lyrics',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: TransliterationToggleChip(),
+          ),
+        );
+      },
+    ),
+
+    // 54. Custom Playlist Artwork Designer
+    QolFeatureDefinition(
+      id: 'custom_playlist_cover_picker',
+      name: 'Custom Playlist Artwork Designer',
+      description:
+          'Upload custom images or generate dynamic 2x2 mosaic covers for playlists.',
+      category: QolCategory.libraryData,
+      icon: Icons.image_rounded,
+      moduleFile: 'library/custom_playlist_cover_picker.dart',
+      badge: 'Library',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const PlaylistCoverEditorSheet(playlistId: 'demo_playlist'),
+        );
+      },
+    ),
+
+    // 55. Listening Stats & Analytics Dashboard
+    QolFeatureDefinition(
+      id: 'library_stats_dashboard',
+      name: 'Listening Stats & Analytics Dashboard',
+      description:
+          'Explore total hours listened, top tracks, genres, and audio bitrate breakdown.',
+      category: QolCategory.libraryData,
+      icon: Icons.analytics_rounded,
+      moduleFile: 'library/library_stats_dashboard.dart',
+      badge: 'Library',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: LibraryStatsDashboardWidget(),
+          ),
+        );
+      },
+    ),
+
+    // 56. Listening History Exporter (JSON / CSV)
+    QolFeatureDefinition(
+      id: 'listening_history_exporter',
+      name: 'Listening History Exporter (JSON / CSV)',
+      description:
+          'Export listening activity, play counts, and timestamps to portable open formats.',
+      category: QolCategory.libraryData,
+      icon: Icons.download_rounded,
+      moduleFile: 'library/listening_history_exporter.dart',
+      badge: 'Library',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const ExportHistorySheet(entries: []),
+        );
+      },
+    ),
+
+    // 57. Playlist Duplicate Cleaner
+    QolFeatureDefinition(
+      id: 'playlist_duplicate_cleaner',
+      name: 'Playlist Duplicate Cleaner',
+      description:
+          'Scan playlists for redundant tracks and remove duplicates with 1 click.',
+      category: QolCategory.libraryData,
+      icon: Icons.cleaning_services_rounded,
+      moduleFile: 'library/playlist_duplicate_cleaner.dart',
+      badge: 'Library',
+      onTriggerDemo: (context, ref) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => const DuplicateCleanerDialog(playlistId: 'demo_playlist'),
+        );
+      },
+    ),
+
+    // 58. Nested Playlist Folders
+    QolFeatureDefinition(
+      id: 'playlist_folder_manager',
+      name: 'Nested Playlist Folders',
+      description:
+          'Organize playlists into hierarchical expandable folders and categories.',
+      category: QolCategory.libraryData,
+      icon: Icons.folder_special_rounded,
+      moduleFile: 'library/playlist_folder_manager.dart',
+      badge: 'Library',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const PlaylistFolderTreeView(),
+        );
+      },
+    ),
+
+    // 59. Smart Playlist: Forgotten Favorites
+    QolFeatureDefinition(
+      id: 'smart_playlist_forgotten_favorites',
+      name: 'Smart Playlist: Forgotten Favorites',
+      description:
+          'Surface loved songs that have not been played in the last 30 days.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.auto_awesome_motion_rounded,
+      moduleFile: 'library/smart_playlist_forgotten_favorites.dart',
+      badge: 'Smart Mix',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const ForgottenFavoritesDetailSheet(),
+        );
+      },
+    ),
+
+    // 60. Smart Playlist: Heavy Rotation
+    QolFeatureDefinition(
+      id: 'smart_playlist_heavy_rotation',
+      name: 'Smart Playlist: Heavy Rotation',
+      description:
+          'Automatically curated dynamic top 25 most played songs this month.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.local_fire_department_rounded,
+      moduleFile: 'library/smart_playlist_heavy_rotation.dart',
+      badge: 'Smart Mix',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const HeavyRotationSettingsSheet(),
+        );
+      },
+    ),
+
+    // 61. Smart Playlist: Recently Added
+    QolFeatureDefinition(
+      id: 'smart_playlist_recently_added',
+      name: 'Smart Playlist: Recently Added',
+      description:
+          'Real-time chronological feed of newly added songs across all playlists.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.new_releases_rounded,
+      moduleFile: 'library/smart_playlist_recently_added.dart',
+      badge: 'Smart Mix',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const RecentlyAddedPlaylistSheet(),
+        );
+      },
+    ),
+
+    // 62. Home Speed Dial Quick Playlists
+    QolFeatureDefinition(
+      id: 'smart_playlist_speed_dial',
+      name: 'Home Speed Dial Quick Playlists',
+      description:
+          'Pinned quick-launch tiles on the home screen for your top 6 playlists.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.dialpad_rounded,
+      moduleFile: 'library/smart_playlist_speed_dial.dart',
+      badge: 'Smart Mix',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const SpeedDialMixSheet(),
+        );
+      },
+    ),
+
+    // 63. Encrypted DNS-over-HTTPS (DoH)
+    QolFeatureDefinition(
+      id: 'doh_dns_selector',
+      name: 'Encrypted DNS-over-HTTPS (DoH)',
+      description:
+          'Bypass ISP audio CDN blocks with encrypted Cloudflare, Google, or Quad9 DNS.',
+      category: QolCategory.convenience,
+      icon: Icons.lock_outline_rounded,
+      moduleFile: 'network/doh_dns_selector.dart',
+      badge: 'Network',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: DohDnsSelectorCard(),
+          ),
+        );
+      },
+    ),
+
+    // 64. Resilient Stream Glitch Recovery
+    QolFeatureDefinition(
+      id: 'exponential_backoff_recovery',
+      name: 'Resilient Stream Glitch Recovery',
+      description:
+          'Seamless jitter-dampened retry logic that recovers dropped audio streams without pausing.',
+      category: QolCategory.playback,
+      icon: Icons.replay_rounded,
+      moduleFile: 'network/exponential_backoff_recovery.dart',
+      badge: 'Network',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: NetworkRecoveryStatsCard(),
+          ),
+        );
+      },
+    ),
+
+    // 65. Full App Backup & Restore (Zip)
+    QolFeatureDefinition(
+      id: 'full_app_backup_restore',
+      name: 'Full App Backup & Restore (Zip)',
+      description:
+          'One-click archive and import of playlists, favorites, settings, and EQ presets.',
+      category: QolCategory.libraryData,
+      icon: Icons.archive_rounded,
+      moduleFile: 'network/full_app_backup_restore.dart',
+      badge: 'Backup',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: BackupRestoreCard(),
+          ),
+        );
+      },
+    ),
+
+    // 66. Sleep Timer Gradual Fadeout
+    QolFeatureDefinition(
+      id: 'gradual_sleep_fadeout',
+      name: 'Sleep Timer Gradual Fadeout',
+      description:
+          'Smooth logarithmic volume decrescendo over the last 60 seconds of sleep timer.',
+      category: QolCategory.playback,
+      icon: Icons.bedtime_rounded,
+      moduleFile: 'network/gradual_sleep_fadeout.dart',
+      badge: 'Timer',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: SleepTimerFadeoutToggleTile(),
+          ),
+        );
+      },
+    ),
+
+    // 67. Audio Prefetch Lookahead Buffer
+    QolFeatureDefinition(
+      id: 'lookahead_buffer_slider',
+      name: 'Audio Prefetch Lookahead Buffer',
+      description:
+          'Tune pre-buffering duration from 10s up to 120s for stutter-free subway/train listening.',
+      category: QolCategory.playback,
+      icon: Icons.hourglass_top_rounded,
+      moduleFile: 'network/lookahead_buffer_slider.dart',
+      badge: 'Buffer',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: LookaheadBufferSliderCard(),
+          ),
+        );
+      },
+    ),
+
+    // 68. LRU Disk Cache Quota Manager
+    QolFeatureDefinition(
+      id: 'lru_cache_quota_manager',
+      name: 'LRU Disk Cache Quota Manager',
+      description:
+          'Set custom cache limits (500MB to 10GB) with automatic least-recently-used eviction.',
+      category: QolCategory.libraryData,
+      icon: Icons.storage_rounded,
+      moduleFile: 'network/lru_cache_quota_manager.dart',
+      badge: 'Storage',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: CacheQuotaSelectorCard(),
+          ),
+        );
+      },
+    ),
+
+    // 69. Metered Bandwidth Saver
+    QolFeatureDefinition(
+      id: 'metered_connection_guard',
+      name: 'Metered Bandwidth Saver',
+      description:
+          'Automatically throttle streaming bitrate and disable video/canvas on cellular hotspot.',
+      category: QolCategory.convenience,
+      icon: Icons.data_saver_on_rounded,
+      moduleFile: 'network/metered_connection_guard.dart',
+      badge: 'Network',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: MeteredConnectionSettingsTile(),
+          ),
+        );
+      },
+    ),
+
+    // 70. Real-Time Stream Health Monitor
+    QolFeatureDefinition(
+      id: 'stream_health_diagnostic',
+      name: 'Real-Time Stream Health Monitor',
+      description:
+          'Inspect live buffer level, ping latency, bitrate, and codec details during playback.',
+      category: QolCategory.playback,
+      icon: Icons.monitor_heart_rounded,
+      moduleFile: 'network/stream_health_diagnostic.dart',
+      badge: 'Diagnostics',
+      onTriggerDemo: (context, ref) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => const StreamHealthDetailDialog(),
+        );
+      },
+    ),
+
+    // 71. A-B Loop Section Repeater
+    QolFeatureDefinition(
+      id: 'ab_loop_controller',
+      name: 'A-B Loop Section Repeater',
+      description:
+          'Set start (A) and end (B) timestamp markers to loop song passages endlessly for practice.',
+      category: QolCategory.playback,
+      icon: Icons.repeat_one_on_rounded,
+      moduleFile: 'queue/ab_loop_controller.dart',
+      badge: 'Playback',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: AbLoopFloatingWidget(),
+          ),
+        );
+      },
+    ),
+
+    // 72. Auto-Pause on Desktop Screen Lock
+    QolFeatureDefinition(
+      id: 'desktop_lock_pause_listener',
+      name: 'Auto-Pause on Desktop Screen Lock',
+      description:
+          'Automatically pause playback when Linux session locks or screensaver turns on via D-Bus.',
+      category: QolCategory.convenience,
+      icon: Icons.lock_clock_rounded,
+      moduleFile: 'queue/desktop_lock_pause_listener.dart',
+      badge: 'Linux',
+      isDesktopOnly: true,
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: DesktopLockPauseToggleTile(),
+          ),
+        );
+      },
+    ),
+
+    // 73. Multi-Track Batch Queue Reorder
+    QolFeatureDefinition(
+      id: 'multi_track_batch_reorder',
+      name: 'Multi-Track Batch Queue Reorder',
+      description:
+          'Shift-select multiple queue items to move them to top, bottom, or remove together.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.checklist_rounded,
+      moduleFile: 'queue/multi_track_batch_reorder.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: QueueBatchActionBar(),
+          ),
+        );
+      },
+    ),
+
+    // 74. Priority Play Next Queue VIP
+    QolFeatureDefinition(
+      id: 'priority_play_next',
+      name: 'Priority Play Next Queue VIP',
+      description:
+          'Insert selected track into VIP queue slot to play immediately after the current song.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.low_priority_rounded,
+      moduleFile: 'queue/priority_play_next.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const PriorityQueueView(),
+        );
+      },
+    ),
+
+    // 75. Queue Total Duration & End Clock
+    QolFeatureDefinition(
+      id: 'queue_duration_counter',
+      name: 'Queue Total Duration & End Clock',
+      description:
+          'Displays aggregate remaining hours:minutes and calculates projected finish clock time.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.timer_rounded,
+      moduleFile: 'queue/queue_duration_counter.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const QueueDurationDetailModal(),
+        );
+      },
+    ),
+
+    // 76. Queue Undo / Redo History Stack
+    QolFeatureDefinition(
+      id: 'queue_history_stack',
+      name: 'Queue Undo / Redo History Stack',
+      description:
+          'Undo accidental queue clears or track skips with a full undo/redo action stack.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.undo_rounded,
+      moduleFile: 'queue/queue_history_stack.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: QueueUndoRedoBar(),
+          ),
+        );
+      },
+    ),
+
+    // 77. Instant Queue Search & Filter
+    QolFeatureDefinition(
+      id: 'queue_search_filter',
+      name: 'Instant Queue Search & Filter',
+      description:
+          'Real-time search bar to find and jump to songs inside large playlists and queues.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.filter_list_rounded,
+      moduleFile: 'queue/queue_search_filter.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: QueueSearchHeaderField(),
+          ),
+        );
+      },
+    ),
+
+    // 78. 1-Click Save Queue as Playlist
+    QolFeatureDefinition(
+      id: 'save_queue_as_playlist',
+      name: '1-Click Save Queue as Playlist',
+      description:
+          'Save current active listening queue as a permanent playlist with one tap.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.playlist_add_check_circle_rounded,
+      moduleFile: 'queue/save_queue_as_playlist.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => const SaveQueueDialog(),
+        );
+      },
+    ),
+
+    // 79. Smart BPM & Camelot Key Shuffle
+    QolFeatureDefinition(
+      id: 'smart_bpm_shuffle',
+      name: 'Smart BPM & Camelot Key Shuffle',
+      description:
+          'Intelligent DJ-style queue shuffle that sorts adjacent songs by matching tempo and musical key.',
+      category: QolCategory.playlistQueue,
+      icon: Icons.shuffle_on_rounded,
+      moduleFile: 'queue/smart_bpm_shuffle.dart',
+      badge: 'Queue',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const SmartShuffleSettingsModal(),
+        );
+      },
+    ),
   ];
 
   static QolFeatureDefinition? findById(String id) {
@@ -934,7 +2140,7 @@ class _QolFeaturesHubScreenState extends ConsumerState<QolFeaturesHubScreen> {
                   controller: _searchController,
                   onChanged: (val) => setState(() => _searchQuery = val),
                   decoration: InputDecoration(
-                    hintText: 'Search 26+ enhancements...',
+                    hintText: 'Search 75+ enhancements...',
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
@@ -1221,7 +2427,7 @@ class _QolFeatureCard extends StatelessWidget {
                         child: Switch(
                           value: liveToggleValue!,
                           onChanged: onLiveToggleChanged,
-                          activeColor: tokens.accent,
+                          activeThumbColor: tokens.accent,
                         ),
                       ),
                   ],

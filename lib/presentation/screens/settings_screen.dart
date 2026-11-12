@@ -33,6 +33,7 @@ import 'onboarding_screen.dart';
 import '../providers/spotify_import_providers.dart';
 import '../../data/services/spotify_auth_service.dart';
 import 'spotify_import_screen.dart';
+import '../../features/qol/qol_features.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -410,6 +411,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Section 0.1: Connected Accounts
           _buildSectionHeader('Connected Services'),
           _buildSpotifyAccountCard(context, tokens),
+          const SizedBox(height: 24),
+
+          // Section 0.2: Quality of Life (50+ Features)
+          _buildSectionHeader('Quality of Life (50+ Features)'),
+          _buildCard(
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                ),
+                child: Icon(Icons.auto_awesome_rounded, color: tokens.accent, size: 22),
+              ),
+              title: const Text(
+                'Quality of Life Hub',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              subtitle: Text(
+                'Explore, customize, and toggle 50+ DSP, lyrics, queue, and desktop enhancements.',
+                style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  border: Border.all(color: tokens.accent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  '50+ NEW',
+                  style: TextStyle(
+                    color: tokens.accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const QolFeaturesHubScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
           const SizedBox(height: 24),
 
           // Section 0.5: Appearance

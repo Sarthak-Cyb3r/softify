@@ -9,6 +9,7 @@ import '../screens/music_screensaver_screen.dart';
 import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'queue_bottom_sheet.dart';
+import '../../features/qol/qol_features.dart';
 import 'shared/app_slider.dart';
 import 'shared/app_network_image.dart';
 import 'shared/app_surface.dart';
@@ -443,6 +444,29 @@ class _DesktopPlayerBarState extends ConsumerState<DesktopPlayerBar> {
                     color: AppTheme.textSecondary,
                   ),
                   onPressed: () => _openQueueModal(context),
+                ),
+                const SizedBox(width: 4),
+
+                // QoL Features Hub (50+) Launcher
+                IconButton(
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    minimumSize: const Size(28, 28),
+                    padding: const EdgeInsets.all(4),
+                  ),
+                  iconSize: 18,
+                  tooltip: 'QoL Features Hub (50+)',
+                  icon: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppTheme.accent,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const QolFeaturesHubScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 4),
 

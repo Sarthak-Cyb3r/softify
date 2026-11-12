@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'wrapped_insights_dialog.dart';
 import '../../features/qol/keyboard_shortcuts_dialog.dart';
+import '../../features/qol/qol_features.dart';
 import 'shared/app_surface.dart';
 
 /// Desktop Sidebar adhering to Content-First Spotify-inspired design:
@@ -204,6 +205,17 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  _buildFeatureItem(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'QoL Features Hub (50+)',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const QolFeaturesHubScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   _buildFeatureItem(
                     icon: Icons.tune_rounded,
                     label: 'Equalizer & DSP',
