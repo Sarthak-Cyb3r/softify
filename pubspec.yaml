@@ -33,6 +33,7 @@ dependencies:
   media_kit_native_event_loop: ^1.0.9
   url_launcher: ^6.3.3
   audio_service_mpris: '>=0.2.1 <2.0.0'
+  dbus: ^0.8.0
   device_info_plus: ^13.3.0
   xml: ^6.5.0
   protobuf: ^6.1.0

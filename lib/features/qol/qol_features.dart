@@ -37,6 +37,70 @@ export 'shake_to_shuffle.dart';
 export 'sleep_timer_track_end.dart';
 export 'track_share_helper.dart';
 export 'track_tag_editor.dart';
+// DSP & Audio Engine Extensions
+export 'dsp/linux_audio_sink_selector.dart';
+export 'dsp/bs2b_crossfeed_service.dart';
+export 'dsp/mono_downmix_service.dart';
+export 'dsp/pitch_shifter.dart' hide SharedPreferences;
+export 'dsp/quick_preset_cycler.dart';
+export 'dsp/silence_trimmer_service.dart';
+export 'dsp/stereo_balance_controller.dart' hide SharedPreferences;
+export 'dsp/target_lufs_selector.dart' hide SharedPreferences;
+export 'dsp/true_crossfade_engine.dart';
+
+// Desktop & System Integration
+export 'desktop/command_palette.dart' hide SharedPreferences;
+export 'desktop/discord_privacy_masker.dart' hide SharedPreferences;
+export 'desktop/global_media_hotkeys.dart' hide VisualKeycap, KeycapComboWidget, SharedPreferences;
+export 'desktop/middle_click_mute.dart' hide SharedPreferences;
+export 'desktop/mpris_seek_handler.dart';
+export 'desktop/pip_floating_mini_player.dart' hide SharedPreferences;
+export 'desktop/single_instance_guard.dart';
+export 'desktop/softify_cli_service.dart';
+export 'desktop/system_tray_manager.dart' hide SharedPreferences;
+
+// Lyrics & Visualizer Enhancements
+export 'lyrics/ambient_clock_screensaver.dart' hide SharedPreferences;
+export 'lyrics/canvas_wave_visualizer.dart' hide SharedPreferences;
+export 'lyrics/dynamic_cover_color_palette.dart';
+export 'lyrics/instant_lyric_translator.dart' hide SharedPreferences;
+export 'lyrics/karaoke_duet_highlighter.dart' hide SharedPreferences;
+export 'lyrics/lrc_lyrics_exporter.dart';
+export 'lyrics/lyrics_font_switcher.dart' hide SharedPreferences;
+export 'lyrics/lyrics_sync_offset_slider.dart' hide SharedPreferences;
+export 'lyrics/transliteration_switcher.dart' hide SharedPreferences;
+
+// Library & Smart Playlists
+export 'library/custom_playlist_cover_picker.dart' hide SharedPreferences;
+export 'library/library_stats_dashboard.dart' hide SharedPreferences;
+export 'library/listening_history_exporter.dart';
+export 'library/playlist_duplicate_cleaner.dart';
+export 'library/playlist_folder_manager.dart' hide SharedPreferences;
+export 'library/smart_playlist_forgotten_favorites.dart';
+export 'library/smart_playlist_heavy_rotation.dart';
+export 'library/smart_playlist_recently_added.dart';
+export 'library/smart_playlist_speed_dial.dart';
+
+// Network & Buffer Optimization
+export 'network/doh_dns_selector.dart';
+export 'network/exponential_backoff_recovery.dart';
+export 'network/full_app_backup_restore.dart';
+export 'network/gradual_sleep_fadeout.dart';
+export 'network/lookahead_buffer_slider.dart' hide SharedPreferences;
+export 'network/lru_cache_quota_manager.dart' hide SharedPreferences;
+export 'network/metered_connection_guard.dart';
+export 'network/stream_health_diagnostic.dart';
+
+// Queue & Timeline Enhancements
+export 'queue/ab_loop_controller.dart' hide SharedPreferences;
+export 'queue/desktop_lock_pause_listener.dart' hide SharedPreferences;
+export 'queue/multi_track_batch_reorder.dart';
+export 'queue/priority_play_next.dart';
+export 'queue/queue_duration_counter.dart';
+export 'queue/queue_history_stack.dart';
+export 'queue/queue_search_filter.dart';
+export 'queue/save_queue_as_playlist.dart';
+export 'queue/smart_bpm_shuffle.dart' hide SharedPreferences;
 
 // ----------------------------------------------------------------------------
 // Internal imports for Registry & Showcase Screen
@@ -63,6 +127,7 @@ import 'shake_to_shuffle.dart';
 import 'sleep_timer_track_end.dart';
 import 'track_share_helper.dart';
 import 'track_tag_editor.dart';
+import 'desktop/system_tray_manager.dart' hide SharedPreferences;
 
 // ============================================================================
 // QoL Feature Categories
@@ -755,6 +820,31 @@ class QolFeatureRegistry {
                   : 'Offline Mode: DISABLED (Online streaming active)',
             ),
             duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+    ),
+
+    // 27. Linux System Tray Menu & Controls
+    QolFeatureDefinition(
+      id: 'system_tray_manager',
+      name: 'Linux System Tray Menu & Controls',
+      description:
+          'Native Linux StatusNotifierItem integration with playback controls, mute toggle, and minimize-to-tray.',
+      category: QolCategory.convenience,
+      icon: Icons.desktop_windows_rounded,
+      moduleFile: 'desktop/system_tray_manager.dart',
+      isDesktopOnly: true,
+      hasToggle: true,
+      badge: 'Linux',
+      onTriggerDemo: (context, ref) {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) => const Padding(
+            padding: EdgeInsets.all(20),
+            child: LinuxSystemTraySettingsCard(),
           ),
         );
       },

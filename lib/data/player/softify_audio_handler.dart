@@ -724,9 +724,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
             _preloadedStreamInfo = null;
           }
         }
-        final effectiveCrossfade = isNaturalTransition
-            ? (transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack))
-            : (_crossfadeSeconds > 0 ? const Duration(milliseconds: 250) : Duration.zero);
+        final effectiveCrossfade =
+            transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack);
         try {
           await _player.playPreloadedNext(
             crossfade: effectiveCrossfade,
@@ -767,9 +766,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
             _preloadedStreamInfo = null;
           }
         }
-        final effectiveCrossfade = isNaturalTransition
-            ? (transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack))
-            : (_crossfadeSeconds > 0 ? const Duration(milliseconds: 250) : Duration.zero);
+        final effectiveCrossfade =
+            transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack);
         try {
           await _player.playPreloadedNext(
             crossfade: effectiveCrossfade,

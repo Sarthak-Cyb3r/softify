@@ -174,8 +174,11 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
     _hasPreloadedNext = true;
   }
 
+  Duration lastCrossfadePassed = Duration.zero;
+
   @override
   Future<void> playPreloadedNext({Duration crossfade = Duration.zero}) async {
+    lastCrossfadePassed = crossfade;
     if (_hasPreloadedNext) {
       lastLoadedUrl = _preloadedUrl;
       lastLoadedFilePath = _preloadedFilePath;
@@ -493,6 +496,29 @@ void main() {
       expect(handler.currentTrack?.id, track2.id);
       expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-2.m4a');
       expect(fakePlayer.playing, isTrue);
+
+      await handler.dispose();
+    });
+
+    test('Crossfade Overlap: skipToNext uses configured crossfade duration instead of ducking', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      handler.setCrossfadeSeconds(6);
+      await handler.setQueue([track1, track2], startIndex: 0);
+      await pumpEventQueue();
+
+      expect(fakePlayer.hasPreloadedNext, isTrue);
+
+      await handler.skipToNext();
+      await pumpEventQueue();
+
+      expect(fakePlayer.lastCrossfadePassed, const Duration(seconds: 6));
+      expect(handler.currentTrack?.id, track2.id);
 
       await handler.dispose();
     });

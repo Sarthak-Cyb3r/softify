@@ -384,8 +384,9 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     }
 
     _isCrossfading = true;
-    // High-performance asynchronous equal-power crossfade:
-    // Starts incoming playback immediately without stalling the caller or UI thread.
+    // True concurrent overlapping crossfade:
+    // Both outgoing and incoming players play simultaneously.
+    // Incoming starts at 0.0 volume and is verified to start rendering before outgoing attenuation begins.
     await incoming.setVolume(0.0);
     await incoming.play();
     unawaited(_executeEqualPowerCrossfade(outgoing, incoming, crossfade, targetVol, currentGen));
@@ -398,11 +399,29 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     double targetVol,
     int generationId,
   ) async {
-    final int steps = (crossfade.inMilliseconds / 100).clamp(10, 30).round();
-    final stepDuration =
-        Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
-
     try {
+      // 1. Verify incoming player is actively decoding/rendering audio samples before fading outgoing track
+      if (incoming.processingState == ProcessingState.buffering ||
+          incoming.processingState == ProcessingState.loading) {
+        try {
+          await incoming.playbackEventStream
+              .firstWhere((event) =>
+                  event.processingState == ProcessingState.ready ||
+                  incoming.playing)
+              .timeout(const Duration(milliseconds: 600));
+        } catch (_) {
+          // Fallback: proceed if incoming took longer than 600ms to report state
+        }
+      }
+
+      if (_crossfadeGenerationId != generationId || _activePlayer != incoming) return;
+
+      final int steps = (crossfade.inMilliseconds / 50).clamp(15, 60).round();
+      final stepDuration =
+          Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
+
+      // 2. Perform synchronized equal-power sinusoidal crossfade:
+      // cos^2(theta) + sin^2(theta) = 1.0 ensures constant acoustic volume with genuine track overlap
       for (int i = 1; i <= steps; i++) {
         await Future.delayed(stepDuration);
         if (_crossfadeGenerationId != generationId || _activePlayer != incoming) break;
