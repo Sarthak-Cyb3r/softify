@@ -548,13 +548,16 @@ Comment=Ad-free, studio-fidelity music streaming application
 Exec=${LAUNCHER_SCRIPT} %u
 Icon=softify
 Terminal=false
-StartupWMClass=softify
+StartupWMClass=com.softify.softify
 Categories=AudioVideo;Audio;Player;Music;
 Keywords=music;audio;stream;player;lyrics;spotify;saavn;
 MimeType=x-scheme-handler/softify;
 StartupNotify=true
+X-GNOME-UsesNotifications=true
 EOF
 chmod 644 "${DESKTOP_FILE}"
+cp -f "${DESKTOP_FILE}" "${DESKTOP_DIR}/com.softify.softify.desktop"
+chmod 644 "${DESKTOP_DIR}/com.softify.softify.desktop"
 log_success "Installed desktop entry: ${DESKTOP_FILE}"
 
 # Update Desktop & Icon Caches
