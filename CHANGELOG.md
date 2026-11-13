@@ -2,7 +2,7 @@
 
 All notable changes to the Softify project are documented in this file.
 
-## [4.0.3] - 2026-11-13
+## [4.0.4] - 2026-11-13
 
 ### 🐛 Critical Bug Fix: Wrong Track Playback & Audio Desynchronization
 - **Gapless Preload Standby Desynchronization Guard (`softify_audio_handler.dart`)**:
