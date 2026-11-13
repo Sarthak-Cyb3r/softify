@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dart_des/dart_des.dart';
 
+import '../../core/native/softify_native.dart';
 import '../../domain/entities/audio_quality_preset.dart';
 import '../../domain/entities/stream_info.dart';
 import '../../domain/entities/track.dart';
@@ -352,42 +353,52 @@ class SaavnStreamResolver implements IStreamResolver {
       throw Exception('No encrypted media URL found for Saavn pid "$pid"');
     }
 
-    // Decrypt media URL using DES-ECB with key '38346591'
-    final keyBytes = utf8.encode(_desKey);
-    final des = DES(key: keyBytes, mode: DESMode.ECB);
-    final encryptedBytes = base64.decode(encryptedMediaUrl);
-    final decryptedBytes = des.decrypt(encryptedBytes);
-    final rawDecrypted = utf8.decode(decryptedBytes, allowMalformed: true);
+    // Decrypt media URL using native Rust engine, with graceful Dart fallback
+    final int targetBitrate = switch (quality) {
+      AudioQualityPreset.low => 96000,
+      AudioQualityPreset.standard => 160000,
+      AudioQualityPreset.high => 320000,
+    };
 
-    // Bulletproof extraction of clean URL up to '.mp4'
-    final mp4Index = rawDecrypted.indexOf('.mp4');
-    final rawMp4Url = mp4Index != -1
-        ? rawDecrypted.substring(0, mp4Index + 4)
-        : rawDecrypted.replaceAll(RegExp(r'[^\x20-\x7E]'), '').trim();
-    // Enforce HTTPS to prevent Android cleartext network traffic blocks
-    final baseMp4Url = rawMp4Url.startsWith('http://')
-        ? rawMp4Url.replaceFirst('http://', 'https://')
-        : rawMp4Url;
+    String? finalUrl = SoftifyNativeEngine.instance.decryptSaavnUrl(
+      encryptedMediaUrl,
+      targetBitrate: targetBitrate,
+    );
 
-    // Strict 320 kbps Studio Master Invariant (preserve 320 kbps on all devices)
-    final String finalUrl;
-    final int bitrate;
+    if (finalUrl == null) {
+      // Fallback: Decrypt media URL using pure Dart DES-ECB with key '38346591'
+      final keyBytes = utf8.encode(_desKey);
+      final des = DES(key: keyBytes, mode: DESMode.ECB);
+      final encryptedBytes = base64.decode(encryptedMediaUrl);
+      final decryptedBytes = des.decrypt(encryptedBytes);
+      final rawDecrypted = utf8.decode(decryptedBytes, allowMalformed: true);
 
-    switch (quality) {
-      case AudioQualityPreset.low:
-        finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_96.mp4');
-        bitrate = 96000;
-        break;
-      case AudioQualityPreset.standard:
-        finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_160.mp4');
-        bitrate = 160000;
-        break;
-      case AudioQualityPreset.high:
-        // Studio Master 320kbps stream hosted on JioSaavn CDN edges.
-        finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_320.mp4');
-        bitrate = 320000;
-        break;
+      // Bulletproof extraction of clean URL up to '.mp4'
+      final mp4Index = rawDecrypted.indexOf('.mp4');
+      final rawMp4Url = mp4Index != -1
+          ? rawDecrypted.substring(0, mp4Index + 4)
+          : rawDecrypted.replaceAll(RegExp(r'[^\x20-\x7E]'), '').trim();
+      // Enforce HTTPS to prevent Android cleartext network traffic blocks
+      final baseMp4Url = rawMp4Url.startsWith('http://')
+          ? rawMp4Url.replaceFirst('http://', 'https://')
+          : rawMp4Url;
+
+      // Strict 320 kbps Studio Master Invariant (preserve 320 kbps on all devices)
+      switch (quality) {
+        case AudioQualityPreset.low:
+          finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_96.mp4');
+          break;
+        case AudioQualityPreset.standard:
+          finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_160.mp4');
+          break;
+        case AudioQualityPreset.high:
+          // Studio Master 320kbps stream hosted on JioSaavn CDN edges.
+          finalUrl = baseMp4Url.replaceAll(RegExp(r'_(48|96|160|320)\.mp4'), '_320.mp4');
+          break;
+      }
     }
+
+    final bitrate = targetBitrate;
 
     return StreamInfo(
       url: Uri.parse(finalUrl),
@@ -401,6 +412,8 @@ class SaavnStreamResolver implements IStreamResolver {
   }
 
   String _normalize(String str) {
+    final native = SoftifyNativeEngine.instance.normalizeText(str);
+    if (native != null) return native;
     return str
         .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()
@@ -411,6 +424,8 @@ class SaavnStreamResolver implements IStreamResolver {
   }
 
   static String _phoneticSimplify(String s) {
+    final native = SoftifyNativeEngine.instance.phoneticSimplify(s);
+    if (native != null) return native;
     return s
         .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()

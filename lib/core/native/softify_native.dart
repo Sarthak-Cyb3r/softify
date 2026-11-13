@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
 typedef _NativeScanDirectoryC = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
@@ -22,6 +23,21 @@ typedef _NativeComputeSpectrumDart = void Function(
   ffi.Pointer<ffi.Float>,
 );
 
+typedef _NativeDecryptSaavnMediaUrlC = ffi.Pointer<Utf8> Function(
+  ffi.Pointer<Utf8>,
+  ffi.Uint32,
+);
+typedef _NativeDecryptSaavnMediaUrlDart = ffi.Pointer<Utf8> Function(
+  ffi.Pointer<Utf8>,
+  int,
+);
+
+typedef _NativeNormalizeTextC = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+typedef _NativeNormalizeTextDart = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+
+typedef _NativePhoneticSimplifyC = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+typedef _NativePhoneticSimplifyDart = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+
 class SoftifyNativeEngine {
   static SoftifyNativeEngine? _instance;
   static SoftifyNativeEngine get instance => _instance ??= SoftifyNativeEngine._();
@@ -33,6 +49,9 @@ class SoftifyNativeEngine {
   _NativeScanDirectoryDart? _scanDirectory;
   _NativeFreeStringDart? _freeString;
   _NativeComputeSpectrumDart? _computeSpectrum;
+  _NativeDecryptSaavnMediaUrlDart? _decryptSaavnMediaUrl;
+  _NativeNormalizeTextDart? _normalizeText;
+  _NativePhoneticSimplifyDart? _phoneticSimplify;
 
   SoftifyNativeEngine._() {
     _initDylib();
@@ -70,6 +89,15 @@ class SoftifyNativeEngine {
         _computeSpectrum = _dylib!
             .lookup<ffi.NativeFunction<_NativeComputeSpectrumC>>('softify_compute_spectrum')
             .asFunction();
+        _decryptSaavnMediaUrl = _dylib!
+            .lookup<ffi.NativeFunction<_NativeDecryptSaavnMediaUrlC>>('softify_decrypt_saavn_media_url')
+            .asFunction();
+        _normalizeText = _dylib!
+            .lookup<ffi.NativeFunction<_NativeNormalizeTextC>>('softify_normalize_text')
+            .asFunction();
+        _phoneticSimplify = _dylib!
+            .lookup<ffi.NativeFunction<_NativePhoneticSimplifyC>>('softify_phonetic_simplify')
+            .asFunction();
         _isAvailable = true;
       } catch (_) {
         _isAvailable = false;
@@ -95,6 +123,93 @@ class SoftifyNativeEngine {
       return list.cast<Map<String, dynamic>>();
     } finally {
       calloc.free(pathPtr);
+    }
+  }
+
+  /// High-performance DES-ECB media URL decryptor & 320 Kbps stream rewriter in Rust.
+  String? decryptSaavnUrl(String encryptedB64, {int targetBitrate = 320000}) {
+    if (!_isAvailable || _decryptSaavnMediaUrl == null || _freeString == null) {
+      return null;
+    }
+
+    final b64Ptr = encryptedB64.toNativeUtf8();
+    try {
+      final resultPtr = _decryptSaavnMediaUrl!(b64Ptr, targetBitrate);
+      if (resultPtr == ffi.nullptr) return null;
+
+      final url = resultPtr.toDartString();
+      _freeString!(resultPtr);
+      return url;
+    } catch (_) {
+      return null;
+    } finally {
+      calloc.free(b64Ptr);
+    }
+  }
+
+  /// SIMD-speed Unicode-aware text normalizer in Rust.
+  String? normalizeText(String input) {
+    if (!_isAvailable || _normalizeText == null || _freeString == null) {
+      return null;
+    }
+
+    final inputPtr = input.toNativeUtf8();
+    try {
+      final resultPtr = _normalizeText!(inputPtr);
+      if (resultPtr == ffi.nullptr) return null;
+
+      final normalized = resultPtr.toDartString();
+      _freeString!(resultPtr);
+      return normalized;
+    } catch (_) {
+      return null;
+    } finally {
+      calloc.free(inputPtr);
+    }
+  }
+
+  /// Phonetic string simplification in Rust for fuzzy catalog matching.
+  String? phoneticSimplify(String input) {
+    if (!_isAvailable || _phoneticSimplify == null || _freeString == null) {
+      return null;
+    }
+
+    final inputPtr = input.toNativeUtf8();
+    try {
+      final resultPtr = _phoneticSimplify!(inputPtr);
+      if (resultPtr == ffi.nullptr) return null;
+
+      final simplified = resultPtr.toDartString();
+      _freeString!(resultPtr);
+      return simplified;
+    } catch (_) {
+      return null;
+    } finally {
+      calloc.free(inputPtr);
+    }
+  }
+
+  /// Computes spectrum magnitudes for visualizer from raw PCM float samples.
+  Float32List? computeSpectrum(Float32List samples, int binCount) {
+    if (!_isAvailable || _computeSpectrum == null || samples.isEmpty || binCount == 0) {
+      return null;
+    }
+
+    final samplesPtr = calloc<ffi.Float>(samples.length);
+    final outputPtr = calloc<ffi.Float>(binCount);
+
+    try {
+      samplesPtr.asTypedList(samples.length).setAll(0, samples);
+      _computeSpectrum!(samplesPtr, samples.length, binCount, outputPtr);
+
+      final result = Float32List(binCount);
+      result.setAll(0, outputPtr.asTypedList(binCount));
+      return result;
+    } catch (_) {
+      return null;
+    } finally {
+      calloc.free(samplesPtr);
+      calloc.free(outputPtr);
     }
   }
 }

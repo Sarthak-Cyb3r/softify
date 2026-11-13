@@ -32,6 +32,74 @@ pub extern "C" fn softify_scan_directory(path: *const c_char) -> *mut c_char {
     }
 }
 
+/// Decrypts JioSaavn encrypted_media_url to 320 Kbps CD-quality studio stream URL.
+/// Returns null pointer on error. Caller must free using `softify_free_string`.
+#[no_mangle]
+pub extern "C" fn softify_decrypt_saavn_media_url(
+    encrypted_b64: *const c_char,
+    target_bitrate: u32,
+) -> *mut c_char {
+    if encrypted_b64.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let c_str = unsafe { CStr::from_ptr(encrypted_b64) };
+    let b64_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    match cipher::decrypt_saavn_media_url(b64_str, target_bitrate) {
+        Ok(url) => match CString::new(url) {
+            Ok(c) => c.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Normalizes Unicode text: strips non-breaking spaces, brackets, non-alphanumeric chars.
+/// Returns allocated C-string. Caller must free using `softify_free_string`.
+#[no_mangle]
+pub extern "C" fn softify_normalize_text(input: *const c_char) -> *mut c_char {
+    if input.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let c_str = unsafe { CStr::from_ptr(input) };
+    let text = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let normalized = cipher::normalize_text(text);
+    match CString::new(normalized) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Phonetically simplifies normalized text by collapsing vowel clusters.
+/// Returns allocated C-string. Caller must free using `softify_free_string`.
+#[no_mangle]
+pub extern "C" fn softify_phonetic_simplify(input: *const c_char) -> *mut c_char {
+    if input.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let c_str = unsafe { CStr::from_ptr(input) };
+    let text = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let simplified = cipher::phonetic_simplify(text);
+    match CString::new(simplified) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
 /// Computes spectrum magnitudes for visualizer from raw PCM float samples.
 #[no_mangle]
 pub extern "C" fn softify_compute_spectrum(
