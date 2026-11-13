@@ -99,5 +99,17 @@ void main() {
       // Allows legitimate studio tracks
       expect(YoutubeStreamResolver.isDisqualifiedVariant('Starboy', 'Starboy (Official Music Video)'), isFalse);
     });
+
+    test('Resolvers accurately handle Unicode non-breaking spaces (\\u00A0) in metadata without token squashing', () {
+      const spotifyArtistWithNbsp = 'Himesh Reshammiya,\u00A0Vineet Singh,\u00A0Aaman Trikha';
+      const cleanArtist = 'Himesh Reshammiya, Vineet Singh, Aaman Trikha';
+      expect(YoutubeStreamResolver.hasArtistMatch(spotifyArtistWithNbsp, cleanArtist), isTrue);
+
+      const dualArtistNbsp = 'Blackway,\u00A0Black Caviar';
+      expect(YoutubeStreamResolver.hasArtistMatch(dualArtistNbsp, 'Blackway & Black Caviar'), isTrue);
+
+      const titleWithNbsp = "What's\u00A0Up\u00A0Danger";
+      expect(YoutubeStreamResolver.hasTitleMatch(titleWithNbsp, "What's Up Danger"), isTrue);
+    });
   });
 }

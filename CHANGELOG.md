@@ -2,7 +2,20 @@
 
 All notable changes to the Softify project are documented in this file.
 
-## [4.0.2] - 2026-11-12
+## [4.0.3] - 2026-11-13
+
+### 🐛 Critical Bug Fix: Wrong Track Playback & Audio Desynchronization
+- **Gapless Preload Standby Desynchronization Guard (`softify_audio_handler.dart`)**:
+  - `SoftifyAudioHandler` now strictly validates that `_currentlyPreloadingTrackId == nextTrack.id` before triggering `playPreloadedNext()`.
+  - Invalidate standby player buffer and clear preloaded state upon queue modification, reordering, track removal, or manual queue jumps (`skipToQueueItem`, `removeQueueItemAt`).
+  - Completely fixes the bug where skipping or playing a selected track played the audio of a previously preloaded track while the UI displayed the selected track metadata.
+- **Unicode Non-Breaking Space (`\u00A0`) Normalization (`saavn_stream_resolver.dart`, `youtube_stream_resolver.dart`, `spotify_api_service.dart`)**:
+  - Normalized Unicode non-breaking space `\u00A0` to standard ASCII space before stripping punctuation, preventing artist and title token merging (e.g. `Blackway,\u00A0Black Caviar` no longer collapses into `blackwayblack`).
+  - Added automatic database migration in `app_database.dart` to sanitize existing non-breaking spaces across all cached tracks in SQLite.
+- **International & Regional JioSaavn Artist Extraction (`saavn_stream_resolver.dart`)**:
+  - Extracted authentic candidate artists from `more_info['artistMap']['primary_artists']`, `featured_artists`, and `subtitle` prefixes while excluding `starring` Bollywood actors, ensuring international tracks match accurately.
+- **Dynamic Geolocation in InnerTube Service (`youtube_innertube_service.dart`)**:
+  - Removed hardcoded `'gl': 'IN'`, dynamically resolving system locale with standard global `'US'` fallback.
 
 ### 🐛 Bug Fixes & System Stability
 - **Desktop Keyboard Input Collision Fix (`app_scaffold.dart`)**:

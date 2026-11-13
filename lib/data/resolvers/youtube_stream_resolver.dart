@@ -62,19 +62,26 @@ class YoutubeStreamResolver implements IStreamResolver {
           .trim();
       List<String> candidateIds = [];
 
-      // If sourceId is already a valid 11-char YouTube ID, prioritize it
-      if (rawSourceId.length == 11 &&
-          RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(rawSourceId) &&
-          !rawSourceId.startsWith('itunes_')) {
+      final isExplicitYoutubeTrack = track.isYoutube ||
+          track.sourceId.startsWith('yt_') ||
+          track.sourceId.startsWith('ytm_') ||
+          track.id.startsWith('yt_') ||
+          track.id.startsWith('ytm_');
+
+      // If sourceId is already an explicitly verified YouTube ID, prioritize it
+      if (isExplicitYoutubeTrack &&
+          rawSourceId.length == 11 &&
+          RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(rawSourceId)) {
         candidateIds.add(rawSourceId);
       } else {
         final cleanTitle = cleanSongTitle(track.title);
-        final primaryArtist = track.artist.split(RegExp(r'[,/&]')).first.trim();
+        final cleanArtistStr = track.artist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ');
+        final primaryArtist = cleanArtistStr.split(RegExp(r'[,/&]')).first.trim();
 
         final searchQueries = <String>[
           '$cleanTitle $primaryArtist'.trim(),
-          if (track.artist != primaryArtist) '$cleanTitle ${track.artist}'.trim(),
-          if (cleanTitle != track.title) '${track.title} $primaryArtist'.trim(),
+          if (cleanArtistStr != primaryArtist) '$cleanTitle $cleanArtistStr'.trim(),
+          if (cleanTitle != track.title) '${cleanSongTitle(track.title)} $primaryArtist'.trim(),
           if (track.album != null && track.album!.isNotEmpty && track.album != track.title)
             '$cleanTitle ${track.album}'.trim(),
         ];
@@ -424,7 +431,8 @@ class YoutubeStreamResolver implements IStreamResolver {
   ];
 
   static String cleanSongTitle(String title) {
-    var t = title.replaceAll(RegExp(r'[\(\[\{].*?[\)\]\}]'), '');
+    var t = title.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ');
+    t = t.replaceAll(RegExp(r'[\(\[\{].*?[\)\]\}]'), '');
     t = t.replaceAll(
       RegExp(
         r'\s*-\s*(coke studio|live|remastered|mono|stereo|from\s.*).*$',
@@ -432,7 +440,7 @@ class YoutubeStreamResolver implements IStreamResolver {
       ),
       '',
     );
-    return t.trim();
+    return t.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   static bool isDisqualifiedVariant(String rawTargetTitle, String candTitle) {
@@ -447,8 +455,8 @@ class YoutubeStreamResolver implements IStreamResolver {
   }
 
   static bool hasTitleMatch(String targetTitle, String candTitle) {
-    final tClean = cleanSongTitle(targetTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').trim();
-    final cClean = cleanSongTitle(candTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').trim();
+    final tClean = cleanSongTitle(targetTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final cClean = cleanSongTitle(candTitle).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (tClean.isEmpty || cClean.isEmpty) return false;
     if (tClean == cClean) return true;
 
@@ -481,8 +489,8 @@ class YoutubeStreamResolver implements IStreamResolver {
   }
 
   static bool hasArtistMatch(String targetArtist, String candArtist) {
-    final tNorm = targetArtist.toLowerCase().replaceAll('\u00A0', ' ');
-    final cNorm = candArtist.toLowerCase().replaceAll('\u00A0', ' ');
+    final tNorm = targetArtist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').toLowerCase();
+    final cNorm = candArtist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').toLowerCase();
     final targetArtists = tNorm.split(RegExp(r'[,/&]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
     final candArtists = cNorm.split(RegExp(r'[,/&•]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
     for (final ta in targetArtists) {
@@ -540,8 +548,8 @@ class YoutubeStreamResolver implements IStreamResolver {
     final candAlbum = candidate.album?.toLowerCase();
 
     // 4. Exact / close title bonus
-    final cleanTargetTitle = cleanSongTitle(targetTrack.title).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
-    final cleanCandTitle = cleanSongTitle(candTitle).replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    final cleanTargetTitle = cleanSongTitle(targetTrack.title).toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final cleanCandTitle = cleanSongTitle(candTitle).replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (cleanCandTitle == cleanTargetTitle) {
       score += 60;
     } else if (cleanCandTitle.contains(cleanTargetTitle) || cleanTargetTitle.contains(cleanCandTitle)) {
@@ -549,8 +557,8 @@ class YoutubeStreamResolver implements IStreamResolver {
     }
 
     // 4.5 Artist match bonus
-    final cleanTargetArtist = targetTrack.artist.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
-    final cleanCandArtist = candArtist.replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    final cleanTargetArtist = targetTrack.artist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final cleanCandArtist = candArtist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (cleanCandArtist.isNotEmpty && cleanTargetArtist.isNotEmpty) {
       if (cleanCandArtist == cleanTargetArtist || cleanCandArtist.contains(cleanTargetArtist)) {
         score += 35;
@@ -559,8 +567,8 @@ class YoutubeStreamResolver implements IStreamResolver {
 
     // 5. Album match bonus
     if (targetTrack.album != null && candAlbum != null) {
-      final cleanTargetAlbum = targetTrack.album!.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
-      final cleanCandAlbum = candAlbum.replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+      final cleanTargetAlbum = targetTrack.album!.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      final cleanCandAlbum = candAlbum.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
       if (cleanTargetAlbum.isNotEmpty && (cleanCandAlbum.contains(cleanTargetAlbum) || cleanTargetAlbum.contains(cleanCandAlbum))) {
         score += 40;
       }
@@ -611,6 +619,7 @@ class YoutubeStreamResolver implements IStreamResolver {
 
     // 1. Topic channel (official distributor master audio)
     final cleanArtistWords = targetArtist
+        .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
         .split(RegExp(r'\s+'))

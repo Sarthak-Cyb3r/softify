@@ -465,13 +465,21 @@ class YoutubeInnertubeService {
       req.headers.set('Referer', 'https://music.youtube.com/');
       req.headers.set('Content-Type', 'application/json');
 
+      String gl = 'US';
+      try {
+        final localeParts = Platform.localeName.split(RegExp(r'[-_]'));
+        if (localeParts.length > 1 && localeParts[1].length == 2) {
+          gl = localeParts[1].toUpperCase();
+        }
+      } catch (_) {}
+
       final payload = {
         'context': {
           'client': {
             'clientName': 'WEB_REMIX',
             'clientVersion': '1.20240422.01.00',
             'hl': 'en',
-            'gl': 'IN',
+            'gl': gl,
           }
         },
         'query': query,
@@ -646,13 +654,21 @@ class YoutubeInnertubeService {
       req.headers.set('Referer', 'https://music.youtube.com/');
       req.headers.set('Content-Type', 'application/json');
 
+      String gl = 'US';
+      try {
+        final localeParts = Platform.localeName.split(RegExp(r'[-_]'));
+        if (localeParts.length > 1 && localeParts[1].length == 2) {
+          gl = localeParts[1].toUpperCase();
+        }
+      } catch (_) {}
+
       final payload = {
         'context': {
           'client': {
             'clientName': 'WEB_REMIX',
             'clientVersion': '1.20240422.01.00',
             'hl': 'en',
-            'gl': 'IN',
+            'gl': gl,
           }
         },
         'input': clean,

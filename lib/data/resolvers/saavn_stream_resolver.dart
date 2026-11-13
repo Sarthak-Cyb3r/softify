@@ -76,14 +76,17 @@ class SaavnStreamResolver implements IStreamResolver {
       return _pidCache[cacheKey];
     }
 
-    final primaryArtist = track.artist.split(RegExp(r'[,&/]')).first.trim();
-    final cleanArtistQuery = track.artist
+    final cleanArtistStr = track.artist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ');
+    final primaryArtist = cleanArtistStr.split(RegExp(r'[,&/]')).first.trim();
+    final cleanArtistQuery = cleanArtistStr
         .replaceAll(RegExp(r'[,&/]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     final cleanAlbumQuery = (track.album ?? '')
+        .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .replaceAll(RegExp(r'[\(\[].*?[\)\]]'), '')
         .replaceAll(RegExp(r'[,&/]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
     final queriesToTry = <String>{
@@ -140,15 +143,22 @@ class SaavnStreamResolver implements IStreamResolver {
       final candTitle = _normalize(rawCandTitle);
       final candLanguage = (r['language'] ?? '').toString().toLowerCase();
 
-      // Extract candidate artists across primary_artists, artists, music, or singers (EXCLUDE subtitle/album to avoid noise)
+      // Extract candidate artists across primary_artists, featured_artists, artists (excluding actors/starring), singers, or subtitle
       final primaryArtistsList = (moreInfo?['artistMap']?['primary_artists'] as List<dynamic>?)
           ?.map((a) => (a['name'] ?? '').toString())
           .join(', ');
-      final allArtistsList = (moreInfo?['artistMap']?['artists'] as List<dynamic>?)
+      final featuredArtistsList = (moreInfo?['artistMap']?['featured_artists'] as List<dynamic>?)
           ?.map((a) => (a['name'] ?? '').toString())
           .join(', ');
+      final legitimateArtistsList = (moreInfo?['artistMap']?['artists'] as List<dynamic>?)
+          ?.where((a) => a is Map<String, dynamic> && a['role'] != 'starring')
+          .map((a) => (a['name'] ?? '').toString())
+          .join(', ');
+      final subtitleArtist = candSubtitle.contains(' - ')
+          ? candSubtitle.split(' - ').first.trim()
+          : '';
       final candSingers = _normalize(
-        '$primaryArtistsList $allArtistsList ${moreInfo?['music']} ${r['singers']} ${r['primary_artists']}',
+        '$primaryArtistsList $featuredArtistsList $legitimateArtistsList ${moreInfo?['music']} ${r['singers']} ${r['primary_artists']} $subtitleArtist',
       );
 
       // 0. Hard Disqualification: Unwanted Remixes, DJ cuts, Covers, Lofi, Slowed, Acoustic, Karaoke
@@ -392,17 +402,20 @@ class SaavnStreamResolver implements IStreamResolver {
 
   String _normalize(String str) {
     return str
+        .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()
-        .replaceAll(RegExp(r'\s*[\(\[].*?[\)\]]'), '')
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(RegExp(r'\s*[\(\[].*?[\)\]]'), ' ')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
   static String _phoneticSimplify(String s) {
     return s
+        .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()
         .replaceAll(RegExp(r'([aeiou])\1+'), r'$1')
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }

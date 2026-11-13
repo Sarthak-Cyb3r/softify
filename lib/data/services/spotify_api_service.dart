@@ -507,8 +507,8 @@ class SpotifyApiService {
       for (final t in rawTracks) {
         final uri = (t['uri'] as String?) ?? '';
         final id = uri.split(':').lastOrNull ?? '';
-        final title = (t['title'] as String?)?.trim() ?? '';
-        final artist = (t['subtitle'] as String?)?.trim() ?? 'Unknown Artist';
+        final title = (t['title'] as String?)?.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').trim() ?? '';
+        final artist = (t['subtitle'] as String?)?.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').trim() ?? 'Unknown Artist';
         final durationMs = (t['duration'] as num?)?.toInt() ?? 0;
 
         if (title.isEmpty) continue;
@@ -1022,11 +1022,14 @@ class SpotifyApiService {
         (item['duration'] as num?)?.toInt() ??
         0;
 
+    final cleanTitle = title.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final cleanArtist = artist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+
     return Track(
-      id: id.isNotEmpty ? 'spotify_$id' : 'spotify_${title}_$artist',
-      sourceId: id.isNotEmpty ? 'spotify_$id' : 'spotify_${title}_$artist',
-      title: title,
-      artist: artist,
+      id: id.isNotEmpty ? 'spotify_$id' : 'spotify_${cleanTitle}_$cleanArtist',
+      sourceId: id.isNotEmpty ? 'spotify_$id' : 'spotify_${cleanTitle}_$cleanArtist',
+      title: cleanTitle,
+      artist: cleanArtist,
       album: album,
       duration: Duration(milliseconds: durationMs),
       coverUrl: cover,
@@ -1688,11 +1691,14 @@ class SpotifyApiService {
 
     final durationMs = (item['duration_ms'] as num?)?.toInt() ?? 0;
 
+    final cleanTitle = title.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final cleanArtist = artist.replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+
     return Track(
-      id: id.isNotEmpty ? 'spotify_$id' : 'spotify_${title}_$artist',
-      sourceId: id.isNotEmpty ? 'spotify_$id' : 'spotify_${title}_$artist',
-      title: title,
-      artist: artist,
+      id: id.isNotEmpty ? 'spotify_$id' : 'spotify_${cleanTitle}_$cleanArtist',
+      sourceId: id.isNotEmpty ? 'spotify_$id' : 'spotify_${cleanTitle}_$cleanArtist',
+      title: cleanTitle,
+      artist: cleanArtist,
       album: album,
       duration: Duration(milliseconds: durationMs),
       coverUrl: cover,
