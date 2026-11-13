@@ -38,7 +38,9 @@ void main() {
       expect(find.text('Spotify account sync, pure studio audio & high-res art'), findsOneWidget);
 
       // Verify v4.0.2 consumer-friendly cards
+      await tester.scrollUntilVisible(find.text('Spotify Library & Playlists Import'), 150);
       expect(find.text('Spotify Library & Playlists Import'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('High-Resolution Spotify Metadata'), 150);
       expect(find.text('High-Resolution Spotify Metadata'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Studio Audio & Anti-Remix Shield'), 150);
       expect(find.text('Studio Audio & Anti-Remix Shield'), findsOneWidget);
@@ -78,6 +80,7 @@ void main() {
 
       expect(find.text("What's New"), findsOneWidget);
       expect(find.text('v4.0.2'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Spotify Library & Playlists Import'), 150);
       expect(find.text('Spotify Library & Playlists Import'), findsOneWidget);
     });
   });

@@ -61,4 +61,4 @@ jobs:
 
       - name: Run Key Engine & Resolver Tests
         run: |
-          flutter test test/keyboard_shortcuts_and_stream_matching_test.dart test/stream_resolver_test.dart test/remote_config_and_updater_test.dart
+          flutter test test/keyboard_shortcuts_and_stream_matching_test.dart test/update_changelog_test.dart test/remote_config_and_updater_test.dart

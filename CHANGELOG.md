@@ -2,7 +2,14 @@
 
 All notable changes to the Softify project are documented in this file.
 
-## [4.0.4] - 2026-11-13
+## [4.0.2] - 2026-11-13
+
+### 🦀 Native Rust Core Engine & Cryptography Migration
+- **Zero-Dependency DES-ECB Stream Decryption in Rust (`rust/src/cipher.rs`, `rust/src/lib.rs`)**:
+  - Ported JioSaavn 320 Kbps studio master stream decryption into native Rust (`softify_decrypt_saavn_media_url`), eliminating Dart VM crypto allocation overhead.
+  - Implemented high-speed Unicode non-breaking space (`\u00A0`) and phonetic string normalization in Rust (`softify_normalize_text`, `softify_phonetic_simplify`) for instant catalog deduplication.
+  - Bridged via FFI in `lib/core/native/softify_native.dart` with automatic fallback to pure Dart implementation on unsupported platforms.
+  - Pruned over 1,500 lines of obsolete research documents, dead harness code, and legacy milestone scaffolding.
 
 ### 🐛 Critical Bug Fix: Wrong Track Playback & Audio Desynchronization
 - **Gapless Preload Standby Desynchronization Guard (`softify_audio_handler.dart`)**:
