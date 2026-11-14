@@ -79,19 +79,20 @@ fun AppleMusicMainLayout(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { PlayerManager.setAppleMusicTab(tab) }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
-                                Text(
-                                    text = tab.icon,
-                                    fontSize = 18.sp,
-                                    color = if (isSelected) Color(0xFFFF2D55) else Color.White.copy(alpha = 0.5f)
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = tab.label,
+                                    tint = if (isSelected) Color(0xFFFA243C) else Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(22.dp)
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = tab.label,
                                     fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) Color(0xFFFF2D55) else Color.White.copy(alpha = 0.5f)
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected) Color(0xFFFA243C) else Color.White.copy(alpha = 0.5f)
                                 )
                             }
                         }

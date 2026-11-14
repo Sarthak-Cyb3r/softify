@@ -21,6 +21,7 @@ import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.ui.components.EqualizerView
 import com.softify.app.ui.components.QueueView
+import com.softify.app.ui.components.SoftifyIcons
 import com.softify.app.ui.components.SoftifyImage
 import com.softify.app.ui.components.SyncedLyricsView
 
@@ -73,7 +74,12 @@ fun MetrolistPlayerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onClose) {
-                    Text(text = "▼", color = Color.White, fontSize = 18.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.ArrowDown,
+                        contentDescription = "Collapse",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -93,10 +99,11 @@ fun MetrolistPlayerSheet(
                 }
 
                 IconButton(onClick = { PlayerManager.toggleLike(track.id) }) {
-                    Text(
-                        text = if (track.isLiked) "♥" else "♡",
-                        color = if (track.isLiked) palette.primary else Color.White,
-                        fontSize = 22.sp
+                    Icon(
+                        imageVector = if (track.isLiked) SoftifyIcons.HeartFilled else SoftifyIcons.HeartOutlined,
+                        contentDescription = "Like",
+                        tint = if (track.isLiked) palette.primary else Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -217,15 +224,21 @@ fun MetrolistPlayerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { PlayerManager.toggleShuffle() }) {
-                    Text(
-                        text = "🔀",
-                        color = if (isShuffle) palette.primary else Color.White.copy(alpha = 0.4f),
-                        fontSize = 18.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (isShuffle) palette.primary else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 IconButton(onClick = { PlayerManager.previousTrack() }) {
-                    Text(text = "⏮", color = Color.White, fontSize = 28.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.SkipPrevious,
+                        contentDescription = "Previous",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
 
                 // Play / Pause Circle Button
@@ -237,22 +250,29 @@ fun MetrolistPlayerSheet(
                         .clickable { PlayerManager.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isPlaying) "⏸" else "▶",
-                        color = palette.onPrimary,
-                        fontSize = 26.sp
+                    Icon(
+                        imageVector = if (isPlaying) SoftifyIcons.Pause else SoftifyIcons.Play,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = palette.onPrimary,
+                        modifier = Modifier.size(36.dp)
                     )
                 }
 
                 IconButton(onClick = { PlayerManager.nextTrack() }) {
-                    Text(text = "⏭", color = Color.White, fontSize = 28.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.SkipNext,
+                        contentDescription = "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
 
                 IconButton(onClick = { PlayerManager.toggleRepeat() }) {
-                    Text(
-                        text = "🔁",
-                        color = if (isRepeat) palette.primary else Color.White.copy(alpha = 0.4f),
-                        fontSize = 18.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (isRepeat) palette.primary else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -268,26 +288,29 @@ fun MetrolistPlayerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { PlayerManager.toggleLyrics() }) {
-                    Text(
-                        text = "🎤",
-                        color = if (isLyricsOpen) palette.primary else Color.White.copy(alpha = 0.6f),
-                        fontSize = 20.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Lyrics,
+                        contentDescription = "Lyrics",
+                        tint = if (isLyricsOpen) palette.primary else Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 IconButton(onClick = { PlayerManager.toggleQueue() }) {
-                    Text(
-                        text = "☰",
-                        color = if (isQueueOpen) palette.primary else Color.White.copy(alpha = 0.6f),
-                        fontSize = 22.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Queue,
+                        contentDescription = "Queue",
+                        tint = if (isQueueOpen) palette.primary else Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
                 IconButton(onClick = { PlayerManager.toggleEqualizer() }) {
-                    Text(
-                        text = "🎚",
-                        color = if (isEqualizerOpen) palette.primary else Color.White.copy(alpha = 0.6f),
-                        fontSize = 20.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Equalizer,
+                        contentDescription = "Equalizer",
+                        tint = if (isEqualizerOpen) palette.primary else Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

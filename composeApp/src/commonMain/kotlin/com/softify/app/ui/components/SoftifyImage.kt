@@ -3,7 +3,9 @@ package com.softify.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -47,13 +49,22 @@ fun SoftifyImage(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            val initial = title.firstOrNull()?.uppercase() ?: "♫"
-            Text(
-                text = initial,
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
+            val initial = title.firstOrNull()?.uppercase()
+            if (initial != null) {
+                Text(
+                    text = initial,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            } else {
+                Icon(
+                    imageVector = SoftifyIcons.Song,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }

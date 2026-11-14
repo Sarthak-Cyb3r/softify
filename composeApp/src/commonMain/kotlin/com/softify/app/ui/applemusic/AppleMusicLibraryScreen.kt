@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.theme.GlassmorphicContainer
+import com.softify.app.ui.components.SoftifyIcons
 import com.softify.app.ui.components.SoftifyImage
 
 @Composable
@@ -27,12 +29,12 @@ fun AppleMusicLibraryScreen(
     onTrackSelect: (Track) -> Unit
 ) {
     val librarySections = listOf(
-        Pair("Playlists", "🗂"),
-        Pair("Artists", "🎤"),
-        Pair("Albums", "💿"),
-        Pair("Songs", "♫"),
-        Pair("Made for You", "✨"),
-        Pair("Downloaded", "⬇")
+        Pair("Playlists", SoftifyIcons.Playlist),
+        Pair("Artists", SoftifyIcons.Artist),
+        Pair("Albums", SoftifyIcons.Album),
+        Pair("Songs", SoftifyIcons.Song),
+        Pair("Made for You", SoftifyIcons.Sparkles),
+        Pair("Downloaded", SoftifyIcons.Download)
     )
 
     LazyColumn(
@@ -70,7 +72,12 @@ fun AppleMusicLibraryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = icon, fontSize = 18.sp)
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = label,
+                                    tint = Color(0xFFFA243C),
+                                    modifier = Modifier.size(22.dp)
+                                )
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Text(
                                     text = label,
@@ -79,11 +86,11 @@ fun AppleMusicLibraryScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Text(
-                                text = "›",
-                                color = Color.White.copy(alpha = 0.35f),
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                imageVector = SoftifyIcons.ChevronRight,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.35f),
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                         if (index < librarySections.size - 1) {

@@ -26,6 +26,7 @@ import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.ui.components.EqualizerView
 import com.softify.app.ui.components.QueueView
+import com.softify.app.ui.components.SoftifyIcons
 import com.softify.app.ui.components.SoftifyImage
 import com.softify.app.ui.components.SyncedLyricsView
 
@@ -87,7 +88,12 @@ fun AppleMusicPlayerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onClose) {
-                    Text(text = "▼", color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.ArrowDown,
+                        contentDescription = "Dismiss",
+                        tint = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
 
                 Text(
@@ -98,10 +104,11 @@ fun AppleMusicPlayerSheet(
                 )
 
                 IconButton(onClick = { PlayerManager.toggleLike(track.id) }) {
-                    Text(
-                        text = if (track.isLiked) "♥" else "♡",
-                        color = if (track.isLiked) Color(0xFFFF2D55) else Color.White,
-                        fontSize = 20.sp
+                    Icon(
+                        imageVector = if (track.isLiked) SoftifyIcons.HeartFilled else SoftifyIcons.HeartOutlined,
+                        contentDescription = "Favorite",
+                        tint = if (track.isLiked) Color(0xFFFA243C) else Color.White,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -191,13 +198,18 @@ fun AppleMusicPlayerSheet(
                 }
 
                 IconButton(
-                    onClick = { PlayerManager.toggleLike(track.id) },
+                    onClick = { /* options */ },
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.15f))
                 ) {
-                    Text(text = "•••", color = Color.White, fontSize = 14.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.MoreHorizontal,
+                        contentDescription = "Options",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
@@ -242,15 +254,21 @@ fun AppleMusicPlayerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { PlayerManager.toggleShuffle() }) {
-                    Text(
-                        text = "🔀",
-                        color = if (isShuffle) Color(0xFFFF2D55) else Color.White.copy(alpha = 0.4f),
-                        fontSize = 18.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (isShuffle) Color(0xFFFA243C) else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 IconButton(onClick = { PlayerManager.previousTrack() }) {
-                    Text(text = "⏮", color = Color.White, fontSize = 32.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.SkipPrevious,
+                        contentDescription = "Previous",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
                 }
 
                 // Apple Music Spring Play Button
@@ -262,22 +280,29 @@ fun AppleMusicPlayerSheet(
                         .clickable { PlayerManager.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isPlaying) "⏸" else "▶",
-                        color = Color.Black,
-                        fontSize = 26.sp
+                    Icon(
+                        imageVector = if (isPlaying) SoftifyIcons.Pause else SoftifyIcons.Play,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        tint = Color.Black,
+                        modifier = Modifier.size(34.dp)
                     )
                 }
 
                 IconButton(onClick = { PlayerManager.nextTrack() }) {
-                    Text(text = "⏭", color = Color.White, fontSize = 32.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.SkipNext,
+                        contentDescription = "Next",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
                 }
 
                 IconButton(onClick = { PlayerManager.toggleRepeat() }) {
-                    Text(
-                        text = "🔁",
-                        color = if (isRepeat) Color(0xFFFF2D55) else Color.White.copy(alpha = 0.4f),
-                        fontSize = 18.sp
+                    Icon(
+                        imageVector = SoftifyIcons.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (isRepeat) Color(0xFFFA243C) else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -291,7 +316,12 @@ fun AppleMusicPlayerSheet(
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🔈", fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f))
+                Icon(
+                    imageVector = SoftifyIcons.VolumeLow,
+                    contentDescription = "Volume Low",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Slider(
                     value = volume,
@@ -304,7 +334,12 @@ fun AppleMusicPlayerSheet(
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = "🔊", fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f))
+                Icon(
+                    imageVector = SoftifyIcons.VolumeHigh,
+                    contentDescription = "Volume High",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -324,10 +359,11 @@ fun AppleMusicPlayerSheet(
                         .clip(CircleShape)
                         .background(if (isLyricsOpen) Color.White else Color.White.copy(alpha = 0.12f))
                 ) {
-                    Text(
-                        text = "💬",
-                        fontSize = 18.sp,
-                        color = if (isLyricsOpen) Color.Black else Color.White
+                    Icon(
+                        imageVector = SoftifyIcons.Lyrics,
+                        contentDescription = "Lyrics",
+                        tint = if (isLyricsOpen) Color.Black else Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -338,7 +374,12 @@ fun AppleMusicPlayerSheet(
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.12f))
                 ) {
-                    Text(text = "📡", fontSize = 18.sp, color = Color.White)
+                    Icon(
+                        imageVector = SoftifyIcons.Airplay,
+                        contentDescription = "AirPlay",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
                 IconButton(
@@ -348,10 +389,11 @@ fun AppleMusicPlayerSheet(
                         .clip(CircleShape)
                         .background(if (isQueueOpen) Color.White else Color.White.copy(alpha = 0.12f))
                 ) {
-                    Text(
-                        text = "☰",
-                        fontSize = 18.sp,
-                        color = if (isQueueOpen) Color.Black else Color.White
+                    Icon(
+                        imageVector = SoftifyIcons.Queue,
+                        contentDescription = "Queue",
+                        tint = if (isQueueOpen) Color.Black else Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -362,10 +404,11 @@ fun AppleMusicPlayerSheet(
                         .clip(CircleShape)
                         .background(if (isEqualizerOpen) Color.White else Color.White.copy(alpha = 0.12f))
                 ) {
-                    Text(
-                        text = "🎚",
-                        fontSize = 18.sp,
-                        color = if (isEqualizerOpen) Color.Black else Color.White
+                    Icon(
+                        imageVector = SoftifyIcons.Equalizer,
+                        contentDescription = "Equalizer",
+                        tint = if (isEqualizerOpen) Color.Black else Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

@@ -33,8 +33,8 @@ fun QueueView(
         modifier = Modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-            .background(if (isAppleMusic) Color(0xFF161618) else palette.surface)
-            .padding(20.dp)
+            .background(if (isAppleMusic) Color(0xFF16161A).copy(alpha = 0.96f) else palette.surface)
+            .padding(horizontal = 20.dp, vertical = 18.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -44,14 +44,14 @@ fun QueueView(
             Column {
                 Text(
                     text = "Playing Next",
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    text = "${queue.size} songs in queue",
-                    fontSize = 13.sp,
-                    color = if (isAppleMusic) Color.White.copy(alpha = 0.6f) else palette.primary
+                    text = "${queue.size} tracks queued",
+                    fontSize = 12.sp,
+                    color = if (isAppleMusic) Color(0xFFFA243C) else palette.primary
                 )
             }
 
@@ -60,9 +60,14 @@ fun QueueView(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.12f))
+                    .background(Color.White.copy(alpha = 0.1f))
             ) {
-                Text(text = "✕", color = Color.White, fontSize = 14.sp)
+                Icon(
+                    imageVector = SoftifyIcons.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 
@@ -70,18 +75,18 @@ fun QueueView(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             itemsIndexed(queue) { index, track ->
                 val isCurrent = track.id == currentTrack?.id
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(
                             when {
                                 isCurrent && isAppleMusic -> Color.White.copy(alpha = 0.12f)
-                                isCurrent -> palette.primaryContainer.copy(alpha = 0.5f)
+                                isCurrent -> palette.primaryContainer.copy(alpha = 0.45f)
                                 else -> Color.Transparent
                             }
                         )
@@ -92,7 +97,7 @@ fun QueueView(
                     SoftifyImage(
                         url = track.coverUrl,
                         title = track.title,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(46.dp),
                         cornerRadius = 10.dp
                     )
 
@@ -101,9 +106,9 @@ fun QueueView(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = track.title,
-                            color = if (isCurrent) (if (isAppleMusic) Color.White else palette.primary) else Color.White,
+                            color = if (isCurrent) (if (isAppleMusic) Color(0xFFFA243C) else palette.primary) else Color.White,
                             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             maxLines = 1
                         )
                         Text(
@@ -115,20 +120,32 @@ fun QueueView(
                     }
 
                     if (isCurrent) {
-                        Text(
-                            text = "NOW PLAYING",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isAppleMusic) Color.White else palette.primary,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isAppleMusic) Color(0xFFFA243C).copy(alpha = 0.2f) else palette.primaryContainer)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "PLAYING",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isAppleMusic) Color(0xFFFA243C) else palette.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
 
                     IconButton(
                         onClick = { onRemoveTrack(index) },
                         modifier = Modifier.size(28.dp)
                     ) {
-                        Text(text = "✕", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp)
+                        Icon(
+                            imageVector = SoftifyIcons.Close,
+                            contentDescription = "Remove",
+                            tint = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }

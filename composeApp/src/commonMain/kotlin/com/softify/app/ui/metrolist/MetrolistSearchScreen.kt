@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.data.PlayerManager
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
+import com.softify.app.ui.components.SoftifyIcons
 
 @Composable
 fun MetrolistSearchScreen(
@@ -49,11 +50,16 @@ fun MetrolistSearchScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                        .padding(horizontal = 18.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "🔍", fontSize = 18.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        imageVector = SoftifyIcons.Search,
+                        contentDescription = "Search",
+                        tint = palette.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     TextField(
                         value = searchQuery,
                         onValueChange = { PlayerManager.search(it) },
@@ -80,7 +86,12 @@ fun MetrolistSearchScreen(
                             onClick = { PlayerManager.search("") },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Text(text = "✕", color = Color.White.copy(alpha = 0.6f))
+                            Icon(
+                                imageVector = SoftifyIcons.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
@@ -125,7 +136,8 @@ fun MetrolistSearchScreen(
                 track = track,
                 isSelected = track.id == currentTrack?.id,
                 palette = palette,
-                onClick = { onTrackSelect(track) }
+                onClick = { onTrackSelect(track) },
+                onLikeToggle = { PlayerManager.toggleLike(track.id) }
             )
         }
 

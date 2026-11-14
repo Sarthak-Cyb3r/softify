@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.data.PlayerManager
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
+import com.softify.app.ui.components.SoftifyIcons
 import com.softify.app.ui.components.SoftifyImage
 
 @Composable
@@ -104,7 +105,12 @@ fun MetrolistLibraryScreen(
                                 .background(Color.White.copy(alpha = 0.25f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "♥", fontSize = 32.sp, color = Color.White)
+                            Icon(
+                                imageVector = SoftifyIcons.HeartFilled,
+                                contentDescription = "Liked Songs",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
 
                         Spacer(modifier = Modifier.width(18.dp))
@@ -143,7 +149,8 @@ fun MetrolistLibraryScreen(
                     track = track,
                     isSelected = track.id == currentTrack?.id,
                     palette = palette,
-                    onClick = { onTrackSelect(track) }
+                    onClick = { onTrackSelect(track) },
+                    onLikeToggle = { PlayerManager.toggleLike(track.id) }
                 )
             }
         } else {

@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.data.PlayerManager
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.theme.ThemeMode
+import com.softify.app.ui.components.SegmentedThemeToggle
+import com.softify.app.ui.components.SoftifyIcons
 
 @Composable
 fun MetrolistSettingsScreen(
@@ -63,12 +65,11 @@ fun MetrolistSettingsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { PlayerManager.toggleTheme() }
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Design Language",
                                 color = Color.White,
@@ -82,19 +83,13 @@ fun MetrolistSettingsScreen(
                             )
                         }
 
-                        Button(
-                            onClick = { PlayerManager.toggleTheme() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = palette.primary,
-                                contentColor = palette.onPrimary
-                            ),
-                            shape = RoundedCornerShape(100.dp)
-                        ) {
-                            Text(
-                                text = if (themeMode == ThemeMode.METROLIST) "Switch to Apple Music" else "Switch to Metrolist",
-                                fontSize = 12.sp
-                            )
-                        }
+                        SegmentedThemeToggle(
+                            themeMode = themeMode,
+                            accentColor = palette.primary,
+                            onToggle = { mode ->
+                                if (mode != themeMode) PlayerManager.toggleTheme()
+                            }
+                        )
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color.White.copy(alpha = 0.08f))
@@ -260,7 +255,24 @@ fun MetrolistSettingsScreen(
                             )
                         }
 
-                        Text(text = "🎚 Open", color = palette.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = palette.primaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = SoftifyIcons.Equalizer,
+                                    contentDescription = null,
+                                    tint = palette.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(text = "Open DSP", color = palette.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -283,7 +295,7 @@ fun MetrolistSettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
-                        text = "Softify v4.0.2",
+                        text = "Softify v4.0.3",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp

@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,8 +19,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.data.PlayerManager
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
+import com.softify.app.ui.components.SegmentedThemeToggle
+import com.softify.app.ui.components.SoftifyIcons
 import com.softify.app.ui.components.SoftifyImage
 
 @Composable
@@ -30,6 +35,8 @@ fun MetrolistHomeScreen(
     onTrackSelect: (Track) -> Unit,
     onThemeToggle: () -> Unit
 ) {
+    val themeMode by PlayerManager.themeMode.collectAsState()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -39,7 +46,7 @@ fun MetrolistHomeScreen(
         item {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Metrolist Top Header Bar
+            // Metrolist Top Bar: Greeting & Segmented Theme Switcher
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -47,45 +54,52 @@ fun MetrolistHomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Metrolist",
-                        fontSize = 32.sp,
+                        text = "Good afternoon",
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
-                        color = palette.primary
+                        color = Color.White
                     )
                     Text(
-                        text = "Material 3 • Dynamic Color",
-                        fontSize = 13.sp,
-                        color = Color(0xFFA6A6AA)
+                        text = "Metrolist • Dynamic Material 3",
+                        fontSize = 12.sp,
+                        color = palette.primary,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                // Theme switcher pill button
-                Button(
-                    onClick = onThemeToggle,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = palette.primaryContainer,
-                        contentColor = palette.primary
-                    ),
-                    shape = RoundedCornerShape(100.dp)
-                ) {
-                    Text(
-                        text = "🍎 Apple Music UI",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                SegmentedThemeToggle(
+                    themeMode = themeMode,
+                    accentColor = palette.primary,
+                    onToggle = { PlayerManager.setTheme(it) }
+                )
             }
         }
 
-        // Quick Picks Shelf (24dp Squircles with play buttons)
+        // Quick Picks Shelf
         item {
-            Text(
-                text = "Quick Picks",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    Text(
+                        text = "START RADIO FROM A SONG",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.5f),
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "Quick picks",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -100,15 +114,25 @@ fun MetrolistHomeScreen(
             }
         }
 
-        // Forgotten Favorites Shelf
+        // Forgotten Favorites / Listen Again
         item {
-            Text(
-                text = "Listen Again",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Column {
+                Text(
+                    text = "SIMILAR TO YOUR FAVORITES",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.5f),
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "Forgotten favorites",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -123,11 +147,11 @@ fun MetrolistHomeScreen(
             }
         }
 
-        // Songs in Queue / Mixed For You
+        // Mixed For You
         item {
             Text(
-                text = "Mixed for You",
-                fontSize = 20.sp,
+                text = "Mixed for you",
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
@@ -139,12 +163,13 @@ fun MetrolistHomeScreen(
                 track = track,
                 isSelected = isSelected,
                 palette = palette,
-                onClick = { onTrackSelect(track) }
+                onClick = { onTrackSelect(track) },
+                onLikeToggle = { PlayerManager.toggleLike(track.id) }
             )
         }
 
         item {
-            Spacer(modifier = Modifier.height(110.dp))
+            Spacer(modifier = Modifier.height(120.dp))
         }
     }
 }
@@ -157,18 +182,43 @@ fun MetrolistAlbumCard(
 ) {
     Column(
         modifier = Modifier
-            .width(160.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .width(156.dp)
+            .clip(RoundedCornerShape(20.dp))
             .background(palette.surface)
             .clickable { onClick() }
-            .padding(12.dp)
+            .padding(10.dp)
     ) {
-        SoftifyImage(
-            url = track.coverUrl,
-            title = track.title,
-            modifier = Modifier.size(136.dp),
-            cornerRadius = 20.dp
-        )
+        Box(
+            modifier = Modifier
+                .size(136.dp)
+                .clip(RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            SoftifyImage(
+                url = track.coverUrl,
+                title = track.title,
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = 14.dp
+            )
+
+            // Play icon badge overlay
+            Box(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(palette.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = SoftifyIcons.Play,
+                    contentDescription = "Play",
+                    tint = palette.onPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = track.title,
@@ -179,7 +229,7 @@ fun MetrolistAlbumCard(
         )
         Text(
             text = track.artist,
-            color = Color(0xFFA0A0A4),
+            color = Color.White.copy(alpha = 0.6f),
             fontSize = 12.sp,
             maxLines = 1
         )
@@ -191,7 +241,8 @@ fun MetrolistTrackRow(
     track: Track,
     isSelected: Boolean,
     palette: DynamicColorPalette,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLikeToggle: () -> Unit = { PlayerManager.toggleLike(track.id) }
 ) {
     Row(
         modifier = Modifier
@@ -199,14 +250,14 @@ fun MetrolistTrackRow(
             .clip(RoundedCornerShape(16.dp))
             .background(if (isSelected) palette.primaryContainer.copy(alpha = 0.45f) else Color.Transparent)
             .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 12.dp),
+            .padding(vertical = 8.dp, horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SoftifyImage(
             url = track.coverUrl,
             title = track.title,
-            modifier = Modifier.size(46.dp),
-            cornerRadius = 12.dp
+            modifier = Modifier.size(48.dp),
+            cornerRadius = 10.dp
         )
 
         Spacer(modifier = Modifier.width(14.dp))
@@ -215,22 +266,32 @@ fun MetrolistTrackRow(
             Text(
                 text = track.title,
                 color = if (isSelected) palette.primary else Color.White,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                 fontSize = 15.sp,
                 maxLines = 1
             )
             Text(
                 text = track.artist,
-                color = Color(0xFFA6A6AA),
+                color = Color.White.copy(alpha = 0.6f),
                 fontSize = 13.sp,
                 maxLines = 1
             )
         }
 
+        IconButton(onClick = onLikeToggle) {
+            Icon(
+                imageVector = if (track.isLiked) SoftifyIcons.HeartFilled else SoftifyIcons.HeartOutlined,
+                contentDescription = "Favorite",
+                tint = if (track.isLiked) palette.primary else Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         Text(
             text = track.durationFormatted,
-            color = Color(0xFF7E7E84),
-            fontSize = 13.sp
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp)
         )
     }
 }
@@ -240,7 +301,9 @@ fun MetrolistMiniPlayer(
     palette: DynamicColorPalette,
     currentTrack: Track?,
     isPlaying: Boolean,
+    progress: Float,
     onPlayPause: () -> Unit,
+    onNext: () -> Unit,
     onExpand: () -> Unit
 ) {
     if (currentTrack == null) return
@@ -248,56 +311,83 @@ fun MetrolistMiniPlayer(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(28.dp))
+            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(20.dp))
             .clickable { onExpand() },
         color = palette.surfaceVariant,
-        shadowElevation = 16.dp
+        shadowElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SoftifyImage(
-                url = currentTrack.coverUrl,
-                title = currentTrack.title,
-                modifier = Modifier.size(44.dp),
-                cornerRadius = 12.dp
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = currentTrack.title,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    maxLines = 1
-                )
-                Text(
-                    text = currentTrack.artist,
-                    color = palette.primary,
-                    fontSize = 12.sp,
-                    maxLines = 1
-                )
-            }
-
-            IconButton(
-                onClick = onPlayPause,
+        Column {
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(palette.primaryContainer)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (isPlaying) "⏸" else "▶",
-                    color = palette.primary,
-                    fontSize = 18.sp
+                SoftifyImage(
+                    url = currentTrack.coverUrl,
+                    title = currentTrack.title,
+                    modifier = Modifier.size(46.dp),
+                    cornerRadius = 10.dp
                 )
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = currentTrack.title,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = currentTrack.artist,
+                        color = palette.primary,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
+
+                IconButton(
+                    onClick = onPlayPause,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(palette.primaryContainer)
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) SoftifyIcons.Pause else SoftifyIcons.Play,
+                        contentDescription = "Play/Pause",
+                        tint = palette.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = SoftifyIcons.SkipNext,
+                        contentDescription = "Next",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
+
+            // Integrated Linear Progress Bar across the bottom of the mini player
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.5.dp),
+                color = palette.primary,
+                trackColor = Color.White.copy(alpha = 0.08f)
+            )
         }
     }
 }

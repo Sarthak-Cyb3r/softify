@@ -24,22 +24,22 @@ fun EqualizerView(
     isAppleMusic: Boolean = false,
     onClose: () -> Unit
 ) {
-    val presets = listOf("Flat", "Bass Boost", "Vocal", "Electronic", "Rock", "Pop", "Acoustic")
+    val presets = listOf("Flat", "Bass Boost", "Vocal Clarity", "Electronic", "Rock", "Pop", "Acoustic")
     var selectedPreset by remember { mutableStateOf("Bass Boost") }
 
     val bandFrequencies = listOf("32Hz", "64Hz", "125Hz", "250Hz", "500Hz", "1kHz", "2kHz", "4kHz", "8kHz", "16kHz")
     var gains by remember {
-        mutableStateOf(floatArrayOf(6f, 5f, 3f, 1f, 0f, 1f, 2f, 4f, 5f, 6f))
+        mutableStateOf(floatArrayOf(7f, 6f, 4f, 1f, 0f, 1f, 2f, 4f, 5f, 6f))
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-            .background(if (isAppleMusic) Color(0xFF1C1C1E).copy(alpha = 0.95f) else palette.surface)
-            .padding(24.dp)
+            .background(if (isAppleMusic) Color(0xFF16161A).copy(alpha = 0.96f) else palette.surface)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
-        // Header
+        // Top Header Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -47,15 +47,15 @@ fun EqualizerView(
         ) {
             Column {
                 Text(
-                    text = "Equalizer & DSP",
-                    fontSize = 22.sp,
+                    text = "Parametric Equalizer",
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    text = "10-Band Parametric Tuning",
-                    fontSize = 13.sp,
-                    color = if (isAppleMusic) Color.White.copy(alpha = 0.6f) else palette.primary
+                    text = "10-Band Hardware DSP Engine",
+                    fontSize = 12.sp,
+                    color = if (isAppleMusic) Color(0xFFFA243C) else palette.primary
                 )
             }
 
@@ -64,17 +64,22 @@ fun EqualizerView(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.12f))
+                    .background(Color.White.copy(alpha = 0.1f))
             ) {
-                Text(text = "✕", color = Color.White, fontSize = 14.sp)
+                Icon(
+                    imageVector = SoftifyIcons.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Preset Chips
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(presets) { preset ->
                 val isSelected = preset == selectedPreset
@@ -83,7 +88,7 @@ fun EqualizerView(
                         .clip(RoundedCornerShape(100.dp))
                         .background(
                             when {
-                                isSelected && isAppleMusic -> Color.White
+                                isSelected && isAppleMusic -> Color(0xFFFA243C)
                                 isSelected -> palette.primary
                                 else -> Color.White.copy(alpha = 0.08f)
                             }
@@ -92,7 +97,7 @@ fun EqualizerView(
                             selectedPreset = preset
                             gains = when (preset) {
                                 "Bass Boost" -> floatArrayOf(8f, 7f, 5f, 2f, 0f, 0f, 1f, 2f, 3f, 4f)
-                                "Vocal" -> floatArrayOf(-2f, -1f, 1f, 4f, 6f, 5f, 3f, 1f, 0f, -1f)
+                                "Vocal Clarity" -> floatArrayOf(-2f, -1f, 1f, 4f, 6f, 5f, 3f, 1f, 0f, -1f)
                                 "Electronic" -> floatArrayOf(6f, 5f, 2f, 0f, -1f, 2f, 4f, 6f, 6f, 5f)
                                 "Rock" -> floatArrayOf(5f, 3f, 1f, 0f, -1f, 1f, 3f, 5f, 6f, 6f)
                                 "Pop" -> floatArrayOf(2f, 4f, 5f, 4f, 2f, 0f, 1f, 3f, 4f, 4f)
@@ -100,15 +105,11 @@ fun EqualizerView(
                                 else -> floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
                             }
                         }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
                 ) {
                     Text(
                         text = preset,
-                        color = when {
-                            isSelected && isAppleMusic -> Color.Black
-                            isSelected -> palette.onPrimary
-                            else -> Color.White
-                        },
+                        color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
@@ -116,9 +117,9 @@ fun EqualizerView(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 10-Band Sliders Bar Graph
+        // 10-Band Sliders
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,33 +134,36 @@ fun EqualizerView(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "${if (gain > 0) "+" else ""}${gain.toInt()}dB",
+                        text = "${if (gain > 0) "+" else ""}${gain.toInt()}",
                         fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White.copy(alpha = 0.7f)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Box(
                         modifier = Modifier
-                            .width(18.dp)
-                            .height(120.dp)
-                            .clip(RoundedCornerShape(9.dp))
+                            .width(14.dp)
+                            .height(125.dp)
+                            .clip(RoundedCornerShape(7.dp))
                             .background(Color.White.copy(alpha = 0.08f)),
                         contentAlignment = Alignment.BottomCenter
                     ) {
-                        val normalizedHeight = ((gain + 12f) / 24f).coerceIn(0.05f, 1.0f)
+                        val normalizedHeight = ((gain + 12f) / 24f).coerceIn(0.06f, 1.0f)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(normalizedHeight)
-                                .clip(RoundedCornerShape(9.dp))
-                                .background(if (isAppleMusic) Color.White else palette.primary)
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(
+                                    if (isAppleMusic) Color(0xFFFA243C) else palette.primary
+                                )
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = freq,
                         fontSize = 9.sp,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = Color.White.copy(alpha = 0.5f)
                     )
                 }
             }

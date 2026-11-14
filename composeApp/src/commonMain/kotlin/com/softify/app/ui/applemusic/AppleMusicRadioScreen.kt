@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.theme.GlassmorphicContainer
+import com.softify.app.ui.components.SoftifyIcons
 
 @Composable
 fun AppleMusicRadioScreen(
@@ -173,7 +175,12 @@ fun AppleMusicRadioScreen(
                             .background(Brush.linearGradient(colors)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "📻", fontSize = 24.sp)
+                        Icon(
+                            imageVector = SoftifyIcons.Radio,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(26.dp)
+                        )
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -193,7 +200,12 @@ fun AppleMusicRadioScreen(
                         )
                     }
 
-                    Text(text = "▶", color = Color.White, fontSize = 16.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.Play,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }

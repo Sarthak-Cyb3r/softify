@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       target_tag:
-        description: 'Target GitHub Release tag (e.g. v4.0.2)'
+        description: 'Target GitHub Release tag (e.g. v4.0.3)'
         required: false
-        default: 'v4.0.2'
+        default: 'v4.0.3'
         type: string
   push:
     tags:

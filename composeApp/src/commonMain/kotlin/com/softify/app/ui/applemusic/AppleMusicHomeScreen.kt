@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +24,9 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.theme.GlassmorphicContainer
+import com.softify.app.theme.ThemeMode
+import com.softify.app.ui.components.SegmentedThemeToggle
+import com.softify.app.ui.components.SoftifyIcons
 import com.softify.app.ui.components.SoftifyImage
 import com.softify.app.ui.components.TurntableVinyl
 
@@ -63,20 +68,13 @@ fun AppleMusicHomeScreen(
                     )
                 }
 
-                Button(
-                    onClick = onThemeToggle,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.15f),
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(100.dp)
-                ) {
-                    Text(
-                        text = "⚡ Metrolist UI",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                SegmentedThemeToggle(
+                    themeMode = ThemeMode.APPLE_MUSIC,
+                    accentColor = Color(0xFFFA243C),
+                    onToggle = { mode ->
+                        if (mode != ThemeMode.APPLE_MUSIC) onThemeToggle()
+                    }
+                )
             }
         }
 
@@ -296,18 +294,18 @@ fun AppleMusicMiniPlayer(
                 )
             }
 
-            Button(
+            IconButton(
                 onClick = onPlayPause,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.2f),
-                    contentColor = Color.White
-                ),
-                shape = CircleShape,
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f))
             ) {
-                Text(
-                    text = if (isPlaying) "⏸" else "▶",
-                    fontSize = 16.sp
+                Icon(
+                    imageVector = if (isPlaying) SoftifyIcons.Pause else SoftifyIcons.Play,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

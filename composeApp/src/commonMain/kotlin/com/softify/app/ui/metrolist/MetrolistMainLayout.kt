@@ -2,14 +2,10 @@ package com.softify.app.ui.metrolist
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,15 +38,17 @@ fun MetrolistMainLayout(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(palette.surface.copy(alpha = 0.95f))
+                        .background(palette.surface.copy(alpha = 0.98f))
                 ) {
-                    // Mini player floating right above the navigation bar
+                    // Mini player resting right above the navigation bar
                     currentTrack?.let { track ->
                         MetrolistMiniPlayer(
                             palette = palette,
                             currentTrack = track,
                             isPlaying = isPlaying,
+                            progress = progress,
                             onPlayPause = { PlayerManager.togglePlayPause() },
+                            onNext = { PlayerManager.nextTrack() },
                             onExpand = { PlayerManager.setPlayerExpanded(true) }
                         )
                     }
@@ -68,24 +66,25 @@ fun MetrolistMainLayout(
                                 selected = isSelected,
                                 onClick = { PlayerManager.setMetrolistTab(tab) },
                                 icon = {
-                                    Text(
-                                        text = tab.icon,
-                                        fontSize = 18.sp
+                                    Icon(
+                                        imageVector = tab.icon,
+                                        contentDescription = tab.label,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 },
                                 label = {
                                     Text(
                                         text = tab.label,
                                         fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = palette.onPrimary,
                                     selectedTextColor = palette.primary,
                                     indicatorColor = palette.primaryContainer,
-                                    unselectedIconColor = Color.White.copy(alpha = 0.5f),
-                                    unselectedTextColor = Color.White.copy(alpha = 0.5f)
+                                    unselectedIconColor = Color.White.copy(alpha = 0.45f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.45f)
                                 )
                             )
                         }

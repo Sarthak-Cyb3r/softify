@@ -20,6 +20,7 @@ import com.softify.app.data.PlayerManager
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.theme.GlassmorphicContainer
+import com.softify.app.ui.components.SoftifyIcons
 
 @Composable
 fun AppleMusicSearchScreen(
@@ -69,7 +70,12 @@ fun AppleMusicSearchScreen(
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "🔍", fontSize = 16.sp)
+                    Icon(
+                        imageVector = SoftifyIcons.Search,
+                        contentDescription = "Search",
+                        tint = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     TextField(
                         value = searchQuery,
@@ -97,7 +103,12 @@ fun AppleMusicSearchScreen(
                             onClick = { PlayerManager.search("") },
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Text(text = "✕", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            Icon(
+                                imageVector = SoftifyIcons.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                 }
