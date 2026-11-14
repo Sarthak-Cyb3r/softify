@@ -339,3 +339,84 @@ async fn test_youtube_fallback_honest_bitrate_marking() {
     assert!(result.provider.contains("youtube_innertube"));
     assert!(!result.headers.is_empty());
 }
+
+#[tokio::test]
+async fn test_band_name_and_featured_artist_matching_regression() {
+    use crate::resolvers::saavn::SaavnMatchResult;
+    use serde_json::json;
+
+    let server = MockServer::start().await;
+
+    // Candidate 1: Band name in artistMap and subtitle
+    let search_json = json!({
+        "results": [
+            {
+                "id": "s6zuKkD9",
+                "title": "Khoj (Passing By)",
+                "subtitle": "When Chai Met Toast - Believe",
+                "singers": null,
+                "primary_artists": null,
+                "more_info": {
+                    "duration": "212",
+                    "album": "Believe",
+                    "music": "Ashwin Gopakumar, Achyuth Jaigopal",
+                    "artistMap": {
+                        "primary_artists": [
+                            {
+                                "id": "2802272",
+                                "name": "When Chai Met Toast",
+                                "role": "primary_artists"
+                            }
+                        ],
+                        "featured_artists": [],
+                        "artists": []
+                    }
+                }
+            },
+            {
+                "id": "mashup_123",
+                "title": "Khoj (Remix Mashup)",
+                "subtitle": "DJ Remix - EDM",
+                "singers": "When Chai Met Toast",
+                "more_info": {
+                    "duration": "212",
+                    "album": "Remix Hits"
+                }
+            }
+        ]
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api.php"))
+        .and(query_param("__call", "search.getResults"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&search_json))
+        .mount(&server)
+        .await;
+
+    let resolver = SaavnStreamResolver::with_client_and_base_url(reqwest::Client::new(), server.uri());
+    let track = Track {
+        id: "t_khoj".to_string(),
+        source_id: "src_khoj".to_string(),
+        title: "Khoj".to_string(),
+        artist: "When Chai Met Toast".to_string(),
+        album: None,
+        duration_ms: 212_000,
+        cover_url: None,
+        match_confidence: None,
+        is_liked: false,
+        is_unavailable: false,
+    };
+
+    let match_res = resolver.match_track_detailed(&track).await.unwrap();
+    match match_res {
+        SaavnMatchResult::Matched(m) => {
+            assert_eq!(m.pid, "s6zuKkD9");
+            assert!(m.artists.contains("When Chai Met Toast"));
+            assert_eq!(m.duration_diff_sec, 0);
+            assert!(m.score >= 80.0, "Score was {}", m.score);
+        }
+        SaavnMatchResult::Rejected(rej) => {
+            panic!("Expected match for band When Chai Met Toast, but got rejected: {:?}", rej);
+        }
+    }
+}

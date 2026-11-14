@@ -24,13 +24,13 @@ mkdir -p docs/agent
   (cd rust/softify_core && cargo clippy -- -D warnings 2>&1 | tail -n 6)
 
   echo "## Desktop tests summary"
-  ./gradlew desktopTest 2>&1 | tail -n 10
+  ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" desktopTest 2>&1 | tail -n 10
   if [ -f composeApp/build/test-results/desktopTest/TEST-com.softify.app.UniFfiIntegrationTest.xml ]; then
     grep -E "testsuite|testcase" composeApp/build/test-results/desktopTest/TEST-com.softify.app.UniFfiIntegrationTest.xml
   fi
 
   echo "## Gradle assembleDebug"
-  ./gradlew assembleDebug 2>&1 | tail -n 10
+  ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" assembleDebug --rerun-tasks 2>&1 | tail -n 10
 
   echo "## Native libraries in APK"
   unzip -l composeApp/build/outputs/apk/debug/*.apk 2>/dev/null | grep '\.so' || true

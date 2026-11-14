@@ -356,7 +356,27 @@ impl YoutubeStreamResolver {
         let stream_url = chosen.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
         let mime = chosen.get("mimeType").and_then(|m| m.as_str()).unwrap_or("");
         let raw_bitrate = chosen.get("bitrate").and_then(|b| b.as_u64()).unwrap_or(128_000);
-        let bitrate_kbps = (raw_bitrate / 1000) as u32;
+        let avg_bitrate = chosen.get("averageBitrate").and_then(|b| b.as_u64());
+        let content_length = chosen.get("contentLength").and_then(|c| c.as_str()).and_then(|s| s.parse::<u64>().ok());
+        let approx_duration_ms = chosen.get("approxDurationMs").and_then(|d| d.as_str()).and_then(|s| s.parse::<u64>().ok());
+        let calc_kbps = match (content_length, approx_duration_ms) {
+            (Some(cl), Some(dur_ms)) if dur_ms > 0 => Some(((cl as f64 * 8.0) / (dur_ms as f64)).round() as u32),
+            _ => None,
+        };
+
+        // Prefer averageBitrate as it reflects continuous playback rate matching Content-Length/duration
+        let bitrate_kbps = if let Some(avg) = avg_bitrate {
+            (avg / 1000) as u32
+        } else if let Some(calc) = calc_kbps {
+            calc
+        } else {
+            (raw_bitrate / 1000) as u32
+        };
+
+        eprintln!(
+            "[YOUTUBE BITRATE] video_id={}: raw_bitrate={} bps, averageBitrate={:?} bps, measured Content-Length/duration={:?} kbps -> selected {} kbps",
+            video_id, raw_bitrate, avg_bitrate, calc_kbps, bitrate_kbps
+        );
         let itag = chosen.get("itag").and_then(|i| i.as_u64()).unwrap_or(0);
 
         let (container, codec) = if mime.contains("mp4") {

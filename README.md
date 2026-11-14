@@ -314,6 +314,20 @@ flutter test
 flutter analyze
 ```
 
+### 🦀 Building Native Rust Core (`softify_core`) for Android
+
+Softify's business logic, hybrid stream resolver, database, and audio processing are written in 100% pure Rust (`rust/softify_core`).
+
+To cross-compile the native `.so` libraries for Android (`arm64-v8a` and `x86_64`) using `cargo-ndk`:
+
+```bash
+# Automatically builds both targets with release optimizations (LTO, stripped)
+bash tools/build_android_libs.sh
+```
+
+The output shared libraries are placed in `composeApp/src/androidMain/jniLibs/{arm64-v8a,x86_64}/libsoftify_core.so` and bundled into the debug/release APKs.
+
+
 - **Analysis Status**: `0 issues found` (clean lint profile).
 - **Unit & Integration Tests**: `All tests passing (100%) across 64 test suites`.
 - **Test Corpus**: Validates core engine, AI recommendation pipelines, and UI integrity:

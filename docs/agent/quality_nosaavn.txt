@@ -1,0 +1,28 @@
+=== Softify Audio Quality Verifier (Target: 320 kbps Studio Master) ===
+Mode: LIVE NETWORK VERIFICATION (Real JioSaavn CDN & YouTube Innertube)
+
+>>> Flag enabled: --no-saavn (Forcing YouTube fallback path for all tracks) <<<
+
+| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |
+|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|
+[RESOLVER] JioSaavn disabled by option for 'Tum Hi Ho': Using YouTube fallback directly
+[RESOLVER] YouTube fallback resolved: 'Tum Hi Ho' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 01 | Tum Hi Ho - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 1588 ms |
+[RESOLVER] JioSaavn disabled by option for 'Kesariya': Using YouTube fallback directly
+[RESOLVER] YouTube fallback resolved: 'Kesariya' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 02 | Kesariya - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 1132 ms |
+[RESOLVER] JioSaavn disabled by option for 'Blinding Lights': Using YouTube fallback directly
+[RESOLVER] YouTube fallback resolved: 'Blinding Lights' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 03 | Blinding Lights - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 934 ms |
+[RESOLVER] JioSaavn disabled by option for 'Shape of You': Using YouTube fallback directly
+[RESOLVER] YouTube fallback resolved: 'Shape of You' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 04 | Shape of You - Ed Sheeran | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 863 ms |
+[RESOLVER] JioSaavn disabled by option for 'Starboy': Using YouTube fallback directly
+[RESOLVER] YouTube fallback resolved: 'Starboy' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 05 | Starboy - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 910 ms |
+
+=== Summary ===
+Total tracks resolved: 5/5
+Studio Master (320 kbps) achieved: 0/5
+Success rate: 100.0%
+

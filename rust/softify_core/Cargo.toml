@@ -38,3 +38,11 @@ sha2 = "0.10"
 [dev-dependencies]
 wiremock = "0.6"
 tempfile = "3.10"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+

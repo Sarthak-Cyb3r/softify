@@ -67,6 +67,9 @@ android {
         targetSdk = 34
         versionCode = 40300
         versionName = "4.3.0-experimental"
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     packaging {

@@ -79,4 +79,5 @@ dist/
 local.properties
 composeApp/build/
 rust/softify_core/target/
+composeApp/src/androidMain/jniLibs/
 

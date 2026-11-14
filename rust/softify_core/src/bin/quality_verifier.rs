@@ -1,6 +1,7 @@
 use std::time::Instant;
 use softify_core::models::{QualityPreset, Track};
 use softify_core::resolvers::hybrid::HybridStreamResolver;
+use softify_core::resolvers::saavn::{SaavnMatchResult, SaavnStreamResolver};
 
 struct BenchmarkTrack {
     category: &'static str,
@@ -64,6 +65,7 @@ async fn main() {
     ];
 
     let resolver = HybridStreamResolver::new();
+    let saavn_resolver = SaavnStreamResolver::new();
     let http_client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(8))
         .build()
@@ -90,6 +92,32 @@ async fn main() {
             is_liked: false,
             is_unavailable: false,
         };
+
+        if !disable_saavn {
+            match saavn_resolver.match_track_detailed(&track).await {
+                Ok(SaavnMatchResult::Matched(m)) => {
+                    println!(
+                        "[SAAVN MATCH] Track {:02} '{}': Matched Saavn Title='{}', Artist(s)='{}', Duration Diff={}s, Score={:.1}",
+                        i + 1, track.title, m.title, m.artists, m.duration_diff_sec, m.score
+                    );
+                }
+                Ok(SaavnMatchResult::Rejected(Some(rej))) => {
+                    println!(
+                        "[SAAVN REJECTION] Track {:02} '{}': Best Candidate='{}', Artist(s)='{}', Score={:.1}, Reason={}",
+                        i + 1, track.title, rej.candidate_title, rej.candidate_artists, rej.score, rej.reason
+                    );
+                }
+                Ok(SaavnMatchResult::Rejected(None)) => {
+                    println!(
+                        "[SAAVN REJECTION] Track {:02} '{}': No Saavn candidates found in search results (truly absent)",
+                        i + 1, track.title
+                    );
+                }
+                Err(e) => {
+                    println!("[SAAVN REJECTION] Track {:02} '{}': Search error: {}", i + 1, track.title, e);
+                }
+            }
+        }
 
         let t0 = Instant::now();
         match resolver.resolve_with_options(&track, QualityPreset::High, disable_saavn).await {

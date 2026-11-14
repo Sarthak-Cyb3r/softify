@@ -11,6 +11,29 @@ const SAAVN_DES_KEY: &[u8] = b"38346591";
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+#[derive(Debug, Clone)]
+pub struct SaavnMatchDetails {
+    pub pid: String,
+    pub title: String,
+    pub artists: String,
+    pub duration_diff_sec: i64,
+    pub score: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SaavnRejectionDetails {
+    pub candidate_title: String,
+    pub candidate_artists: String,
+    pub score: f64,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum SaavnMatchResult {
+    Matched(SaavnMatchDetails),
+    Rejected(Option<SaavnRejectionDetails>),
+}
+
 pub struct SaavnStreamResolver {
     client: reqwest::Client,
     base_url: String,
@@ -226,6 +249,15 @@ impl SaavnStreamResolver {
     /// Finds best matching pid from JioSaavn searching, applying exact Flutter anti-mashup,
     /// exact Duration Guard, and artist verification.
     pub async fn find_best_matching_pid(&self, track: &Track) -> Result<Option<String>, SoftifyError> {
+        let res = self.match_track_detailed(track).await?;
+        match res {
+            SaavnMatchResult::Matched(m) => Ok(Some(m.pid)),
+            SaavnMatchResult::Rejected(_) => Ok(None),
+        }
+    }
+
+    /// Evaluates all candidate tracks from JioSaavn and returns detailed match or rejection information.
+    pub async fn match_track_detailed(&self, track: &Track) -> Result<SaavnMatchResult, SoftifyError> {
         let clean_title = normalize(&track.title);
         let clean_artist = normalize(&track.artist);
         let primary_artist = track.artist.split([',', '&', '/'])
@@ -280,11 +312,12 @@ impl SaavnStreamResolver {
         }
 
         if candidates.is_empty() {
-            return Ok(None);
+            return Ok(SaavnMatchResult::Rejected(None));
         }
 
         let mut best_score = -1.0;
-        let mut best_pid = None;
+        let mut best_match = None;
+        let mut best_rejection: Option<SaavnRejectionDetails> = None;
 
         for r in candidates {
             let pid = match r.get("id").and_then(|v| v.as_str()) {
@@ -299,7 +332,7 @@ impl SaavnStreamResolver {
             let cand_title = normalize(&raw_cand_title);
             let cand_language = r.get("language").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
 
-            // Extract candidate artists
+            // Extract candidate artists across primary_artists, featured_artists, artists, singers, music, subtitle
             let mut cand_singers_vec = Vec::new();
             if let Some(artist_map) = more_info.get("artistMap") {
                 if let Some(pa) = artist_map.get("primary_artists").and_then(|v| v.as_array()) {
@@ -332,7 +365,19 @@ impl SaavnStreamResolver {
             if let Some(pa) = r.get("primary_artists").and_then(|v| v.as_str()) {
                 cand_singers_vec.push(pa);
             }
+            let subtitle_artist = if cand_subtitle.contains(" - ") {
+                cand_subtitle.split(" - ").next().unwrap_or("").trim()
+            } else {
+                ""
+            };
+            if !subtitle_artist.is_empty() {
+                cand_singers_vec.push(subtitle_artist);
+            }
+            if let Some(music) = more_info.get("music").and_then(|v| v.as_str()) {
+                cand_singers_vec.push(music);
+            }
             let cand_singers = normalize(&cand_singers_vec.join(" "));
+            let display_artists = if cand_singers_vec.is_empty() { "Unknown".to_string() } else { cand_singers_vec.join(", ") };
 
             // 0. Hard Disqualification: Unwanted Remixes, DJ cuts, Covers, Lofi, Slowed, Acoustic, Karaoke
             let target_title_lower = track.title.to_lowercase();
@@ -347,6 +392,7 @@ impl SaavnStreamResolver {
             ];
 
             let mut is_disqualified = false;
+            let mut disqualified_kw = "";
             for &kw in UNWANTED_KEYWORDS {
                 if !target_title_lower.contains(kw) && !target_album_lower.contains(kw) {
                     if kw == "mix" && (raw_cand_title.contains("original mix") || cand_subtitle.contains("original mix")) {
@@ -354,11 +400,20 @@ impl SaavnStreamResolver {
                     }
                     if raw_cand_title.contains(kw) || cand_subtitle.contains(kw) || raw_cand_album.contains(kw) {
                         is_disqualified = true;
+                        disqualified_kw = kw;
                         break;
                     }
                 }
             }
             if is_disqualified {
+                if best_rejection.is_none() {
+                    best_rejection = Some(SaavnRejectionDetails {
+                        candidate_title: raw_cand_title,
+                        candidate_artists: display_artists,
+                        score: 0.0,
+                        reason: format!("anti-mashup rule: keyword '{disqualified_kw}' detected"),
+                    });
+                }
                 continue;
             }
 
@@ -380,11 +435,27 @@ impl SaavnStreamResolver {
                     let has_exact_primary = cand_singers.contains(&clean_primary);
                     let has_all_tokens = primary_words.iter().all(|w| cand_singers.contains(*w));
                     if !has_exact_primary && !has_all_tokens {
+                        if best_rejection.is_none() {
+                            best_rejection = Some(SaavnRejectionDetails {
+                                candidate_title: raw_cand_title,
+                                candidate_artists: display_artists,
+                                score: 0.0,
+                                reason: format!("artist mismatch: primary '{clean_primary}' not found in candidate singers '{cand_singers}'"),
+                            });
+                        }
                         continue;
                     }
                 } else {
                     let token = primary_words[0];
                     if !cand_singers.contains(token) {
+                        if best_rejection.is_none() {
+                            best_rejection = Some(SaavnRejectionDetails {
+                                candidate_title: raw_cand_title,
+                                candidate_artists: display_artists,
+                                score: 0.0,
+                                reason: format!("artist mismatch: single-token '{token}' not found in candidate singers '{cand_singers}'"),
+                            });
+                        }
                         continue;
                     }
                 }
@@ -407,13 +478,27 @@ impl SaavnStreamResolver {
                     let target_album = normalize(track.album.as_deref().unwrap_or(""));
                     let cand_album = normalize(&raw_cand_album);
                     if target_album.is_empty() || cand_album.is_empty() || !cand_album.contains(&target_album) {
+                        if best_rejection.is_none() {
+                            best_rejection = Some(SaavnRejectionDetails {
+                                candidate_title: raw_cand_title,
+                                candidate_artists: display_artists,
+                                score: 0.0,
+                                reason: "duration guard: candidate duration unknown and album mismatch".to_string(),
+                            });
+                        }
                         continue;
                     }
                 } else {
                     let diff_sec = (track_dur_sec - cand_dur_sec).abs();
                     let max_allowed_diff = ((track_dur_sec as f64 * 0.10).clamp(8.0, 25.0)) as i64;
                     if diff_sec > max_allowed_diff {
-                        continue; // Reject completely wrong recording or alternate live version
+                        best_rejection = Some(SaavnRejectionDetails {
+                            candidate_title: raw_cand_title,
+                            candidate_artists: display_artists,
+                            score: 0.0,
+                            reason: format!("duration guard: diff {diff_sec}s > max allowed {max_allowed_diff}s (requested {track_dur_sec}s vs Saavn {cand_dur_sec}s)"),
+                        });
+                        continue;
                     }
                 }
             }
@@ -440,6 +525,14 @@ impl SaavnStreamResolver {
                 }
 
             if !title_matched {
+                if best_rejection.is_none() {
+                    best_rejection = Some(SaavnRejectionDetails {
+                        candidate_title: raw_cand_title,
+                        candidate_artists: display_artists,
+                        score: 0.0,
+                        reason: format!("title mismatch: candidate title '{cand_title}' does not match '{clean_title}'"),
+                    });
+                }
                 continue;
             }
 
@@ -474,30 +567,49 @@ impl SaavnStreamResolver {
                 }
 
             // Duration proximity
-            if track.duration_ms > 0 && cand_dur_sec > 0 {
-                let diff_sec = (track_dur_sec - cand_dur_sec).abs();
-                if diff_sec <= 5 {
+            let diff_sec = if track.duration_ms > 0 && cand_dur_sec > 0 {
+                let d = (track_dur_sec - cand_dur_sec).abs();
+                if d <= 5 {
                     score += 40.0;
-                } else if diff_sec <= 15 {
+                } else if d <= 15 {
                     score += 25.0;
-                } else if diff_sec <= 35 {
+                } else if d <= 35 {
                     score += 10.0;
-                } else if diff_sec > 60 {
+                } else if d > 60 {
                     score -= 25.0;
                 }
+                d
+            } else {
+                0
+            };
+
+            if score < 80.0 && best_rejection.as_ref().map(|b| b.score < score).unwrap_or(true) {
+                best_rejection = Some(SaavnRejectionDetails {
+                    candidate_title: raw_cand_title.clone(),
+                    candidate_artists: display_artists.clone(),
+                    score,
+                    reason: format!("score below threshold: {score:.1} < 80.0 required"),
+                });
             }
 
             if score > best_score {
                 best_score = score;
-                best_pid = Some(pid);
+                best_match = Some(SaavnMatchDetails {
+                    pid,
+                    title: raw_cand_title,
+                    artists: display_artists,
+                    duration_diff_sec: diff_sec,
+                    score,
+                });
             }
         }
 
-        if best_score >= 80.0 && best_pid.is_some() {
-            Ok(best_pid)
-        } else {
-            Ok(None)
+        if best_score >= 80.0 {
+            if let Some(m) = best_match {
+                return Ok(SaavnMatchResult::Matched(m));
+            }
         }
+        Ok(SaavnMatchResult::Rejected(best_rejection))
     }
 }
 
