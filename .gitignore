@@ -76,3 +76,4 @@ Mobile Design Softify/
 *.aab
 *.tar.gz
 dist/
+.gradle/
