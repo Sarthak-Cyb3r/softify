@@ -19,15 +19,21 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.ui.apple.AppleMusicNowPlaying
 import com.softify.app.ui.components.QualityBadge
 import com.softify.app.ui.metrolist.MetrolistNowPlaying
+import com.softify.app.viewmodel.NavigationTab
 import com.softify.app.viewmodel.PlaybackViewModel
 import com.softify.app.viewmodel.UiStyle
 import uniffi.softify_core.QualityPreset
+import uniffi.softify_core.SearchIntent
 import uniffi.softify_core.Track
 
 @Composable
 fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
+    val currentTab by viewModel.currentTab.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
+    val localSearchResults by viewModel.localSearchResults.collectAsState()
+    val onlineSearchResults by viewModel.onlineSearchResults.collectAsState()
+    val detectedIntent by viewModel.detectedIntent.collectAsState()
+    val detectedEntity by viewModel.detectedEntity.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val activeTrack by viewModel.activeTrack.collectAsState()
     val activeStream by viewModel.activeStream.collectAsState()
@@ -35,8 +41,14 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
     val qualityPreset by viewModel.qualityPreset.collectAsState()
     val uiStyle by viewModel.uiStyle.collectAsState()
 
+    val likedTracks by viewModel.likedTracks.collectAsState()
+    val playlists by viewModel.playlists.collectAsState()
+    val history by viewModel.history.collectAsState()
+
     var showNowPlaying by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showNewPlaylistDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -162,178 +174,361 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                         }
                     }
 
-                    // Search input
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChanged(it) },
-                        placeholder = { Text("Search songs, artists, albums...", color = Color.Gray) },
+                    // Navigation Tabs: Search vs Library
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF6EE7B7),
-                            unfocusedBorderColor = Color(0xFF333333),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        singleLine = true
-                    )
-
-                    if (isSearching) {
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp),
-                            color = Color(0xFF6EE7B7)
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        FilterChip(
+                            selected = currentTab == NavigationTab.SEARCH,
+                            onClick = { viewModel.setTab(NavigationTab.SEARCH) },
+                            label = { Text("🔍 Search") }
+                        )
+                        FilterChip(
+                            selected = currentTab == NavigationTab.LIBRARY,
+                            onClick = { viewModel.setTab(NavigationTab.LIBRARY) },
+                            label = { Text("📚 Library (${likedTracks.size})") }
                         )
                     }
 
-                    // Results list
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(searchResults, key = { it.id }) { track ->
-                            TrackListItem(
-                                track = track,
-                                isPlaying = track.id == activeTrack?.id,
-                                onClick = { viewModel.playTrack(track) }
+                    if (currentTab == NavigationTab.SEARCH) {
+                        // Search input
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { viewModel.onSearchQueryChanged(it) },
+                            placeholder = { Text("Search songs, artists, albums...", color = Color.Gray) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF6EE7B7),
+                                unfocusedBorderColor = Color(0xFF333333),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            singleLine = true
+                        )
+
+                        // Intent Chip
+                        if (detectedIntent != SearchIntent.GENERAL && detectedEntity != null) {
+                            Text(
+                                text = "🎯 Detected ${detectedIntent.name.lowercase().replaceFirstChar { it.uppercase() }}: \"$detectedEntity\"",
+                                fontSize = 12.sp,
+                                color = Color(0xFF6EE7B7),
+                                modifier = Modifier.padding(bottom = 4.dp)
                             )
+                        }
+
+                        if (isSearching) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp),
+                                color = Color(0xFF6EE7B7)
+                            )
+                        }
+
+                        // Search Results list
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Section: Local Library matches (FTS5)
+                            if (localSearchResults.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "From Your Library (Instant FTS5)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF34D399),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                                items(localSearchResults, key = { "local_${it.id}" }) { track ->
+                                    TrackRowItem(
+                                        track = track,
+                                        isLiked = likedTracks.any { it.id == track.id },
+                                        onSelect = { viewModel.playTrack(track) },
+                                        onToggleLike = { viewModel.toggleLikeTrack(track) }
+                                    )
+                                }
+                            }
+
+                            // Section: Online Stream Results
+                            if (onlineSearchResults.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = if (localSearchResults.isNotEmpty()) "Online Results" else "Search Results",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFA78BFA),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                                items(onlineSearchResults, key = { "online_${it.id}" }) { track ->
+                                    TrackRowItem(
+                                        track = track,
+                                        isLiked = likedTracks.any { it.id == track.id },
+                                        onSelect = { viewModel.playTrack(track) },
+                                        onToggleLike = { viewModel.toggleLikeTrack(track) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Library Tab Content
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Liked Songs Section
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "❤️ Liked Songs (${likedTracks.size})",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+
+                            if (likedTracks.isEmpty()) {
+                                item {
+                                    Text("No liked songs yet. Tap the heart on any track to save it.", color = Color.Gray, fontSize = 13.sp)
+                                }
+                            } else {
+                                items(likedTracks, key = { "lib_liked_${it.id}" }) { track ->
+                                    TrackRowItem(
+                                        track = track,
+                                        isLiked = true,
+                                        onSelect = { viewModel.playTrack(track) },
+                                        onToggleLike = { viewModel.toggleLikeTrack(track) }
+                                    )
+                                }
+                            }
+
+                            // Playlists Section
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "📁 Playlists (${playlists.size})",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Button(
+                                        onClick = { showNewPlaylistDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6EE7B7)),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("+ New", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+
+                            if (playlists.isEmpty()) {
+                                item {
+                                    Text("No custom playlists created yet.", color = Color.Gray, fontSize = 13.sp)
+                                }
+                            } else {
+                                items(playlists, key = { it.id }) { pl ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1B2E)),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("🎵", fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                                            Column {
+                                                Text(pl.name, fontWeight = FontWeight.Bold, color = Color.White)
+                                                Text("${pl.trackCount} tracks", fontSize = 12.sp, color = Color.Gray)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Recently Played Section
+                            if (history.isNotEmpty()) {
+                                item {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "⏱️ Recently Played",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                                items(history, key = { "hist_${it.id}" }) { hist ->
+                                    TrackRowItem(
+                                        track = hist.track,
+                                        isLiked = likedTracks.any { it.id == hist.track.id },
+                                        onSelect = { viewModel.playTrack(hist.track) },
+                                        onToggleLike = { viewModel.toggleLikeTrack(hist.track) }
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    // MiniPlayer at bottom
+                    // Mini-player bar (persistent when active)
                     if (activeTrack != null) {
-                        MiniPlayer(
-                            track = activeTrack!!,
-                            streamInfo = activeStream,
-                            isPlaying = isPlaying,
-                            onPlayPause = { viewModel.togglePlayPause() },
-                            onExpand = { showNowPlaying = true }
-                        )
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { showNowPlaying = true },
+                            color = Color(0xFF1E1B2E),
+                            tonalElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = activeTrack!!.title,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = activeTrack!!.artist,
+                                            fontSize = 12.sp,
+                                            color = Color.LightGray,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (activeStream != null) {
+                                            QualityBadge(
+                                                streamInfo = activeStream
+                                            )
+                                        }
+                                    }
+                                }
+
+                                IconButton(onClick = { viewModel.togglePlayPause() }) {
+                                    Text(
+                                        text = if (isPlaying) "⏸" else "▶",
+                                        fontSize = 20.sp,
+                                        color = Color(0xFF6EE7B7)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
+            }
+
+            // Dialog to create new playlist
+            if (showNewPlaylistDialog) {
+                AlertDialog(
+                    onDismissRequest = { showNewPlaylistDialog = false },
+                    title = { Text("Create New Playlist", color = Color.White) },
+                    text = {
+                        OutlinedTextField(
+                            value = newPlaylistName,
+                            onValueChange = { newPlaylistName = it },
+                            placeholder = { Text("Playlist name") },
+                            singleLine = true
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                if (newPlaylistName.isNotBlank()) {
+                                    viewModel.createNewPlaylist(newPlaylistName.trim())
+                                    newPlaylistName = ""
+                                    showNewPlaylistDialog = false
+                                }
+                            }
+                        ) {
+                            Text("Create", color = Color(0xFF6EE7B7))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showNewPlaylistDialog = false }) {
+                            Text("Cancel", color = Color.Gray)
+                        }
+                    },
+                    containerColor = Color(0xFF1E1B2E)
+                )
             }
         }
     }
 }
 
 @Composable
-fun TrackListItem(
+private fun TrackRowItem(
     track: Track,
-    isPlaying: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isPlaying) Color(0x336EE7B7) else Color(0xFF1E1B2E))
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF2D2A42)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = track.title.take(1).uppercase(),
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isPlaying) Color(0xFF6EE7B7) else Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = track.artist,
-                fontSize = 13.sp,
-                color = Color(0xFFA1A1AA),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-fun MiniPlayer(
-    track: Track,
-    streamInfo: uniffi.softify_core.StreamInfo?,
-    isPlaying: Boolean,
-    onPlayPause: () -> Unit,
-    onExpand: () -> Unit
+    isLiked: Boolean,
+    onSelect: () -> Unit,
+    onToggleLike: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp)
-            .clickable(onClick = onExpand),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF27272A)),
-        shape = RoundedCornerShape(16.dp)
+            .clickable(onClick = onSelect),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181528)),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF3F3F46)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = track.title.take(1).uppercase(),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Column {
-                    Text(
-                        text = track.title,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    QualityBadge(streamInfo = streamInfo)
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = track.title,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${track.artist}${track.album?.let { " • $it" } ?: ""}",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            IconButton(onClick = onPlayPause) {
+            IconButton(onClick = onToggleLike) {
                 Text(
-                    text = if (isPlaying) "⏸" else "▶",
-                    fontSize = 20.sp,
-                    color = Color.White
+                    text = if (isLiked) "❤️" else "🤍",
+                    fontSize = 16.sp
                 )
             }
         }

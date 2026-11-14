@@ -47,6 +47,51 @@ pub struct Track {
     pub is_unavailable: bool,
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Playlist {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub is_imported: bool,
+    pub source_url: Option<String>,
+    pub track_count: u32,
+    pub created_at: i64,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PlaylistTrack {
+    pub playlist_id: String,
+    pub position: u32,
+    pub track_id: Option<String>,
+    pub original_title: String,
+    pub original_artist: String,
+    pub match_status: String,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PlayHistory {
+    pub id: i64,
+    pub track: Track,
+    pub played_at: i64,
+    pub completed_ratio: f64,
+}
+
+#[derive(uniffi::Enum, Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SearchIntent {
+    General,
+    Track,
+    Artist,
+    Album,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SearchResult {
+    pub local_tracks: Vec<Track>,
+    pub online_tracks: Vec<Track>,
+    pub intent: SearchIntent,
+    pub detected_entity: Option<String>,
+}
+
 #[derive(uniffi::Error, thiserror::Error, Debug)]
 pub enum SoftifyError {
     #[error("Network error: {reason}")]
