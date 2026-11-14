@@ -57,8 +57,8 @@ print_banner() {
   ███████║╚██████╔╝██║        ██║   ██║██║        ██║   
   ╚══════╝ ╚═════╝ ╚═╝        ╚═╝   ╚═╝╚═╝        ╚═╝   
 EOF
-    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v4.0.0-stable${COLOR_RESET}\n"
-    printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Fast Local-First UI${COLOR_RESET}\n\n"
+    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v4.0.2${COLOR_RESET}\n"
+    printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Dual UI (Metrolist & Apple Music)${COLOR_RESET}\n\n"
 }
 
 # ------------------------------------------------------------------------------
@@ -72,9 +72,9 @@ fi
 
 # Detect local Softify git repository if present
 LOCAL_REPO=""
-if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/pubspec.yaml" ]]; then
+if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/build.gradle.kts" ]]; then
     LOCAL_REPO="$SCRIPT_DIR"
-elif [[ -f "$(pwd)/pubspec.yaml" && $(grep -c "name: softify" "$(pwd)/pubspec.yaml" 2>/dev/null || true) -gt 0 ]]; then
+elif [[ -f "$(pwd)/build.gradle.kts" && $(grep -c "softify" "$(pwd)/build.gradle.kts" 2>/dev/null || true) -gt 0 ]]; then
     LOCAL_REPO="$(pwd)"
 fi
 
@@ -484,12 +484,18 @@ log_success "Installed executable wrapper: ${LAUNCHER_SCRIPT}"
 # Install Desktop Icons
 ICON_INSTALLED=false
 
-# 1. Check inside bundle flutter assets
-if [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" ]]; then
+# 1. Check inside bundle assets
+if [[ -f "${APP_DIR}/softify.png" ]]; then
+    cp "${APP_DIR}/softify.png" "${ICON_DIR_PNG}/softify.png"
+    ICON_INSTALLED=true
+elif [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" ]]; then
     cp "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" "${ICON_DIR_PNG}/softify.png"
     ICON_INSTALLED=true
 fi
-if [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" ]]; then
+if [[ -f "${APP_DIR}/softify.svg" ]]; then
+    cp "${APP_DIR}/softify.svg" "${ICON_DIR_SVG}/softify.svg"
+    ICON_INSTALLED=true
+elif [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" ]]; then
     cp "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" "${ICON_DIR_SVG}/softify.svg"
     ICON_INSTALLED=true
 fi
