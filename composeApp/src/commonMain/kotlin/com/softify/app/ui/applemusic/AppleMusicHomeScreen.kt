@@ -15,15 +15,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.softify.app.data.PlayerManager
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
 import com.softify.app.theme.GlassmorphicContainer
+import com.softify.app.ui.components.SoftifyImage
 import com.softify.app.ui.components.TurntableVinyl
 
 @Composable
@@ -35,140 +34,128 @@ fun AppleMusicHomeScreen(
     onTrackSelect: (Track) -> Unit,
     onThemeToggle: () -> Unit
 ) {
-    Box(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(palette.ambientGradientStops)
-            )
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
+        item {
+            Spacer(modifier = Modifier.height(20.dp))
 
-                // Apple Music Header: iOS Bold Title & Theme Switcher
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Listen Now",
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Apple Music • Liquid Glass",
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                    }
-
-                    Button(
-                        onClick = onThemeToggle,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.15f),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(100.dp)
-                    ) {
-                        Text(
-                            text = "⚡ Metrolist UI",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+            // Apple Music Header: iOS Bold Title & Theme Switcher
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Listen Now",
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Apple Music • Liquid Glass",
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
                 }
-            }
 
-            // Featured Vinyl Showcase
-            item {
-                GlassmorphicContainer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+                Button(
+                    onClick = onThemeToggle,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.15f),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(100.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        TurntableVinyl(
-                            isPlaying = isPlaying,
-                            title = currentTrack?.title ?: "Softify",
-                            artist = currentTrack?.artist ?: "Apple Music",
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
-
-                        Text(
-                            text = currentTrack?.title ?: "Select a song",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = currentTrack?.artist ?: "Apple Music iOS Studio",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
+                    Text(
+                        text = "⚡ Metrolist UI",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
-            }
-
-            // iOS Curated Heavy Shelf
-            item {
-                Text(
-                    text = "Top Playlists",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    items(tracks) { track ->
-                        AppleMusicCard(
-                            track = track,
-                            onClick = { onTrackSelect(track) }
-                        )
-                    }
-                }
-            }
-
-            // Song List
-            items(tracks) { track ->
-                AppleMusicTrackRow(
-                    track = track,
-                    isSelected = track.id == currentTrack?.id,
-                    onClick = { onTrackSelect(track) }
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(110.dp))
             }
         }
 
-        // Apple Music Bottom Frosted Glass Player
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            AppleMusicMiniPlayer(
-                currentTrack = currentTrack,
-                isPlaying = isPlaying,
-                onPlayPause = { PlayerManager.togglePlayPause() }
+        // Featured Vinyl Turntable Showcase
+        item {
+            GlassmorphicContainer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                cornerRadius = 24
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    TurntableVinyl(
+                        isPlaying = isPlaying,
+                        title = currentTrack?.title ?: "Softify",
+                        artist = currentTrack?.artist ?: "Apple Music",
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    Text(
+                        text = currentTrack?.title ?: "Select a song",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = currentTrack?.artist ?: "Apple Music Master",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        // iOS Curated Heavy Shelf
+        item {
+            Text(
+                text = "Top Playlists",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
+            Spacer(modifier = Modifier.height(14.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                items(tracks) { track ->
+                    AppleMusicCard(
+                        track = track,
+                        onClick = { onTrackSelect(track) }
+                    )
+                }
+            }
+        }
+
+        // Song List
+        item {
+            Text(
+                text = "Recently Played",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+
+        items(tracks) { track ->
+            AppleMusicTrackRow(
+                track = track,
+                isSelected = track.id == currentTrack?.id,
+                onClick = { onTrackSelect(track) }
+            )
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(120.dp))
         }
     }
 }
@@ -180,31 +167,31 @@ fun AppleMusicCard(
 ) {
     GlassmorphicContainer(
         modifier = Modifier
-            .width(180.dp)
-            .clickable { onClick() }
+            .width(170.dp)
+            .clickable { onClick() },
+        cornerRadius = 20
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Box(
+        Column(modifier = Modifier.padding(12.dp)) {
+            SoftifyImage(
+                url = track.coverUrl,
+                title = track.title,
                 modifier = Modifier
-                    .size(152.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "🍎", fontSize = 48.sp)
-            }
-            Spacer(modifier = Modifier.height(12.dp))
+                    .size(146.dp)
+                    .clip(RoundedCornerShape(16.dp)),
+                cornerRadius = 16.dp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = track.title,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 maxLines = 1
             )
             Text(
                 text = track.artist,
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 maxLines = 1
             )
         }
@@ -226,22 +213,15 @@ fun AppleMusicTrackRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isSelected) "▶" else "♪",
-                    color = if (isSelected) Color.Black else Color.White,
-                    fontSize = 16.sp
-                )
-            }
+            SoftifyImage(
+                url = track.coverUrl,
+                title = track.title,
+                modifier = Modifier.size(44.dp),
+                cornerRadius = 10.dp
+            )
 
             Spacer(modifier = Modifier.width(14.dp))
 
@@ -250,12 +230,14 @@ fun AppleMusicTrackRow(
                     text = track.title,
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
+                    fontSize = 15.sp,
+                    maxLines = 1
                 )
                 Text(
                     text = track.artist,
                     color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 13.sp
+                    fontSize = 13.sp,
+                    maxLines = 1
                 )
             }
 
@@ -272,29 +254,29 @@ fun AppleMusicTrackRow(
 fun AppleMusicMiniPlayer(
     currentTrack: Track?,
     isPlaying: Boolean,
-    onPlayPause: () -> Unit
+    onPlayPause: () -> Unit,
+    onExpand: () -> Unit
 ) {
     if (currentTrack == null) return
 
     GlassmorphicContainer(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 28
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onExpand() },
+        cornerRadius = 24
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "▶", color = Color.Black, fontSize = 16.sp)
-            }
+            SoftifyImage(
+                url = currentTrack.coverUrl,
+                title = currentTrack.title,
+                modifier = Modifier.size(44.dp),
+                cornerRadius = 10.dp
+            )
 
             Spacer(modifier = Modifier.width(14.dp))
 
@@ -303,12 +285,14 @@ fun AppleMusicMiniPlayer(
                     text = currentTrack.title,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = 14.sp,
+                    maxLines = 1
                 )
                 Text(
                     text = currentTrack.artist,
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 13.sp
+                    fontSize = 12.sp,
+                    maxLines = 1
                 )
             }
 
@@ -319,7 +303,7 @@ fun AppleMusicMiniPlayer(
                     contentColor = Color.White
                 ),
                 shape = CircleShape,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(42.dp)
             ) {
                 Text(
                     text = if (isPlaying) "⏸" else "▶",

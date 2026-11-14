@@ -1,4 +1,4 @@
-name: Linux Desktop Release Build
+name: Multi-Engine Release Build & Deploy
 
 on:
   workflow_dispatch:
@@ -13,10 +13,10 @@ on:
       - 'v*'
 
 jobs:
-  build-linux:
-    name: Build Linux x64 Pure Rust Release
+  build-and-release:
+    name: Build & Package Full Desktop Suite
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     permissions:
       contents: write
 
@@ -34,49 +34,82 @@ jobs:
             libfontconfig1-dev \
             pkg-config
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+
       - name: Set up Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Softify Release Binary
+      - name: Build Compose Multiplatform Desktop Uber JAR
+        run: ./gradlew :composeApp:packageUberJarForCurrentOS --no-daemon
+
+      - name: Build Rust Engine Release Binary
         run: cargo build --release
 
-      - name: Package Release Tarball
+      - name: Package Linux Desktop Release Bundle
         run: |
           mkdir -p dist/bundle
-          cp target/release/softify dist/bundle/
+          cp target/release/softify dist/bundle/softify-engine
+          cp composeApp/build/compose/jars/*.jar dist/bundle/softify.jar
           cp assets/logo/logo.png dist/bundle/softify.png
           cp README.md dist/bundle/
           cp LICENSE dist/bundle/
 
+          cat << 'EOF' > dist/bundle/softify
+          #!/usr/bin/env bash
+          DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+          if command -v java >/dev/null 2>&1; then
+              exec java -jar "${DIR}/softify.jar" "$@"
+          elif [[ -f "${DIR}/softify-engine" ]]; then
+              exec "${DIR}/softify-engine" "$@"
+          else
+              echo "Error: Neither Java runtime nor softify-engine binary found." >&2
+              exit 1
+          fi
+          EOF
+          chmod +x dist/bundle/softify
+
           cat << 'EOF' > dist/bundle/softify.desktop
           [Desktop Entry]
           Name=Softify
-          Comment=High-Performance Native Music Streaming Player
+          Comment=High-Performance Dual-UI Music Streaming Player (Metrolist & Apple Music)
           Exec=softify
           Icon=softify
           Terminal=false
           Type=Application
           Categories=AudioVideo;Audio;Player;Music;
-          StartupWMClass=softify
+          StartupWMClass=com.softify.app.MainKt
           EOF
 
           tar -czvf Softify-Linux-x64.tar.gz -C dist/bundle .
           sha256sum Softify-Linux-x64.tar.gz > Softify-Linux-x64.tar.gz.sha256
-          ls -lh Softify-Linux-x64.tar.gz
+          cp composeApp/build/compose/jars/*.jar Softify-Desktop-Compose.jar
 
-      - name: Upload Release Artifact
+      - name: Upload Artifacts to Workflow
         uses: actions/upload-artifact@v4
         with:
-          name: Softify-Linux-x64
-          path: Softify-Linux-x64.tar.gz
+          name: Softify-Linux-Release-Bundle
+          path: |
+            Softify-Linux-x64.tar.gz
+            Softify-Linux-x64.tar.gz.sha256
+            Softify-Desktop-Compose.jar
 
-      - name: Attach Linux Tarball to GitHub Release
+      - name: Attach Assets to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.target_tag || github.ref_name }}
           files: |
             Softify-Linux-x64.tar.gz
             Softify-Linux-x64.tar.gz.sha256
+            Softify-Desktop-Compose.jar
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

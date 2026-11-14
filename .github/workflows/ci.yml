@@ -1,4 +1,4 @@
-name: CI Engine & Test Verification
+name: CI Verification & Build Engine
 
 on:
   push:
@@ -10,9 +10,43 @@ on:
   workflow_dispatch:
 
 jobs:
-  rust-verification:
-    name: Pure Rust Compilation & Test Suite
+  compose-verification:
+    name: Kotlin Compose Multiplatform Build
     runs-on: ubuntu-22.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+
+      - name: Compile Compose Desktop
+        run: ./gradlew :composeApp:compileKotlinDesktop --no-daemon
+
+      - name: Build Desktop Uber JAR
+        run: ./gradlew :composeApp:packageUberJarForCurrentOS --no-daemon
+
+      - name: Upload Uber JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: softify-compose-desktop-jar
+          path: composeApp/build/compose/jars/*.jar
+
+  rust-verification:
+    name: Pure Rust Engine & Resolvers Check
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

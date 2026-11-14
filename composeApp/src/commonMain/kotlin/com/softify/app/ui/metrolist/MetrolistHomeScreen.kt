@@ -17,9 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.softify.app.data.PlayerManager
 import com.softify.app.domain.models.Track
 import com.softify.app.theme.DynamicColorPalette
+import com.softify.app.ui.components.SoftifyImage
 
 @Composable
 fun MetrolistHomeScreen(
@@ -30,112 +30,121 @@ fun MetrolistHomeScreen(
     onTrackSelect: (Track) -> Unit,
     onThemeToggle: () -> Unit
 ) {
-    Scaffold(
-        containerColor = palette.background,
-        bottomBar = {
-            MetrolistMiniPlayer(
-                palette = palette,
-                currentTrack = currentTrack,
-                isPlaying = isPlaying,
-                onPlayPause = { PlayerManager.togglePlayPause() },
-                onExpand = { PlayerManager.setPlayerExpanded(true) }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Metrolist Top Header Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Metrolist",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.primary
+                    )
+                    Text(
+                        text = "Material 3 • Dynamic Color",
+                        fontSize = 13.sp,
+                        color = Color(0xFFA6A6AA)
+                    )
+                }
+
+                // Theme switcher pill button
+                Button(
+                    onClick = onThemeToggle,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = palette.primaryContainer,
+                        contentColor = palette.primary
+                    ),
+                    shape = RoundedCornerShape(100.dp)
+                ) {
+                    Text(
+                        text = "🍎 Apple Music UI",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        // Quick Picks Shelf (24dp Squircles with play buttons)
+        item {
+            Text(
+                text = "Quick Picks",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(tracks) { track ->
+                    MetrolistAlbumCard(
+                        track = track,
+                        palette = palette,
+                        onClick = { onTrackSelect(track) }
+                    )
+                }
+            }
+        }
+
+        // Forgotten Favorites Shelf
+        item {
+            Text(
+                text = "Listen Again",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(tracks.reversed()) { track ->
+                    MetrolistAlbumCard(
+                        track = track,
+                        palette = palette,
+                        onClick = { onTrackSelect(track) }
+                    )
+                }
+            }
+        }
+
+        // Songs in Queue / Mixed For You
+        item {
+            Text(
+                text = "Mixed for You",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
 
-                // Top Bar with Metrolist Pill Search & Theme Switcher
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Metrolist",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = palette.primary
-                        )
-                        Text(
-                            text = "Material 3 • Dynamic Color",
-                            fontSize = 13.sp,
-                            color = Color(0xFFA6A6AA)
-                        )
-                    }
+        items(tracks) { track ->
+            val isSelected = track.id == currentTrack?.id
+            MetrolistTrackRow(
+                track = track,
+                isSelected = isSelected,
+                palette = palette,
+                onClick = { onTrackSelect(track) }
+            )
+        }
 
-                    // Mode switch button
-                    Button(
-                        onClick = onThemeToggle,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = palette.primaryContainer,
-                            contentColor = palette.primary
-                        ),
-                        shape = RoundedCornerShape(100.dp)
-                    ) {
-                        Text(
-                            text = "🍎 Apple Music UI",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-
-            // Quick Picks Shelf (Horizontal Cards with 24dp Squircles)
-            item {
-                Text(
-                    text = "Quick Picks",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(tracks) { track ->
-                        MetrolistAlbumCard(
-                            track = track,
-                            palette = palette,
-                            onClick = { onTrackSelect(track) }
-                        )
-                    }
-                }
-            }
-
-            // Playlist / Library Track Rows
-            item {
-                Text(
-                    text = "Songs in Queue",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-
-            items(tracks) { track ->
-                val isSelected = track.id == currentTrack?.id
-                MetrolistTrackRow(
-                    track = track,
-                    isSelected = isSelected,
-                    palette = palette,
-                    onClick = { onTrackSelect(track) }
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
-            }
+        item {
+            Spacer(modifier = Modifier.height(110.dp))
         }
     }
 }
@@ -154,18 +163,12 @@ fun MetrolistAlbumCard(
             .clickable { onClick() }
             .padding(12.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(136.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(palette.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "🎵",
-                fontSize = 42.sp
-            )
-        }
+        SoftifyImage(
+            url = track.coverUrl,
+            title = track.title,
+            modifier = Modifier.size(136.dp),
+            cornerRadius = 20.dp
+        )
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = track.title,
@@ -196,22 +199,15 @@ fun MetrolistTrackRow(
             .clip(RoundedCornerShape(16.dp))
             .background(if (isSelected) palette.primaryContainer.copy(alpha = 0.45f) else Color.Transparent)
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 14.dp),
+            .padding(vertical = 10.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (isSelected) palette.primary else palette.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = if (isSelected) "▶" else "♫",
-                color = if (isSelected) palette.onPrimary else Color.White,
-                fontSize = 16.sp
-            )
-        }
+        SoftifyImage(
+            url = track.coverUrl,
+            title = track.title,
+            modifier = Modifier.size(46.dp),
+            cornerRadius = 12.dp
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 
@@ -220,12 +216,14 @@ fun MetrolistTrackRow(
                 text = track.title,
                 color = if (isSelected) palette.primary else Color.White,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp
+                fontSize = 15.sp,
+                maxLines = 1
             )
             Text(
                 text = track.artist,
                 color = Color(0xFFA6A6AA),
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                maxLines = 1
             )
         }
 
@@ -250,7 +248,7 @@ fun MetrolistMiniPlayer(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(28.dp))
             .clickable { onExpand() },
         color = palette.surfaceVariant,
@@ -259,18 +257,15 @@ fun MetrolistMiniPlayer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(palette.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "▶", color = palette.onPrimary, fontSize = 16.sp)
-            }
+            SoftifyImage(
+                url = currentTrack.coverUrl,
+                title = currentTrack.title,
+                modifier = Modifier.size(44.dp),
+                cornerRadius = 12.dp
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -279,19 +274,21 @@ fun MetrolistMiniPlayer(
                     text = currentTrack.title,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    maxLines = 1
                 )
                 Text(
                     text = currentTrack.artist,
                     color = palette.primary,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    maxLines = 1
                 )
             }
 
             IconButton(
                 onClick = onPlayPause,
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(palette.primaryContainer)
             ) {

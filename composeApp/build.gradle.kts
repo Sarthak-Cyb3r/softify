@@ -41,8 +41,12 @@ compose.desktop {
     application {
         mainClass = "com.softify.app.MainKt"
 
+        buildTypes.release.proguard {
+            isEnabled.set(false)
+        }
+
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "com.softify.app"
             packageVersion = "4.0.2"
         }
