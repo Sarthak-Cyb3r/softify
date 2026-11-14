@@ -80,4 +80,15 @@ mod tests {
         assert!(cfg.search_aliases.contains_key("arijit"));
         assert_eq!(cfg.client_version, "1.02");
     }
+
+    #[tokio::test]
+    async fn test_remote_config_fails_fallback_to_bundled_default() {
+        let mgr = ConfigManager::new();
+        // Point to an invalid unreachable address
+        mgr.fetch_remote_config("http://127.0.0.1:1/invalid_non_existent").await;
+        let cfg = mgr.get_config();
+        // Should retain bundled default
+        assert!(!cfg.fallback_piped_instances.is_empty());
+        assert_eq!(cfg.client_version, "1.02");
+    }
 }

@@ -33,6 +33,7 @@ uniffi = { version = "0.28", features = ["tokio", "cli"] }
 walkdir = "2.5"
 rayon = "1.10"
 lofty = "0.21"
+sha2 = "0.10"
 
 [dev-dependencies]
 wiremock = "0.6"

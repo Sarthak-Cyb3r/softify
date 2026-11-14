@@ -1,0 +1,74 @@
+=== Softify Audio Quality Verifier (Target: 320 kbps Studio Master) ===
+Mode: LIVE NETWORK VERIFICATION (Real JioSaavn CDN & YouTube Innertube)
+
+| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |
+|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|
+[RESOLVER] JioSaavn resolved: 'Tum Hi Ho' -> 320 kbps, codec=aac, requested_quality_met=true
+| 01 | Tum Hi Ho - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1074 ms |
+[RESOLVER] JioSaavn resolved: 'Kesariya' -> 320 kbps, codec=aac, requested_quality_met=true
+| 02 | Kesariya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 807 ms |
+[RESOLVER] JioSaavn resolved: 'Blinding Lights' -> 320 kbps, codec=aac, requested_quality_met=true
+| 03 | Blinding Lights - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 972 ms |
+[RESOLVER] JioSaavn resolved: 'Shape of You' -> 320 kbps, codec=aac, requested_quality_met=true
+| 04 | Shape of You - Ed Sheeran | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1103 ms |
+[RESOLVER] JioSaavn resolved: 'Starboy' -> 320 kbps, codec=aac, requested_quality_met=true
+| 05 | Starboy - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1304 ms |
+[RESOLVER] JioSaavn resolved: 'Apna Bana Le' -> 320 kbps, codec=aac, requested_quality_met=true
+| 06 | Apna Bana Le - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1172 ms |
+[RESOLVER] JioSaavn resolved: 'Levitating' -> 320 kbps, codec=aac, requested_quality_met=true
+| 07 | Levitating - Dua Lipa | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1023 ms |
+[RESOLVER] JioSaavn resolved: 'Chaleya' -> 320 kbps, codec=aac, requested_quality_met=true
+| 08 | Chaleya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1059 ms |
+[RESOLVER] JioSaavn resolved: 'Flowers' -> 320 kbps, codec=aac, requested_quality_met=true
+| 09 | Flowers - Miley Cyrus | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1275 ms |
+[RESOLVER] JioSaavn resolved: 'Raataan Lambiyan' -> 320 kbps, codec=aac, requested_quality_met=true
+| 10 | Raataan Lambiyan - Jubin Nautiyal | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1015 ms |
+[RESOLVER] JioSaavn resolved: 'Lag Ja Gale' -> 320 kbps, codec=aac, requested_quality_met=true
+| 11 | Lag Ja Gale - Lata Mangeshkar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 976 ms |
+[RESOLVER] JioSaavn resolved: 'Pal Pal Dil Ke Paas' -> 320 kbps, codec=aac, requested_quality_met=true
+| 12 | Pal Pal Dil Ke Paas - Kishore Kumar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 773 ms |
+[RESOLVER] JioSaavn resolved: 'Roop Tera Mastana' -> 320 kbps, codec=aac, requested_quality_met=true
+| 13 | Roop Tera Mastana - Kishore Kumar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1107 ms |
+[RESOLVER] JioSaavn resolved: 'Brown Munde' -> 320 kbps, codec=aac, requested_quality_met=true
+| 14 | Brown Munde - AP Dhillon | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 595 ms |
+[RESOLVER] JioSaavn resolved: '295' -> 320 kbps, codec=aac, requested_quality_met=true
+| 15 | 295 - Sidhu Moose Wala | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 890 ms |
+[RESOLVER] JioSaavn resolved: 'Lover' -> 320 kbps, codec=aac, requested_quality_met=true
+| 16 | Lover - Diljit Dosanjh | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1191 ms |
+[RESOLVER] JioSaavn resolved: 'Why This Kolaveri Di' -> 320 kbps, codec=aac, requested_quality_met=true
+| 17 | Why This Kolaveri Di - Dhanush | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 893 ms |
+[RESOLVER] JioSaavn resolved: 'Arabic Kuthu' -> 320 kbps, codec=aac, requested_quality_met=true
+| 18 | Arabic Kuthu - Anirudh Ravichander | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1061 ms |
+[RESOLVER] JioSaavn resolved: 'Samajavaragamana' -> 320 kbps, codec=aac, requested_quality_met=true
+| 19 | Samajavaragamana - Sid Sriram | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 785 ms |
+[RESOLVER] JioSaavn resolved: 'Rowdy Baby' -> 320 kbps, codec=aac, requested_quality_met=true
+| 20 | Rowdy Baby - Dhanush | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1006 ms |
+[RESOLVER] JioSaavn resolved: 'Kasoor' -> 320 kbps, codec=aac, requested_quality_met=true
+| 21 | Kasoor - Prateek Kuhad | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 512 ms |
+[RESOLVER] JioSaavn resolved: 'Cold/mess' -> 320 kbps, codec=aac, requested_quality_met=true
+| 22 | Cold/mess - Prateek Kuhad | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 580 ms |
+[RESOLVER] JioSaavn resolved: 'Alag Aasmaan' -> 320 kbps, codec=aac, requested_quality_met=true
+| 23 | Alag Aasmaan - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 541 ms |
+[RESOLVER] JioSaavn resolved: 'Baarishein' -> 320 kbps, codec=aac, requested_quality_met=true
+| 24 | Baarishein - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 945 ms |
+[RESOLVER] JioSaavn resolved: 'Roz Roz' -> 320 kbps, codec=aac, requested_quality_met=true
+| 25 | Roz Roz - The Yellow Diary | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 569 ms |
+[RESOLVER] JioSaavn unavailable for 'Choojhn De' (Not found: No matching Saavn track found for 'Choojhn De' by 'When Chai Met Toast'): Falling back to YouTube Innertube
+[RESOLVER] YouTube fallback resolved: 'Choojhn De' -> 155 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 26 | Choojhn De - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 155 kbps | NO | YES | 2717 ms |
+[RESOLVER] JioSaavn unavailable for 'Khoj' (Not found: No matching Saavn track found for 'Khoj' by 'When Chai Met Toast'): Falling back to YouTube Innertube
+[RESOLVER] YouTube fallback resolved: 'Khoj' -> 131 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 27 | Khoj - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 131 kbps | NO | YES | 1587 ms |
+[RESOLVER] JioSaavn resolved: 'Liggi' -> 320 kbps, codec=aac, requested_quality_met=true
+| 28 | Liggi - Ritviz | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 750 ms |
+[RESOLVER] JioSaavn unavailable for 'Sage' (Not found: No matching Saavn track found for 'Sage' by 'Ritviz'): Falling back to YouTube Innertube
+[RESOLVER] YouTube fallback resolved: 'Sage' -> 133 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
+| 29 | Sage - Ritviz | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 133 kbps | NO | YES | 1381 ms |
+[RESOLVER] JioSaavn resolved: 'Udaan' -> 320 kbps, codec=aac, requested_quality_met=true
+| 30 | Udaan - Amit Trivedi | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 711 ms |
+
+=== Summary ===
+Total tracks resolved: 30/30
+Studio Master (320 kbps) achieved: 27/30
+Success rate: 100.0%
+

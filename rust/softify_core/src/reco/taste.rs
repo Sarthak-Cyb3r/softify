@@ -41,6 +41,13 @@ impl TasteProfileEngine {
             return Ok(());
         }
 
+        // Incognito mode / learning paused check
+        if let Ok(Some(val)) = self.db.get_setting("learning_paused") {
+            if val == "true" {
+                return Ok(());
+            }
+        }
+
         let artist = track.artist.trim();
         if artist.is_empty() {
             return Ok(());
@@ -133,5 +140,39 @@ mod tests {
         let blended: f64 = 0.4 * fast + 0.6 * slow; // 2.0
         let sat: f64 = blended / (blended + 2.0); // 2.0 / 4.0 = 0.5
         assert!((sat - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_incognito_mode_pauses_learning() {
+        let db = Arc::new(DatabaseRepository::in_memory().unwrap());
+        let engine = TasteProfileEngine::new(db.clone());
+
+        let track = Track {
+            id: "t_test".to_string(),
+            source_id: "saavn_1".to_string(),
+            title: "Test Song".to_string(),
+            artist: "Test Artist".to_string(),
+            album: None,
+            duration_ms: 180000,
+            cover_url: None,
+            match_confidence: Some(1.0),
+            is_liked: false,
+            is_unavailable: false,
+        };
+
+        // Enable incognito mode
+        db.set_setting("learning_paused", "true").unwrap();
+        engine.update_from_play(&track, true, false, false).unwrap();
+
+        // Entity must not exist in DB
+        let profile = db.get_taste_profile("artist", "Test Artist").unwrap();
+        assert!(profile.is_none());
+
+        // Disable incognito mode
+        db.set_setting("learning_paused", "false").unwrap();
+        engine.update_from_play(&track, true, false, false).unwrap();
+
+        let profile_after = db.get_taste_profile("artist", "Test Artist").unwrap();
+        assert!(profile_after.is_some());
     }
 }

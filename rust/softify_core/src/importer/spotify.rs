@@ -395,4 +395,14 @@ mod tests {
         assert_eq!(res.tracks[0].duration_ms, 184400);
         assert_eq!(res.tracks[1].title, "Paint The Town Red");
     }
+
+    #[test]
+    fn test_fixture_playlist_import_to_n_tracks() {
+        let fixture_html = include_str!("../../tests/fixtures/spotify_embed.html");
+        let res = SpotifyImporter::parse_embed_html("fixture_test", fixture_html)
+            .expect("must parse spotify embed fixture");
+        assert_eq!(res.tracks.len(), 2);
+        assert_eq!(res.tracks[0].title, "Seven (feat. Latto)");
+        assert_eq!(res.tracks[1].title, "Paint The Town Red");
+    }
 }

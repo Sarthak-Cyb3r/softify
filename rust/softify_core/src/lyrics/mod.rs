@@ -74,4 +74,41 @@ mod tests {
         assert!(cached_lyrics.is_synced);
         assert_eq!(cached_lyrics.lines[0].text, "Kesariya tera ishq hai piya");
     }
+
+    #[tokio::test]
+    async fn test_lyrics_lrclib_synced_and_plain_fallback() {
+        let mock_server = MockServer::start().await;
+        // Response with only plain lyrics (syncedLyrics is null)
+        let lrclib_body = r#"{
+            "id": 9999,
+            "trackName": "Plain Song",
+            "artistName": "Plain Artist",
+            "albumName": null,
+            "duration": 200,
+            "instrumental": false,
+            "plainLyrics": "Line one plain\nLine two plain",
+            "syncedLyrics": null
+        }"#;
+
+        Mock::given(method("GET"))
+            .and(path("/get"))
+            .and(query_param("track_name", "Plain Song"))
+            .and(query_param("artist_name", "Plain Artist"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(lrclib_body))
+            .mount(&mock_server)
+            .await;
+
+        let db = DatabaseRepository::in_memory().unwrap();
+        let lrclib = LrclibClient::with_client_and_base_url(reqwest::Client::new(), mock_server.uri());
+        let engine = LyricsEngine::with_lrclib(Some(db.clone()), lrclib);
+
+        let mut track = dummy_track("p1");
+        track.title = "Plain Song".to_string();
+        track.artist = "Plain Artist".to_string();
+        db.insert_or_update_track(&track).unwrap();
+
+        let lyrics = engine.get_lyrics(&track).await.unwrap();
+        assert!(!lyrics.is_synced, "Must fallback to unsynced/plain");
+        assert_eq!(lyrics.plain_text.as_deref(), Some("Line one plain\nLine two plain"));
+    }
 }

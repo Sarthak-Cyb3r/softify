@@ -91,6 +91,19 @@ impl LocalAudioScanner {
         discovered
     }
 
+    pub fn generate_deterministic_track_id(path_str: &str) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(path_str.as_bytes());
+        let hash_bytes = hasher.finalize();
+        let hex_64 = format!(
+            "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            hash_bytes[0], hash_bytes[1], hash_bytes[2], hash_bytes[3],
+            hash_bytes[4], hash_bytes[5], hash_bytes[6], hash_bytes[7]
+        );
+        format!("local_{}", hex_64)
+    }
+
     pub fn parse_audio_metadata(path: &Path) -> Option<Track> {
         let path_str = path.to_string_lossy().to_string();
         let file_stem = path.file_stem()
@@ -128,12 +141,8 @@ impl LocalAudioScanner {
             }
         }
 
-        // Generate deterministic 64-bit ID from path
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        use std::hash::{Hash, Hasher};
-        path_str.hash(&mut hasher);
-        let hash_val = hasher.finish();
-        let track_id = format!("local_{:016x}", hash_val);
+        // Generate deterministic 64-bit ID from path via SHA-256 truncation
+        let track_id = Self::generate_deterministic_track_id(&path_str);
 
         Some(Track {
             id: track_id,
@@ -254,5 +263,12 @@ mod tests {
         let discovered = LocalAudioScanner::discover_audio_files(&music_dir, 4);
         assert_eq!(discovered.len(), 1);
         assert_eq!(discovered[0], song_file);
+    }
+
+    #[test]
+    fn test_deterministic_track_id() {
+        let path = "/home/user/Music/test.mp3";
+        let track_id = LocalAudioScanner::generate_deterministic_track_id(path);
+        assert_eq!(track_id, "local_1067fbde5059c6ec");
     }
 }

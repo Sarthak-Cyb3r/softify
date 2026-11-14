@@ -267,4 +267,66 @@ mod tests {
         assert!(updated.windows(4).any(|w| w == b"ilst"));
         assert!(updated.windows(4).any(|w| w == b"covr"));
     }
+
+    #[test]
+    fn test_m4a_atom_stco_and_co64_offset_shift_verification() {
+        let mut bytes = Vec::new();
+        // ftyp box
+        let mut ftyp_payload = Vec::new();
+        ftyp_payload.extend_from_slice(b"M4A ");
+        ftyp_payload.extend_from_slice(&0u32.to_be_bytes());
+        ftyp_payload.extend_from_slice(b"M4A ");
+        bytes.extend_from_slice(&M4aAtomTagger::build_box(b"ftyp", &ftyp_payload));
+
+        // stco box with initial offset 100
+        let mut stco_payload = vec![0u8; 4];
+        stco_payload.extend_from_slice(&1u32.to_be_bytes()); // 1 entry
+        stco_payload.extend_from_slice(&100u32.to_be_bytes()); // initial offset 100
+        let stco_box = M4aAtomTagger::build_box(b"stco", &stco_payload);
+
+        // co64 box with initial offset 1000
+        let mut co64_payload = vec![0u8; 4];
+        co64_payload.extend_from_slice(&1u32.to_be_bytes()); // 1 entry
+        co64_payload.extend_from_slice(&1000u64.to_be_bytes()); // initial offset 1000
+        let co64_box = M4aAtomTagger::build_box(b"co64", &co64_payload);
+
+        let mut stbl_payload = Vec::new();
+        stbl_payload.extend_from_slice(&stco_box);
+        stbl_payload.extend_from_slice(&co64_box);
+
+        let stbl_box = M4aAtomTagger::build_box(b"stbl", &stbl_payload);
+        let minf_box = M4aAtomTagger::build_box(b"minf", &stbl_box);
+        let mdia_box = M4aAtomTagger::build_box(b"mdia", &minf_box);
+        let trak_box = M4aAtomTagger::build_box(b"trak", &mdia_box);
+        let moov_box = M4aAtomTagger::build_box(b"moov", &trak_box);
+        bytes.extend_from_slice(&moov_box);
+
+        // mdat box placed after moov
+        bytes.extend_from_slice(&M4aAtomTagger::build_box(b"mdat", &[0u8; 128]));
+
+        let temp_file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(temp_file.path(), &bytes).unwrap();
+
+        let meta = M4aMetadata {
+            title: "Test Track",
+            artist: "Test Artist",
+            album: Some("Test Album"),
+            cover_art_bytes: None,
+        };
+
+        M4aAtomTagger::write_metadata(temp_file.path(), &meta).expect("write metadata");
+        let updated = fs::read(temp_file.path()).unwrap();
+        let added_bytes = updated.len() - bytes.len();
+        assert!(added_bytes > 0);
+
+        // Find updated stco offset in updated bytes
+        let stco_pos = updated.windows(4).position(|w| w == b"stco").expect("found stco");
+        let new_stco_val = u32::from_be_bytes(updated[stco_pos + 12..stco_pos + 16].try_into().unwrap());
+        assert_eq!(new_stco_val, 100 + added_bytes as u32, "stco offset must be shifted by exact added_bytes");
+
+        // Find updated co64 offset in updated bytes
+        let co64_pos = updated.windows(4).position(|w| w == b"co64").expect("found co64");
+        let new_co64_val = u64::from_be_bytes(updated[co64_pos + 12..co64_pos + 20].try_into().unwrap());
+        assert_eq!(new_co64_val, 1000 + added_bytes as u64, "co64 offset must be shifted by exact added_bytes");
+    }
 }

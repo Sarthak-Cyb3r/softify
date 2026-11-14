@@ -16,13 +16,13 @@ async fn main() {
     println!("Mode: LIVE NETWORK VERIFICATION (Real JioSaavn CDN & YouTube Innertube)\n");
 
     let args: Vec<String> = std::env::args().collect();
-    let disable_saavn = args.iter().any(|a| a == "--disable-saavn" || a == "--force-youtube");
+    let disable_saavn = args.iter().any(|a| a == "--no-saavn" || a == "--disable-saavn" || a == "--force-youtube");
     let count: usize = args.iter()
         .find_map(|s| s.parse::<usize>().ok())
         .unwrap_or(30);
 
     if disable_saavn {
-        println!(">>> Flag enabled: --disable-saavn (Forcing YouTube fallback path for all tracks) <<<\n");
+        println!(">>> Flag enabled: --no-saavn (Forcing YouTube fallback path for all tracks) <<<\n");
     }
 
     let catalog: Vec<BenchmarkTrack> = vec![
@@ -71,8 +71,8 @@ async fn main() {
 
     let tracks_to_run: Vec<BenchmarkTrack> = catalog.into_iter().take(count).collect();
 
-    println!("| # | Track | Category | Provider | Codec | Requested | Actual | Verified | TTFA |");
-    println!("|---|-------|----------|----------|-------|-----------|--------|----------|------|");
+    println!("| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |");
+    println!("|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|");
 
     let mut success_count = 0;
     let mut studio_master_320_count = 0;
@@ -109,6 +109,12 @@ async fn main() {
                     Err(_) => ("NO", t0.elapsed().as_millis() as u64),
                 };
 
+                let matched_requested = if stream.bitrate_kbps >= 320 && stream.is_requested_quality {
+                    "YES"
+                } else {
+                    "NO"
+                };
+
                 let provider_display = if stream.provider.contains("jiosaavn") {
                     "JioSaavn Studio"
                 } else {
@@ -123,7 +129,7 @@ async fn main() {
                 }
 
                 println!(
-                    "| {:02} | {} - {} | {} | {} | {} | 320 kbps | {} kbps | {} | {} ms |",
+                    "| {:02} | {} - {} | {} | {} | {} | 320 kbps | {} kbps | {} | {} | {} ms |",
                     i + 1,
                     track.title,
                     track.artist,
@@ -131,13 +137,14 @@ async fn main() {
                     provider_display,
                     stream.codec.to_uppercase(),
                     stream.bitrate_kbps,
+                    matched_requested,
                     verified,
                     ttfa_ms
                 );
             }
             Err(e) => {
                 println!(
-                    "| {:02} | {} - {} | {} | FAILED | N/A | 320 kbps | 0 kbps | NO | {} ms ({}) |",
+                    "| {:02} | {} - {} | {} | FAILED | N/A | 320 kbps | 0 kbps | NO | NO | {} ms ({}) |",
                     i + 1,
                     track.title,
                     track.artist,

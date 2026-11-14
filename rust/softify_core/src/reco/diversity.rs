@@ -186,4 +186,19 @@ mod tests {
         assert_eq!(*counts.get("Artist B").unwrap_or(&0), 2);
         assert_eq!(diversified.len(), 4);
     }
+
+    #[test]
+    fn test_snooze_artist_30_days() {
+        let db = Arc::new(DatabaseRepository::in_memory().unwrap());
+        let controller = DiversityController::new(db.clone());
+
+        let snoozed_before = controller.get_snoozed_artists().unwrap();
+        assert!(snoozed_before.is_empty());
+
+        controller.snooze_artist("Bad Artist", DEFAULT_SNOOZE_DURATION_MS).unwrap();
+
+        let snoozed_after = controller.get_snoozed_artists().unwrap();
+        assert_eq!(snoozed_after.len(), 1);
+        assert_eq!(snoozed_after[0], "bad artist");
+    }
 }
