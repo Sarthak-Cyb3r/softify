@@ -8,6 +8,7 @@ import 'kugou_lyrics_provider.dart';
 import 'lrclib_lyrics_provider.dart';
 import 'netease_lyrics_provider.dart';
 import 'saavn_lyrics_provider.dart';
+import 'spotify_lyrics_synchronizer.dart';
 
 /// Multi-source lyrics engine combining Softify Verified Studio Master (Tier 0),
 /// Spotify Color-Lyrics v2 (Primary), LRCLIB, NetEase, Kugou, JioSaavn, and Genius catalogs.
@@ -86,7 +87,7 @@ class CompositeLyricsProvider implements ILyricsProvider {
   Future<SyncedLyrics?> _resolveLyrics(Track track) async {
     // Tier 0 (Gold Standard): Query Softify verified studio master catalog (0ms)
     try {
-      final curatedResult = await _curated.getLyrics(track);
+      final curatedResult = _sanitize(await _curated.getLyrics(track), track);
       if (curatedResult != null &&
           curatedResult.isSynced &&
           curatedResult.lines.isNotEmpty) {
@@ -132,11 +133,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
 
     try {
       final fastResults = await fastTierFuture;
-      lrclibResult = fastResults[0];
-      neteaseResult = fastResults[1];
-      kugouResult = fastResults[2];
-      paxResult = fastResults[3];
-      betterResult = fastResults[4];
+      lrclibResult = _sanitize(fastResults[0], track);
+      neteaseResult = _sanitize(fastResults[1], track);
+      kugouResult = _sanitize(fastResults[2], track);
+      paxResult = _sanitize(fastResults[3], track);
+      betterResult = _sanitize(fastResults[4], track);
 
       // 1. Syllable/Karaoke sync preference (Paxsenix Apple Music or BetterLyrics)
       if (paxResult != null &&
@@ -189,10 +190,11 @@ class CompositeLyricsProvider implements ILyricsProvider {
     SyncedLyrics? spotifyResult;
     if (_spotify != null) {
       try {
-        spotifyResult = await _spotify!.getLyrics(track).timeout(
+        final rawSpotify = await _spotify!.getLyrics(track).timeout(
               const Duration(milliseconds: 2000),
               onTimeout: () => null,
             );
+        spotifyResult = _sanitize(rawSpotify, track);
         if (spotifyResult != null &&
             spotifyResult.isSynced &&
             spotifyResult.lines.isNotEmpty) {
@@ -267,6 +269,53 @@ class CompositeLyricsProvider implements ILyricsProvider {
     }
 
     return null;
+  }
+
+  SyncedLyrics? _sanitize(SyncedLyrics? lyrics, Track track) {
+    if (lyrics == null) return null;
+    final targetDuration = track.duration;
+    final targetSec = targetDuration.inSeconds;
+
+    // 1. If lyrics has synced lines, but was truncated (e.g. radio cut on extended live recording)
+    if (lyrics.isSynced && lyrics.lines.isNotEmpty && targetSec > 60) {
+      final lastTs = lyrics.lines.last.timestamp.inSeconds;
+      if (lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
+        final adapted = SpotifyLyricsSynchronizer.adaptLrcToDuration(
+          lyrics.lines,
+          targetDuration,
+        );
+        return SyncedLyrics(
+          trackId: lyrics.trackId,
+          lines: adapted,
+          plainLyrics: lyrics.plainLyrics,
+          rawLrc: lyrics.rawLrc,
+          syncType: 'LINE_SYNCED',
+          providerName: '${lyrics.providerName} (Time-Adapted)',
+        );
+      }
+    }
+
+    // 2. If lyrics is unsynced (only plain text), synthesize paced lines so Apple Music kinetic view works
+    if ((!lyrics.isSynced || lyrics.lines.isEmpty) &&
+        lyrics.plainLyrics != null &&
+        lyrics.plainLyrics!.trim().isNotEmpty &&
+        targetSec > 10) {
+      final pacedLines = SpotifyLyricsSynchronizer.synthesizePacedLines(
+        lyrics.plainLyrics!,
+        targetDuration,
+      );
+      if (pacedLines.isNotEmpty) {
+        return SyncedLyrics(
+          trackId: lyrics.trackId,
+          lines: pacedLines,
+          plainLyrics: lyrics.plainLyrics,
+          syncType: 'LINE_SYNCED',
+          providerName: '${lyrics.providerName} (Kinetic Paced)',
+        );
+      }
+    }
+
+    return lyrics;
   }
 
   void _addToCache(String key, SyncedLyrics? value) {

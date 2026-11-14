@@ -9,10 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../domain/entities/audio_repeat_mode.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/ports/i_lyrics_provider.dart';
 import '../../services/lyrics/romanization_service.dart';
 import '../providers/player_providers.dart';
 import '../providers/settings_providers.dart';
-import '../screens/listen_together_screen.dart';
 import '../theme/app_theme.dart';
 import 'audiophile_quality_badge.dart';
 import 'bouncing_scale_button.dart';
@@ -221,21 +221,33 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lyricsAsync = ref.watch(trackLyricsProvider(track));
     final position = ref.watch(positionStreamProvider).value ?? Duration.zero;
+    final offsetMs = ref.watch(lyricsOffsetProvider(track.id));
+    final effectivePosition = Duration(
+      milliseconds: (position.inMilliseconds + offsetMs).clamp(0, 99999999),
+    );
     final romanizeEnabled = ref.watch(lyricsRomanizeProvider);
     final lyrics = lyricsAsync.valueOrNull;
 
+    final effectiveLines = lyrics != null && lyrics.lines.isNotEmpty
+        ? lyrics.lines
+        : (lyrics?.plainLyrics != null && lyrics!.plainLyrics!.trim().isNotEmpty
+            ? SpotifyLyricsSynchronizer.synthesizePacedLines(lyrics.plainLyrics!, track.duration)
+            : const <LyricLine>[]);
+
     String? currentLine;
-    if (lyrics != null && lyrics.lines.isNotEmpty) {
+    if (effectiveLines.isNotEmpty) {
       final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(
-        lyrics.lines,
-        position,
+        effectiveLines,
+        effectivePosition,
       );
-      if (activeIdx >= 0 && activeIdx < lyrics.lines.length) {
-        currentLine = lyrics.lines[activeIdx].text;
+      if (activeIdx >= 0 && activeIdx < effectiveLines.length) {
+        final activeLine = effectiveLines[activeIdx];
+        currentLine = activeLine.text;
       } else {
-        currentLine = lyrics.lines.first.text;
+        // Instrumental intro before vocal commences: do not display premature lyric
+        currentLine = null;
       }
-      if (romanizeEnabled && currentLine.isNotEmpty) {
+      if (romanizeEnabled && currentLine != null && currentLine.isNotEmpty) {
         currentLine = RomanizationService.romanize(currentLine);
       }
     }
@@ -243,6 +255,20 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
     if (currentLine == null || currentLine.trim().isEmpty) {
       return const SizedBox(height: 24);
     }
+
+    final textWidget = Text(
+      currentLine,
+      key: ValueKey(currentLine),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontFamily: AppTheme.fontDisplay,
+        fontSize: 16.5,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+        letterSpacing: -0.2,
+      ),
+    );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -255,20 +281,23 @@ class AppleMusicLyricTeaser extends ConsumerWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: Text(
-              currentLine,
-              key: ValueKey(currentLine),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: AppTheme.fontDisplay,
-                fontSize: 16.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -0.2,
-              ),
-            ),
+            duration: const Duration(milliseconds: 280),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.30),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              );
+            },
+            child: textWidget,
           ),
         ),
       ),
@@ -469,21 +498,7 @@ class AppleMusicPersistentBottomPanel extends ConsumerWidget {
                       },
                     ),
 
-                    // Item 3: Jam / Listen Together
-                    _dockButton(
-                      icon: Icons.people_alt_rounded,
-                      isActive: false,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ListenTogetherScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Item 4: Repeat Mode Toggle (Off -> Playlist -> One -> Off)
+                    // Item 3: Repeat Mode Toggle (Off -> Playlist -> One -> Off)
                     Tooltip(
                       message: effectiveRepeatMode.label,
                       child: _dockButton(

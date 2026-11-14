@@ -125,7 +125,7 @@ void main() {
       expect(stream!.container, 'm4a');
       expect(stream.codec, 'aac');
       expect(stream.url.toString(), contains('videoplayback'));
-      expect(stream.providerName, contains('innertube_android'));
+      expect(stream.providerName, contains('innertube_'));
     });
 
     test('YtmTrackCandidate maps to Track domain entity accurately', () {

@@ -37,6 +37,18 @@ class DummyAudioHandler extends Fake implements SoftifyAudioHandler {
 
   @override
   Stream<double> get speedStream => Stream.value(1.0);
+
+  @override
+  Stream<Duration> get positionStream => Stream.value(Duration.zero);
+
+  @override
+  Stream<Duration?> get durationStream => Stream.value(const Duration(minutes: 3));
+
+  @override
+  Stream<Track?> get currentTrackStream => Stream.value(null);
+
+  @override
+  Track? get currentTrack => null;
 }
 
 void main() {
@@ -71,7 +83,7 @@ void main() {
     // Verify primary navigation items
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Search'), findsNWidgets(2)); // Nav item & shortcut hint
-    expect(find.text('Together'), findsOneWidget);
+    expect(find.text('Together'), findsNothing);
     expect(find.text('Library'), findsOneWidget);
     expect(find.text('YouTube'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);

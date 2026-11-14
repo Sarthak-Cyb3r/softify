@@ -17,21 +17,27 @@ class AppTheme {
   
   // Metrolist Signature Coral Red / Rose Accent
   static const Color accent = Color(0xFFED5564); // Metrolist Primary Brand
+  static const Color accentLight = Color(0xFFFF8592);
   static const Color primary = Color(0xFFED5564);
   static const Color primaryLight = Color(0xFFFF8592);
   static const Color primaryContainer = Color(0xFF3E181D);
   static const Color error = Color(0xFFFF5449);
+  static const Color divider = Color(0x1FFFFFFF);
+  static const Color borderLight = Color(0x1FFFFFFF);
+  static const Color borderSubtle = Color(0x14FFFFFF);
 
   // Typography Contrast
   static const Color textPrimary = Color(0xFFE6E1E5);
   static const Color textSecondary = Color(0xFF938F99);
   static const Color textMuted = Color(0xFF5F5D66);
+  static const Color textOnAccent = Colors.white;
 
   // Bundled OFL Font Families
   static const String fontUi = 'Manrope';
   static const String fontPageTitle = 'BricolageGrotesque';
   static const String fontDisplay = 'BricolageGrotesque';
   static const String fontEditorial = 'InstrumentSerif';
+  static const String fontHeadline = 'BricolageGrotesque';
 
   // Backward-compatibility aliases
   static const Color stitchBackground = background;

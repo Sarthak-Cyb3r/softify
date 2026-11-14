@@ -31,6 +31,19 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color divider;
   final Color error;
 
+  // Convenience & token aliases
+  Color get primary => accent;
+  Color get primaryLight => accentViolet;
+  Color get primaryContainer => accent.withValues(alpha: 0.2);
+  Color get borderLight => divider;
+  Color get borderSubtle => divider.withValues(alpha: 0.5);
+  Color get cardBorder => glassBorder;
+  Color get cardBackground => card;
+  Color get textTertiary => textMuted;
+  Color get textOnAccent => Colors.white;
+  Color get surfaceLow => surface;
+  Color get surfaceHigh => surfaceElevated;
+
   // Spacing (4/8pt Grid)
   final double spaceXs; // 4
   final double spaceSm; // 8

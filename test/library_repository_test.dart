@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:softify/data/database/app_database.dart';
@@ -185,6 +186,34 @@ void main() {
       final updatedDetails = await playlistWithTracksStream.first;
       expect(updatedDetails!.entries.length, 1);
       expect(updatedDetails.entries.first.track?.id, testTrack1.id);
+    });
+
+    test('self-heals missing track rows and never drops playlist entries from imported playlists', () async {
+      final playlist = await repo.createPlaylist('Spotify Import Test', isImported: true);
+
+      // Directly insert an entry in playlistTracks where tracks table has no corresponding row
+      await db.into(db.playlistTracks).insert(
+            PlaylistTracksCompanion.insert(
+              playlistId: playlist.id,
+              position: 0,
+              trackId: const Value(null),
+              originalTitle: 'Ghost Track',
+              originalArtist: 'Unknown Artist',
+              matchStatus: 'matched',
+            ),
+          );
+
+      final result = await repo.getPlaylistWithTracks(playlist.id);
+      expect(result, isNotNull);
+      expect(result!.entries.length, 1);
+      expect(result.entries.first.track, isNotNull);
+      expect(result.entries.first.track!.title, 'Ghost Track');
+      expect(result.entries.first.track!.artist, 'Unknown Artist');
+
+      // Verify self-healing persisted into tracks table
+      final healedInDb = await repo.getTrackById(result.entries.first.track!.id);
+      expect(healedInDb, isNotNull);
+      expect(healedInDb!.title, 'Ghost Track');
     });
   });
 

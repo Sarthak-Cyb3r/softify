@@ -1,0 +1,64 @@
+name: CI Engine & Test Verification
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  rust-core-tests:
+    name: Rust Core Verification & Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            rust/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock', 'rust/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cargo Format & Check
+        run: |
+          cd rust
+          cargo check --verbose
+
+      - name: Run Rust Unit Tests
+        run: |
+          cd rust
+          cargo test --verbose
+
+  flutter-tests:
+    name: Flutter Core Resolver & App Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Key Engine & Resolver Tests
+        run: |
+          flutter test test/keyboard_shortcuts_and_stream_matching_test.dart test/update_changelog_test.dart test/remote_config_and_updater_test.dart

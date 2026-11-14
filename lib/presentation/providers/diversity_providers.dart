@@ -8,6 +8,7 @@ import '../../domain/ports/i_cold_start_seeder.dart';
 import '../../domain/ports/i_diversity_controller.dart';
 import 'player_providers.dart';
 import 'recommendation_providers.dart';
+import 'spotify_import_providers.dart';
 
 final diversityControllerProvider = Provider<IDiversityController>((ref) {
   final db = ref.watch(databaseProvider);
@@ -25,9 +26,12 @@ final explanationGeneratorProvider = Provider<ExplanationGenerator>((ref) {
 
 final coldStartSeederProvider = Provider<IColdStartSeeder>((ref) {
   final db = ref.watch(databaseProvider);
+  final spotifyImporter = ref.watch(spotifyImporterProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return ColdStartSeeder(
     db: db,
-    spotifyImporter: KeylessSpotifyImporter(),
+    spotifyImporter: spotifyImporter,
+    spotifyApi: spotifyApi,
   );
 });
 

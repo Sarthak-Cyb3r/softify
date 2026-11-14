@@ -142,16 +142,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
         );
 
     final pB = playerB ??
-        (Platform.isLinux
-            ? null
-            : AudioPlayer(
-                audioLoadConfiguration: audioLoadConfiguration,
-                handleAudioSessionActivation: false,
-                handleInterruptions: false,
-                audioPipeline: (eqB != null && loudB != null)
-                    ? AudioPipeline(androidAudioEffects: [loudB, eqB])
-                    : null,
-              ));
+        AudioPlayer(
+          audioLoadConfiguration: audioLoadConfiguration,
+          handleAudioSessionActivation: false,
+          handleInterruptions: false,
+          audioPipeline: (eqB != null && loudB != null)
+              ? AudioPipeline(androidAudioEffects: [loudB, eqB])
+              : null,
+        );
 
     return JustAudioPlayerAdapter._internal(
       playerA: pA,
@@ -218,7 +216,11 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
       onError: (_) {},
     );
     _volumeSub = _activePlayer.volumeStream.listen(
-      _volumeSubject.add,
+      (vol) {
+        if (!_isCrossfading) {
+          _volumeSubject.add(vol);
+        }
+      },
       onError: (_) {},
     );
     _speedSub = _activePlayer.speedStream.listen(
@@ -278,16 +280,14 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
   AudioPlayer? _getStandbyPlayer() {
     if (_standbyPlayer != null) return _standbyPlayer;
-    if (Platform.isLinux) {
-      try {
-        _standbyPlayer = AudioPlayer(
-          audioLoadConfiguration: defaultAudioLoadConfiguration,
-          handleAudioSessionActivation: false,
-          handleInterruptions: false,
-        );
-      } catch (_) {
-        _standbyPlayer = null;
-      }
+    try {
+      _standbyPlayer = AudioPlayer(
+        audioLoadConfiguration: defaultAudioLoadConfiguration,
+        handleAudioSessionActivation: false,
+        handleInterruptions: false,
+      );
+    } catch (_) {
+      _standbyPlayer = null;
     }
     return _standbyPlayer;
   }
@@ -370,7 +370,6 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
 
     final targetVol = _volumeSubject.value;
     final bool canCrossfade = crossfade > Duration.zero &&
-        !Platform.isLinux &&
         outgoing.playing &&
         outgoing.processingState != ProcessingState.idle &&
         outgoing.processingState != ProcessingState.completed;
@@ -378,15 +377,16 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     final currentGen = ++_crossfadeGenerationId;
     if (!canCrossfade) {
       _isCrossfading = false;
-      await outgoing.stop();
       await incoming.setVolume(targetVol);
       await incoming.play();
+      unawaited(outgoing.stop());
       return;
     }
 
     _isCrossfading = true;
-    // High-performance asynchronous equal-power crossfade:
-    // Starts incoming playback immediately without stalling the caller or UI thread.
+    // True concurrent overlapping crossfade:
+    // Both outgoing and incoming players play simultaneously.
+    // Incoming starts at 0.0 volume and is verified to start rendering before outgoing attenuation begins.
     await incoming.setVolume(0.0);
     await incoming.play();
     unawaited(_executeEqualPowerCrossfade(outgoing, incoming, crossfade, targetVol, currentGen));
@@ -399,11 +399,29 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
     double targetVol,
     int generationId,
   ) async {
-    const steps = 20;
-    final stepDuration =
-        Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
-
     try {
+      // 1. Verify incoming player is actively decoding/rendering audio samples before fading outgoing track
+      if (incoming.processingState == ProcessingState.buffering ||
+          incoming.processingState == ProcessingState.loading) {
+        try {
+          await incoming.playbackEventStream
+              .firstWhere((event) =>
+                  event.processingState == ProcessingState.ready ||
+                  incoming.playing)
+              .timeout(const Duration(milliseconds: 600));
+        } catch (_) {
+          // Fallback: proceed if incoming took longer than 600ms to report state
+        }
+      }
+
+      if (_crossfadeGenerationId != generationId || _activePlayer != incoming) return;
+
+      final int steps = (crossfade.inMilliseconds / 50).clamp(15, 60).round();
+      final stepDuration =
+          Duration(milliseconds: (crossfade.inMilliseconds / steps).round());
+
+      // 2. Perform synchronized equal-power sinusoidal crossfade:
+      // cos^2(theta) + sin^2(theta) = 1.0 ensures constant acoustic volume with genuine track overlap
       for (int i = 1; i <= steps; i++) {
         await Future.delayed(stepDuration);
         if (_crossfadeGenerationId != generationId || _activePlayer != incoming) break;
@@ -491,15 +509,17 @@ class JustAudioPlayerAdapter implements ISoftifyAudioPlayer {
   @override
   Future<void> setVolume(double volume) async {
     final clamped = volume.clamp(0.0, 1.0);
-    await _activePlayer.setVolume(clamped);
-    if (_standbyPlayer != null) {
-      await _standbyPlayer!.setVolume(clamped);
-    }
     _volumeSubject.add(clamped);
+    if (!_isCrossfading) {
+      await _activePlayer.setVolume(clamped);
+      if (_standbyPlayer != null) {
+        await _standbyPlayer!.setVolume(clamped);
+      }
+    }
   }
 
   @override
-  double get volume => _activePlayer.volume;
+  double get volume => _volumeSubject.value;
 
   @override
   Stream<double> get volumeStream => _volumeSubject.stream;

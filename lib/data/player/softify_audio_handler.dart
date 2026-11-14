@@ -22,19 +22,12 @@ import '../../domain/ports/i_taste_profile_repository.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
 import '../../services/audio_clock_service.dart';
 import '../../services/voice/voice_search_matcher.dart';
+import '../lyrics/spotify_lyrics_synchronizer.dart';
 
 import 'softify_audio_player.dart';
 
-abstract class IPlaybackSyncDelegate {
-  void onHostTrackChanged(Track track);
-  void onHostPlay(Duration position);
-  void onHostPause(Duration position);
-  void onHostSeek(Duration position);
-}
-
 class SoftifyAudioHandler extends BaseAudioHandler
     with SeekHandler, QueueHandler {
-  IPlaybackSyncDelegate? syncDelegate;
   final ISoftifyAudioPlayer _player;
   final IStreamResolver _streamResolver;
   final ILibraryRepository _libraryRepo;
@@ -131,8 +124,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
   int _activePrefetchRequestId = 0;
 
   void setCrossfadeSeconds(int seconds) {
-    _crossfadeSeconds = 0;
-    _crossfadeSecondsSubject.add(0);
+    final clamped = seconds.clamp(0, 12);
+    _crossfadeSeconds = clamped;
+    _crossfadeSecondsSubject.add(clamped);
   }
 
   StreamSubscription? _playerStateSubscription;
@@ -181,6 +175,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   void _logTrackPlayEvent(Track? track, {required bool isCompleted}) {
     if (track == null) return;
+    if (_isPrivateSession) return;
     if (_currentTrackSource == 'youtube_link' ||
         _currentTrackSource == 'podcast' ||
         track.isYoutube ||
@@ -379,30 +374,39 @@ class SoftifyAudioHandler extends BaseAudioHandler
     // Listen to player state events and broadcast to audio_service
     _playbackEventSubscription = _player.playbackEventStream.listen(
       _broadcastPlaybackState,
-      onError: (_) {
+      onError: (err) {
+        _log('[SoftifyAudioHandler] playbackEventStream error: $err');
+        if (currentTrack != null && !_isTransitioningTrack) {
+          final currentPos = _player.position;
+          unawaited(_playCurrentIndex(forceFresh: true, initialPosition: currentPos));
+        }
         _broadcastPlaybackState();
       },
     );
 
-    // Listen to completion of tracks
+    // Listen to completion of tracks and recover from unexpected stream errors
     _playerStateSubscription = _player.playerStateStream.listen(
       (state) {
         if (state.processingState == ProcessingState.completed) {
           _onTrackCompleted();
         }
       },
-      onError: (_) {},
+      onError: (err) {
+        _log('[SoftifyAudioHandler] playerStateStream error: $err');
+        if (currentTrack != null && !_isTransitioningTrack) {
+          final currentPos = _player.position;
+          unawaited(_playCurrentIndex(forceFresh: true, initialPosition: currentPos));
+        }
+      },
     );
 
     // Listen to position for automatic DJ crossfade & speculative standby pre-warming
     _crossfadePositionSubscription = _player.positionStream.listen((pos) {
       if (_isTransitioningTrack) return;
       final dur = _player.duration ?? currentTrack?.duration;
-      if (dur != null && dur > const Duration(seconds: 15)) {
-        // 1. Speculative JIT pre-warming (lead time: at least 25s or crossfade duration + 10s)
-        final leadSeconds = max(25, _crossfadeSeconds + 10);
-        final leadTime = Duration(seconds: leadSeconds);
-        if (pos >= dur - leadTime &&
+      if (dur != null) {
+        // 1. Speculative prefetch triggers proactively at pos >= dur - 25s
+        if (pos >= dur - const Duration(seconds: 25) &&
             !_player.hasPreloadedNext &&
             !_isPrefetching) {
           unawaited(_prefetchNextTrackStream());
@@ -414,7 +418,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
         if (effectiveCrossfade > Duration.zero &&
             pos >= dur - effectiveCrossfade) {
           if (_player.hasPreloadedNext) {
-            _onTrackCompleted();
+            final remaining = dur - pos;
+            final actualFade = (remaining > Duration.zero && remaining < effectiveCrossfade)
+                ? remaining
+                : effectiveCrossfade;
+            _onTrackCompleted(crossfade: actualFade);
           } else if (!_isPrefetching) {
             unawaited(_prefetchNextTrackStream());
           }
@@ -424,16 +432,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
       // 3. Real-time synchronized lyrics broadcast for lockscreen & notification panel
       final synced = _currentSyncedLyrics;
       if (synced != null && synced.lines.isNotEmpty) {
-        final lines = synced.lines;
-        int activeIdx = -1;
-        for (int i = 0; i < lines.length; i++) {
-          if (lines[i].timestamp <= pos) {
-            activeIdx = i;
-          } else {
-            break;
-          }
-        }
-        final lineText = activeIdx >= 0 ? lines[activeIdx].text.trim() : null;
+        final activeIdx = SpotifyLyricsSynchronizer.findActiveLineIndex(synced.lines, pos);
+        final lineText = activeIdx >= 0 ? synced.lines[activeIdx].text.trim() : null;
         if (lineText != _lastBroadcastLyric) {
           _lastBroadcastLyric = lineText;
           _activeLyricSubject.add(lineText);
@@ -637,9 +637,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
     } else {
       await _player.play();
     }
-    try {
-      syncDelegate?.onHostPlay(_player.position);
-    } catch (_) {}
   }
 
   @override
@@ -656,9 +653,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
             : AudioProcessingState.idle,
       ),
     );
-    try {
-      syncDelegate?.onHostPause(_player.position);
-    } catch (_) {}
   }
 
   @override
@@ -686,9 +680,6 @@ class SoftifyAudioHandler extends BaseAudioHandler
   @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
-    try {
-      syncDelegate?.onHostSeek(position);
-    } catch (_) {}
   }
 
   Track? _peekNextTrack() {
@@ -701,19 +692,27 @@ class SoftifyAudioHandler extends BaseAudioHandler
     return null;
   }
 
-  /// Crossfade feature removed: always returns Duration.zero for pure gapless playback.
   Duration _computeEffectiveCrossfade(Track? from, Track? to) {
-    return Duration.zero;
+    if (_crossfadeSuppressed || _crossfadeSeconds <= 0) {
+      return Duration.zero;
+    }
+    return Duration(seconds: _crossfadeSeconds);
   }
 
   @override
-  Future<void> skipToNext() async {
+  Future<void> skipToNext({
+    bool isNaturalTransition = false,
+    Duration? transitionCrossfade,
+  }) async {
     if (_queue.isEmpty) return;
     final previousTrack = currentTrack;
-    _logTrackPlayEvent(previousTrack, isCompleted: false);
+    if (!_isTransitioningTrack) {
+      _logTrackPlayEvent(previousTrack, isCompleted: false);
+    }
 
     if (_currentIndex < _queue.length - 1) {
-      if (_player.hasPreloadedNext) {
+      final targetNextTrack = _queue[_currentIndex + 1];
+      if (_player.hasPreloadedNext && _currentlyPreloadingTrackId == targetNextTrack.id) {
         _currentIndex++;
         _syncQueueState();
         final nextTrack = currentTrack;
@@ -726,7 +725,8 @@ class SoftifyAudioHandler extends BaseAudioHandler
             _preloadedStreamInfo = null;
           }
         }
-        final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
+        final effectiveCrossfade =
+            transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack);
         try {
           await _player.playPreloadedNext(
             crossfade: effectiveCrossfade,
@@ -741,7 +741,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         }
         _consecutiveFailures = 0;
         _debouncedSaveQueue();
-        if (nextTrack != null) {
+        if (nextTrack != null && !_isPrivateSession) {
           unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
         }
         unawaited(_prefetchNextTrackStream());
@@ -749,51 +749,65 @@ class SoftifyAudioHandler extends BaseAudioHandler
         return;
       }
 
+      if (_player.hasPreloadedNext) {
+        _player.clearPreloadedNext();
+      }
+      _currentlyPreloadingTrackId = null;
+      _preloadedStreamInfo = null;
       _currentIndex++;
       _syncQueueState();
       await _playCurrentIndex();
       _checkAndPrefetchRecommendations();
     } else if (_repeatMode == AudioRepeatMode.all) {
-      if (_player.hasPreloadedNext && _queue.isNotEmpty) {
-        _currentIndex = 0;
-        _syncQueueState();
-        final nextTrack = currentTrack;
-        _currentlyPreloadingTrackId = null;
-        _currentTrackStartedAt = DateTime.now();
-        if (nextTrack != null) {
-          _loadLyricsForCurrentTrack(nextTrack);
-          if (_preloadedStreamInfo != null) {
-            _currentStreamInfoSubject.add(_preloadedStreamInfo);
-            _preloadedStreamInfo = null;
+      if (_queue.isNotEmpty) {
+        final targetNextTrack = _queue.first;
+        if (_player.hasPreloadedNext && _currentlyPreloadingTrackId == targetNextTrack.id) {
+          _currentIndex = 0;
+          _syncQueueState();
+          final nextTrack = currentTrack;
+          _currentlyPreloadingTrackId = null;
+          _currentTrackStartedAt = DateTime.now();
+          if (nextTrack != null) {
+            _loadLyricsForCurrentTrack(nextTrack);
+            if (_preloadedStreamInfo != null) {
+              _currentStreamInfoSubject.add(_preloadedStreamInfo);
+              _preloadedStreamInfo = null;
+            }
           }
-        }
-        final effectiveCrossfade = _computeEffectiveCrossfade(previousTrack, nextTrack);
-        try {
-          await _player.playPreloadedNext(
-            crossfade: effectiveCrossfade,
-          );
-        } catch (e) {
-          _log('[SoftifyAudioHandler] playPreloadedNext failed on repeat all: $e, falling back to _playCurrentIndex');
-          await _playCurrentIndex(forceFresh: true);
+          final effectiveCrossfade =
+              transitionCrossfade ?? _computeEffectiveCrossfade(previousTrack, nextTrack);
+          try {
+            await _player.playPreloadedNext(
+              crossfade: effectiveCrossfade,
+            );
+          } catch (e) {
+            _log('[SoftifyAudioHandler] playPreloadedNext failed on repeat all: $e, falling back to _playCurrentIndex');
+            await _playCurrentIndex(forceFresh: true);
+            return;
+          }
+          if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
+            await _player.setSpeed(1.0);
+          }
+          _consecutiveFailures = 0;
+          _debouncedSaveQueue();
+          if (nextTrack != null && !_isPrivateSession) {
+            unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
+          }
+          unawaited(_prefetchNextTrackStream());
+          _checkAndPrefetchRecommendations();
           return;
         }
-        if (nextTrack != null && !nextTrack.supportsSpeedPlayback && _player.speed != 1.0) {
-          await _player.setSpeed(1.0);
-        }
-        _consecutiveFailures = 0;
-        _debouncedSaveQueue();
-        if (nextTrack != null) {
-          unawaited(_libraryRepo.recordPlayHistory(nextTrack, 0.0).catchError((_) {}));
-        }
-        unawaited(_prefetchNextTrackStream());
-        _checkAndPrefetchRecommendations();
-        return;
-      }
 
-      _currentIndex = 0;
-      _syncQueueState();
-      await _playCurrentIndex();
-      _checkAndPrefetchRecommendations();
+        if (_player.hasPreloadedNext) {
+          _player.clearPreloadedNext();
+        }
+        _currentlyPreloadingTrackId = null;
+        _preloadedStreamInfo = null;
+        _currentIndex = 0;
+        _syncQueueState();
+        await _playCurrentIndex();
+        _checkAndPrefetchRecommendations();
+      }
     } else {
       final seedTrack = currentTrack ?? previousTrack;
       if (_autoPlay && _catalogRepo != null && seedTrack != null) {
@@ -835,6 +849,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
     if (index < 0 || index >= _queue.length) return;
     final previousTrack = currentTrack;
     _logTrackPlayEvent(previousTrack, isCompleted: false);
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
     _currentIndex = index;
     _syncQueueState();
     unawaited(_prefetchNextTrackStream());
@@ -1080,6 +1097,29 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
+  void updateTrackMetadata(Track updatedTrack) {
+    bool changed = false;
+    for (int i = 0; i < _queue.length; i++) {
+      if (_queue[i].id == updatedTrack.id || _queue[i].sourceId == updatedTrack.sourceId) {
+        _queue[i] = updatedTrack.copyWith(
+          isLiked: _queue[i].isLiked,
+        );
+        changed = true;
+      }
+    }
+    for (int i = 0; i < _unshuffledQueue.length; i++) {
+      if (_unshuffledQueue[i].id == updatedTrack.id || _unshuffledQueue[i].sourceId == updatedTrack.sourceId) {
+        _unshuffledQueue[i] = updatedTrack.copyWith(
+          isLiked: _unshuffledQueue[i].isLiked,
+        );
+      }
+    }
+    if (changed) {
+      _syncQueueState();
+      _debouncedSaveQueue();
+    }
+  }
+
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
     if (oldIndex < 0 ||
         oldIndex >= _queue.length ||
@@ -1111,6 +1151,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
   Future<void> removeQueueItemAt(int index) async {
     if (index < 0 || index >= _queue.length) return;
 
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
     if (index == _currentIndex) {
       _queue.removeAt(index);
       if (_currentIndex >= _queue.length) {
@@ -1131,6 +1175,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
 
     _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
   }
 
   Future<void> clearQueue() async {
@@ -1143,6 +1188,76 @@ class SoftifyAudioHandler extends BaseAudioHandler
     _syncQueueState();
     await _player.stop();
     await _libraryRepo.clearQueueState();
+  }
+
+  /// Clears upcoming tracks in the queue while keeping currently playing song active.
+  Future<void> clearUpcomingQueue() async {
+    if (_queue.isEmpty) return;
+
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
+    if (_currentIndex < 0) {
+      _queue.clear();
+      _unshuffledQueue.clear();
+    } else if (_currentIndex < _queue.length - 1) {
+      _queue.removeRange(_currentIndex + 1, _queue.length);
+      final currentTrackId = _queue[_currentIndex].id;
+      final unIdx = _unshuffledQueue.indexWhere((t) => t.id == currentTrackId);
+      if (unIdx >= 0 && unIdx < _unshuffledQueue.length - 1) {
+        _unshuffledQueue.removeRange(unIdx + 1, _unshuffledQueue.length);
+      }
+    } else {
+      return;
+    }
+
+    _syncQueueState();
+    _debouncedSaveQueue();
+  }
+
+  /// Shuffles upcoming tracks only without touching the currently playing track or history.
+  Future<void> shuffleUpcomingOnly() async {
+    if (_queue.isEmpty) return;
+
+    final startIndex = _currentIndex >= 0 ? _currentIndex + 1 : 0;
+    final upcomingCount = _queue.length - startIndex;
+    if (upcomingCount <= 1) return;
+
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
+    final upcoming = _queue.sublist(startIndex);
+    upcoming.shuffle(Random());
+    _queue.removeRange(startIndex, _queue.length);
+    _queue.addAll(upcoming);
+
+    _syncQueueState();
+    _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
+  }
+
+  /// Reverses upcoming tracks only without touching the currently playing track.
+  Future<void> reverseUpcomingOnly() async {
+    if (_queue.isEmpty) return;
+
+    final startIndex = _currentIndex >= 0 ? _currentIndex + 1 : 0;
+    final upcomingCount = _queue.length - startIndex;
+    if (upcomingCount <= 1) return;
+
+    _player.clearPreloadedNext();
+    _currentlyPreloadingTrackId = null;
+    _preloadedStreamInfo = null;
+
+    final upcoming = _queue.sublist(startIndex);
+    final reversed = upcoming.reversed.toList();
+    _queue.removeRange(startIndex, _queue.length);
+    _queue.addAll(reversed);
+
+    _syncQueueState();
+    _debouncedSaveQueue();
+    unawaited(_prefetchNextTrackStream());
   }
 
   @override
@@ -1209,6 +1324,12 @@ class SoftifyAudioHandler extends BaseAudioHandler
 
   double get speed => _player.speed;
   Stream<double> get speedStream => _player.speedStream;
+
+  // Private Listening Session (Incognito)
+  bool _isPrivateSession = false;
+  bool get isPrivateSession => _isPrivateSession;
+  set isPrivateSession(bool value) => _isPrivateSession = value;
+  void setPrivateSession(bool enabled) => _isPrivateSession = enabled;
 
   // Equalizer API
   Future<void> setEqualizerEnabled(bool enabled) => _player.setEqualizerEnabled(enabled);
@@ -1282,11 +1403,10 @@ class SoftifyAudioHandler extends BaseAudioHandler
           if (requestId != _activePlayRequestId) return;
           _consecutiveFailures = 0;
           _debouncedSaveQueue();
-          unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+          if (!_isPrivateSession) {
+            unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+          }
           unawaited(_prefetchNextTrackStream());
-          try {
-            syncDelegate?.onHostTrackChanged(track);
-          } catch (_) {}
           return;
         } catch (downloadErr) {
           if (requestId != _activePlayRequestId) return;
@@ -1326,12 +1446,11 @@ class SoftifyAudioHandler extends BaseAudioHandler
       _log('[SoftifyAudioHandler] Player play() called successfully!');
       _consecutiveFailures = 0;
       _debouncedSaveQueue();
-      unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+      if (!_isPrivateSession) {
+        unawaited(_libraryRepo.recordPlayHistory(track, 0.0).catchError((_) {}));
+      }
       unawaited(_prefetchNextTrackStream());
       _checkAndPrefetchRecommendations();
-      try {
-        syncDelegate?.onHostTrackChanged(track);
-      } catch (_) {}
     } catch (e, st) {
       if (requestId != _activePlayRequestId) {
         // Superseded by newer track selection; discard cleanly without retry or error.
@@ -1363,7 +1482,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
     }
   }
 
-  Future<void> _onTrackCompleted() async {
+  Future<void> _onTrackCompleted({Duration? crossfade}) async {
     if (_isTransitioningTrack) return;
     _isTransitioningTrack = true;
 
@@ -1372,7 +1491,9 @@ class SoftifyAudioHandler extends BaseAudioHandler
       if (completed != null) {
         _logTrackPlayEvent(completed, isCompleted: true);
         _currentTrackStartedAt = null;
-        unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
+        if (!_isPrivateSession) {
+          unawaited(_libraryRepo.recordPlayHistory(completed, 1.0).catchError((_) {}));
+        }
       }
 
       if (_sleepEndOfTrack) {
@@ -1387,7 +1508,7 @@ class SoftifyAudioHandler extends BaseAudioHandler
         return;
       }
 
-      await skipToNext();
+      await skipToNext(isNaturalTransition: true, transitionCrossfade: crossfade);
     } finally {
       _isTransitioningTrack = false;
     }
@@ -1424,52 +1545,56 @@ class SoftifyAudioHandler extends BaseAudioHandler
     final prefetchId = ++_activePrefetchRequestId;
 
     try {
-      // 1. Check if next track is downloaded offline or local file
-      String? downloadedPath =
-          await _downloadRepo.getDownloadedFilePath(nextTrack.id);
-      if (prefetchId != _activePrefetchRequestId) return;
+      await () async {
+        // 1. Check if next track is downloaded offline or local file
+        final isLocalTrack = nextTrack.id.startsWith('local_') ||
+            nextTrack.sourceId.startsWith('/') ||
+            File(nextTrack.sourceId).existsSync();
 
-      if (downloadedPath == null &&
-          (nextTrack.id.startsWith('local_') ||
-           nextTrack.sourceId.startsWith('/') ||
-           File(nextTrack.sourceId).existsSync())) {
-        if (File(nextTrack.sourceId).existsSync()) {
-          downloadedPath = nextTrack.sourceId;
+        String? downloadedPath =
+            await _downloadRepo.getDownloadedFilePath(nextTrack.id);
+        if (prefetchId != _activePrefetchRequestId) return;
+
+        if (downloadedPath == null && isLocalTrack) {
+          if (File(nextTrack.sourceId).existsSync()) {
+            downloadedPath = nextTrack.sourceId;
+          }
         }
-      }
-      if (downloadedPath != null) {
-        if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
-          _preloadedStreamInfo = StreamInfo(
-            url: Uri.file(downloadedPath),
-            container: downloadedPath.endsWith('.flac') ? 'flac' : (downloadedPath.endsWith('.mp3') ? 'mp3' : 'm4a'),
-            bitrate: downloadedPath.endsWith('.flac') ? 1411000 : 320000,
-            codec: downloadedPath.endsWith('.flac') ? 'flac' : 'aac',
-            expiresAt: DateTime.now().add(const Duration(days: 365)),
-            providerName: 'offline_cached',
-          );
-          await _player.preloadNextFilePath(downloadedPath);
+        if (downloadedPath != null) {
+          if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
+            _preloadedStreamInfo = StreamInfo(
+              url: Uri.file(downloadedPath),
+              container: downloadedPath.endsWith('.flac') ? 'flac' : (downloadedPath.endsWith('.mp3') ? 'mp3' : 'm4a'),
+              bitrate: downloadedPath.endsWith('.flac') ? 1411000 : 320000,
+              codec: downloadedPath.endsWith('.flac') ? 'flac' : 'aac',
+              expiresAt: DateTime.now().add(const Duration(days: 365)),
+              providerName: isLocalTrack ? 'local_audio' : 'offline_cached',
+            );
+            await _player.preloadNextFilePath(downloadedPath);
+          }
+          return;
         }
-        return;
-      }
 
-      // 2. Resolve network stream URL in background
-      final streamInfo = await _streamResolver.resolve(
-        nextTrack,
-        quality: _qualityPreset,
-        forceFresh: false,
-      );
-      if (prefetchId != _activePrefetchRequestId) return;
-
-      if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
-        _preloadedStreamInfo = streamInfo;
-        await _player.preloadNextUrl(
-          streamInfo.url.toString(),
-          headers: streamInfo.headers,
+        // 2. Resolve network stream URL in background
+        final streamInfo = await _streamResolver.resolve(
+          nextTrack,
+          quality: _qualityPreset,
+          forceFresh: false,
         );
-      }
+        if (prefetchId != _activePrefetchRequestId) return;
+
+        if (_currentlyPreloadingTrackId == nextTrack.id && prefetchId == _activePrefetchRequestId) {
+          _preloadedStreamInfo = streamInfo;
+          await _player.preloadNextUrl(
+            streamInfo.url.toString(),
+            headers: streamInfo.headers,
+          );
+        }
+      }().timeout(const Duration(seconds: 12));
     } catch (_) {
-      // Best-effort prefetch; clear lock so speculative retry or manual trigger can retry
+      // Best-effort prefetch; clear lock and player standby buffer so no stale audio lingers
       if (_currentlyPreloadingTrackId == nextTrack.id) {
+        _player.clearPreloadedNext();
         _currentlyPreloadingTrackId = null;
         _preloadedStreamInfo = null;
       }

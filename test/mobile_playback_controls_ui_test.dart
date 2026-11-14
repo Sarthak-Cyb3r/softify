@@ -7,6 +7,7 @@ import 'package:softify/data/player/softify_audio_handler.dart';
 import 'package:softify/domain/entities/audio_repeat_mode.dart';
 import 'package:softify/domain/entities/track.dart';
 import 'package:softify/presentation/providers/player_providers.dart';
+import 'package:softify/presentation/providers/ui_style_provider.dart';
 import 'package:softify/presentation/screens/full_screen_player_screen.dart';
 import 'package:softify/presentation/theme/app_theme.dart';
 import 'package:softify/presentation/widgets/mini_player.dart';
@@ -58,6 +59,10 @@ class FakeAudioHandlerForUi extends Fake implements SoftifyAudioHandler {
   @override
   Stream<bool> get autoPlayStream => Stream.value(true);
 
+  @override
+  final BehaviorSubject<MediaItem?> mediaItem =
+      BehaviorSubject<MediaItem?>.seeded(null);
+
   FakeAudioHandlerForUi({
     PlaybackState? initialPlaybackState,
     this.currentTrack,
@@ -75,7 +80,10 @@ class FakeAudioHandlerForUi extends Fake implements SoftifyAudioHandler {
   Future<void> stop() async {}
 
   @override
-  Future<void> skipToNext() async {}
+  Future<void> skipToNext({
+    bool isNaturalTransition = false,
+    Duration? transitionCrossfade,
+  }) async {}
 
   @override
   Future<void> skipToPrevious() async {}
@@ -186,6 +194,11 @@ void main() {
             shuffleModeStreamProvider.overrideWith((ref) => Stream.value(false)),
             playbackSpeedStreamProvider.overrideWith((ref) => Stream.value(1.0)),
             isTrackDownloadedProvider.overrideWith((ref, arg) => Stream.value(false)),
+            nowPlayingStyleProvider.overrideWith((ref) {
+              final n = NowPlayingStyleNotifier(null);
+              n.state = NowPlayingStyle.classic;
+              return n;
+            }),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,

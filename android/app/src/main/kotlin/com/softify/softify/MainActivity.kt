@@ -113,6 +113,22 @@ class MainActivity : AudioServiceActivity() {
                         sharedText = null
                         result.success(text)
                     }
+                    "shareText" -> {
+                        val text = call.argument<String>("text") ?: ""
+                        val subject = call.argument<String>("subject")
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            this.type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                            if (subject != null) {
+                                putExtra(Intent.EXTRA_SUBJECT, subject)
+                            }
+                        }
+                        val shareIntent = Intent.createChooser(sendIntent, null).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(shareIntent)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }

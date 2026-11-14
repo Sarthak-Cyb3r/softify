@@ -7,6 +7,7 @@ import '../../domain/ports/i_library_repository.dart';
 import '../../domain/ports/i_spotify_importer.dart';
 import 'player_providers.dart';
 
+import '../../data/services/spotify_api_service.dart';
 import '../../data/services/spotify_auth_service.dart';
 
 final spotifyAuthServiceProvider = Provider<SpotifyAuthService>((ref) {
@@ -17,9 +18,11 @@ final spotifyAuthServiceProvider = Provider<SpotifyAuthService>((ref) {
 final spotifyImporterProvider = Provider<ISpotifyImporter>((ref) {
   final catalog = ref.watch(catalogRepositoryProvider);
   final authService = ref.watch(spotifyAuthServiceProvider);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
   return KeylessSpotifyImporter(
     catalog: catalog,
     authService: authService,
+    spotifyApi: spotifyApi,
   );
 });
 
@@ -29,6 +32,63 @@ final spotifyAuthStateProvider =
   final loggedIn = await authService.isLoggedIn();
   final userName = await authService.getConnectedUserName();
   return (isLoggedIn: loggedIn, userName: userName);
+});
+
+final spotifyUserProfileProvider =
+    FutureProvider.autoDispose<SpotifyUserProfile?>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  return await authService.getConnectedUserProfile();
+});
+
+final spotifyCustomClientIdProvider =
+    FutureProvider.autoDispose<String?>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  return await authService.getCustomClientId();
+});
+
+final spotifyUserPlaylistsProvider =
+    FutureProvider.autoDispose<List<SpotifyUserPlaylistSummary>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getCurrentUserPlaylists();
+});
+
+final spotifyUserTopTracksProvider =
+    FutureProvider.autoDispose.family<List<Track>, String>((ref, timeRange) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserTopTracks(timeRange: timeRange, limit: 25);
+});
+
+final spotifyUserRecentlyPlayedProvider =
+    FutureProvider.autoDispose<List<Track>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserRecentlyPlayed(limit: 30);
+});
+
+final spotifyUserTopArtistsProvider =
+    FutureProvider.autoDispose<List<SpotifyArtistRef>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserTopArtists(limit: 20);
+});
+
+final spotifyUserSavedAlbumsProvider =
+    FutureProvider.autoDispose<List<SpotifyAlbumRef>>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  if (!loggedIn) return const [];
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return await spotifyApi.getUserSavedAlbums(limit: 20);
 });
 
 enum SpotifyImportStatus {
@@ -91,12 +151,15 @@ class SpotifyImportState {
 class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
   final ISpotifyImporter _importer;
   final ILibraryRepository _libraryRepo;
+  final SpotifyApiService _spotifyApi;
 
   SpotifyImportNotifier({
     required ISpotifyImporter importer,
     required ILibraryRepository libraryRepo,
+    required SpotifyApiService spotifyApi,
   })  : _importer = importer,
         _libraryRepo = libraryRepo,
+        _spotifyApi = spotifyApi,
         super(const SpotifyImportState());
 
   void setInputUrl(String url) {
@@ -105,6 +168,170 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
 
   void reset() {
     state = const SpotifyImportState();
+  }
+
+  Future<void> loadUserLikedSongs() async {
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: 'spotify:user:liked-songs',
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final playlist = await _spotifyApi.getCurrentUserLikedTracks(
+        onProgress: (loaded, total) {
+          if (mounted) state = state.copyWith(fetchProgress: loaded);
+        },
+      );
+
+      if (playlist.tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No Liked Songs found or Spotify restricted Web API access. Tip: In Spotify, select all your liked tracks (Ctrl+A), add to a playlist, and paste its link above to import in 1 tap without Premium!',
+          playlist: playlist,
+        );
+        return;
+      }
+
+      await _prepareAndQuickMatchPlaylist(playlist);
+    } on SpotifyRateLimitException {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Spotify Web API rate-limited this request. Tip: In Spotify, select all liked songs (Ctrl+A), add to a playlist, and paste its link above for instant keyless import!',
+      );
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Spotify API could not access Liked Songs. Easy workaround: In Spotify, select your liked songs (Ctrl+A), add to a playlist, and paste its link above!',
+      );
+    }
+  }
+
+  Future<void> loadUserTopTracksAsPlaylist({String timeRange = 'short_term'}) async {
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: 'spotify:user:top-tracks',
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final tracks = await _spotifyApi.getUserTopTracks(timeRange: timeRange, limit: 50);
+      if (tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No top tracks found in your connected Spotify account.',
+        );
+        return;
+      }
+
+      final items = tracks.map((t) => SpotifyTrackItem(
+        spotifyUri: t.id.startsWith('spotify_')
+            ? 'spotify:track:${t.id.replaceFirst('spotify_', '')}'
+            : 'spotify:track:${t.id}',
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        duration: t.duration,
+        coverUrl: t.coverUrl,
+      )).toList();
+
+      final playlist = SpotifyImportPlaylist(
+        id: 'me_top_tracks',
+        name: 'Spotify Heavy Rotation',
+        description: 'Your top played tracks imported from Spotify',
+        coverUrl: tracks.firstOrNull?.coverUrl,
+        tracks: items,
+      );
+
+      await _prepareAndQuickMatchPlaylist(playlist);
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Failed to load Spotify Top Tracks: $e',
+      );
+    }
+  }
+
+  Future<void> loadUserRecentlyPlayedAsPlaylist() async {
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: 'spotify:user:recently-played',
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final tracks = await _spotifyApi.getUserRecentlyPlayed(limit: 50);
+      if (tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No recently played tracks found in your connected Spotify account.',
+        );
+        return;
+      }
+
+      final items = tracks.map((t) => SpotifyTrackItem(
+        spotifyUri: t.id.startsWith('spotify_')
+            ? 'spotify:track:${t.id.replaceFirst('spotify_', '')}'
+            : 'spotify:track:${t.id}',
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        duration: t.duration,
+        coverUrl: t.coverUrl,
+      )).toList();
+
+      final playlist = SpotifyImportPlaylist(
+        id: 'me_recently_played',
+        name: 'Recently Played (Spotify)',
+        description: 'Tracks streamed recently on Spotify',
+        coverUrl: tracks.firstOrNull?.coverUrl,
+        tracks: items,
+      );
+
+      await _prepareAndQuickMatchPlaylist(playlist);
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Failed to load Spotify Recently Played: $e',
+      );
+    }
+  }
+
+  Future<void> loadUserPlaylist(SpotifyUserPlaylistSummary summary) async {
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: summary.spotifyUrl,
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final playlist = await _spotifyApi.getPlaylistWithTracksWebApi(
+        summary.id,
+        onProgress: (loaded, total) {
+          if (mounted) state = state.copyWith(fetchProgress: loaded);
+        },
+      );
+
+      if (playlist.tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No playable tracks found in "${summary.name}".',
+          playlist: playlist,
+        );
+        return;
+      }
+
+      await _prepareAndQuickMatchPlaylist(playlist);
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Failed to load "${summary.name}": $e',
+      );
+    }
   }
 
   Future<void> loadAndMatchPlaylist(String urlOrId) async {
@@ -140,53 +367,7 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         return;
       }
 
-      final total = playlist.tracks.length;
-      state = state.copyWith(
-        status: SpotifyImportStatus.matchingTracks,
-        playlist: playlist,
-        matchedProgress: 0,
-        totalToMatch: total,
-      );
-
-      final List<SpotifyTrackItem> results = List<SpotifyTrackItem>.from(playlist.tracks);
-      int completed = 0;
-
-      // Match tracks in parallel chunks of 5 for ultra-fast throughput
-      const chunkSize = 5;
-      for (int i = 0; i < total; i += chunkSize) {
-        final end = (i + chunkSize < total) ? i + chunkSize : total;
-        final chunkIndices = List.generate(end - i, (k) => i + k);
-
-        await Future.wait(
-          chunkIndices.map((idx) async {
-            final item = playlist.tracks[idx];
-            Track? matchedTrack;
-            try {
-              matchedTrack = await _importer.matchTrack(item);
-            } catch (_) {
-              matchedTrack = null;
-            }
-
-            results[idx] = item.copyWith(
-              matchedTrack: matchedTrack,
-              isMatched: matchedTrack != null,
-              confidence: matchedTrack?.matchConfidence ?? 0.0,
-            );
-            completed++;
-          }),
-        );
-
-        state = state.copyWith(
-          matchedProgress: completed,
-          playlist: playlist.copyWith(tracks: List.from(results)),
-        );
-      }
-
-      state = state.copyWith(
-        status: SpotifyImportStatus.matched,
-        matchedProgress: total,
-        playlist: playlist.copyWith(tracks: results),
-      );
+      await _prepareAndQuickMatchPlaylist(playlist);
     } catch (e) {
       final cleanMessage = e
           .toString()
@@ -197,6 +378,70 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         errorMessage: cleanMessage,
       );
     }
+  }
+
+  Future<void> _prepareAndQuickMatchPlaylist(SpotifyImportPlaylist playlist) async {
+    final total = playlist.tracks.length;
+    final playlistCover = playlist.coverUrl;
+
+    state = state.copyWith(
+      status: SpotifyImportStatus.matchingTracks,
+      playlist: playlist,
+      matchedProgress: 0,
+      totalToMatch: total,
+    );
+
+    final List<SpotifyTrackItem> preparedTracks = [];
+    for (int i = 0; i < total; i++) {
+      final item = playlist.tracks[i];
+      var rawUri = item.spotifyUri;
+      if (rawUri.contains('?')) {
+        rawUri = rawUri.split('?').first;
+      }
+      final trackId = rawUri.startsWith('spotify:track:')
+          ? rawUri.replaceFirst('spotify:track:', '')
+          : (rawUri.isNotEmpty
+              ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+              : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
+
+      // Ensure track cover is NEVER the playlist's overall cover art
+      final itemCover = (item.coverUrl != null &&
+              item.coverUrl != playlistCover &&
+              !item.coverUrl!.contains('hqdefault'))
+          ? item.coverUrl
+          : null;
+
+      final canonicalTrack = Track(
+        id: 'spotify_$trackId',
+        sourceId: 'spotify_$trackId',
+        title: item.title,
+        artist: item.artist,
+        album: item.album,
+        duration: item.duration,
+        coverUrl: itemCover,
+        matchConfidence: 1.0,
+      );
+
+      preparedTracks.add(
+        item.copyWith(
+          coverUrl: itemCover,
+          matchedTrack: canonicalTrack,
+          isMatched: true,
+          confidence: 1.0,
+        ),
+      );
+    }
+
+    state = state.copyWith(
+      status: SpotifyImportStatus.matched,
+      matchedProgress: total,
+      totalToMatch: total,
+      playlist: playlist.copyWith(tracks: preparedTracks),
+    );
+  }
+
+  Future<void> _matchPlaylistItems(SpotifyImportPlaylist playlist) async {
+    await _prepareAndQuickMatchPlaylist(playlist);
   }
 
   void updateTrackMatch(int index, Track newTrack) {
@@ -217,7 +462,75 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
     );
   }
 
-  Future<String?> commitImportToLibrary() async {
+  Future<int> batchImportUserPlaylists(
+    List<SpotifyUserPlaylistSummary> summaries, {
+    void Function(int done, int total, String currentName)? onProgress,
+  }) async {
+    int importedCount = 0;
+    for (int i = 0; i < summaries.length; i++) {
+      final summary = summaries[i];
+      onProgress?.call(importedCount, summaries.length, summary.name);
+      try {
+        final playlist =
+            await _spotifyApi.getPlaylistWithTracksWebApi(summary.id);
+        if (playlist.tracks.isEmpty) continue;
+
+        final newPlaylist = await _libraryRepo.createPlaylist(
+          playlist.name,
+          description: playlist.description ?? 'Imported from Spotify',
+          isImported: true,
+          sourceUrl: summary.spotifyUrl,
+        );
+
+        final List<Track> tracksToInsert = [];
+        final List<({String title, String artist})> meta = [];
+
+        final playlistCover = playlist.coverUrl;
+        for (final item in playlist.tracks) {
+          var rawUri = item.spotifyUri;
+          if (rawUri.contains('?')) {
+            rawUri = rawUri.split('?').first;
+          }
+          final trackId = rawUri.startsWith('spotify:track:')
+              ? rawUri.replaceFirst('spotify:track:', '')
+              : (rawUri.isNotEmpty
+                  ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                  : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
+
+          final itemCover = (item.coverUrl != null &&
+                  item.coverUrl != playlistCover &&
+                  !item.coverUrl!.contains('hqdefault'))
+              ? item.coverUrl
+              : null;
+
+          final track = Track(
+            id: 'spotify_$trackId',
+            sourceId: 'spotify_$trackId',
+            title: item.title,
+            artist: item.artist,
+            album: item.album,
+            duration: item.duration,
+            coverUrl: itemCover,
+          );
+          tracksToInsert.add(track);
+          meta.add((title: item.title, artist: item.artist));
+        }
+
+        if (tracksToInsert.isNotEmpty) {
+          await _libraryRepo.addTracksToPlaylist(
+            newPlaylist.id,
+            tracksToInsert,
+            originalMetadata: meta,
+          );
+          importedCount++;
+        }
+      } catch (_) {}
+    }
+    onProgress?.call(importedCount, summaries.length, 'Completed');
+    return importedCount;
+  }
+
+  Future<String?> commitImportToLibrary({bool alsoAddToFavorites = false}) async {
     final currentPlaylist = state.playlist;
     if (currentPlaylist == null) return null;
 
@@ -228,23 +541,72 @@ class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
         currentPlaylist.name,
         description: currentPlaylist.description ?? 'Imported from Spotify',
         isImported: true,
-        sourceUrl: 'https://open.spotify.com/playlist/${currentPlaylist.id}',
+        sourceUrl: currentPlaylist.id.startsWith('me_')
+            ? 'spotify:user:library'
+            : 'https://open.spotify.com/playlist/${currentPlaylist.id}',
       );
 
-      final matchedEntries = currentPlaylist.tracks
-          .where((t) => t.isMatched && t.matchedTrack != null)
-          .toList();
-      final matchedTracks = matchedEntries.map((t) => t.matchedTrack!).toList();
-      final originalMeta = matchedEntries
-          .map((t) => (title: t.title, artist: t.artist))
-          .toList();
+      final List<Track> tracksToInsert = [];
+      final List<({String title, String artist})> originalMeta = [];
+      final playlistCover = currentPlaylist.coverUrl;
+
+      for (final t in currentPlaylist.tracks) {
+        var rawUri = t.spotifyUri;
+        if (rawUri.contains('?')) {
+          rawUri = rawUri.split('?').first;
+        }
+        final cleanTrackId = rawUri.startsWith('spotify:track:')
+            ? rawUri.replaceFirst('spotify:track:', '')
+            : (rawUri.isNotEmpty
+                ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                : '${t.title}_${t.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
+
+        // Never let playlist artwork bleed onto individual tracks
+        String? finalCover = (t.coverUrl != null &&
+                t.coverUrl != playlistCover &&
+                !t.coverUrl!.contains('hqdefault'))
+            ? t.coverUrl
+            : null;
+        if (finalCover == null || finalCover.contains('hqdefault')) {
+          final candidateCover = t.matchedTrack?.coverUrl;
+          if (candidateCover != null &&
+              candidateCover != playlistCover &&
+              !candidateCover.contains('hqdefault')) {
+            finalCover = candidateCover;
+          }
+        }
+
+        final canonicalTrack = Track(
+          id: 'spotify_$cleanTrackId',
+          sourceId: 'spotify_$cleanTrackId',
+          title: t.title,
+          artist: t.artist,
+          album: t.album ?? t.matchedTrack?.album,
+          duration: t.duration > Duration.zero
+              ? t.duration
+              : (t.matchedTrack?.duration ?? Duration.zero),
+          coverUrl: finalCover,
+          matchConfidence: t.confidence > 0 ? t.confidence : 1.0,
+        );
+        tracksToInsert.add(canonicalTrack);
+        originalMeta.add((title: t.title, artist: t.artist));
+      }
 
       // Atomic single-transaction batch insert with original Spotify titles & artists
       await _libraryRepo.addTracksToPlaylist(
         newPlaylist.id,
-        matchedTracks,
+        tracksToInsert,
         originalMetadata: originalMeta,
       );
+
+      // If importing Spotify Liked Songs or user requested adding to favorites, mark each track as Liked in Softify's favorites table
+      if (currentPlaylist.id == 'me_liked_songs' || alsoAddToFavorites) {
+        for (final track in tracksToInsert) {
+          try {
+            await _libraryRepo.setLiked(track.id, true, track: track);
+          } catch (_) {}
+        }
+      }
 
       state = state.copyWith(
         status: SpotifyImportStatus.importedSuccess,
@@ -266,7 +628,12 @@ final spotifyImportNotifierProvider =
     StateNotifierProvider.autoDispose<SpotifyImportNotifier, SpotifyImportState>((ref) {
   final importer = ref.watch(spotifyImporterProvider);
   final libraryRepo = ref.watch(libraryRepositoryProvider);
-  return SpotifyImportNotifier(importer: importer, libraryRepo: libraryRepo);
+  final spotifyApi = ref.watch(spotifyApiServiceProvider);
+  return SpotifyImportNotifier(
+    importer: importer,
+    libraryRepo: libraryRepo,
+    spotifyApi: spotifyApi,
+  );
 });
 
 class SpotifyPlaylistSyncService {
@@ -393,30 +760,63 @@ class SpotifyPlaylistSyncService {
         return 0;
       }
 
-      // 4. Match new tracks and guard against duplicate YouTube matches
+      // 4. Match new tracks with duplicate protection & fallback canonical tracks
       final matchedTracks = <Track>[];
       final newMetadata = <({String title, String artist})>[];
       final newMatchedSourceIds = <String>{};
+      final playlistCover = remotePlaylist.coverUrl;
 
       for (final item in newItems) {
+        Track? matched;
         try {
-          final matched = await _importer.matchTrack(item);
-          if (matched != null) {
-            final mSourceId = matched.sourceId.toLowerCase().trim();
-            final mId = matched.id.toLowerCase().trim();
-
-            // Guard: Never add a track whose YouTube sourceId is already in the playlist
-            if (existingSourceIds.contains(mSourceId) ||
-                existingTrackIds.contains(mId) ||
-                newMatchedSourceIds.contains(mSourceId)) {
-              continue;
-            }
-
-            newMatchedSourceIds.add(mSourceId);
-            matchedTracks.add(matched);
-            newMetadata.add((title: item.title, artist: item.artist));
-          }
+          matched = await _importer.matchTrack(item);
         } catch (_) {}
+
+        if (matched != null) {
+          final mSourceId = matched.sourceId.toLowerCase().trim();
+          final mId = matched.id.toLowerCase().trim();
+
+          // Guard: Never add a track whose sourceId is already in the playlist
+          if (existingSourceIds.contains(mSourceId) ||
+              existingTrackIds.contains(mId) ||
+              newMatchedSourceIds.contains(mSourceId)) {
+            continue;
+          }
+
+          newMatchedSourceIds.add(mSourceId);
+          matchedTracks.add(matched);
+          newMetadata.add((title: item.title, artist: item.artist));
+          continue;
+        }
+
+        var rawUri = item.spotifyUri;
+        if (rawUri.contains('?')) {
+          rawUri = rawUri.split('?').first;
+        }
+        final trackId = rawUri.startsWith('spotify:track:')
+            ? rawUri.replaceFirst('spotify:track:', '')
+            : (rawUri.isNotEmpty
+                ? rawUri.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                : '${item.title}_${item.artist}'.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_'));
+
+        final itemCover = (item.coverUrl != null &&
+                item.coverUrl != playlistCover &&
+                !item.coverUrl!.contains('hqdefault'))
+            ? item.coverUrl
+            : null;
+
+        final track = Track(
+          id: 'spotify_$trackId',
+          sourceId: 'spotify_$trackId',
+          title: item.title,
+          artist: item.artist,
+          album: item.album,
+          duration: item.duration,
+          coverUrl: itemCover,
+          matchConfidence: 1.0,
+        );
+        matchedTracks.add(track);
+        newMetadata.add((title: item.title, artist: item.artist));
       }
 
       if (matchedTracks.isEmpty) {
@@ -433,6 +833,30 @@ class SpotifyPlaylistSyncService {
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Syncs all imported Spotify playlists in the library with their remote source.
+  Future<({int updatedPlaylists, int totalNewTracks})> syncAllPlaylists({
+    void Function(int current, int total, String playlistName)? onProgress,
+  }) async {
+    final playlists = await _libraryRepo.getPlaylists();
+    final imported = playlists.where((p) => p.isImported).toList();
+    int updatedCount = 0;
+    int totalAdded = 0;
+
+    for (int i = 0; i < imported.length; i++) {
+      final p = imported[i];
+      onProgress?.call(i + 1, imported.length, p.name);
+      try {
+        final added = await syncPlaylist(p.id);
+        if (added > 0) {
+          updatedCount++;
+          totalAdded += added;
+        }
+      } catch (_) {}
+    }
+
+    return (updatedPlaylists: updatedCount, totalNewTracks: totalAdded);
   }
 }
 

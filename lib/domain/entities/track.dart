@@ -116,4 +116,10 @@ class Track {
       id.startsWith('yt_') ||
       sourceId.startsWith('yt_') ||
       album == 'YouTube';
+
+  bool get isLocal =>
+      id.startsWith('local_') ||
+      sourceId.startsWith('local_') ||
+      sourceId.startsWith('/') ||
+      sourceId.startsWith('file://');
 }

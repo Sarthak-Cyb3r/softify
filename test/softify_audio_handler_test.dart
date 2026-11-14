@@ -174,8 +174,11 @@ class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
     _hasPreloadedNext = true;
   }
 
+  Duration lastCrossfadePassed = Duration.zero;
+
   @override
   Future<void> playPreloadedNext({Duration crossfade = Duration.zero}) async {
+    lastCrossfadePassed = crossfade;
     if (_hasPreloadedNext) {
       lastLoadedUrl = _preloadedUrl;
       lastLoadedFilePath = _preloadedFilePath;
@@ -493,6 +496,65 @@ void main() {
       expect(handler.currentTrack?.id, track2.id);
       expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-2.m4a');
       expect(fakePlayer.playing, isTrue);
+
+      await handler.dispose();
+    });
+
+    test('Crossfade Overlap: skipToNext uses configured crossfade duration instead of ducking', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      handler.setCrossfadeSeconds(6);
+      await handler.setQueue([track1, track2], startIndex: 0);
+      await pumpEventQueue();
+
+      expect(fakePlayer.hasPreloadedNext, isTrue);
+
+      await handler.skipToNext();
+      await pumpEventQueue();
+
+      expect(fakePlayer.lastCrossfadePassed, const Duration(seconds: 6));
+      expect(handler.currentTrack?.id, track2.id);
+
+      await handler.dispose();
+    });
+
+    test('Preload Desynchronization Guard: queue modification/skip clears standby buffer to prevent playing wrong audio', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      // Start queue with [track1, track2, track3]
+      await handler.setQueue([track1, track2, track3], startIndex: 0);
+      await pumpEventQueue();
+
+      // track1 is playing, track2 is preloaded
+      expect(handler.currentTrack?.id, track1.id);
+      expect(fakePlayer.hasPreloadedNext, isTrue);
+      expect(fakePlayer.preloadedSource, 'https://example.com/audio_t-2.m4a');
+
+      // User removes track2 from queue before track1 finishes
+      await handler.removeQueueItemAt(1);
+      await pumpEventQueue();
+
+      // Standby buffer MUST have replaced stale track2 with new next track3!
+      expect(fakePlayer.hasPreloadedNext, isTrue);
+      expect(fakePlayer.preloadedSource, 'https://example.com/audio_t-3.m4a');
+
+      // Now skipToNext moves to track3
+      await handler.skipToNext();
+      await pumpEventQueue();
+
+      // UI and Player MUST both play track3, NOT the old track2!
+      expect(handler.currentTrack?.id, track3.id);
+      expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-3.m4a');
 
       await handler.dispose();
     });

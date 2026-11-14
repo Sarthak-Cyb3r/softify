@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import '../../domain/entities/track.dart';
 import '../../domain/ports/i_lyrics_provider.dart';
@@ -101,6 +102,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
     Duration duration,
     String trackId,
   ) async {
+    final targetSec = duration.inSeconds.toDouble();
     // 1. Try with duration parameter first
     if (duration.inSeconds > 0) {
       final withDur = await _executeExactGet(
@@ -110,6 +112,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
           'duration': duration.inSeconds.toString(),
         },
         trackId,
+        targetSec,
       );
       if (withDur != null) return withDur;
     }
@@ -121,12 +124,14 @@ class LrclibLyricsProvider implements ILyricsProvider {
         'artist_name': artist,
       },
       trackId,
+      targetSec,
     );
   }
 
   Future<SyncedLyrics?> _executeExactGet(
     Map<String, String> queryParams,
     String trackId,
+    double targetSec,
   ) async {
     try {
       final uri = Uri.https('lrclib.net', '/api/get', queryParams);
@@ -147,6 +152,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
         final json = jsonDecode(body) as Map<String, dynamic>;
         final syncedLrc = json['syncedLyrics'] as String?;
         final plainLyrics = json['plainLyrics'] as String?;
+        final candDur = (json['duration'] as num?)?.toDouble() ?? 0.0;
 
         if (json['instrumental'] == true) {
           final trackName = queryParams['track_name'] ?? (json['trackName'] as String? ?? '');
@@ -175,24 +181,38 @@ class LrclibLyricsProvider implements ILyricsProvider {
         if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
           final lines = parseLrc(syncedLrc);
           if (lines.isNotEmpty) {
+            final isValid = isLrcCoverageValid(lines, targetSec) &&
+                (candDur <= 0 || isDurationAcceptable(candDur, targetSec));
+            final adaptedLines = isValid
+                ? lines
+                : SpotifyLyricsSynchronizer.adaptLrcToDuration(
+                    lines,
+                    Duration(seconds: targetSec.round()),
+                  );
             return SyncedLyrics(
               trackId: trackId,
-              lines: lines,
+              lines: adaptedLines,
               plainLyrics: plainLyrics,
               rawLrc: syncedLrc,
               syncType: 'LINE_SYNCED',
-              providerName: 'LRCLIB',
+              providerName: isValid ? 'LRCLIB' : 'LRCLIB (Time-Adapted)',
             );
           }
         }
 
         if (plainLyrics != null && plainLyrics.trim().isNotEmpty) {
+          final pacedLines = targetSec > 10
+              ? SpotifyLyricsSynchronizer.synthesizePacedLines(
+                  plainLyrics.trim(),
+                  Duration(seconds: targetSec.round()),
+                )
+              : const <LyricLine>[];
           return SyncedLyrics(
             trackId: trackId,
-            lines: const [],
+            lines: pacedLines,
             plainLyrics: plainLyrics.trim(),
-            syncType: 'UNSYNCED',
-            providerName: 'LRCLIB (Plain)',
+            syncType: 'LINE_SYNCED',
+            providerName: 'LRCLIB (Paced Plain)',
           );
         }
       }
@@ -235,7 +255,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
 
         final targetSec = track.duration.inSeconds.toDouble();
 
-        // 1. Prioritize line-synced lyrics
+        // 1. Prioritize line-synced lyrics with acceptable duration and coverage
         final syncedCandidates = matchingItems.where((item) {
           final synced = item['syncedLyrics'] as String?;
           return synced != null && synced.trim().isNotEmpty;
@@ -245,7 +265,7 @@ class LrclibLyricsProvider implements ILyricsProvider {
           final viable = targetSec > 30
               ? syncedCandidates.where((c) {
                   final dur = (c['duration'] as num?)?.toDouble() ?? 0.0;
-                  return dur > 0 && (dur - targetSec).abs() <= 25;
+                  return dur > 0 && isDurationAcceptable(dur, targetSec);
                 }).toList()
               : syncedCandidates;
 
@@ -264,13 +284,17 @@ class LrclibLyricsProvider implements ILyricsProvider {
             if (syncedLrc != null && syncedLrc.trim().isNotEmpty) {
               final lines = parseLrc(syncedLrc);
               if (lines.isNotEmpty) {
+                final isValid = isLrcCoverageValid(lines, targetSec) && viable.isNotEmpty;
+                final adaptedLines = isValid
+                    ? lines
+                    : SpotifyLyricsSynchronizer.adaptLrcToDuration(lines, track.duration);
                 return SyncedLyrics(
                   trackId: track.id,
-                  lines: lines,
+                  lines: adaptedLines,
                   plainLyrics: plainLyrics,
                   rawLrc: syncedLrc,
                   syncType: 'LINE_SYNCED',
-                  providerName: 'LRCLIB (Search)',
+                  providerName: isValid ? 'LRCLIB (Search)' : 'LRCLIB (Search Time-Adapted)',
                 );
               }
             }
@@ -281,12 +305,15 @@ class LrclibLyricsProvider implements ILyricsProvider {
         for (final item in matchingItems) {
           final plain = item['plainLyrics'] as String?;
           if (plain != null && plain.trim().isNotEmpty) {
+            final pacedLines = targetSec > 10
+                ? SpotifyLyricsSynchronizer.synthesizePacedLines(plain.trim(), track.duration)
+                : const <LyricLine>[];
             plainCandidate ??= SyncedLyrics(
               trackId: track.id,
-              lines: const [],
+              lines: pacedLines,
               plainLyrics: plain.trim(),
-              syncType: 'UNSYNCED',
-              providerName: 'LRCLIB (Plain)',
+              syncType: 'LINE_SYNCED',
+              providerName: 'LRCLIB (Paced Plain)',
             );
             break;
           }
@@ -456,5 +483,30 @@ class LrclibLyricsProvider implements ILyricsProvider {
         .replaceAll(RegExp(r'[^\p{L}\p{N}\s]', unicode: true), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  static bool isDurationAcceptable(double candidateSec, double targetSec) {
+    if (targetSec <= 30) return true;
+    final diff = (candidateSec - targetSec).abs();
+    if (targetSec <= 300) {
+      return diff <= 25; // 25s tolerance for normal songs <= 5 min
+    } else if (targetSec <= 600) {
+      return diff <= 45; // 45s tolerance for 5-10 min songs
+    } else {
+      // For long tracks (>10 min), max 15% tolerance or 90s
+      final maxDiff = math.max(60.0, targetSec * 0.15);
+      return diff <= maxDiff;
+    }
+  }
+
+  static bool isLrcCoverageValid(List<LyricLine> lines, double targetSec) {
+    if (lines.isEmpty) return false;
+    if (targetSec <= 60) return true;
+    final lastTs = lines.last.timestamp.inSeconds;
+    // Last line must occur within at least 55% of track duration (or if track is huge, not end >60s early)
+    if (lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
+      return false;
+    }
+    return true;
   }
 }

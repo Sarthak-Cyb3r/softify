@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/track.dart';
+import '../../features/qol/advanced_queue_actions.dart';
+import '../../features/qol/track_share_helper.dart';
+import '../../features/qol/track_tag_editor.dart';
 import '../providers/player_providers.dart';
 import '../screens/album_detail_screen.dart';
 import '../screens/car_mode_screen.dart';
@@ -215,6 +217,28 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         },
                       ),
 
+                      // 3b. Priority Play Next (VIP)
+                      ListTile(
+                        leading: const Icon(Icons.low_priority_rounded, color: AppTheme.textPrimary),
+                        title: const Text('Priority Play Next', style: TextStyle(color: AppTheme.textPrimary)),
+                        subtitle: const Text(
+                          'Place immediately after current track with high priority',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        ),
+                        onTap: () async {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.maybeOf(context);
+                          await AdvancedQueueController.playNext(ref, track);
+                          nav.pop();
+                          messenger?.showSnackBar(
+                            SnackBar(
+                              content: Text('Priority: "${track.title}" inserted next'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+
                       // 4. Add to Queue
                       ListTile(
                         leading: const Icon(Icons.add_to_photos_outlined, color: AppTheme.textPrimary),
@@ -301,28 +325,8 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                       leading: const Icon(Icons.share_rounded, color: AppTheme.textPrimary),
                       title: const Text('Share song', style: TextStyle(color: AppTheme.textPrimary)),
                       onTap: () {
-                        final nav = Navigator.of(context);
-                        final messenger = ScaffoldMessenger.maybeOf(context);
-                        final rawId = track.id.startsWith('yt_')
-                            ? track.id.replaceFirst('yt_', '')
-                            : (track.sourceId.startsWith('yt_')
-                                ? track.sourceId.replaceFirst('yt_', '')
-                                : (track.id.length == 11
-                                    ? track.id
-                                    : (track.sourceId.length == 11 ? track.sourceId : '')));
-
-                        final String shareUrl = rawId.isNotEmpty
-                            ? 'https://music.youtube.com/watch?v=$rawId'
-                            : 'https://music.youtube.com/search?q=${Uri.encodeComponent('${track.artist} - ${track.title}')}';
-
-                        Clipboard.setData(ClipboardData(text: shareUrl));
-                        nav.pop();
-                        messenger?.showSnackBar(
-                          SnackBar(
-                            content: Text('Link copied to clipboard: $shareUrl'),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                        Navigator.of(context).pop();
+                        TrackShareHelper.showShareModal(context, track);
                       },
                     ),
 
@@ -470,6 +474,22 @@ class TrackOptionsBottomSheet extends ConsumerWidget {
                         nav.push(
                           MaterialPageRoute(builder: (_) => const EqualizerScreen()),
                         );
+                      },
+                    ),
+
+                    // 7d. Edit Tags & Metadata
+                    ListTile(
+                      leading: const Icon(Icons.edit_note_rounded, color: AppTheme.textPrimary),
+                      title: const Text('Edit tags & metadata', style: TextStyle(color: AppTheme.textPrimary)),
+                      subtitle: const Text(
+                        'Update title, artist, album, and genre tags',
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                      ),
+                      onTap: () {
+                        final nav = Navigator.of(context);
+                        final parentCtx = nav.context;
+                        nav.pop();
+                        TrackTagEditorDialog.show(parentCtx, track: track);
                       },
                     ),
 

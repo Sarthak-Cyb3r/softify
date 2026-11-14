@@ -16,9 +16,10 @@ import '../widgets/metrolist_navigation_title.dart';
 import '../widgets/metrolist_speed_dial_item.dart';
 import '../widgets/shared/shared_components.dart';
 import '../widgets/shimmer_skeleton.dart';
-import 'listen_together_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
+import '../providers/spotify_import_providers.dart';
+import '../widgets/spotify_logo_badge.dart';
 import 'artist_discography_screen.dart';
 import 'tracks_list_screen.dart';
 import '../../features/podcasts/presentation/podcast_page.dart';
@@ -301,20 +302,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     child: Icon(Icons.insights_rounded, size: 22, color: tokens.textSecondary),
-                  ),
-                ),
-                BouncingScaleButton(
-                  scaleFactor: 0.9,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ListenTogetherScreen(),
-                      ),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Icon(Icons.group_outlined, size: 22, color: tokens.textSecondary),
                   ),
                 ),
                 BouncingScaleButton(
@@ -652,15 +639,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  AppPillButton(
-                    label: 'Import Spotify',
-                    icon: const Icon(Icons.sync_alt_rounded, size: 16),
-                    variant: AppPillButtonVariant.secondary,
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SpotifyImportScreen(),
-                        ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final authState = ref.watch(spotifyAuthStateProvider).valueOrNull;
+                      final isLoggedIn = authState?.isLoggedIn ?? false;
+                      final userName = authState?.userName;
+                      final effectiveName = (userName != null && userName.trim().isNotEmpty && userName != 'null')
+                          ? userName.trim()
+                          : null;
+
+                      return AppPillButton(
+                        label: isLoggedIn
+                            ? (effectiveName != null ? 'Spotify: $effectiveName' : 'Spotify Connected')
+                            : 'Connect Spotify',
+                        icon: isLoggedIn
+                            ? const SpotifyLogoBadge(size: 16, hasShadow: false)
+                            : const Icon(Icons.sync_alt_rounded, size: 16),
+                        variant: isLoggedIn
+                            ? AppPillButtonVariant.primary
+                            : AppPillButtonVariant.secondary,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SpotifyImportScreen(),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

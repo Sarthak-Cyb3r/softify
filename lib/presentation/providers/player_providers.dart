@@ -18,6 +18,7 @@ import '../../data/catalog/keyless_youtube_catalog.dart';
 import '../../data/lyrics/composite_lyrics_provider.dart';
 import '../../data/lyrics/lrclib_lyrics_provider.dart';
 import '../../data/lyrics/spotify_lyrics_provider.dart';
+import '../../data/lyrics/spotify_lyrics_synchronizer.dart';
 import '../../services/lyrics/better_lyrics_provider.dart';
 import '../../services/lyrics/lyrics_provider_registry.dart';
 import '../../services/lyrics/paxsenix_lyrics_provider.dart';
@@ -306,6 +307,24 @@ final trackLyricsProvider =
     if (cached.syncedLrc != null && cached.syncedLrc!.trim().isNotEmpty) {
       final lines = LrclibLyricsProvider.parseLrc(cached.syncedLrc!);
       if (lines.isNotEmpty) {
+        // Guard: If cached lyrics duration diverges from track, adapt proportionally across duration
+        final targetSec = track.duration.inSeconds.toDouble();
+        final lastTs = lines.last.timestamp.inSeconds.toDouble();
+        if (targetSec > 60 && lastTs < targetSec * 0.55 && (targetSec - lastTs) > 60) {
+          final adapted = SpotifyLyricsSynchronizer.adaptLrcToDuration(
+            lines,
+            track.duration,
+          );
+          return SyncedLyrics(
+            trackId: track.id,
+            lines: adapted,
+            plainLyrics: cached.plainText ?? lines.map((l) => l.text).join('\n'),
+            rawLrc: cached.syncedLrc,
+            syncType: 'LINE_SYNCED',
+            providerName: 'Local Cache (Time-Adapted)',
+          );
+        }
+
         return SyncedLyrics(
           trackId: track.id,
           lines: lines,
@@ -313,6 +332,21 @@ final trackLyricsProvider =
           rawLrc: cached.syncedLrc,
           syncType: 'LINE_SYNCED',
           providerName: 'Local Cache',
+        );
+      }
+    } else if (cached.plainText != null && cached.plainText!.trim().isNotEmpty) {
+      // Synthesize progressive kinetic lines from plain lyrics so Apple Music animations work
+      final paced = SpotifyLyricsSynchronizer.synthesizePacedLines(
+        cached.plainText!,
+        track.duration,
+      );
+      if (paced.isNotEmpty) {
+        return SyncedLyrics(
+          trackId: track.id,
+          lines: paced,
+          plainLyrics: cached.plainText,
+          syncType: 'LINE_SYNCED',
+          providerName: 'Local Cache (Kinetic Paced)',
         );
       }
     }
@@ -371,6 +405,44 @@ String _serializeLrc(List<LyricLine> lines) {
     buffer.writeln('[$m:$s.$ms]${line.text}');
   }
   return buffer.toString().trim();
+}
+
+// ==========================================
+// Lyrics Synchronization Offset Provider
+// ==========================================
+
+final lyricsOffsetProvider = StateNotifierProvider.family<LyricsOffsetNotifier, int, String>((ref, trackId) {
+  final db = ref.watch(databaseProvider);
+  return LyricsOffsetNotifier(db, trackId);
+});
+
+class LyricsOffsetNotifier extends StateNotifier<int> {
+  final AppDatabase _db;
+  final String _trackId;
+
+  LyricsOffsetNotifier(this._db, this._trackId) : super(0) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final key = 'lyrics_offset_$_trackId';
+      final row = await (_db.select(_db.settings)..where((t) => t.key.equals(key))).getSingleOrNull();
+      if (row != null && mounted) {
+        state = int.tryParse(row.value) ?? 0;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setOffset(int offsetMs) async {
+    state = offsetMs;
+    try {
+      final key = 'lyrics_offset_$_trackId';
+      await _db.into(_db.settings).insertOnConflictUpdate(
+        SettingRow(key: key, value: offsetMs.toString()),
+      );
+    } catch (_) {}
+  }
 }
 
 // ==========================================

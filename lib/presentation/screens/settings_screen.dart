@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/services/folder_launcher_service.dart';
 import '../../data/services/library_backup_service.dart';
@@ -29,6 +30,10 @@ import 'debug_metrics_screen.dart';
 import 'equalizer_screen.dart';
 import 'music_screensaver_screen.dart';
 import 'onboarding_screen.dart';
+import '../providers/spotify_import_providers.dart';
+import '../../data/services/spotify_auth_service.dart';
+import 'spotify_import_screen.dart';
+import '../../features/qol/qol_features.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -401,6 +406,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () => _showEditNameDialog(context),
             ),
           ),
+          const SizedBox(height: 14),
+
+          // Section 0.1: Connected Accounts
+          _buildSectionHeader('Connected Services'),
+          _buildSpotifyAccountCard(context, tokens),
+          const SizedBox(height: 24),
+
+          // Section 0.2: Quality of Life (50+ Features)
+          _buildSectionHeader('Quality of Life (50+ Features)'),
+          _buildCard(
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                ),
+                child: Icon(Icons.auto_awesome_rounded, color: tokens.accent, size: 22),
+              ),
+              title: const Text(
+                'Quality of Life Hub',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              subtitle: Text(
+                'Explore, customize, and toggle 50+ DSP, lyrics, queue, and desktop enhancements.',
+                style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: tokens.accent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  border: Border.all(color: tokens.accent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  '50+ NEW',
+                  style: TextStyle(
+                    color: tokens.accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const QolFeaturesHubScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
           const SizedBox(height: 24),
 
           // Section 0.5: Appearance
@@ -535,6 +593,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+
+          const SizedBox(height: 16),
+          const CrossfadeSettingsCard(),
 
           const SizedBox(height: 24),
 
@@ -1562,6 +1623,257 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Material(
         color: Colors.transparent,
         child: child,
+      ),
+    );
+  }
+
+  Widget _buildSpotifyAccountCard(BuildContext context, AppTokens tokens) {
+    final authState = ref.watch(spotifyAuthStateProvider);
+    final userProfile = ref.watch(spotifyUserProfileProvider);
+    final customClientId = ref.watch(spotifyCustomClientIdProvider).valueOrNull;
+    final isLoggedIn = authState.value?.isLoggedIn ?? false;
+    final rawName = userProfile.value?.displayName ?? authState.value?.userName;
+    final userName = (rawName != null && rawName.trim().isNotEmpty && rawName != 'null')
+        ? rawName.trim()
+        : 'Spotify User';
+
+    return _buildCard(
+      child: Column(
+        children: [
+          ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1DB954).withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF1DB954).withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.music_note,
+                  color: Color(0xFF1DB954),
+                  size: 22,
+                ),
+              ),
+            ),
+            title: Row(
+              children: [
+                const Text(
+                  'Spotify Account',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isLoggedIn
+                        ? const Color(0xFF1DB954).withValues(alpha: 0.2)
+                        : tokens.surfaceHighlight,
+                    borderRadius: BorderRadius.circular(tokens.radiusPill),
+                  ),
+                  child: Text(
+                    isLoggedIn ? 'CONNECTED' : 'NOT LINKED',
+                    style: TextStyle(
+                      color: isLoggedIn ? const Color(0xFF1DB954) : tokens.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Text(
+              isLoggedIn
+                  ? 'Connected as $userName • Tap to view library & import'
+                  : 'Connect to extract authentic metadata & import your library',
+              style: TextStyle(color: tokens.textSecondary, fontSize: 12),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SpotifyImportScreen()),
+              );
+            },
+          ),
+          Divider(height: 1, color: tokens.divider),
+          ListTile(
+            dense: true,
+            leading: Icon(
+              Icons.vpn_key_outlined,
+              color: customClientId != null ? tokens.accent : tokens.textMuted,
+              size: 20,
+            ),
+            title: Text(
+              'Custom Spotify Client ID (Advanced / Optional)',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: tokens.textPrimary,
+              ),
+            ),
+            subtitle: Text(
+              customClientId != null
+                  ? 'Active: ${customClientId.substring(0, customClientId.length > 8 ? 8 : customClientId.length)}... (Dedicated Quota)'
+                  : 'Optional • Most users do not need this; public playlist links import without keys',
+              style: TextStyle(color: tokens.textSecondary, fontSize: 11),
+            ),
+            trailing: Icon(Icons.edit_outlined, color: tokens.textSecondary, size: 18),
+            onTap: () => _showCustomSpotifyClientIdDialog(context, tokens),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCustomSpotifyClientIdDialog(BuildContext context, AppTokens tokens) async {
+    final authService = ref.read(spotifyAuthServiceProvider);
+    final currentCustom = await authService.getCustomClientId();
+    if (!context.mounted) return;
+
+    final controller = TextEditingController(text: currentCustom ?? '');
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: tokens.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radiusCard),
+          side: BorderSide(color: tokens.divider),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.vpn_key_rounded, color: tokens.accent, size: 22),
+            const SizedBox(width: 8),
+            const Text('Spotify Client ID', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Note: Most users do not need this! You can paste and import any Spotify playlist directly into Softify without an account, developer keys, or Premium.\n\nSpotify requires an active Spotify Premium subscription to create new apps in developer.spotify.com/dashboard. If you have an existing Spotify Developer App, you can enter its Client ID here for dedicated Web API quota.',
+                style: TextStyle(color: tokens.textSecondary, fontSize: 12, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceHighlight.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(tokens.radiusSm),
+                  border: Border.all(color: tokens.divider),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Setup instructions (takes 1 minute):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    const Text('1. Log in to developer.spotify.com/dashboard', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                    const Text('2. Click "Create app" (e.g. name: Softify)', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                    const Text('3. Set Redirect URI strictly to:', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            SpotifyAuthService.redirectUri,
+                            style: TextStyle(color: tokens.accent, fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: 'Copy Redirect URI',
+                          color: tokens.accent,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: SpotifyAuthService.redirectUri));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Copied: ${SpotifyAuthService.redirectUri}'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const Text('4. Check "Web API" and save, then copy your Client ID.', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Center(
+                child: TextButton.icon(
+                  icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                  label: const Text('Open Spotify Developer Dashboard', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: tokens.accent),
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://developer.spotify.com/dashboard'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                style: const TextStyle(fontSize: 13, color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Client ID',
+                  hintText: SpotifyAuthService.defaultClientId,
+                  hintStyle: TextStyle(color: tokens.textMuted.withValues(alpha: 0.6), fontSize: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radiusSm)),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (currentCustom != null)
+            TextButton(
+              child: const Text('Reset to Default', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+              onPressed: () async {
+                await authService.setCustomClientId(null);
+                ref.invalidate(spotifyCustomClientIdProvider);
+                if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Reset to default Spotify Client ID.')),
+                  );
+                }
+              },
+            ),
+          TextButton(
+            child: Text('Cancel', style: TextStyle(color: tokens.textMuted)),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: tokens.accent,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Save & Apply', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              final newId = controller.text.trim();
+              await authService.setCustomClientId(newId.isEmpty ? null : newId);
+              ref.invalidate(spotifyCustomClientIdProvider);
+              if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(newId.isEmpty
+                        ? 'Using default Spotify Client ID.'
+                        : 'Custom Spotify Client ID saved! Re-link account if needed.'),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
     );
   }

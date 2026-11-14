@@ -212,17 +212,20 @@ class SaavnLyricsProvider implements ILyricsProvider {
 
   String _normalize(String input) {
     return input
+        .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()
-        .replaceAll(RegExp(r'\s*[\(\[].*?[\)\]]'), '')
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(RegExp(r'\s*[\(\[].*?[\)\]]'), ' ')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
   static String _phoneticSimplify(String s) {
     return s
+        .replaceAll(RegExp(r'[\u00A0\u2000-\u200B\u202F\u205F\u3000]'), ' ')
         .toLowerCase()
         .replaceAll(RegExp(r'([aeiou])\1+'), r'$1')
-        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }

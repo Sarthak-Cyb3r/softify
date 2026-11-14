@@ -16,10 +16,15 @@ import '../widgets/shimmer_skeleton.dart';
 import '../widgets/track_options_bottom_sheet.dart';
 import '../widgets/wrapped_insights_dialog.dart';
 import '../widgets/spotify_logo_badge.dart';
+import '../providers/spotify_import_providers.dart';
 import 'playlist_detail_screen.dart';
 import 'settings_screen.dart';
 import 'spotify_import_screen.dart';
 import 'tracks_list_screen.dart';
+import '../../features/qol/library/library_stats_dashboard.dart' hide SharedPreferences;
+import '../../features/qol/library/listening_history_exporter.dart';
+import '../../features/qol/library/playlist_folder_manager.dart' hide SharedPreferences;
+import '../../features/qol/playlist_m3u_importer.dart';
 
 enum LibrarySortOrder {
   recentlyAdded('Recent'),
@@ -32,14 +37,16 @@ enum LibrarySortOrder {
 
 final playlistFirstTrackCoverProvider =
     FutureProvider.family<String?, String>((ref, playlistId) async {
-  final playlist = await ref
-      .watch(libraryRepositoryProvider)
-      .getPlaylistWithTracks(playlistId);
-  for (final entry in playlist?.entries ?? []) {
-    if (entry.track?.coverUrl != null && entry.track!.coverUrl!.isNotEmpty) {
-      return entry.track!.coverUrl;
+  try {
+    final playlist = await ref
+        .watch(libraryRepositoryProvider)
+        .getPlaylistWithTracks(playlistId);
+    for (final entry in playlist?.entries ?? []) {
+      if (entry.track?.coverUrl != null && entry.track!.coverUrl!.isNotEmpty) {
+        return entry.track!.coverUrl;
+      }
     }
-  }
+  } catch (_) {}
   return null;
 });
 
@@ -54,9 +61,64 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isScanningLocalAudio = false;
+  bool _isSyncingAllSpotify = false;
   LibrarySortOrder _likedSort = LibrarySortOrder.recentlyAdded;
   LibrarySortOrder _downloadsSort = LibrarySortOrder.recentlyAdded;
   LibrarySortOrder _deviceMusicSort = LibrarySortOrder.recentlyAdded;
+
+  Widget _buildSyncAllSpotifyButton(AppTokens tokens) {
+    return AppPillButton(
+      label: _isSyncingAllSpotify ? 'Syncing...' : 'Sync Spotify',
+      icon: _isSyncingAllSpotify
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: tokens.accent,
+              ),
+            )
+          : const SpotifyLogoBadge(size: 16, hasShadow: false),
+      variant: AppPillButtonVariant.secondary,
+      height: 32,
+      onPressed: _isSyncingAllSpotify
+          ? null
+          : () async {
+              setState(() => _isSyncingAllSpotify = true);
+              try {
+                final result = await ref
+                    .read(spotifyPlaylistSyncServiceProvider)
+                    .syncAllPlaylists();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const SpotifyLogoBadge(size: 16, hasShadow: false),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              result.totalNewTracks > 0
+                                  ? 'Synced: Added ${result.totalNewTracks} new tracks across ${result.updatedPlaylists} playlists'
+                                  : 'All imported Spotify playlists are up to date',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: tokens.surfaceElevated,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => _isSyncingAllSpotify = false);
+                }
+              }
+            },
+    );
+  }
 
   List<Track> _sortTracks(List<Track> list, LibrarySortOrder sort) {
     if (sort == LibrarySortOrder.recentlyAdded) return list;
@@ -265,7 +327,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     final playlistsAsync = ref.watch(playlistsStreamProvider);
     final localTracksAsync = ref.watch(localTracksStreamProvider);
     final audioHandler = ref.watch(audioHandlerProvider);
-    final currentTrack = ref.watch(currentTrackProvider).value;
+    final currentTrack = ref.watch(currentTrackProvider).valueOrNull;
     final isPlaying = ref.watch(isPlayingProvider);
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
@@ -286,6 +348,74 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           ),
         ),
         actions: [
+          // Library Analytics & Stats
+          Tooltip(
+            message: 'Library Analytics & Stats',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.analytics_outlined, size: 22),
+              ),
+            ),
+          ),
+          // Export Listening History
+          Tooltip(
+            message: 'Export Listening History',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () {
+                showExportHistorySheet(
+                  context,
+                  entries: ref.read(allListeningHistoryEntriesProvider),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.history_edu_rounded, size: 22),
+              ),
+            ),
+          ),
+          // Playlist Folders
+          Tooltip(
+            message: 'Playlist Folders',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () {
+                final list = playlistsAsync.valueOrNull ?? const <Playlist>[];
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (ctx) => Container(
+                    height: MediaQuery.of(context).size.height * 0.75,
+                    decoration: BoxDecoration(
+                      color: tokens.surfaceElevated,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    child: PlaylistFolderTreeView(playlists: list),
+                  ),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.folder_special_outlined, size: 22),
+              ),
+            ),
+          ),
+          // Import M3U / Playlist
+          Tooltip(
+            message: 'Import M3U / Playlist',
+            child: BouncingScaleButton(
+              scaleFactor: 0.9,
+              onTap: () => PlaylistM3uImporter.showImportDialog(context),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.playlist_add_outlined, size: 22),
+              ),
+            ),
+          ),
           BouncingScaleButton(
             scaleFactor: 0.9,
             onTap: _isScanningLocalAudio ? null : _scanDeviceAudio,
@@ -425,8 +555,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         child: Text('Error: $e', style: TextStyle(color: tokens.textSecondary, fontFamily: AppTheme.fontUi, fontSize: 13)),
       ),
       data: (playlists) {
-        final likedTracks = likedAsync.value ?? const <Track>[];
-        final completedDownloads = (downloadsAsync.value ?? const <DownloadItem>[])
+        final likedTracks = likedAsync.valueOrNull ?? const <Track>[];
+        final completedDownloads = (downloadsAsync.valueOrNull ?? const <DownloadItem>[])
             .where((d) => d.isCompleted)
             .toList();
         final downloadedTracks =
@@ -476,6 +606,57 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                           );
                         },
                       ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Import M3U',
+                        icon: const Icon(Icons.playlist_add_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => PlaylistM3uImporter.showImportDialog(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Folders',
+                        icon: const Icon(Icons.folder_special_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (ctx) => Container(
+                              height: MediaQuery.of(context).size.height * 0.75,
+                              decoration: BoxDecoration(
+                                color: tokens.surfaceElevated,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              child: const PlaylistFolderTreeView(playlists: []),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Stats',
+                        icon: const Icon(Icons.analytics_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Export History',
+                        icon: const Icon(Icons.history_edu_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showExportHistorySheet(
+                            context,
+                            entries: ref.read(allListeningHistoryEntriesProvider),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -488,31 +669,95 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               _buildSmartPlaylistsSection(tokens),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                child: Row(
-                  children: [
-                    AppPillButton(
-                      label: 'New Playlist',
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      variant: AppPillButtonVariant.secondary,
-                      height: 32,
-                      onPressed: () => _showCreatePlaylistDialog(context),
-                    ),
-                    const SizedBox(width: 10),
-                    AppPillButton(
-                      label: 'Import Spotify',
-                      icon: const Icon(Icons.cloud_download_rounded, size: 16),
-                      variant: AppPillButtonVariant.secondary,
-                      height: 32,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SpotifyImportScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      AppPillButton(
+                        label: 'New Playlist',
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => _showCreatePlaylistDialog(context),
+                      ),
+                      const SizedBox(width: 10),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final auth = ref.watch(spotifyAuthStateProvider).valueOrNull;
+                          final isLinked = auth?.isLoggedIn ?? false;
+                          return AppPillButton(
+                            label: isLinked ? 'Spotify Hub' : 'Import Spotify',
+                            icon: isLinked
+                                ? const SpotifyLogoBadge(size: 16, hasShadow: false)
+                                : const Icon(Icons.cloud_download_rounded, size: 16),
+                            variant: isLinked
+                                ? AppPillButtonVariant.primary
+                                : AppPillButtonVariant.secondary,
+                            height: 32,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SpotifyImportScreen(),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Import M3U',
+                        icon: const Icon(Icons.playlist_add_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => PlaylistM3uImporter.showImportDialog(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Folders',
+                        icon: const Icon(Icons.folder_special_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (ctx) => Container(
+                              height: MediaQuery.of(context).size.height * 0.75,
+                              decoration: BoxDecoration(
+                                color: tokens.surfaceElevated,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              child: const PlaylistFolderTreeView(playlists: []),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Stats',
+                        icon: const Icon(Icons.analytics_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+                      ),
+                      const SizedBox(width: 10),
+                      AppPillButton(
+                        label: 'Export History',
+                        icon: const Icon(Icons.history_edu_rounded, size: 16),
+                        variant: AppPillButtonVariant.secondary,
+                        height: 32,
+                        onPressed: () {
+                          showExportHistorySheet(
+                            context,
+                            entries: ref.read(allListeningHistoryEntriesProvider),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Expanded(
@@ -544,31 +789,99 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             _buildSmartPlaylistsSection(tokens),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-              child: Row(
-                children: [
-                  AppPillButton(
-                    label: 'New Playlist',
-                    icon: const Icon(Icons.add_rounded, size: 16),
-                    variant: AppPillButtonVariant.secondary,
-                    height: 32,
-                    onPressed: () => _showCreatePlaylistDialog(context),
-                  ),
-                  const SizedBox(width: 10),
-                  AppPillButton(
-                    label: 'Import Spotify',
-                    icon: const Icon(Icons.cloud_download_rounded, size: 16),
-                    variant: AppPillButtonVariant.secondary,
-                    height: 32,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const SpotifyImportScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    AppPillButton(
+                      label: 'New Playlist',
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () => _showCreatePlaylistDialog(context),
+                    ),
+                    const SizedBox(width: 10),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final auth = ref.watch(spotifyAuthStateProvider).valueOrNull;
+                        final isLinked = auth?.isLoggedIn ?? false;
+                        return AppPillButton(
+                          label: isLinked ? 'Spotify Hub' : 'Import Spotify',
+                          icon: isLinked
+                              ? const SpotifyLogoBadge(size: 16, hasShadow: false)
+                              : const Icon(Icons.cloud_download_rounded, size: 16),
+                          variant: isLinked
+                              ? AppPillButtonVariant.primary
+                              : AppPillButtonVariant.secondary,
+                          height: 32,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SpotifyImportScreen(),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    if (playlists.any((p) => p.isImported)) ...[
+                      const SizedBox(width: 10),
+                      _buildSyncAllSpotifyButton(tokens),
+                    ],
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Import M3U',
+                      icon: const Icon(Icons.playlist_add_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () => PlaylistM3uImporter.showImportDialog(context),
+                    ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Folders',
+                      icon: const Icon(Icons.folder_special_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) => Container(
+                            height: MediaQuery.of(context).size.height * 0.75,
+                            decoration: BoxDecoration(
+                              color: tokens.surfaceElevated,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            child: PlaylistFolderTreeView(playlists: playlists),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Stats',
+                      icon: const Icon(Icons.analytics_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () => LibraryStatsDashboardWidget.showBottomSheet(context),
+                    ),
+                    const SizedBox(width: 10),
+                    AppPillButton(
+                      label: 'Export History',
+                      icon: const Icon(Icons.history_edu_rounded, size: 16),
+                      variant: AppPillButtonVariant.secondary,
+                      height: 32,
+                      onPressed: () {
+                        showExportHistorySheet(
+                          context,
+                          entries: ref.read(allListeningHistoryEntriesProvider),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -588,7 +901,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                           builder: (context, ref, _) {
                             final coverUrl = ref
                                 .watch(playlistFirstTrackCoverProvider(pl.id))
-                                .value;
+                                .valueOrNull;
                             return MediaCard(
                               title: pl.name,
                               subtitle:
@@ -611,8 +924,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     .read(libraryRepositoryProvider)
                                     .getPlaylistWithTracks(pl.id);
                                 final tracks = data?.entries
-                                        .map((e) => e.track)
-                                        .whereType<Track>()
+                                        .map((e) =>
+                                            e.track ??
+                                            Track(
+                                              id: e.trackId ??
+                                                  'spotify_${e.playlistId}_${e.position}',
+                                              sourceId: e.trackId ??
+                                                  'spotify_${e.playlistId}_${e.position}',
+                                              title: e.originalTitle,
+                                              artist: e.originalArtist,
+                                              duration: Duration.zero,
+                                            ))
                                         .toList() ??
                                     [];
                                 if (tracks.isNotEmpty) {
@@ -675,7 +997,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                     builder: (context, ref, _) {
                                       final coverUrl = ref
                                           .watch(playlistFirstTrackCoverProvider(pl.id))
-                                          .value;
+                                          .valueOrNull;
                                       return Stack(
                                         clipBehavior: Clip.none,
                                         children: [
@@ -770,8 +1092,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                           .read(libraryRepositoryProvider)
                                           .getPlaylistWithTracks(pl.id);
                                       final tracks = data?.entries
-                                              .map((e) => e.track)
-                                              .whereType<Track>()
+                                              .map((e) =>
+                                                  e.track ??
+                                                  Track(
+                                                    id: e.trackId ??
+                                                        'spotify_${e.playlistId}_${e.position}',
+                                                    sourceId: e.trackId ??
+                                                        'spotify_${e.playlistId}_${e.position}',
+                                                    title: e.originalTitle,
+                                                    artist: e.originalArtist,
+                                                    duration: Duration.zero,
+                                                  ))
                                               .toList() ??
                                           [];
                                       if (tracks.isNotEmpty) {

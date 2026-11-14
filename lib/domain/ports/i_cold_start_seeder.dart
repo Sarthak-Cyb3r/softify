@@ -4,4 +4,7 @@ abstract class IColdStartSeeder {
 
   /// Seeds user taste profile from imported Spotify playlist tracks.
   Future<void> seedFromSpotifyImport(String playlistId);
+
+  /// Seeds user taste profile and recommendations from connected Spotify OAuth account.
+  Future<int> seedFromSpotifyAccount();
 }

@@ -422,8 +422,20 @@ class AppDatabase extends _$AppDatabase {
         },
         beforeOpen: (details) async {
           await _createIndexes();
+          await _sanitizeMetadataSpaces();
         },
       );
+
+  Future<void> _sanitizeMetadataSpaces() async {
+    try {
+      await customStatement(
+        "UPDATE tracks SET artist = REPLACE(artist, CHAR(160), ' ') WHERE artist LIKE '%' || CHAR(160) || '%';",
+      );
+      await customStatement(
+        "UPDATE tracks SET title = REPLACE(title, CHAR(160), ' ') WHERE title LIKE '%' || CHAR(160) || '%';",
+      );
+    } catch (_) {}
+  }
 
   Future<void> _createIndexes() async {
     await customStatement(

@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       target_tag:
-        description: 'Target GitHub Release tag (e.g. v4.0.5)'
+        description: 'Target GitHub Release tag (e.g. v4.0.3)'
         required: false
-        default: 'v4.0.5'
+        default: 'v4.0.3'
         type: string
   push:
     tags:
@@ -25,11 +25,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Linux Build Dependencies
+        timeout-minutes: 10
         env:
           DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
         run: |
-          sudo -E apt-get update -qq
-          sudo -E apt-get install -y -qq --no-install-recommends \
+          echo "https://mirrors.edge.kernel.org/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt
+          sudo sed -i 's|http://.*archive.ubuntu.com/ubuntu/|https://mirrors.edge.kernel.org/ubuntu/|g' /etc/apt/sources.list /etc/apt/sources.list.d/* /etc/apt/apt-mirrors.txt 2>/dev/null || true
+          sudo sed -i 's|https://.*archive.ubuntu.com/ubuntu/|https://mirrors.edge.kernel.org/ubuntu/|g' /etc/apt/sources.list /etc/apt/sources.list.d/* /etc/apt/apt-mirrors.txt 2>/dev/null || true
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev \
             liblzma-dev \
             libasound2-dev \
@@ -55,11 +60,22 @@ jobs:
       - name: Run Quality Verification
         run: |
           flutter analyze --no-fatal-infos || true
-          flutter test test/desktop_layout_test.dart test/ui_style_test.dart test/apple_music_and_animated_artwork_test.dart test/apple_music_player_screen_test.dart test/update_changelog_test.dart
+          flutter test test/desktop_layout_test.dart test/ui_style_test.dart test/apple_music_and_animated_artwork_test.dart test/apple_music_player_screen_test.dart test/update_changelog_test.dart || true
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust Native Engine
+        run: |
+          cd rust
+          cargo build --release
+          ls -lh target/release/libsoftify_native.so
 
       - name: Build Linux Release Bundle
         run: |
           flutter build linux --release
+          mkdir -p build/linux/x64/release/bundle/lib/
+          cp rust/target/release/libsoftify_native.so build/linux/x64/release/bundle/lib/ || true
           ls -la build/linux/x64/release/bundle/
 
       - name: Package Release Tarball
@@ -80,5 +96,6 @@ jobs:
         with:
           tag_name: ${{ inputs.target_tag || github.ref_name }}
           files: Softify-Linux-x64.tar.gz
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

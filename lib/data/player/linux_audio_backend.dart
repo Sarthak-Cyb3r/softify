@@ -246,6 +246,9 @@ class SoftifyMediaKitPlayer extends AudioPlayerPlatform {
           _setPosition = null;
         }
         _updateDuration(duration);
+        if (_loadCompleter?.isCompleted != true && duration > Duration.zero) {
+          _loadCompleter?.complete(_duration);
+        }
         _updatePlaybackEvent();
       }),
       _player.stream.position.listen((position) {
@@ -315,6 +318,9 @@ class SoftifyMediaKitPlayer extends AudioPlayerPlatform {
           _errorCode = kErrorCode;
           _errorMessage = error;
           _updatePlaybackEvent();
+        }
+        if (_loadCompleter?.isCompleted != true) {
+          _loadCompleter?.complete(null);
         }
         _logger.severe('ERROR OCCURRED: $error');
       }),
@@ -421,8 +427,16 @@ class SoftifyMediaKitPlayer extends AudioPlayerPlatform {
     }
 
     _updatePlaybackEvent();
-    final duration = await _loadCompleter?.future;
-    return LoadResponse(duration: duration);
+    Duration? duration;
+    try {
+      duration = await _loadCompleter?.future.timeout(
+        const Duration(milliseconds: 3500),
+        onTimeout: () => _duration,
+      );
+    } catch (_) {
+      duration = _duration;
+    }
+    return LoadResponse(duration: duration ?? _duration);
   }
 
   @override
@@ -475,6 +489,27 @@ class SoftifyMediaKitPlayer extends AudioPlayerPlatform {
         shuffleMode:
             shuffling ? ShuffleModeMessage.all : ShuffleModeMessage.none));
     return SetShuffleModeResponse();
+  }
+
+  @override
+  Future<SetAutomaticallyWaitsToMinimizeStallingResponse>
+      setAutomaticallyWaitsToMinimizeStalling(
+          SetAutomaticallyWaitsToMinimizeStallingRequest request) async {
+    return SetAutomaticallyWaitsToMinimizeStallingResponse();
+  }
+
+  @override
+  Future<SetCanUseNetworkResourcesForLiveStreamingWhilePausedResponse>
+      setCanUseNetworkResourcesForLiveStreamingWhilePaused(
+          SetCanUseNetworkResourcesForLiveStreamingWhilePausedRequest
+              request) async {
+    return SetCanUseNetworkResourcesForLiveStreamingWhilePausedResponse();
+  }
+
+  @override
+  Future<SetPreferredPeakBitRateResponse> setPreferredPeakBitRate(
+      SetPreferredPeakBitRateRequest request) async {
+    return SetPreferredPeakBitRateResponse();
   }
 
   @override

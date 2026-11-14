@@ -2,7 +2,7 @@ name: softify
 description: "An ad-free, paywall-free mobile music streaming application."
 publish_to: 'none'
 
-version: 4.0.1+239
+version: 4.0.3+243
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -33,9 +33,11 @@ dependencies:
   media_kit_native_event_loop: ^1.0.9
   url_launcher: ^6.3.3
   audio_service_mpris: '>=0.2.1 <2.0.0'
+  dbus: ^0.8.0
   device_info_plus: ^13.3.0
   xml: ^6.5.0
   protobuf: ^6.1.0
+  ffi: ^2.1.2
 
 dev_dependencies:
   flutter_test:
@@ -43,6 +45,9 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   drift_dev: ^2.16.0
   build_runner: ^2.4.8
+
+dependency_overrides:
+  sqlite3: ^3.9.1
 
 flutter:
   uses-material-design: true

@@ -28,7 +28,6 @@ import 'presentation/screens/app_scaffold.dart';
 import 'domain/entities/audio_quality_preset.dart';
 import 'services/lyrics/better_lyrics_provider.dart';
 import 'services/lyrics/paxsenix_lyrics_provider.dart';
-import 'services/sync/listen_together_service.dart';
 import 'services/animated_artwork_service.dart';
 
 void main() async {
@@ -137,9 +136,6 @@ void main() async {
       androidStopForegroundOnPause: false,
     ),
   );
-
-  // Wire Listen Together synchronization service to AudioHandler
-  ListenTogetherService.instance.attachAudioHandler(audioHandler);
 
   // Restore persisted DJ Crossfade duration into audio handler
   try {

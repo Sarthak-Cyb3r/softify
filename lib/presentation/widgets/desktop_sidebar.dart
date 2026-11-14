@@ -7,6 +7,8 @@ import '../screens/equalizer_screen.dart';
 import '../theme/app_theme.dart';
 import 'lyrics_view.dart';
 import 'wrapped_insights_dialog.dart';
+import '../../features/qol/keyboard_shortcuts_dialog.dart';
+import '../../features/qol/qol_features.dart';
 import 'shared/app_surface.dart';
 
 /// Desktop Sidebar adhering to Content-First Spotify-inspired design:
@@ -165,27 +167,20 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                   const SizedBox(height: 2),
                   _buildNavItem(
                     index: 2,
-                    icon: Icons.groups_outlined,
-                    activeIcon: Icons.groups_rounded,
-                    label: 'Together',
-                  ),
-                  const SizedBox(height: 2),
-                  _buildNavItem(
-                    index: 3,
                     icon: Icons.library_music_outlined,
                     activeIcon: Icons.library_music_rounded,
                     label: 'Library',
                   ),
                   const SizedBox(height: 2),
                   _buildNavItem(
-                    index: 4,
+                    index: 3,
                     icon: Icons.smart_display_outlined,
                     activeIcon: Icons.smart_display,
                     label: 'YouTube',
                   ),
                   const SizedBox(height: 2),
                   _buildNavItem(
-                    index: 5,
+                    index: 4,
                     icon: Icons.settings_outlined,
                     activeIcon: Icons.settings_rounded,
                     label: 'Settings',
@@ -210,6 +205,17 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  _buildFeatureItem(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'QoL Features Hub (50+)',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const QolFeaturesHubScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   _buildFeatureItem(
                     icon: Icons.tune_rounded,
                     label: 'Equalizer & DSP',
@@ -286,14 +292,14 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                     title: 'Liked Songs',
                     dotColor: tokens.accent,
                     badge: null,
-                    onTap: () => widget.onSelectTab(4),
+                    onTap: () => widget.onSelectTab(2),
                   ),
                   const SizedBox(height: 2),
                   _buildPlaylistItem(
                     title: 'Downloads',
                     dotColor: tokens.accent,
                     badge: null,
-                    onTap: () => widget.onSelectTab(4),
+                    onTap: () => widget.onSelectTab(2),
                   ),
 
                   const SizedBox(height: 16),
@@ -301,23 +307,41 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                   const SizedBox(height: 12),
 
                   // Section: SHORTCUTS
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: Text(
-                      'SHORTCUTS',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontUi,
-                        fontSize: 12, // Strict 12px floor
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: tokens.textMuted,
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => KeyboardShortcutsDialog.show(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'SHORTCUTS',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontUi,
+                              fontSize: 12, // Strict 12px floor
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                          _buildKbdPill('?'),
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  _buildShortcutRow('Ctrl+K', 'Search'),
-                  _buildShortcutRow('Ctrl+P', 'Podcasts'),
-                  _buildShortcutRow('Space', 'Play / Pause'),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => KeyboardShortcutsDialog.show(context),
+                    child: Column(
+                      children: [
+                        _buildShortcutRow('Ctrl+F', 'Search'),
+                        _buildShortcutRow('Space', 'Play / Pause'),
+                        _buildShortcutRow('J / K', 'Prev / Next Track'),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 16),
                 ],
@@ -389,7 +413,7 @@ class _DesktopSidebarState extends ConsumerState<DesktopSidebar> {
                     size: 18,
                     color: AppTheme.textSecondary,
                   ),
-                  onPressed: () => widget.onSelectTab(5),
+                  onPressed: () => widget.onSelectTab(4),
                 ),
               ],
             ),
