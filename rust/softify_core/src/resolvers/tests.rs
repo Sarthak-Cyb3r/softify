@@ -30,6 +30,22 @@ fn test_des_decryption_roundtrip() {
 }
 
 #[test]
+fn test_real_recorded_encrypted_media_url_decryption() {
+    let fixture_str = include_str!("../../tests/fixtures/real_saavn_song_details.json");
+    let json: serde_json::Value = serde_json::from_str(fixture_str).expect("Valid JSON fixture");
+    let encrypted = json["songs"][0]["more_info"]["encrypted_media_url"]
+        .as_str()
+        .expect("encrypted_media_url string");
+
+    let decrypted = SaavnStreamResolver::decrypt_media_url(encrypted).expect("DES decryption of real fixture");
+    
+    // Assert real JioSaavn CDN structure
+    assert!(decrypted.starts_with("https://") || decrypted.starts_with("http://"));
+    assert!(decrypted.contains("saavncdn.com") || decrypted.contains("saavn.cdn"));
+    assert!(decrypted.ends_with(".mp4") || decrypted.contains(".mp4?"));
+}
+
+#[test]
 fn test_url_rewrite_presets() {
     let base = "https://aac.saavn.cdn.jio.com/123/song_160.mp4";
     assert_eq!(

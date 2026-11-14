@@ -32,6 +32,10 @@ impl YoutubeStreamResolver {
         Self { client, player_url, music_search_url }
     }
 
+    pub fn client(&self) -> &reqwest::Client {
+        &self.client
+    }
+
     /// Searches YouTube Music for songs matching query
     pub async fn search(&self, query: &str) -> Result<Vec<Track>, SoftifyError> {
         let payload = json!({

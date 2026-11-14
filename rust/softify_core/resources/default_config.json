@@ -1,0 +1,37 @@
+{
+  "fallback_piped_instances": [
+    "https://pipedapi.kavin.rocks",
+    "https://api.piped.privacydev.net",
+    "https://piped-api.lunar.icu",
+    "https://api.piped.projectsegfau.lt",
+    "https://pipedapi.in.projectsegfau.lt",
+    "https://pipedapi.leptons.xyz"
+  ],
+  "search_aliases": {
+    "arijit": ["arijit singh"],
+    "kk": ["krishnakumar kunnath"],
+    "weeknd": ["the weeknd"],
+    "rahman": ["a. r. rahman", "ar rahman"],
+    "shreya": ["shreya ghoshal"],
+    "badshah": ["badshah"],
+    "diljit": ["diljit dosanjh"],
+    "atif": ["atif aslam"],
+    "pritam": ["pritam chakraborty"],
+    "lata": ["lata mangeshkar"],
+    "kishore": ["kishore kumar"]
+  },
+  "ranker_weights": {
+    "is_exact": 3.0,
+    "prefix_match": 2.0,
+    "played_count": 1.5,
+    "taste_similarity": 1.0,
+    "popularity_proxy": 0.5,
+    "edit_distance_penalty": -1.2
+  },
+  "client_version": "1.02",
+  "endpoints": {
+    "saavn_search": "https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=",
+    "saavn_song_details": "https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0%3F_marker%3D0&_format=json&pids=",
+    "youtube_base": "https://music.youtube.com/youtubei/v1"
+  }
+}

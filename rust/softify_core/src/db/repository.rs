@@ -362,6 +362,124 @@ impl DatabaseRepository {
         }
         Ok(tracks)
     }
+
+    #[allow(clippy::type_complexity)]
+    pub fn get_cached_lyrics(&self, track_id: &str) -> Result<Option<(Option<String>, Option<String>, bool)>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT synced_lrc, plain_text, is_not_found FROM cached_lyrics WHERE track_id = ?1"
+        )?;
+
+        let mut rows = stmt.query(params![track_id])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn save_cached_lyrics(
+        &self,
+        track_id: &str,
+        synced_lrc: Option<&str>,
+        plain_text: Option<&str>,
+        is_not_found: bool,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        conn.execute(
+            "INSERT INTO cached_lyrics (track_id, synced_lrc, plain_text, is_not_found, cached_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(track_id) DO UPDATE SET
+                synced_lrc = excluded.synced_lrc,
+                plain_text = excluded.plain_text,
+                is_not_found = excluded.is_not_found,
+                cached_at = excluded.cached_at",
+            params![track_id, synced_lrc, plain_text, if is_not_found { 1 } else { 0 }, now],
+        )?;
+
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_download(
+        &self,
+        track_id: &str,
+        relative_path: &str,
+        container_format: &str,
+        file_size_bytes: u64,
+        bytes_downloaded: u64,
+        status: &str,
+        bitrate_kbps: u32,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        conn.execute(
+            "INSERT INTO downloads (track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(track_id) DO UPDATE SET
+                relative_path = excluded.relative_path,
+                container_format = excluded.container_format,
+                file_size_bytes = excluded.file_size_bytes,
+                bytes_downloaded = excluded.bytes_downloaded,
+                status = excluded.status,
+                bitrate_kbps = excluded.bitrate_kbps",
+            params![
+                track_id,
+                relative_path,
+                container_format,
+                file_size_bytes as i64,
+                bytes_downloaded as i64,
+                status,
+                bitrate_kbps as i64,
+                now
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn get_downloads(&self) -> Result<Vec<crate::models::DownloadItem>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at
+             FROM downloads
+             ORDER BY created_at DESC"
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::models::DownloadItem {
+                track_id: row.get(0)?,
+                relative_path: row.get(1)?,
+                container_format: row.get(2)?,
+                file_size_bytes: row.get::<_, i64>(3)? as u64,
+                bytes_downloaded: row.get::<_, i64>(4)? as u64,
+                status: row.get(5)?,
+                bitrate_kbps: row.get::<_, i64>(6)? as u32,
+                created_at: row.get(7)?,
+            })
+        })?;
+
+        let mut items = Vec::new();
+        for r in rows {
+            items.push(r?);
+        }
+        Ok(items)
+    }
+
+    pub fn delete_download(&self, track_id: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute("DELETE FROM downloads WHERE track_id = ?1", params![track_id])?;
+        Ok(())
+    }
 }
 
 use rusqlite::OptionalExtension;

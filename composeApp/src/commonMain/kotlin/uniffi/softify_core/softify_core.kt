@@ -660,6 +660,39 @@ internal open class UniffiForeignFutureStructVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceDownloadProgressCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`trackId`: RustBuffer.ByValue,`bytesDownloaded`: Long,`totalBytes`: Long,`status`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("onProgress", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceDownloadProgressCallback(
+    @JvmField internal var `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceDownloadProgressCallback(`onProgress`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceDownloadProgressCallback) {
+        `onProgress` = other.`onProgress`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -762,23 +795,36 @@ internal interface UniffiLib : Library {
             .also { lib: UniffiLib ->
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
+                uniffiCallbackInterfaceDownloadProgressCallback.register(lib)
                 }
         }
         
     }
 
+    fun uniffi_softify_core_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
+    ): Unit
     fun uniffi_softify_core_fn_func_add_to_playlist(`playlistId`: RustBuffer.ByValue,`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_check_providers_health(
+    ): Long
     fun uniffi_softify_core_fn_func_clear_history(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_create_playlist(`name`: RustBuffer.ByValue,`description`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_delete_download(`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_delete_playlist(`playlistId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_download_track(`track`: RustBuffer.ByValue,`preset`: RustBuffer.ByValue,`targetDir`: RustBuffer.ByValue,`callback`: Long,
+    ): Long
+    fun uniffi_softify_core_fn_func_get_downloads(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_history(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_liked_tracks(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_lyrics(`track`: RustBuffer.ByValue,
+    ): Long
     fun uniffi_softify_core_fn_func_get_playlist_tracks(`playlistId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_playlists(uniffi_out_err: UniffiRustCallStatus, 
@@ -787,6 +833,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_softify_core_fn_func_record_play(`trackId`: RustBuffer.ByValue,`completedRatio`: Double,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_refresh_remote_config(`url`: RustBuffer.ByValue,
+    ): Long
     fun uniffi_softify_core_fn_func_remove_from_playlist(`playlistId`: RustBuffer.ByValue,`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_resolve_stream(`track`: RustBuffer.ByValue,`preset`: RustBuffer.ByValue,
@@ -915,15 +963,25 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_softify_core_checksum_func_add_to_playlist(
     ): Short
+    fun uniffi_softify_core_checksum_func_check_providers_health(
+    ): Short
     fun uniffi_softify_core_checksum_func_clear_history(
     ): Short
     fun uniffi_softify_core_checksum_func_create_playlist(
     ): Short
+    fun uniffi_softify_core_checksum_func_delete_download(
+    ): Short
     fun uniffi_softify_core_checksum_func_delete_playlist(
+    ): Short
+    fun uniffi_softify_core_checksum_func_download_track(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_downloads(
     ): Short
     fun uniffi_softify_core_checksum_func_get_history(
     ): Short
     fun uniffi_softify_core_checksum_func_get_liked_tracks(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_lyrics(
     ): Short
     fun uniffi_softify_core_checksum_func_get_playlist_tracks(
     ): Short
@@ -932,6 +990,8 @@ internal interface UniffiLib : Library {
     fun uniffi_softify_core_checksum_func_init_database(
     ): Short
     fun uniffi_softify_core_checksum_func_record_play(
+    ): Short
+    fun uniffi_softify_core_checksum_func_refresh_remote_config(
     ): Short
     fun uniffi_softify_core_checksum_func_remove_from_playlist(
     ): Short
@@ -946,6 +1006,8 @@ internal interface UniffiLib : Library {
     fun uniffi_softify_core_checksum_func_search_tracks(
     ): Short
     fun uniffi_softify_core_checksum_func_toggle_like(
+    ): Short
+    fun uniffi_softify_core_checksum_method_downloadprogresscallback_on_progress(
     ): Short
     fun ffi_softify_core_uniffi_contract_version(
     ): Int
@@ -967,19 +1029,34 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_add_to_playlist() != 14741.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_check_providers_health() != 11102.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_clear_history() != 28802.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_create_playlist() != 38454.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_delete_download() != 22853.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_delete_playlist() != 53574.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_download_track() != 9317.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_downloads() != 55902.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_history() != 613.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_liked_tracks() != 11948.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_lyrics() != 23626.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_playlist_tracks() != 17639.toShort()) {
@@ -992,6 +1069,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_record_play() != 17940.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_refresh_remote_config() != 49797.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_remove_from_playlist() != 12206.toShort()) {
@@ -1013,6 +1093,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_toggle_like() != 3201.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_method_downloadprogresscallback_on_progress() != 15571.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1276,6 +1359,62 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 
 
 
+data class DownloadItem (
+    var `trackId`: kotlin.String, 
+    var `relativePath`: kotlin.String, 
+    var `containerFormat`: kotlin.String, 
+    var `fileSizeBytes`: kotlin.ULong, 
+    var `bytesDownloaded`: kotlin.ULong, 
+    var `status`: kotlin.String, 
+    var `bitrateKbps`: kotlin.UInt, 
+    var `createdAt`: kotlin.Long
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeDownloadItem: FfiConverterRustBuffer<DownloadItem> {
+    override fun read(buf: ByteBuffer): DownloadItem {
+        return DownloadItem(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: DownloadItem) = (
+            FfiConverterString.allocationSize(value.`trackId`) +
+            FfiConverterString.allocationSize(value.`relativePath`) +
+            FfiConverterString.allocationSize(value.`containerFormat`) +
+            FfiConverterULong.allocationSize(value.`fileSizeBytes`) +
+            FfiConverterULong.allocationSize(value.`bytesDownloaded`) +
+            FfiConverterString.allocationSize(value.`status`) +
+            FfiConverterUInt.allocationSize(value.`bitrateKbps`) +
+            FfiConverterLong.allocationSize(value.`createdAt`)
+    )
+
+    override fun write(value: DownloadItem, buf: ByteBuffer) {
+            FfiConverterString.write(value.`trackId`, buf)
+            FfiConverterString.write(value.`relativePath`, buf)
+            FfiConverterString.write(value.`containerFormat`, buf)
+            FfiConverterULong.write(value.`fileSizeBytes`, buf)
+            FfiConverterULong.write(value.`bytesDownloaded`, buf)
+            FfiConverterString.write(value.`status`, buf)
+            FfiConverterUInt.write(value.`bitrateKbps`, buf)
+            FfiConverterLong.write(value.`createdAt`, buf)
+    }
+}
+
+
+
 data class HeaderPair (
     var `name`: kotlin.String, 
     var `value`: kotlin.String
@@ -1303,6 +1442,38 @@ public object FfiConverterTypeHeaderPair: FfiConverterRustBuffer<HeaderPair> {
     override fun write(value: HeaderPair, buf: ByteBuffer) {
             FfiConverterString.write(value.`name`, buf)
             FfiConverterString.write(value.`value`, buf)
+    }
+}
+
+
+
+data class LyricsLine (
+    var `startMs`: kotlin.ULong, 
+    var `text`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLyricsLine: FfiConverterRustBuffer<LyricsLine> {
+    override fun read(buf: ByteBuffer): LyricsLine {
+        return LyricsLine(
+            FfiConverterULong.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: LyricsLine) = (
+            FfiConverterULong.allocationSize(value.`startMs`) +
+            FfiConverterString.allocationSize(value.`text`)
+    )
+
+    override fun write(value: LyricsLine, buf: ByteBuffer) {
+            FfiConverterULong.write(value.`startMs`, buf)
+            FfiConverterString.write(value.`text`, buf)
     }
 }
 
@@ -1448,6 +1619,42 @@ public object FfiConverterTypePlaylistTrack: FfiConverterRustBuffer<PlaylistTrac
 
 
 
+data class ProviderHealth (
+    var `provider`: kotlin.String, 
+    var `isHealthy`: kotlin.Boolean, 
+    var `latencyMs`: kotlin.ULong?
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeProviderHealth: FfiConverterRustBuffer<ProviderHealth> {
+    override fun read(buf: ByteBuffer): ProviderHealth {
+        return ProviderHealth(
+            FfiConverterString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ProviderHealth) = (
+            FfiConverterString.allocationSize(value.`provider`) +
+            FfiConverterBoolean.allocationSize(value.`isHealthy`) +
+            FfiConverterOptionalULong.allocationSize(value.`latencyMs`)
+    )
+
+    override fun write(value: ProviderHealth, buf: ByteBuffer) {
+            FfiConverterString.write(value.`provider`, buf)
+            FfiConverterBoolean.write(value.`isHealthy`, buf)
+            FfiConverterOptionalULong.write(value.`latencyMs`, buf)
+    }
+}
+
+
+
 data class SearchResult (
     var `localTracks`: List<Track>, 
     var `onlineTracks`: List<Track>, 
@@ -1539,6 +1746,42 @@ public object FfiConverterTypeStreamInfo: FfiConverterRustBuffer<StreamInfo> {
             FfiConverterBoolean.write(value.`isRequestedQuality`, buf)
             FfiConverterSequenceTypeHeaderPair.write(value.`headers`, buf)
             FfiConverterOptionalULong.write(value.`expiresAt`, buf)
+    }
+}
+
+
+
+data class SyncedLyrics (
+    var `isSynced`: kotlin.Boolean, 
+    var `lines`: List<LyricsLine>, 
+    var `plainText`: kotlin.String?
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeSyncedLyrics: FfiConverterRustBuffer<SyncedLyrics> {
+    override fun read(buf: ByteBuffer): SyncedLyrics {
+        return SyncedLyrics(
+            FfiConverterBoolean.read(buf),
+            FfiConverterSequenceTypeLyricsLine.read(buf),
+            FfiConverterOptionalString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: SyncedLyrics) = (
+            FfiConverterBoolean.allocationSize(value.`isSynced`) +
+            FfiConverterSequenceTypeLyricsLine.allocationSize(value.`lines`) +
+            FfiConverterOptionalString.allocationSize(value.`plainText`)
+    )
+
+    override fun write(value: SyncedLyrics, buf: ByteBuffer) {
+            FfiConverterBoolean.write(value.`isSynced`, buf)
+            FfiConverterSequenceTypeLyricsLine.write(value.`lines`, buf)
+            FfiConverterOptionalString.write(value.`plainText`, buf)
     }
 }
 
@@ -1715,6 +1958,24 @@ sealed class SoftifyException: kotlin.Exception() {
             get() = "reason=${ `reason` }"
     }
     
+    class ProviderUnavailable(
+        
+        val `provider`: kotlin.String, 
+        
+        val `reason`: kotlin.String
+        ) : SoftifyException() {
+        override val message
+            get() = "provider=${ `provider` }, reason=${ `reason` }"
+    }
+    
+    class Download(
+        
+        val `reason`: kotlin.String
+        ) : SoftifyException() {
+        override val message
+            get() = "reason=${ `reason` }"
+    }
+    
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<SoftifyException> {
         override fun lift(error_buf: RustBuffer.ByValue): SoftifyException = FfiConverterTypeSoftifyError.lift(error_buf)
@@ -1746,6 +2007,13 @@ public object FfiConverterTypeSoftifyError : FfiConverterRustBuffer<SoftifyExcep
             5 -> SoftifyException.QualityVerification(
                 FfiConverterString.read(buf),
                 )
+            6 -> SoftifyException.ProviderUnavailable(
+                FfiConverterString.read(buf),
+                FfiConverterString.read(buf),
+                )
+            7 -> SoftifyException.Download(
+                FfiConverterString.read(buf),
+                )
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
         }
     }
@@ -1773,6 +2041,17 @@ public object FfiConverterTypeSoftifyError : FfiConverterRustBuffer<SoftifyExcep
                 + FfiConverterString.allocationSize(value.`reason`)
             )
             is SoftifyException.QualityVerification -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`reason`)
+            )
+            is SoftifyException.ProviderUnavailable -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`provider`)
+                + FfiConverterString.allocationSize(value.`reason`)
+            )
+            is SoftifyException.Download -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
                 + FfiConverterString.allocationSize(value.`reason`)
@@ -1807,10 +2086,108 @@ public object FfiConverterTypeSoftifyError : FfiConverterRustBuffer<SoftifyExcep
                 FfiConverterString.write(value.`reason`, buf)
                 Unit
             }
+            is SoftifyException.ProviderUnavailable -> {
+                buf.putInt(6)
+                FfiConverterString.write(value.`provider`, buf)
+                FfiConverterString.write(value.`reason`, buf)
+                Unit
+            }
+            is SoftifyException.Download -> {
+                buf.putInt(7)
+                FfiConverterString.write(value.`reason`, buf)
+                Unit
+            }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
     }
 
 }
+
+
+
+
+
+public interface DownloadProgressCallback {
+    
+    fun `onProgress`(`trackId`: kotlin.String, `bytesDownloaded`: kotlin.ULong, `totalBytes`: kotlin.ULong, `status`: kotlin.String)
+    
+    companion object
+}
+
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+internal const val IDX_CALLBACK_FREE = 0
+// Callback return codes
+internal const val UNIFFI_CALLBACK_SUCCESS = 0
+internal const val UNIFFI_CALLBACK_ERROR = 1
+internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
+
+/**
+ * @suppress
+ */
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+    internal val handleMap = UniffiHandleMap<CallbackInterface>()
+
+    internal fun drop(handle: Long) {
+        handleMap.remove(handle)
+    }
+
+    override fun lift(value: Long): CallbackInterface {
+        return handleMap.get(value)
+    }
+
+    override fun read(buf: ByteBuffer) = lift(buf.getLong())
+
+    override fun lower(value: CallbackInterface) = handleMap.insert(value)
+
+    override fun allocationSize(value: CallbackInterface) = 8UL
+
+    override fun write(value: CallbackInterface, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceDownloadProgressCallback {
+    internal object `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`trackId`: RustBuffer.ByValue,`bytesDownloaded`: Long,`totalBytes`: Long,`status`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeDownloadProgressCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onProgress`(
+                    FfiConverterString.lift(`trackId`),
+                    FfiConverterULong.lift(`bytesDownloaded`),
+                    FfiConverterULong.lift(`totalBytes`),
+                    FfiConverterString.lift(`status`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeDownloadProgressCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceDownloadProgressCallback.UniffiByValue(
+        `onProgress`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_softify_core_fn_init_callback_vtable_downloadprogresscallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeDownloadProgressCallback: FfiConverterCallbackInterface<DownloadProgressCallback>()
 
 
 
@@ -1914,6 +2291,34 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeDownloadItem: FfiConverterRustBuffer<List<DownloadItem>> {
+    override fun read(buf: ByteBuffer): List<DownloadItem> {
+        val len = buf.getInt()
+        return List<DownloadItem>(len) {
+            FfiConverterTypeDownloadItem.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<DownloadItem>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeDownloadItem.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<DownloadItem>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeDownloadItem.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeHeaderPair: FfiConverterRustBuffer<List<HeaderPair>> {
     override fun read(buf: ByteBuffer): List<HeaderPair> {
         val len = buf.getInt()
@@ -1932,6 +2337,34 @@ public object FfiConverterSequenceTypeHeaderPair: FfiConverterRustBuffer<List<He
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeHeaderPair.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeLyricsLine: FfiConverterRustBuffer<List<LyricsLine>> {
+    override fun read(buf: ByteBuffer): List<LyricsLine> {
+        val len = buf.getInt()
+        return List<LyricsLine>(len) {
+            FfiConverterTypeLyricsLine.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<LyricsLine>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeLyricsLine.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<LyricsLine>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeLyricsLine.write(it, buf)
         }
     }
 }
@@ -1998,6 +2431,34 @@ public object FfiConverterSequenceTypePlaylist: FfiConverterRustBuffer<List<Play
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeProviderHealth: FfiConverterRustBuffer<List<ProviderHealth>> {
+    override fun read(buf: ByteBuffer): List<ProviderHealth> {
+        val len = buf.getInt()
+        return List<ProviderHealth>(len) {
+            FfiConverterTypeProviderHealth.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<ProviderHealth>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeProviderHealth.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<ProviderHealth>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeProviderHealth.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>> {
     override fun read(buf: ByteBuffer): List<Track> {
         val len = buf.getInt()
@@ -2040,6 +2501,23 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Performs health checks across all resolvers (JioSaavn and YouTube)
+         */
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `checkProvidersHealth`() : List<ProviderHealth> {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_check_providers_health(),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeProviderHealth.lift(it) },
+        // Error FFI converter
+        UniffiNullRustCallStatusErrorHandler,
+    )
+    }
+
+        /**
          * Clears play history
          */
     @Throws(SoftifyException::class) fun `clearHistory`()
@@ -2065,6 +2543,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Deletes a download from disk and database
+         */
+    @Throws(SoftifyException::class) fun `deleteDownload`(`trackId`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_delete_download(
+        FfiConverterString.lower(`trackId`),_status)
+}
+    
+    
+
+        /**
          * Deletes a playlist
          */
     @Throws(SoftifyException::class) fun `deletePlaylist`(`playlistId`: kotlin.String)
@@ -2074,6 +2564,37 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         FfiConverterString.lower(`playlistId`),_status)
 }
     
+    
+
+        /**
+         * Downloads highest-quality stream as M4A with iTunes atom tagging and progress notifications
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `downloadTrack`(`track`: Track, `preset`: QualityPreset, `targetDir`: kotlin.String, `callback`: DownloadProgressCallback) : DownloadItem {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_download_track(FfiConverterTypeTrack.lower(`track`),FfiConverterTypeQualityPreset.lower(`preset`),FfiConverterString.lower(`targetDir`),FfiConverterTypeDownloadProgressCallback.lower(`callback`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeDownloadItem.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
+
+        /**
+         * Lists all completed downloads
+         */
+    @Throws(SoftifyException::class) fun `getDownloads`(): List<DownloadItem> {
+            return FfiConverterSequenceTypeDownloadItem.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_downloads(
+        _status)
+}
+    )
+    }
     
 
         /**
@@ -2101,6 +2622,24 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     )
     }
     
+
+        /**
+         * Resolves lyrics from cache or LRCLIB with synced lines and plain fallback
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `getLyrics`(`track`: Track) : SyncedLyrics {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_lyrics(FfiConverterTypeTrack.lower(`track`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeSyncedLyrics.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
 
         /**
          * Gets all tracks in a playlist ordered by position
@@ -2148,6 +2687,24 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
 }
     
     
+
+        /**
+         * Fetches remote configuration with 3s timeout or falls back to bundled defaults
+         */
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `refreshRemoteConfig`(`url`: kotlin.String?) {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_refresh_remote_config(FfiConverterOptionalString.lower(`url`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        UniffiNullRustCallStatusErrorHandler,
+    )
+    }
 
         /**
          * Removes a track from a playlist

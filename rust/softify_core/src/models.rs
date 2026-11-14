@@ -92,6 +92,43 @@ pub struct SearchResult {
     pub detected_entity: Option<String>,
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ProviderHealth {
+    pub provider: String,
+    pub is_healthy: bool,
+    pub latency_ms: Option<u64>,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct LyricsLine {
+    pub start_ms: u64,
+    pub text: String,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SyncedLyrics {
+    pub is_synced: bool,
+    pub lines: Vec<LyricsLine>,
+    pub plain_text: Option<String>,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct DownloadItem {
+    pub track_id: String,
+    pub relative_path: String,
+    pub container_format: String,
+    pub file_size_bytes: u64,
+    pub bytes_downloaded: u64,
+    pub status: String,
+    pub bitrate_kbps: u32,
+    pub created_at: i64,
+}
+
+#[uniffi::export(callback_interface)]
+pub trait DownloadProgressCallback: Send + Sync {
+    fn on_progress(&self, track_id: String, bytes_downloaded: u64, total_bytes: u64, status: String);
+}
+
 #[derive(uniffi::Error, thiserror::Error, Debug)]
 pub enum SoftifyError {
     #[error("Network error: {reason}")]
@@ -104,6 +141,10 @@ pub enum SoftifyError {
     Database { reason: String },
     #[error("Quality verification error: {reason}")]
     QualityVerification { reason: String },
+    #[error("Provider unavailable: {provider}: {reason}")]
+    ProviderUnavailable { provider: String, reason: String },
+    #[error("Download error: {reason}")]
+    Download { reason: String },
 }
 
 impl From<reqwest::Error> for SoftifyError {

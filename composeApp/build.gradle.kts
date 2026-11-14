@@ -48,6 +48,12 @@ kotlin {
                 implementation("net.java.dev.jna:jna:5.14.0")
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+            }
+        }
     }
 }
 
@@ -93,4 +99,8 @@ compose.desktop {
             packageVersion = "4.3.0"
         }
     }
+}
+
+tasks.withType<Test> {
+    systemProperty("jna.library.path", "${rootProject.projectDir}/rust/softify_core/target/debug")
 }

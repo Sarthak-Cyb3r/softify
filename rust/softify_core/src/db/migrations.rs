@@ -58,6 +58,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
             file_size_bytes INTEGER NOT NULL DEFAULT 0,
             bytes_downloaded INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL,
+            bitrate_kbps INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL
         );
 
