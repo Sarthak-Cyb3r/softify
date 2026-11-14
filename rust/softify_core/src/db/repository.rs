@@ -480,6 +480,433 @@ impl DatabaseRepository {
         conn.execute("DELETE FROM downloads WHERE track_id = ?1", params![track_id])?;
         Ok(())
     }
+
+    pub fn create_imported_playlist(&self, playlist: &Playlist) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute(
+            "INSERT INTO playlists (id, name, description, is_imported, source_url, created_at)
+             VALUES (?1, ?2, ?3, 1, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                source_url = excluded.source_url",
+            params![
+                playlist.id,
+                playlist.name,
+                playlist.description,
+                playlist.source_url,
+                playlist.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn add_track_to_playlist(
+        &self,
+        playlist_id: &str,
+        position: u32,
+        track_id: Option<&str>,
+        original_title: &str,
+        original_artist: &str,
+        match_status: &str,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute(
+            "INSERT INTO playlist_tracks (playlist_id, position, track_id, original_title, original_artist, match_status)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(playlist_id, position) DO UPDATE SET
+                track_id = excluded.track_id,
+                original_title = excluded.original_title,
+                original_artist = excluded.original_artist,
+                match_status = excluded.match_status",
+            params![playlist_id, position as i64, track_id, original_title, original_artist, match_status],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_recent_history(&self, limit: u32) -> Result<Vec<PlayHistory>, SoftifyError> {
+        self.get_history(limit)
+    }
+
+    pub fn get_play_sessions_history(&self) -> Result<Vec<crate::reco::cooccurrence::PlaySessionItem>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT ph.track_id, ph.played_at, t.duration_ms
+             FROM play_histories ph
+             JOIN tracks t ON ph.track_id = t.id
+             ORDER BY ph.played_at ASC"
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::reco::cooccurrence::PlaySessionItem {
+                track_id: row.get(0)?,
+                played_at_ms: row.get::<_, i64>(1)? * 1000,
+                duration_ms: row.get::<_, i64>(2)?,
+            })
+        })?;
+
+        let mut items = Vec::new();
+        for r in rows {
+            items.push(r?);
+        }
+        Ok(items)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_taste_profile(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        is_stream: bool,
+        is_early_skip: bool,
+        is_save: bool,
+        now_ms: i64,
+        fast_half_life_ms: f64,
+        slow_half_life_ms: f64,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let existing: Option<(i64, f64, f64, i64)> = conn.query_row(
+            "SELECT id, fast_weight, slow_weight, updated_at FROM taste_profiles WHERE entity_type = ?1 AND entity_id = ?2",
+            params![entity_type, entity_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        ).optional()?;
+
+        let mut current_fast = 0.0;
+        let mut current_slow = 0.0;
+
+        if let Some((_, fast, slow, updated_at)) = existing {
+            let dt = (now_ms - updated_at) as f64;
+            current_fast = fast * 2.0f64.powf(-dt / fast_half_life_ms);
+            current_slow = slow * 2.0f64.powf(-dt / slow_half_life_ms);
+        }
+
+        if is_stream {
+            current_fast += 1.0;
+            current_slow += 1.0;
+        }
+        if is_save {
+            current_fast += 2.0;
+            current_slow += 2.0;
+        }
+        if is_early_skip {
+            current_fast = f64::max(0.0, current_fast - 1.5);
+            current_slow = f64::max(0.0, current_slow - 0.5);
+        }
+
+        conn.execute(
+            "INSERT INTO taste_profiles (entity_type, entity_id, fast_weight, slow_weight, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                fast_weight = excluded.fast_weight,
+                slow_weight = excluded.slow_weight,
+                updated_at = excluded.updated_at",
+            params![entity_type, entity_id, current_fast, current_slow, now_ms],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn get_taste_profile(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+    ) -> Result<Option<crate::models::TasteProfileEntity>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT id, entity_type, entity_id, fast_weight, slow_weight, updated_at
+             FROM taste_profiles WHERE entity_type = ?1 AND entity_id = ?2"
+        )?;
+
+        let mut rows = stmt.query(params![entity_type, entity_id])?;
+        if let Some(row) = rows.next()? {
+            let fast: f64 = row.get(3)?;
+            let slow: f64 = row.get(4)?;
+            let blended = 0.4 * fast + 0.6 * slow;
+            Ok(Some(crate::models::TasteProfileEntity {
+                id: row.get(0)?,
+                entity_type: row.get(1)?,
+                entity_id: row.get(2)?,
+                fast_weight: fast,
+                slow_weight: slow,
+                blended_affinity: blended,
+                updated_at: row.get(5)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_top_taste_entities(
+        &self,
+        entity_type: &str,
+        limit: u32,
+        now_ms: i64,
+        fast_half_life_ms: f64,
+        slow_half_life_ms: f64,
+    ) -> Result<Vec<crate::models::TasteProfileEntity>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT id, entity_type, entity_id, fast_weight, slow_weight, updated_at
+             FROM taste_profiles WHERE entity_type = ?1"
+        )?;
+
+        let rows = stmt.query_map(params![entity_type], |row| {
+            let id: i64 = row.get(0)?;
+            let e_type: String = row.get(1)?;
+            let e_id: String = row.get(2)?;
+            let fast: f64 = row.get(3)?;
+            let slow: f64 = row.get(4)?;
+            let updated_at: i64 = row.get(5)?;
+
+            let dt = (now_ms - updated_at) as f64;
+            let decayed_fast = fast * 2.0f64.powf(-dt / fast_half_life_ms);
+            let decayed_slow = slow * 2.0f64.powf(-dt / slow_half_life_ms);
+            let blended = 0.4 * decayed_fast + 0.6 * decayed_slow;
+
+            Ok(crate::models::TasteProfileEntity {
+                id,
+                entity_type: e_type,
+                entity_id: e_id,
+                fast_weight: decayed_fast,
+                slow_weight: decayed_slow,
+                blended_affinity: blended,
+                updated_at: now_ms,
+            })
+        })?;
+
+        let mut entities = Vec::new();
+        for r in rows {
+            entities.push(r?);
+        }
+
+        entities.sort_by(|a, b| b.blended_affinity.partial_cmp(&a.blended_affinity).unwrap_or(std::cmp::Ordering::Equal));
+        entities.truncate(limit as usize);
+        Ok(entities)
+    }
+
+    pub fn decay_all_taste_profiles(
+        &self,
+        now_ms: i64,
+        fast_half_life_ms: f64,
+        slow_half_life_ms: f64,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare("SELECT id, fast_weight, slow_weight, updated_at FROM taste_profiles")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?, row.get::<_, f64>(2)?, row.get::<_, i64>(3)?))
+        })?;
+
+        let mut updates = Vec::new();
+        for r in rows {
+            let (id, fast, slow, updated_at) = r?;
+            let dt = (now_ms - updated_at) as f64;
+            if dt > 60_000.0 {
+                let decayed_fast = fast * 2.0f64.powf(-dt / fast_half_life_ms);
+                let decayed_slow = slow * 2.0f64.powf(-dt / slow_half_life_ms);
+                updates.push((id, decayed_fast, decayed_slow));
+            }
+        }
+
+        for (id, fast, slow) in updates {
+            conn.execute(
+                "UPDATE taste_profiles SET fast_weight = ?1, slow_weight = ?2, updated_at = ?3 WHERE id = ?4",
+                params![fast, slow, now_ms, id],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn batch_save_cooccurrences(
+        &self,
+        scores: &[crate::reco::cooccurrence::CooccurrencePairScore],
+        now_ms: i64,
+    ) -> Result<(), SoftifyError> {
+        let mut conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let tx = conn.transaction()?;
+
+        for s in scores {
+            tx.execute(
+                "INSERT INTO cooccurrences (track_a, track_b, score, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(track_a, track_b) DO UPDATE SET
+                    score = excluded.score,
+                    updated_at = excluded.updated_at",
+                params![s.track_a, s.track_b, s.score, now_ms],
+            )?;
+        }
+
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn get_cooccurrence_score(&self, track_a: &str, track_b: &str) -> Result<f64, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let score: Option<f64> = conn.query_row(
+            "SELECT score FROM cooccurrences WHERE track_a = ?1 AND track_b = ?2",
+            params![track_a, track_b],
+            |r| r.get(0),
+        ).optional()?;
+
+        Ok(score.unwrap_or(0.0))
+    }
+
+    pub fn set_artist_snooze(&self, artist_id: &str, snoozed_until: i64) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute(
+            "INSERT INTO artist_snoozes (artist_id, snoozed_until)
+             VALUES (?1, ?2)
+             ON CONFLICT(artist_id) DO UPDATE SET snoozed_until = excluded.snoozed_until",
+            params![artist_id.trim().to_lowercase(), snoozed_until],
+        )?;
+        Ok(())
+    }
+
+    pub fn is_artist_snoozed(&self, artist_id: &str, now_ms: i64) -> Result<bool, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let until: Option<i64> = conn.query_row(
+            "SELECT snoozed_until FROM artist_snoozes WHERE artist_id = ?1",
+            params![artist_id.trim().to_lowercase()],
+            |r| r.get(0),
+        ).optional()?;
+
+        match until {
+            Some(u) => Ok(u > now_ms),
+            None => Ok(false),
+        }
+    }
+
+    pub fn get_snoozed_artists(&self, now_ms: i64) -> Result<Vec<String>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare("SELECT artist_id FROM artist_snoozes WHERE snoozed_until > ?1")?;
+        let rows = stmt.query_map(params![now_ms], |r| r.get(0))?;
+
+        let mut artists = Vec::new();
+        for a in rows {
+            artists.push(a?);
+        }
+        Ok(artists)
+    }
+
+    pub fn remove_artist_snooze(&self, artist_id: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute(
+            "DELETE FROM artist_snoozes WHERE artist_id = ?1",
+            params![artist_id.trim().to_lowercase()],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let val: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![key],
+            |r| r.get(0),
+        ).optional()?;
+        Ok(val)
+    }
+
+    pub fn get_all_tracks(&self, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
+             FROM tracks ORDER BY created_at DESC LIMIT ?1"
+        )?;
+
+        let rows = stmt.query_map(params![limit], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
+
+    pub fn get_tracks_by_artist(&self, artist: &str, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
+             FROM tracks WHERE LOWER(artist) = LOWER(?1) ORDER BY created_at DESC LIMIT ?2"
+        )?;
+
+        let rows = stmt.query_map(params![artist, limit], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
+
+    pub fn get_unplayed_tracks(&self, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url,
+                    t.match_confidence, t.is_liked, t.is_unavailable
+             FROM tracks t
+             LEFT JOIN play_histories ph ON t.id = ph.track_id
+             WHERE ph.id IS NULL
+             ORDER BY t.created_at DESC LIMIT ?1"
+        )?;
+
+        let rows = stmt.query_map(params![limit], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
 }
 
 use rusqlite::OptionalExtension;

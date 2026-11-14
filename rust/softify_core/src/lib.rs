@@ -5,11 +5,15 @@ pub mod search;
 pub mod config;
 pub mod lyrics;
 pub mod downloads;
+pub mod importer;
+pub mod scanner;
+pub mod reco;
 
 use std::sync::{Arc, OnceLock};
 use models::{
-    DownloadItem, DownloadProgressCallback, Playlist, PlayHistory, ProviderHealth, QualityPreset,
-    SearchResult, SoftifyError, StreamInfo, SyncedLyrics, Track,
+    DownloadItem, DownloadProgressCallback, ImportPlaylistResult, Playlist, PlayHistory,
+    ProviderHealth, QualityPreset, ScanProgressCallback, ScanResult, SearchResult, Shelf,
+    SoftifyError, StreamInfo, SyncedLyrics, Track,
 };
 use resolvers::hybrid::HybridStreamResolver;
 use resolvers::youtube::YoutubeStreamResolver;
@@ -18,6 +22,11 @@ use search::engine::SearchEngine;
 use config::ConfigManager;
 use lyrics::engine::LyricsEngine;
 use downloads::manager::DownloadManager;
+use importer::spotify::SpotifyImporter;
+use scanner::local::LocalAudioScanner;
+use reco::taste::TasteProfileEngine;
+use reco::diversity::DiversityController;
+use reco::shelves::ShelfEngine;
 
 uniffi::setup_scaffolding!();
 
@@ -232,4 +241,98 @@ pub fn get_history(limit: u32) -> Result<Vec<PlayHistory>, SoftifyError> {
 pub fn clear_history() -> Result<(), SoftifyError> {
     let repo = get_db_repo()?;
     repo.clear_history()
+}
+
+/// Imports a public Spotify playlist, album, or track without OAuth or API key
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn import_spotify_playlist(url_or_id: String) -> Result<ImportPlaylistResult, SoftifyError> {
+    let repo = get_db_repo()?;
+    let importer = SpotifyImporter::new(get_hybrid_resolver(), repo);
+    importer.import_playlist(&url_or_id).await
+}
+
+/// Scans local music directories using walkdir, rayon, and lofty
+#[uniffi::export]
+pub fn scan_local_music(
+    directories: Vec<String>,
+    callback: Option<Box<dyn ScanProgressCallback>>,
+) -> Result<ScanResult, SoftifyError> {
+    let repo = get_db_repo()?;
+    let scanner = LocalAudioScanner::new(repo);
+    scanner.scan_directories(directories, callback)
+}
+
+/// Computes personalized recommendation shelves (Jump Back In, Daily Mix, Discover Weekly)
+#[uniffi::export]
+pub fn get_recommendation_shelves() -> Result<Vec<Shelf>, SoftifyError> {
+    let repo = get_db_repo()?;
+    let taste = Arc::new(TasteProfileEngine::new(repo.clone()));
+    let diversity = Arc::new(DiversityController::new(repo.clone()));
+    let engine = ShelfEngine::new(repo, taste, diversity);
+    engine.load_shelves()
+}
+
+/// Updates taste profile from play event with dual-band decay (4-hour fast, 14-day slow)
+#[uniffi::export]
+pub fn update_taste_from_play(
+    track: Track,
+    is_stream: bool,
+    is_early_skip: bool,
+    is_save: bool,
+) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo.clone());
+    if diversity.is_learning_paused()? {
+        return Ok(());
+    }
+    let taste = TasteProfileEngine::new(repo);
+    taste.update_from_play(&track, is_stream, is_early_skip, is_save)
+}
+
+/// Snoozes an artist for specified duration in ms (default 30 days)
+#[uniffi::export]
+pub fn snooze_artist(artist: String, duration_ms: u64) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo);
+    diversity.snooze_artist(&artist, duration_ms)
+}
+
+/// Checks if an artist is currently snoozed
+#[uniffi::export]
+pub fn is_artist_snoozed(artist: String) -> Result<bool, SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo);
+    diversity.is_snoozed(&artist)
+}
+
+/// Lists all currently snoozed artists
+#[uniffi::export]
+pub fn get_snoozed_artists() -> Result<Vec<String>, SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo);
+    diversity.get_snoozed_artists()
+}
+
+/// Removes a snooze on an artist
+#[uniffi::export]
+pub fn remove_artist_snooze(artist: String) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo);
+    diversity.remove_snooze(&artist)
+}
+
+/// Pauses or resumes recommendation learning (incognito mode)
+#[uniffi::export]
+pub fn set_learning_paused(paused: bool) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo);
+    diversity.set_learning_paused(paused)
+}
+
+/// Checks whether recommendation learning is currently paused
+#[uniffi::export]
+pub fn is_learning_paused() -> Result<bool, SoftifyError> {
+    let repo = get_db_repo()?;
+    let diversity = DiversityController::new(repo);
+    diversity.is_learning_paused()
 }

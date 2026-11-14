@@ -113,5 +113,33 @@ class UniFfiIntegrationTest {
         val combined = searchCombined("Kesariya", 5u)
         assertNotNull(combined)
         assertTrue(combined.localTracks.any { it.id == "test_t1" })
+
+        // 10. Taste Profile & Recommendation Shelves (M2c)
+        updateTasteFromPlay(track, isStream = true, isEarlySkip = false, isSave = true)
+        val shelves = getRecommendationShelves()
+        assertNotNull(shelves)
+        assertTrue(shelves.isNotEmpty(), "Recommendation shelves should be generated")
+
+        // 11. Artist Snoozing (30-day agency control)
+        snoozeArtist("Arijit Singh", 30uL * 86400000uL)
+        assertTrue(isArtistSnoozed("Arijit Singh"), "Artist should be snoozed")
+        val snoozedArtists = getSnoozedArtists()
+        assertTrue(snoozedArtists.contains("arijit singh"), "Snoozed list should contain lowercase artist")
+        removeArtistSnooze("Arijit Singh")
+        assertTrue(!isArtistSnoozed("Arijit Singh"), "Artist should no longer be snoozed")
+
+        // 12. Incognito / Learning Paused Mode
+        setLearningPaused(true)
+        assertTrue(isLearningPaused(), "Learning should be paused")
+        setLearningPaused(false)
+        assertTrue(!isLearningPaused(), "Learning should be active")
+
+        // 13. Local Music Scanner (M2c)
+        val tempMusicDir = File.createTempFile("softify_music", "dir")
+        tempMusicDir.delete()
+        tempMusicDir.mkdirs()
+        val scanRes = scanLocalMusic(listOf(tempMusicDir.absolutePath), null)
+        assertNotNull(scanRes)
+        assertEquals(0u, scanRes.scannedFiles)
     }
 }

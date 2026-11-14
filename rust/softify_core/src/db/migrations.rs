@@ -77,12 +77,40 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
             value TEXT NOT NULL
         );
 
+        -- 8. Taste Profiles Table
+        CREATE TABLE IF NOT EXISTS taste_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            slow_weight REAL NOT NULL DEFAULT 0.0,
+            fast_weight REAL NOT NULL DEFAULT 0.0,
+            updated_at INTEGER NOT NULL,
+            UNIQUE(entity_type, entity_id)
+        );
+
+        -- 9. Co-occurrences Table (Pointwise Mutual Information)
+        CREATE TABLE IF NOT EXISTS cooccurrences (
+            track_a TEXT NOT NULL,
+            track_b TEXT NOT NULL,
+            score REAL NOT NULL,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY (track_a, track_b)
+        );
+
+        -- 10. Artist Snoozes Table (Diversity & Agency)
+        CREATE TABLE IF NOT EXISTS artist_snoozes (
+            artist_id TEXT PRIMARY KEY,
+            snoozed_until INTEGER NOT NULL
+        );
+
         -- Indices
         CREATE INDEX IF NOT EXISTS idx_tracks_source_id ON tracks(source_id);
         CREATE INDEX IF NOT EXISTS idx_tracks_is_liked ON tracks(is_liked);
         CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track ON playlist_tracks(track_id);
         CREATE INDEX IF NOT EXISTS idx_play_histories_track ON play_histories(track_id);
         CREATE INDEX IF NOT EXISTS idx_play_histories_played_at ON play_histories(played_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_taste_profiles_entity ON taste_profiles(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_artist_snoozes_snoozed ON artist_snoozes(snoozed_until);
 
         -- 8. FTS5 Virtual Table for Instant Search
         CREATE VIRTUAL TABLE IF NOT EXISTS tracks_fts USING fts5(

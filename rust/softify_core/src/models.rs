@@ -129,6 +129,61 @@ pub trait DownloadProgressCallback: Send + Sync {
     fn on_progress(&self, track_id: String, bytes_downloaded: u64, total_bytes: u64, status: String);
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ImportedTrackMatch {
+    pub original_title: String,
+    pub original_artist: String,
+    pub original_album: Option<String>,
+    pub duration_ms: u64,
+    pub cover_url: Option<String>,
+    pub resolved_track: Option<Track>,
+    pub match_status: String,
+    pub bitrate_kbps: u32,
+    pub provider: String,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ImportPlaylistResult {
+    pub playlist: Playlist,
+    pub tracks: Vec<ImportedTrackMatch>,
+    pub total_tracks: u32,
+    pub matched_tracks: u32,
+    pub notice: Option<String>,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ScanResult {
+    pub scanned_files: u32,
+    pub added_tracks: u32,
+    pub updated_tracks: u32,
+    pub elapsed_ms: u64,
+}
+
+#[uniffi::export(callback_interface)]
+pub trait ScanProgressCallback: Send + Sync {
+    fn on_progress(&self, current_file: String, scanned: u32, total: u32);
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TasteProfileEntity {
+    pub id: i64,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub slow_weight: f64,
+    pub fast_weight: f64,
+    pub blended_affinity: f64,
+    pub updated_at: i64,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Shelf {
+    pub id: String,
+    pub title: String,
+    pub subtitle: String,
+    pub rule: String,
+    pub tracks: Vec<Track>,
+}
+
 #[derive(uniffi::Error, thiserror::Error, Debug)]
 pub enum SoftifyError {
     #[error("Network error: {reason}")]
@@ -145,6 +200,10 @@ pub enum SoftifyError {
     ProviderUnavailable { provider: String, reason: String },
     #[error("Download error: {reason}")]
     Download { reason: String },
+    #[error("Import error: {reason}")]
+    Import { reason: String },
+    #[error("Scan error: {reason}")]
+    Scan { reason: String },
 }
 
 impl From<reqwest::Error> for SoftifyError {

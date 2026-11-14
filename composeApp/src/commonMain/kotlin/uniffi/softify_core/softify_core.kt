@@ -663,6 +663,9 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 internal interface UniffiCallbackInterfaceDownloadProgressCallbackMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`trackId`: RustBuffer.ByValue,`bytesDownloaded`: Long,`totalBytes`: Long,`status`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
+internal interface UniffiCallbackInterfaceScanProgressCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`currentFile`: RustBuffer.ByValue,`scanned`: Int,`total`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 @Structure.FieldOrder("onProgress", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceDownloadProgressCallback(
     @JvmField internal var `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0? = null,
@@ -679,6 +682,44 @@ internal open class UniffiVTableCallbackInterfaceDownloadProgressCallback(
     }
 
 }
+@Structure.FieldOrder("onProgress", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceScanProgressCallback(
+    @JvmField internal var `onProgress`: UniffiCallbackInterfaceScanProgressCallbackMethod0? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onProgress`: UniffiCallbackInterfaceScanProgressCallbackMethod0? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceScanProgressCallback(`onProgress`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceScanProgressCallback) {
+        `onProgress` = other.`onProgress`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -796,12 +837,15 @@ internal interface UniffiLib : Library {
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
                 uniffiCallbackInterfaceDownloadProgressCallback.register(lib)
+                uniffiCallbackInterfaceScanProgressCallback.register(lib)
                 }
         }
         
     }
 
     fun uniffi_softify_core_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
+    ): Unit
+    fun uniffi_softify_core_fn_init_callback_vtable_scanprogresscallback(`vtable`: UniffiVTableCallbackInterfaceScanProgressCallback,
     ): Unit
     fun uniffi_softify_core_fn_func_add_to_playlist(`playlistId`: RustBuffer.ByValue,`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -829,26 +873,46 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_playlists(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_recommendation_shelves(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_snoozed_artists(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_import_spotify_playlist(`urlOrId`: RustBuffer.ByValue,
+    ): Long
     fun uniffi_softify_core_fn_func_init_database(`dbPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_is_artist_snoozed(`artist`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
+    fun uniffi_softify_core_fn_func_is_learning_paused(uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
     fun uniffi_softify_core_fn_func_record_play(`trackId`: RustBuffer.ByValue,`completedRatio`: Double,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_refresh_remote_config(`url`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_softify_core_fn_func_remove_artist_snooze(`artist`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_remove_from_playlist(`playlistId`: RustBuffer.ByValue,`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_resolve_stream(`track`: RustBuffer.ByValue,`preset`: RustBuffer.ByValue,
     ): Long
     fun uniffi_softify_core_fn_func_save_track(`track`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_scan_local_music(`directories`: RustBuffer.ByValue,`callback`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_search_combined(`query`: RustBuffer.ByValue,`limit`: Int,
     ): Long
     fun uniffi_softify_core_fn_func_search_library(`query`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_search_tracks(`query`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_softify_core_fn_func_set_learning_paused(`paused`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_softify_core_fn_func_snooze_artist(`artist`: RustBuffer.ByValue,`durationMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_toggle_like(`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
+    fun uniffi_softify_core_fn_func_update_taste_from_play(`track`: RustBuffer.ByValue,`isStream`: Byte,`isEarlySkip`: Byte,`isSave`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun ffi_softify_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun ffi_softify_core_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -987,11 +1051,23 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_get_playlists(
     ): Short
+    fun uniffi_softify_core_checksum_func_get_recommendation_shelves(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_snoozed_artists(
+    ): Short
+    fun uniffi_softify_core_checksum_func_import_spotify_playlist(
+    ): Short
     fun uniffi_softify_core_checksum_func_init_database(
+    ): Short
+    fun uniffi_softify_core_checksum_func_is_artist_snoozed(
+    ): Short
+    fun uniffi_softify_core_checksum_func_is_learning_paused(
     ): Short
     fun uniffi_softify_core_checksum_func_record_play(
     ): Short
     fun uniffi_softify_core_checksum_func_refresh_remote_config(
+    ): Short
+    fun uniffi_softify_core_checksum_func_remove_artist_snooze(
     ): Short
     fun uniffi_softify_core_checksum_func_remove_from_playlist(
     ): Short
@@ -999,15 +1075,25 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_save_track(
     ): Short
+    fun uniffi_softify_core_checksum_func_scan_local_music(
+    ): Short
     fun uniffi_softify_core_checksum_func_search_combined(
     ): Short
     fun uniffi_softify_core_checksum_func_search_library(
     ): Short
     fun uniffi_softify_core_checksum_func_search_tracks(
     ): Short
+    fun uniffi_softify_core_checksum_func_set_learning_paused(
+    ): Short
+    fun uniffi_softify_core_checksum_func_snooze_artist(
+    ): Short
     fun uniffi_softify_core_checksum_func_toggle_like(
     ): Short
+    fun uniffi_softify_core_checksum_func_update_taste_from_play(
+    ): Short
     fun uniffi_softify_core_checksum_method_downloadprogresscallback_on_progress(
+    ): Short
+    fun uniffi_softify_core_checksum_method_scanprogresscallback_on_progress(
     ): Short
     fun ffi_softify_core_uniffi_contract_version(
     ): Int
@@ -1065,13 +1151,31 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_get_playlists() != 64480.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_get_recommendation_shelves() != 22745.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_snoozed_artists() != 13571.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_import_spotify_playlist() != 17997.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_init_database() != 62004.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_is_artist_snoozed() != 10767.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_is_learning_paused() != 42746.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_record_play() != 17940.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_refresh_remote_config() != 49797.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_remove_artist_snooze() != 42065.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_remove_from_playlist() != 12206.toShort()) {
@@ -1083,6 +1187,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_save_track() != 34024.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_scan_local_music() != 35218.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_search_combined() != 15583.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1092,10 +1199,22 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_search_tracks() != 52875.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_set_learning_paused() != 47295.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_snooze_artist() != 32522.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_toggle_like() != 3201.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_update_taste_from_play() != 40216.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_method_downloadprogresscallback_on_progress() != 15571.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_method_scanprogresscallback_on_progress() != 42585.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1447,6 +1566,110 @@ public object FfiConverterTypeHeaderPair: FfiConverterRustBuffer<HeaderPair> {
 
 
 
+data class ImportPlaylistResult (
+    var `playlist`: Playlist, 
+    var `tracks`: List<ImportedTrackMatch>, 
+    var `totalTracks`: kotlin.UInt, 
+    var `matchedTracks`: kotlin.UInt, 
+    var `notice`: kotlin.String?
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeImportPlaylistResult: FfiConverterRustBuffer<ImportPlaylistResult> {
+    override fun read(buf: ByteBuffer): ImportPlaylistResult {
+        return ImportPlaylistResult(
+            FfiConverterTypePlaylist.read(buf),
+            FfiConverterSequenceTypeImportedTrackMatch.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterOptionalString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ImportPlaylistResult) = (
+            FfiConverterTypePlaylist.allocationSize(value.`playlist`) +
+            FfiConverterSequenceTypeImportedTrackMatch.allocationSize(value.`tracks`) +
+            FfiConverterUInt.allocationSize(value.`totalTracks`) +
+            FfiConverterUInt.allocationSize(value.`matchedTracks`) +
+            FfiConverterOptionalString.allocationSize(value.`notice`)
+    )
+
+    override fun write(value: ImportPlaylistResult, buf: ByteBuffer) {
+            FfiConverterTypePlaylist.write(value.`playlist`, buf)
+            FfiConverterSequenceTypeImportedTrackMatch.write(value.`tracks`, buf)
+            FfiConverterUInt.write(value.`totalTracks`, buf)
+            FfiConverterUInt.write(value.`matchedTracks`, buf)
+            FfiConverterOptionalString.write(value.`notice`, buf)
+    }
+}
+
+
+
+data class ImportedTrackMatch (
+    var `originalTitle`: kotlin.String, 
+    var `originalArtist`: kotlin.String, 
+    var `originalAlbum`: kotlin.String?, 
+    var `durationMs`: kotlin.ULong, 
+    var `coverUrl`: kotlin.String?, 
+    var `resolvedTrack`: Track?, 
+    var `matchStatus`: kotlin.String, 
+    var `bitrateKbps`: kotlin.UInt, 
+    var `provider`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeImportedTrackMatch: FfiConverterRustBuffer<ImportedTrackMatch> {
+    override fun read(buf: ByteBuffer): ImportedTrackMatch {
+        return ImportedTrackMatch(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeTrack.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ImportedTrackMatch) = (
+            FfiConverterString.allocationSize(value.`originalTitle`) +
+            FfiConverterString.allocationSize(value.`originalArtist`) +
+            FfiConverterOptionalString.allocationSize(value.`originalAlbum`) +
+            FfiConverterULong.allocationSize(value.`durationMs`) +
+            FfiConverterOptionalString.allocationSize(value.`coverUrl`) +
+            FfiConverterOptionalTypeTrack.allocationSize(value.`resolvedTrack`) +
+            FfiConverterString.allocationSize(value.`matchStatus`) +
+            FfiConverterUInt.allocationSize(value.`bitrateKbps`) +
+            FfiConverterString.allocationSize(value.`provider`)
+    )
+
+    override fun write(value: ImportedTrackMatch, buf: ByteBuffer) {
+            FfiConverterString.write(value.`originalTitle`, buf)
+            FfiConverterString.write(value.`originalArtist`, buf)
+            FfiConverterOptionalString.write(value.`originalAlbum`, buf)
+            FfiConverterULong.write(value.`durationMs`, buf)
+            FfiConverterOptionalString.write(value.`coverUrl`, buf)
+            FfiConverterOptionalTypeTrack.write(value.`resolvedTrack`, buf)
+            FfiConverterString.write(value.`matchStatus`, buf)
+            FfiConverterUInt.write(value.`bitrateKbps`, buf)
+            FfiConverterString.write(value.`provider`, buf)
+    }
+}
+
+
+
 data class LyricsLine (
     var `startMs`: kotlin.ULong, 
     var `text`: kotlin.String
@@ -1655,6 +1878,46 @@ public object FfiConverterTypeProviderHealth: FfiConverterRustBuffer<ProviderHea
 
 
 
+data class ScanResult (
+    var `scannedFiles`: kotlin.UInt, 
+    var `addedTracks`: kotlin.UInt, 
+    var `updatedTracks`: kotlin.UInt, 
+    var `elapsedMs`: kotlin.ULong
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeScanResult: FfiConverterRustBuffer<ScanResult> {
+    override fun read(buf: ByteBuffer): ScanResult {
+        return ScanResult(
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ScanResult) = (
+            FfiConverterUInt.allocationSize(value.`scannedFiles`) +
+            FfiConverterUInt.allocationSize(value.`addedTracks`) +
+            FfiConverterUInt.allocationSize(value.`updatedTracks`) +
+            FfiConverterULong.allocationSize(value.`elapsedMs`)
+    )
+
+    override fun write(value: ScanResult, buf: ByteBuffer) {
+            FfiConverterUInt.write(value.`scannedFiles`, buf)
+            FfiConverterUInt.write(value.`addedTracks`, buf)
+            FfiConverterUInt.write(value.`updatedTracks`, buf)
+            FfiConverterULong.write(value.`elapsedMs`, buf)
+    }
+}
+
+
+
 data class SearchResult (
     var `localTracks`: List<Track>, 
     var `onlineTracks`: List<Track>, 
@@ -1690,6 +1953,50 @@ public object FfiConverterTypeSearchResult: FfiConverterRustBuffer<SearchResult>
             FfiConverterSequenceTypeTrack.write(value.`onlineTracks`, buf)
             FfiConverterTypeSearchIntent.write(value.`intent`, buf)
             FfiConverterOptionalString.write(value.`detectedEntity`, buf)
+    }
+}
+
+
+
+data class Shelf (
+    var `id`: kotlin.String, 
+    var `title`: kotlin.String, 
+    var `subtitle`: kotlin.String, 
+    var `rule`: kotlin.String, 
+    var `tracks`: List<Track>
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeShelf: FfiConverterRustBuffer<Shelf> {
+    override fun read(buf: ByteBuffer): Shelf {
+        return Shelf(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterSequenceTypeTrack.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Shelf) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`title`) +
+            FfiConverterString.allocationSize(value.`subtitle`) +
+            FfiConverterString.allocationSize(value.`rule`) +
+            FfiConverterSequenceTypeTrack.allocationSize(value.`tracks`)
+    )
+
+    override fun write(value: Shelf, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`title`, buf)
+            FfiConverterString.write(value.`subtitle`, buf)
+            FfiConverterString.write(value.`rule`, buf)
+            FfiConverterSequenceTypeTrack.write(value.`tracks`, buf)
     }
 }
 
@@ -1782,6 +2089,58 @@ public object FfiConverterTypeSyncedLyrics: FfiConverterRustBuffer<SyncedLyrics>
             FfiConverterBoolean.write(value.`isSynced`, buf)
             FfiConverterSequenceTypeLyricsLine.write(value.`lines`, buf)
             FfiConverterOptionalString.write(value.`plainText`, buf)
+    }
+}
+
+
+
+data class TasteProfileEntity (
+    var `id`: kotlin.Long, 
+    var `entityType`: kotlin.String, 
+    var `entityId`: kotlin.String, 
+    var `slowWeight`: kotlin.Double, 
+    var `fastWeight`: kotlin.Double, 
+    var `blendedAffinity`: kotlin.Double, 
+    var `updatedAt`: kotlin.Long
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeTasteProfileEntity: FfiConverterRustBuffer<TasteProfileEntity> {
+    override fun read(buf: ByteBuffer): TasteProfileEntity {
+        return TasteProfileEntity(
+            FfiConverterLong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterDouble.read(buf),
+            FfiConverterDouble.read(buf),
+            FfiConverterDouble.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: TasteProfileEntity) = (
+            FfiConverterLong.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`entityType`) +
+            FfiConverterString.allocationSize(value.`entityId`) +
+            FfiConverterDouble.allocationSize(value.`slowWeight`) +
+            FfiConverterDouble.allocationSize(value.`fastWeight`) +
+            FfiConverterDouble.allocationSize(value.`blendedAffinity`) +
+            FfiConverterLong.allocationSize(value.`updatedAt`)
+    )
+
+    override fun write(value: TasteProfileEntity, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`id`, buf)
+            FfiConverterString.write(value.`entityType`, buf)
+            FfiConverterString.write(value.`entityId`, buf)
+            FfiConverterDouble.write(value.`slowWeight`, buf)
+            FfiConverterDouble.write(value.`fastWeight`, buf)
+            FfiConverterDouble.write(value.`blendedAffinity`, buf)
+            FfiConverterLong.write(value.`updatedAt`, buf)
     }
 }
 
@@ -1976,6 +2335,22 @@ sealed class SoftifyException: kotlin.Exception() {
             get() = "reason=${ `reason` }"
     }
     
+    class Import(
+        
+        val `reason`: kotlin.String
+        ) : SoftifyException() {
+        override val message
+            get() = "reason=${ `reason` }"
+    }
+    
+    class Scan(
+        
+        val `reason`: kotlin.String
+        ) : SoftifyException() {
+        override val message
+            get() = "reason=${ `reason` }"
+    }
+    
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<SoftifyException> {
         override fun lift(error_buf: RustBuffer.ByValue): SoftifyException = FfiConverterTypeSoftifyError.lift(error_buf)
@@ -2012,6 +2387,12 @@ public object FfiConverterTypeSoftifyError : FfiConverterRustBuffer<SoftifyExcep
                 FfiConverterString.read(buf),
                 )
             7 -> SoftifyException.Download(
+                FfiConverterString.read(buf),
+                )
+            8 -> SoftifyException.Import(
+                FfiConverterString.read(buf),
+                )
+            9 -> SoftifyException.Scan(
                 FfiConverterString.read(buf),
                 )
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
@@ -2056,6 +2437,16 @@ public object FfiConverterTypeSoftifyError : FfiConverterRustBuffer<SoftifyExcep
                 4UL
                 + FfiConverterString.allocationSize(value.`reason`)
             )
+            is SoftifyException.Import -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`reason`)
+            )
+            is SoftifyException.Scan -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`reason`)
+            )
         }
     }
 
@@ -2094,6 +2485,16 @@ public object FfiConverterTypeSoftifyError : FfiConverterRustBuffer<SoftifyExcep
             }
             is SoftifyException.Download -> {
                 buf.putInt(7)
+                FfiConverterString.write(value.`reason`, buf)
+                Unit
+            }
+            is SoftifyException.Import -> {
+                buf.putInt(8)
+                FfiConverterString.write(value.`reason`, buf)
+                Unit
+            }
+            is SoftifyException.Scan -> {
+                buf.putInt(9)
                 FfiConverterString.write(value.`reason`, buf)
                 Unit
             }
@@ -2188,6 +2589,61 @@ internal object uniffiCallbackInterfaceDownloadProgressCallback {
  * @suppress
  */
 public object FfiConverterTypeDownloadProgressCallback: FfiConverterCallbackInterface<DownloadProgressCallback>()
+
+
+
+
+
+public interface ScanProgressCallback {
+    
+    fun `onProgress`(`currentFile`: kotlin.String, `scanned`: kotlin.UInt, `total`: kotlin.UInt)
+    
+    companion object
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceScanProgressCallback {
+    internal object `onProgress`: UniffiCallbackInterfaceScanProgressCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`currentFile`: RustBuffer.ByValue,`scanned`: Int,`total`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeScanProgressCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onProgress`(
+                    FfiConverterString.lift(`currentFile`),
+                    FfiConverterUInt.lift(`scanned`),
+                    FfiConverterUInt.lift(`total`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeScanProgressCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceScanProgressCallback.UniffiByValue(
+        `onProgress`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_softify_core_fn_init_callback_vtable_scanprogresscallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeScanProgressCallback: FfiConverterCallbackInterface<ScanProgressCallback>()
 
 
 
@@ -2291,6 +2747,98 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeTrack: FfiConverterRustBuffer<Track?> {
+    override fun read(buf: ByteBuffer): Track? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeTrack.read(buf)
+    }
+
+    override fun allocationSize(value: Track?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeTrack.allocationSize(value)
+        }
+    }
+
+    override fun write(value: Track?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeTrack.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeScanProgressCallback: FfiConverterRustBuffer<ScanProgressCallback?> {
+    override fun read(buf: ByteBuffer): ScanProgressCallback? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeScanProgressCallback.read(buf)
+    }
+
+    override fun allocationSize(value: ScanProgressCallback?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeScanProgressCallback.allocationSize(value)
+        }
+    }
+
+    override fun write(value: ScanProgressCallback?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeScanProgressCallback.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
+    override fun read(buf: ByteBuffer): List<kotlin.String> {
+        val len = buf.getInt()
+        return List<kotlin.String>(len) {
+            FfiConverterString.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.String>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterString.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.String>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterString.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeDownloadItem: FfiConverterRustBuffer<List<DownloadItem>> {
     override fun read(buf: ByteBuffer): List<DownloadItem> {
         val len = buf.getInt()
@@ -2337,6 +2885,34 @@ public object FfiConverterSequenceTypeHeaderPair: FfiConverterRustBuffer<List<He
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeHeaderPair.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeImportedTrackMatch: FfiConverterRustBuffer<List<ImportedTrackMatch>> {
+    override fun read(buf: ByteBuffer): List<ImportedTrackMatch> {
+        val len = buf.getInt()
+        return List<ImportedTrackMatch>(len) {
+            FfiConverterTypeImportedTrackMatch.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<ImportedTrackMatch>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeImportedTrackMatch.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<ImportedTrackMatch>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeImportedTrackMatch.write(it, buf)
         }
     }
 }
@@ -2449,6 +3025,34 @@ public object FfiConverterSequenceTypeProviderHealth: FfiConverterRustBuffer<Lis
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeProviderHealth.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeShelf: FfiConverterRustBuffer<List<Shelf>> {
+    override fun read(buf: ByteBuffer): List<Shelf> {
+        val len = buf.getInt()
+        return List<Shelf>(len) {
+            FfiConverterTypeShelf.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<Shelf>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeShelf.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<Shelf>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeShelf.write(it, buf)
         }
     }
 }
@@ -2667,6 +3271,50 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     }
     
 
+        /**
+         * Computes personalized recommendation shelves (Jump Back In, Daily Mix, Discover Weekly)
+         */
+    @Throws(SoftifyException::class) fun `getRecommendationShelves`(): List<Shelf> {
+            return FfiConverterSequenceTypeShelf.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_recommendation_shelves(
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * Lists all currently snoozed artists
+         */
+    @Throws(SoftifyException::class) fun `getSnoozedArtists`(): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_snoozed_artists(
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * Imports a public Spotify playlist, album, or track without OAuth or API key
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `importSpotifyPlaylist`(`urlOrId`: kotlin.String) : ImportPlaylistResult {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_import_spotify_playlist(FfiConverterString.lower(`urlOrId`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeImportPlaylistResult.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
+
     @Throws(SoftifyException::class) fun `initDatabase`(`dbPath`: kotlin.String)
         = 
     uniffiRustCallWithError(SoftifyException) { _status ->
@@ -2674,6 +3322,32 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         FfiConverterString.lower(`dbPath`),_status)
 }
     
+    
+
+        /**
+         * Checks if an artist is currently snoozed
+         */
+    @Throws(SoftifyException::class) fun `isArtistSnoozed`(`artist`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_is_artist_snoozed(
+        FfiConverterString.lower(`artist`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Checks whether recommendation learning is currently paused
+         */
+    @Throws(SoftifyException::class) fun `isLearningPaused`(): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_is_learning_paused(
+        _status)
+}
+    )
+    }
     
 
         /**
@@ -2705,6 +3379,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         UniffiNullRustCallStatusErrorHandler,
     )
     }
+
+        /**
+         * Removes a snooze on an artist
+         */
+    @Throws(SoftifyException::class) fun `removeArtistSnooze`(`artist`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_remove_artist_snooze(
+        FfiConverterString.lower(`artist`),_status)
+}
+    
+    
 
         /**
          * Removes a track from a playlist
@@ -2747,6 +3433,19 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         FfiConverterTypeTrack.lower(`track`),_status)
 }
     
+    
+
+        /**
+         * Scans local music directories using walkdir, rayon, and lofty
+         */
+    @Throws(SoftifyException::class) fun `scanLocalMusic`(`directories`: List<kotlin.String>, `callback`: ScanProgressCallback?): ScanResult {
+            return FfiConverterTypeScanResult.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_scan_local_music(
+        FfiConverterSequenceString.lower(`directories`),FfiConverterOptionalTypeScanProgressCallback.lower(`callback`),_status)
+}
+    )
+    }
     
 
         /**
@@ -2799,6 +3498,30 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     }
 
         /**
+         * Pauses or resumes recommendation learning (incognito mode)
+         */
+    @Throws(SoftifyException::class) fun `setLearningPaused`(`paused`: kotlin.Boolean)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_set_learning_paused(
+        FfiConverterBoolean.lower(`paused`),_status)
+}
+    
+    
+
+        /**
+         * Snoozes an artist for specified duration in ms (default 30 days)
+         */
+    @Throws(SoftifyException::class) fun `snoozeArtist`(`artist`: kotlin.String, `durationMs`: kotlin.ULong)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_snooze_artist(
+        FfiConverterString.lower(`artist`),FfiConverterULong.lower(`durationMs`),_status)
+}
+    
+    
+
+        /**
          * Toggles track like status
          */
     @Throws(SoftifyException::class) fun `toggleLike`(`trackId`: kotlin.String): kotlin.Boolean {
@@ -2809,6 +3532,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
 }
     )
     }
+    
+
+        /**
+         * Updates taste profile from play event with dual-band decay (4-hour fast, 14-day slow)
+         */
+    @Throws(SoftifyException::class) fun `updateTasteFromPlay`(`track`: Track, `isStream`: kotlin.Boolean, `isEarlySkip`: kotlin.Boolean, `isSave`: kotlin.Boolean)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_update_taste_from_play(
+        FfiConverterTypeTrack.lower(`track`),FfiConverterBoolean.lower(`isStream`),FfiConverterBoolean.lower(`isEarlySkip`),FfiConverterBoolean.lower(`isSave`),_status)
+}
+    
     
 
 
