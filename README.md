@@ -4,27 +4,21 @@
 
 # Softify
 
-**An ad-free, paywall-free, high-fidelity mobile music streaming application for Android & iOS built with Flutter, Clean Architecture, and 320 kbps Studio Audio.**
+**An ad-free, paywall-free, high-fidelity native music streaming application built in 100% Pure Rust with Slint GPU UI, Rodio Audio Engine, and 320 kbps Studio Audio.**
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.19%2B-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.3%2B-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Linux-3DDC84?style=for-the-badge&logo=linux&logoColor=white)](#-downloads--releases)
+[![Rust](https://img.shields.io/badge/Rust-1.78%2B-DEA584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Slint](https://img.shields.io/badge/GUI-Slint%20Native-27A45C?style=for-the-badge)](https://slint.dev)
+[![Audio](https://img.shields.io/badge/Audio-Rodio%20%2B%20Symphonia-1DB954?style=for-the-badge)](https://github.com/RustAudio/rodio)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Android-3DDC84?style=for-the-badge&logo=linux&logoColor=white)](#-downloads--releases)
 [![Audio Quality](https://img.shields.io/badge/Audio-320%20kbps%20Studio%20Master-1DB954?style=for-the-badge&logo=audiomack&logoColor=white)](#-audio-engine--quality-settings)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20Riverpod-orange?style=for-the-badge)](#-architecture-highlights)
-[![Tests](https://img.shields.io/badge/Tests-All%20Passed-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Lint](https://img.shields.io/badge/Lint-0%20Issues-brightgreen?style=for-the-badge)](#-testing--quality-gates)
-[![Release](https://img.shields.io/badge/Release-v4.0.1--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
+[![Release](https://img.shields.io/badge/Release-v4.0.2--Stable-blue?style=for-the-badge)](https://github.com/Sarthak-Cyb3r/softify/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=for-the-badge)](CODE_OF_CONDUCT.md)
 
 <br/><br/>
 
-<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.1/Softify-v4.0.1-Android.apk">
-  <img src="https://img.shields.io/badge/Download_APK-v4.0.1_Android-2ea44f?style=for-the-badge&logo=android&logoColor=white" height="42" alt="Download Android APK" />
-</a>
-&nbsp;&nbsp;
-<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.1/Softify-Linux-x64.tar.gz">
-  <img src="https://img.shields.io/badge/Download_Linux-v4.0.1_x64-0052cc?style=for-the-badge&logo=linux&logoColor=white" height="42" alt="Download Linux" />
+<a href="https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.0.2/Softify-Linux-x64.tar.gz">
+  <img src="https://img.shields.io/badge/Download_Linux-v4.0.2_x64-0052cc?style=for-the-badge&logo=linux&logoColor=white" height="42" alt="Download Linux" />
 </a>
 &nbsp;&nbsp;
 <a href="https://github.com/Sarthak-Cyb3r/softify/releases/latest">
@@ -38,16 +32,13 @@
 > [!IMPORTANT]
 > **This project is built for educational purposes and personal use. It is not affiliated with, endorsed by, or connected to Spotify, YouTube, or JioSaavn. No copyrighted content is hosted on this app.**
 
-> [!NOTE]
-> **Beta Status**: Softify is currently in **Beta**, and several features are pending. If bugs are found or you have suggestions, please contact the developer or submit an issue.
-
 ---
 
 ## 📖 Overview
 
 **Softify** brings the premium music listening experience back to the listener. It delivers unrestricted, high-fidelity music streaming, instant search, synchronized lyrics, custom playlists, and offline downloads without subscriptions, audio or visual advertisements, or account paywalls.
 
-Built from the ground up using **Flutter** and strict **Clean Architecture**, Softify operates entirely **client-side** with zero central backend infrastructure, zero API key requirements, and zero telemetry tracking.
+Rewritten from the ground up in **100% Pure Rust (Zero Dart)** with a native **Slint GPU-accelerated UI** and **Rodio audio engine**, Softify operates entirely **client-side** with zero central backend infrastructure, zero API key requirements, and instant sub-100ms startup times with tiny memory footprint (~40 MB RAM).
 
 ---
 

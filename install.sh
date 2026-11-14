@@ -397,10 +397,10 @@ try_download_prebuilt() {
 
 # If user did NOT request --build, try pre-built package first
 if [[ "$BUILD_FROM_SOURCE" != true ]]; then
-    # First: Check if local repo already has a pre-built bundle
-    if [[ -n "$LOCAL_REPO" && -d "${LOCAL_REPO}/build/linux/x64/release/bundle" && -f "${LOCAL_REPO}/build/linux/x64/release/bundle/softify" ]]; then
-        BUNDLE_DIR="${LOCAL_REPO}/build/linux/x64/release/bundle"
-        log_success "Found local pre-built bundle at: ${BUNDLE_DIR}"
+    # First: Check if local repo already has a pre-built binary
+    if [[ -n "$LOCAL_REPO" && -f "${LOCAL_REPO}/target/release/softify" ]]; then
+        BUNDLE_DIR="${LOCAL_REPO}/target/release"
+        log_success "Found local pre-built binary at: ${BUNDLE_DIR}/softify"
     else
         # Second: Try downloading prebuilt binary from GitHub Releases
         if try_download_prebuilt; then
@@ -414,7 +414,7 @@ if [[ -z "$BUNDLE_DIR" ]]; then
     if [[ "$BUILD_FROM_SOURCE" == true ]] || [[ -n "$LOCAL_REPO" ]]; then
         TARGET_REPO="${LOCAL_REPO:-}"
         if [[ -z "$TARGET_REPO" ]]; then
-            log_error "--build was requested, but no Softify Flutter repository was found."
+            log_error "--build was requested, but no Softify repository was found."
             log_info "Please clone the repository first:"
             log_info "  git clone https://github.com/${GITHUB_REPO}.git && cd softify && ./install.sh --build"
             exit 1
@@ -423,39 +423,21 @@ if [[ -z "$BUNDLE_DIR" ]]; then
         log_warn "Pre-built binary package not found or --build requested."
         log_info "Detected local Softify repository at: ${COLOR_BOLD}${TARGET_REPO}${COLOR_RESET}"
 
-        if (( TOTAL_MEM_MB <= 5120 )); then
-            log_warn "RAM Caution: Your system has ${AVAILABLE_MEM_MB} MB free RAM out of ${TOTAL_MEM_MB} MB."
-            log_warn "Building locally requires compilation that may take several minutes."
-            if [[ "$AUTO_CONFIRM" != true ]]; then
-                printf "\nProceed with memory-safe local compilation? [y/N]: "
-                read -r confirm_build </dev/tty || confirm_build="n"
-                if [[ ! "$confirm_build" =~ ^[Yy]$ ]]; then
-                    log_warn "Installation cancelled by user."
-                    exit 0
-                fi
+        if ! command -v cargo >/dev/null 2>&1; then
+            if [[ -f "$HOME/.cargo/env" ]]; then
+                source "$HOME/.cargo/env"
+            else
+                log_error "Rust/Cargo toolchain was not found."
+                log_info "Please install Rust (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh) to compile Softify from source."
+                exit 1
             fi
         fi
 
-        install_source_build_deps
-
-        if ! command -v flutter >/dev/null 2>&1; then
-            log_error "Flutter SDK was not found in PATH."
-            log_info "Please install Flutter (https://docs.flutter.dev/get-started/install/linux) to build from source."
-            exit 1
-        fi
-
-        log_info "Building Softify native Linux bundle with low-memory safety..."
-        log_info "Concurrency limits: MAKEFLAGS=\"-j${MAX_CONCURRENT_JOBS}\""
-
+        log_info "Building Softify native Linux binary with Cargo in release mode..."
         cd "${TARGET_REPO}"
-        export MAKEFLAGS="-j${MAX_CONCURRENT_JOBS}"
-        export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_CONCURRENT_JOBS}"
+        cargo build --release
 
-        flutter config --enable-linux-desktop >/dev/null 2>&1 || true
-        flutter pub get
-        flutter build linux --release
-
-        BUNDLE_DIR="${TARGET_REPO}/build/linux/x64/release/bundle"
+        BUNDLE_DIR="${TARGET_REPO}/target/release"
     else
         log_error "No pre-built Linux release package found on GitHub Releases yet."
         log_info "Check https://github.com/${GITHUB_REPO}/releases for official Linux assets."
