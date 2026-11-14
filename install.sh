@@ -532,20 +532,19 @@ Version=1.0
 Type=Application
 Name=Softify
 GenericName=Music Player
-Comment=Ad-free, studio-fidelity music streaming application
+Comment=High-Performance Dual-UI Music Streaming Player (Metrolist & Apple Music)
 Exec=${LAUNCHER_SCRIPT} %u
 Icon=softify
 Terminal=false
-StartupWMClass=com.softify.softify
+StartupWMClass=com.softify.app.MainKt
 Categories=AudioVideo;Audio;Player;Music;
-Keywords=music;audio;stream;player;lyrics;spotify;saavn;
+Keywords=music;audio;stream;player;lyrics;metrolist;applemusic;
 MimeType=x-scheme-handler/softify;
 StartupNotify=true
 X-GNOME-UsesNotifications=true
 EOF
 chmod 644 "${DESKTOP_FILE}"
-cp -f "${DESKTOP_FILE}" "${DESKTOP_DIR}/com.softify.softify.desktop"
-chmod 644 "${DESKTOP_DIR}/com.softify.softify.desktop"
+rm -f "${DESKTOP_DIR}/com.softify.softify.desktop"
 log_success "Installed desktop entry: ${DESKTOP_FILE}"
 
 # Update Desktop & Icon Caches

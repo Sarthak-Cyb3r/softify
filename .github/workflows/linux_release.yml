@@ -59,18 +59,43 @@ jobs:
           cp target/release/softify dist/bundle/softify-engine
           cp composeApp/build/compose/jars/*.jar dist/bundle/softify.jar
           cp assets/logo/logo.png dist/bundle/softify.png
+          cp assets/logo/logo.svg dist/bundle/softify.svg
           cp README.md dist/bundle/
           cp LICENSE dist/bundle/
 
           cat << 'EOF' > dist/bundle/softify
           #!/usr/bin/env bash
+          set -eo pipefail
           DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-          if command -v java >/dev/null 2>&1; then
-              exec java -jar "${DIR}/softify.jar" "$@"
+
+          export DISPLAY="${DISPLAY:-:0}"
+          if [[ -z "${WAYLAND_DISPLAY:-}" && -e "${XDG_RUNTIME_DIR}/wayland-0" ]]; then
+              export WAYLAND_DISPLAY="wayland-0"
+          fi
+
+          JAVA_BIN=""
+          if [[ -x "${DIR}/jre/bin/java" ]]; then
+              JAVA_BIN="${DIR}/jre/bin/java"
+          elif [[ -x "${HOME}/.local/jdks/jdk-21.0.6+7/bin/java" ]]; then
+              JAVA_BIN="${HOME}/.local/jdks/jdk-21.0.6+7/bin/java"
+          elif [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
+              JAVA_BIN="${JAVA_HOME}/bin/java"
+          elif command -v java >/dev/null 2>&1; then
+              if java -version 2>&1 | grep -q -i "headless"; then
+                  JAVA_BIN=""
+              else
+                  JAVA_BIN="$(command -v java)"
+              fi
+          fi
+
+          if [[ -n "${JAVA_BIN}" && -f "${DIR}/softify.jar" ]]; then
+              exec "${JAVA_BIN}" -jar "${DIR}/softify.jar" "$@"
           elif [[ -f "${DIR}/softify-engine" ]]; then
               exec "${DIR}/softify-engine" "$@"
+          elif [[ -f "${DIR}/softify.jar" ]] && command -v java >/dev/null 2>&1; then
+              exec java -jar "${DIR}/softify.jar" "$@"
           else
-              echo "Error: Neither Java runtime nor softify-engine binary found." >&2
+              echo "Error: Neither functional Java runtime nor softify-engine binary found." >&2
               exit 1
           fi
           EOF
