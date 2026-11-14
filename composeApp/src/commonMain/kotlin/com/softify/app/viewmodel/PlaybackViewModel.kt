@@ -102,6 +102,7 @@ class PlaybackViewModel(
     var onTogglePlayPauseRequested: (() -> Unit)? = null
     var onShareText: ((String) -> Unit)? = null
     var onPlayTestUrlRequested: ((String) -> Unit)? = null
+    var onProbeYouTubeRequested: (() -> Unit)? = null
 
     init {
         refreshLibrary()
@@ -336,5 +337,17 @@ class PlaybackViewModel(
             isUnavailable = false
         )
         playTrack(fixedTrack)
+    }
+
+    fun probeLastYouTubeUrl() {
+        PlaybackLogger.log("SoftifyPlayback", "Test button: 'Probe last YouTube URL' tapped")
+        val handler = onProbeYouTubeRequested
+        if (handler != null) {
+            handler.invoke()
+        } else {
+            val errMsg = "Probe handler not registered"
+            PlaybackLogger.log("SoftifyPlayback", "ERROR: $errMsg")
+            showSnackbar(errMsg)
+        }
     }
 }

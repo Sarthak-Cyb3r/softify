@@ -25,9 +25,11 @@ mkdir -p docs/agent
 
   echo "## Desktop tests summary"
   ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" desktopTest 2>&1 | tail -n 10
-  if [ -f composeApp/build/test-results/desktopTest/TEST-com.softify.app.UniFfiIntegrationTest.xml ]; then
-    grep -E "testsuite|testcase" composeApp/build/test-results/desktopTest/TEST-com.softify.app.UniFfiIntegrationTest.xml
-  fi
+  for f in composeApp/build/test-results/desktopTest/TEST-*.xml; do
+    if [ -f "$f" ]; then
+      grep -E "testsuite|testcase" "$f"
+    fi
+  done
 
   echo "## Gradle assembleDebug"
   ./gradlew --no-daemon -Dorg.gradle.jvmargs="-Xmx768m" assembleDebug --rerun-tasks 2>&1 | tail -n 10

@@ -19,6 +19,15 @@ import com.softify.app.ui.App
 import com.softify.app.util.PlaybackLogger
 import com.softify.app.viewmodel.PlaybackViewModel
 import uniffi.softify_core.initDatabase
+import uniffi.softify_core.Track
+import uniffi.softify_core.QualityPreset
+import uniffi.softify_core.resolveStream
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel = PlaybackViewModel()
@@ -117,6 +126,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Connect ViewModel YouTube probe trigger
+        viewModel.onProbeYouTubeRequested = {
+            executeYouTubeProbe()
+        }
+
         // Connect ViewModel toggle play/pause
         viewModel.onTogglePlayPauseRequested = {
             val controller = mediaController
@@ -208,6 +222,107 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             App(viewModel = viewModel)
+        }
+    }
+
+    private fun executeYouTubeProbe() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                PlaybackLogger.log("SoftifyPlayback", "=== Starting YouTube URL Probe Matrix ===")
+                val activeStream = viewModel.activeStream.value
+                val activeTrack = viewModel.activeTrack.value
+
+                var url = activeStream?.url
+                var headers = activeStream?.headers ?: emptyList()
+                var provider = activeStream?.provider ?: ""
+
+                if (url == null || !url.contains("googlevideo.com")) {
+                    PlaybackLogger.log("SoftifyPlayback", "No active YouTube stream in player; resolving fallback track 'back to friends'...")
+                    val testTrack = Track(
+                        id = "probe_test_yt",
+                        sourceId = "probe_test_yt",
+                        title = "back to friends",
+                        artist = "sombr",
+                        album = null,
+                        durationMs = 180_000u,
+                        coverUrl = null,
+                        matchConfidence = null,
+                        isLiked = false,
+                        isUnavailable = false
+                    )
+                    val resolved = resolveStream(testTrack, QualityPreset.HIGH)
+                    url = resolved.url
+                    headers = resolved.headers
+                    provider = resolved.provider
+                    PlaybackLogger.log("SoftifyPlayback", "Resolved probe track via $provider: ${url.take(60)}...")
+                } else {
+                    PlaybackLogger.log("SoftifyPlayback", "Probing active stream for '${activeTrack?.title ?: "current"}' via $provider")
+                }
+
+                val clientUa = headers.firstOrNull { it.name.equals("User-Agent", ignoreCase = true) }?.value
+                    ?: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+                val referer = headers.firstOrNull { it.name.equals("Referer", ignoreCase = true) }?.value
+
+                val okHttpClient = OkHttpClient.Builder()
+                    .followRedirects(true)
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(15, TimeUnit.SECONDS)
+                    .build()
+
+                data class ProbeCase(
+                    val label: String,
+                    val rangeHeader: String,
+                    val useReferer: Boolean,
+                    val ua: String
+                )
+
+                val testCases = listOf(
+                    ProbeCase("1. bytes=0-1 (ExoPlayer headers)", "bytes=0-1", true, clientUa),
+                    ProbeCase("2. bytes=0-  (ExoPlayer headers)", "bytes=0-", true, clientUa),
+                    ProbeCase("3. bytes=0-1048575 (ExoPlayer headers)", "bytes=0-1048575", true, clientUa),
+                    ProbeCase("4. bytes=0-1 (no Referer, Client UA)", "bytes=0-1", false, clientUa),
+                    ProbeCase("5. bytes=0-  (no Referer, Client UA)", "bytes=0-", false, clientUa),
+                    ProbeCase("6. bytes=0-1048575 (no Referer, Client UA)", "bytes=0-1048575", false, clientUa)
+                )
+
+                val resultsTable = StringBuilder()
+                resultsTable.append("\n--- YouTube Probe Results Table ---\n")
+                resultsTable.append(String.format("%-40s | %-6s | %-12s | %s\n", "Test Case", "Status", "Size", "Body Snippet"))
+                resultsTable.append("--------------------------------------------------------------------------------\n")
+
+                for (tc in testCases) {
+                    val reqBuilder = Request.Builder().url(url)
+                    reqBuilder.header("Range", tc.rangeHeader)
+                    reqBuilder.header("User-Agent", tc.ua)
+                    if (tc.useReferer && referer != null) {
+                        reqBuilder.header("Referer", referer)
+                    }
+
+                    try {
+                        val response = okHttpClient.newCall(reqBuilder.build()).execute()
+                        val code = response.code
+                        val body = response.body
+                        val bytes = body?.bytes() ?: byteArrayOf()
+                        val sizeStr = "${bytes.size} bytes"
+                        val snippet = if (code !in 200..299) {
+                            String(bytes).take(200).replace("\n", " ")
+                        } else {
+                            "OK (body received)"
+                        }
+                        resultsTable.append(String.format("%-40s | %-6d | %-12s | %s\n", tc.label, code, sizeStr, snippet))
+                        PlaybackLogger.log("SoftifyPlayback", "[PROBE] ${tc.label} -> HTTP $code ($sizeStr) ${if (code !in 200..299) snippet else ""}")
+                    } catch (e: Exception) {
+                        resultsTable.append(String.format("%-40s | %-6s | %-12s | %s\n", tc.label, "ERR", "0", e.message ?: "Unknown"))
+                        PlaybackLogger.log("SoftifyPlayback", "[PROBE] ${tc.label} -> EXCEPTION: ${e.message}")
+                    }
+                }
+                resultsTable.append("--------------------------------------------------------------------------------")
+                PlaybackLogger.log("SoftifyPlayback", resultsTable.toString())
+                viewModel.showSnackbar("YouTube probe finished! Check Diagnostics log table.")
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "Probe execution failed: ${e.message}")
+                viewModel.showSnackbar("Probe failed: ${e.message}")
+            }
         }
     }
 

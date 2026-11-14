@@ -16,8 +16,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -26,12 +29,95 @@ import com.softify.app.util.PlaybackLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import uniffi.softify_core.HeaderPair
 import uniffi.softify_core.QualityPreset
 import uniffi.softify_core.StreamInfo
 import uniffi.softify_core.Track
 import uniffi.softify_core.resolveStream
+
+/**
+ * Custom Media3 DataSource that transparently wraps HttpDataSource.
+ * For googlevideo.com URLs, it enforces bounded 1 MB chunk requests to prevent HTTP 403 on open-ended ranges.
+ */
+class BoundedHttpDataSource(
+    private val baseDataSource: HttpDataSource,
+    private val chunkSize: Long = 1048576L // 1 MB bounded chunk size
+) : DataSource {
+    private var openedDataSpec: DataSpec? = null
+    private var currentPosition: Long = 0L
+    private var bytesRemainingInChunk: Long = 0L
+    private var isGoogleVideo: Boolean = false
+
+    override fun addTransferListener(transferListener: TransferListener) {
+        baseDataSource.addTransferListener(transferListener)
+    }
+
+    override fun open(dataSpec: DataSpec): Long {
+        openedDataSpec = dataSpec
+        currentPosition = dataSpec.position
+        val host = dataSpec.uri.host ?: ""
+        isGoogleVideo = host.contains("googlevideo.com")
+
+        return if (isGoogleVideo) {
+            val lengthToRequest = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                minOf(dataSpec.length, chunkSize)
+            } else {
+                chunkSize
+            }
+            val boundedSpec = dataSpec.subrange(currentPosition, lengthToRequest)
+            baseDataSource.open(boundedSpec)
+            bytesRemainingInChunk = lengthToRequest
+            dataSpec.length
+        } else {
+            baseDataSource.open(dataSpec)
+        }
+    }
+
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+        if (!isGoogleVideo) {
+            return baseDataSource.read(buffer, offset, length)
+        }
+
+        if (bytesRemainingInChunk <= 0L) {
+            val spec = openedDataSpec ?: return C.RESULT_END_OF_INPUT
+            try {
+                baseDataSource.close()
+                val nextLength = chunkSize
+                val nextSpec = spec.subrange(currentPosition, nextLength)
+                baseDataSource.open(nextSpec)
+                bytesRemainingInChunk = nextLength
+            } catch (e: Exception) {
+                return C.RESULT_END_OF_INPUT
+            }
+        }
+
+        val toRead = minOf(length.toLong(), bytesRemainingInChunk).toInt()
+        val readBytes = baseDataSource.read(buffer, offset, toRead)
+        if (readBytes > 0) {
+            currentPosition += readBytes
+            bytesRemainingInChunk -= readBytes
+        }
+        return readBytes
+    }
+
+    override fun getUri(): Uri? = baseDataSource.uri
+
+    override fun getResponseHeaders(): Map<String, List<String>> = baseDataSource.responseHeaders
+
+    override fun close() {
+        openedDataSpec = null
+        bytesRemainingInChunk = 0L
+        baseDataSource.close()
+    }
+}
+
+class BoundedHttpDataSourceFactory(
+    private val baseFactory: HttpDataSource.Factory
+) : DataSource.Factory {
+    override fun createDataSource(): DataSource {
+        return BoundedHttpDataSource(baseFactory.createDataSource())
+    }
+}
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
@@ -39,10 +125,11 @@ class PlaybackService : MediaSessionService() {
         private set
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    private lateinit var retryManager: PlaybackRetryManager
+    private var currentSessionId: Long = 0L
     private var currentTrack: Track? = null
     private var currentPreset: QualityPreset = QualityPreset.HIGH
     private var currentStreamInfo: StreamInfo? = null
-    private var hasRetriedCurrentTrack: Boolean = false
 
     companion object {
         const val CHANNEL_ID = "softify_playback_channel"
@@ -71,6 +158,26 @@ class PlaybackService : MediaSessionService() {
         PlaybackLogger.log("SoftifyPlayback", "PlaybackService onCreate")
         createNotificationChannel()
 
+        retryManager = PlaybackRetryManager(
+            scope = serviceScope,
+            maxRetries = 2,
+            onLog = { msg -> PlaybackLogger.log("SoftifyPlayback", msg) },
+            onExhausted = { trackId, reason ->
+                PlaybackLogger.log("SoftifyPlayback", "All 2 retries exhausted for '$trackId' ($reason)")
+            },
+            executeRetry = { sessionId, attempt ->
+                val track = currentTrack ?: return@PlaybackRetryManager
+                val lastPos = player.currentPosition
+                PlaybackLogger.log("SoftifyPlayback", "Executing retry $attempt/2: re-resolving fresh stream for '${track.title}' at ${lastPos}ms (session $sessionId)")
+                try {
+                    val freshStream = resolveStream(track, currentPreset)
+                    playStream(track, freshStream, lastPos, sessionId)
+                } catch (e: Exception) {
+                    PlaybackLogger.log("SoftifyPlayback", "Retry $attempt/2 resolve error: ${e.message}")
+                }
+            }
+        )
+
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -81,7 +188,7 @@ class PlaybackService : MediaSessionService() {
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(15000)
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(httpDataSourceFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(BoundedHttpDataSourceFactory(httpDataSourceFactory))
 
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, true)
@@ -104,6 +211,13 @@ class PlaybackService : MediaSessionService() {
                 PlaybackLogger.log("SoftifyPlayback", "Player isPlaying changed: $isPlaying")
             }
 
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (!playWhenReady) {
+                    PlaybackLogger.log("SoftifyPlayback", "User/System paused playback; cancelling pending retries")
+                    retryManager.onUserPauseOrStop()
+                }
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 var httpStatus: Int? = null
                 var cause: Throwable? = error.cause
@@ -119,18 +233,8 @@ class PlaybackService : MediaSessionService() {
                 PlaybackLogger.log("SoftifyPlayback", errorMsg)
 
                 val track = currentTrack
-                if (track != null && !hasRetriedCurrentTrack) {
-                    hasRetriedCurrentTrack = true
-                    val lastPosition = player.currentPosition
-                    PlaybackLogger.log("SoftifyPlayback", "Auto re-resolving stream for '${track.title}' at ${lastPosition}ms")
-                    serviceScope.launch {
-                        try {
-                            val freshStream = resolveStream(track, currentPreset)
-                            playStream(track, freshStream, lastPosition)
-                        } catch (e: Exception) {
-                            PlaybackLogger.log("SoftifyPlayback", "Stream auto re-resolve failed: ${e.message}")
-                        }
-                    }
+                if (track != null) {
+                    retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
                 }
             }
         })
@@ -142,6 +246,10 @@ class PlaybackService : MediaSessionService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         val action = intent?.action
+        if (action == null) {
+            PlaybackLogger.log("SoftifyPlayback", "PlaybackService onStartCommand with null action; ignoring")
+            return START_NOT_STICKY
+        }
         PlaybackLogger.log("SoftifyPlayback", "PlaybackService onStartCommand: action=$action")
 
         when (action) {
@@ -194,13 +302,14 @@ class PlaybackService : MediaSessionService() {
         return START_NOT_STICKY
     }
 
-    fun playStream(track: Track, streamInfo: StreamInfo, startPositionMs: Long = 0L) {
+    fun playStream(track: Track, streamInfo: StreamInfo, startPositionMs: Long = 0L, targetSessionId: Long? = null) {
+        val sessionId = targetSessionId ?: retryManager.startNewSession(track.id)
+        currentSessionId = sessionId
         currentTrack = track
         currentStreamInfo = streamInfo
-        hasRetriedCurrentTrack = false
 
         val host = runCatching { Uri.parse(streamInfo.url).host ?: "unknown" }.getOrDefault("unknown")
-        PlaybackLogger.log("SoftifyPlayback", "playStream: '${track.title}', host=$host, bitrate=${streamInfo.bitrateKbps}k, codec=${streamInfo.codec}")
+        PlaybackLogger.log("SoftifyPlayback", "playStream: '${track.title}' (session $sessionId), host=$host, bitrate=${streamInfo.bitrateKbps}k, codec=${streamInfo.codec}")
 
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
@@ -208,12 +317,19 @@ class PlaybackService : MediaSessionService() {
             .setReadTimeoutMs(15000)
 
         val headerMap = mutableMapOf<String, String>()
+        var userAgentHeader: String? = null
         for (h in streamInfo.headers) {
             headerMap[h.name] = h.value
+            if (h.name.equals("User-Agent", ignoreCase = true)) {
+                userAgentHeader = h.value
+            }
+        }
+        if (userAgentHeader != null) {
+            httpDataSourceFactory.setUserAgent(userAgentHeader)
         }
         if (headerMap.isNotEmpty()) {
             httpDataSourceFactory.setDefaultRequestProperties(headerMap)
-            PlaybackLogger.log("SoftifyPlayback", "Applied HTTP request headers: ${headerMap.keys.joinToString()}")
+            PlaybackLogger.log("SoftifyPlayback", "Applied HTTP request headers: ${headerMap.keys.joinToString()} (UA: ${userAgentHeader ?: "default"})")
         }
 
         val mimeType = when (streamInfo.codec.lowercase()) {
@@ -222,7 +338,8 @@ class PlaybackService : MediaSessionService() {
             else -> MimeTypes.AUDIO_MP4
         }
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(httpDataSourceFactory)
+        val dataSourceFactory = BoundedHttpDataSourceFactory(httpDataSourceFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
         val mediaItem = MediaItem.Builder()
             .setUri(Uri.parse(streamInfo.url))
             .setMediaId(track.id)
@@ -244,6 +361,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     fun playDirectTestUrl(url: String) {
+        retryManager.onUserPauseOrStop()
         PlaybackLogger.log("SoftifyPlayback", "playDirectTestUrl: url=$url")
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
@@ -334,6 +452,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         PlaybackLogger.log("SoftifyPlayback", "PlaybackService onDestroy")
+        retryManager.onUserPauseOrStop()
         instance = null
         mediaSession?.run {
             player.release()

@@ -1,84 +1,70 @@
-# Report: Android Playback Diagnostics Fix - 2026-11-14
+# Report: Android Playback YouTube 403 & Retry Logic Fix - 2026-11-14
 ## Status: PARTIAL
 
 ## Acceptance Checklist
-- [x] In-app diagnostics screen reachable from Settings and 🐞 bug icon on Now Playing screen
-- [x] 300-line circular playback log (tag "SoftifyPlayback") with copy and Android share sheet buttons
-- [x] Full telemetry logging (tap, resolve start/end host, MediaItem built, controller state, player state, onPlayerError with HTTP code, app/OS/ABI/native lib)
-- [x] Visible snackbar error reporting (resolve failure, player error, service not connected, notification permission denied)
-- [x] Pipeline test button: "Play test URL" (direct ExoPlayer Google Storage MP3 bypass)
-- [x] Pipeline test button: "Resolve only" (Tum Hi Ho via Rust resolver, host & kbps verification)
-- [x] Pipeline test button: "Resolve + play" (end-to-end resolution and playback)
-- [x] Root causes diagnosed & fixed (items a, b, c, d, e, f, g)
-- [?] Physical audio output on Moto G34 (NOT VERIFIED - awaiting user device test)
+- [x] BUG 1 - YouTube 403 investigation & fix:
+  - "Probe last YouTube URL" button added in Diagnostics screen running OkHttp 6-case matrix (open-ended vs bounded ranges, with/without Referer, client UA).
+  - VisionOS InnerTube client context with dynamic `visitorData` prioritized, producing unthrottled direct itag 140 URLs.
+  - `BoundedHttpDataSource` implemented in Media3 wrapping `DefaultHttpDataSource` to transparently serve 1 MB bounded chunks for `googlevideo.com`.
+  - InnerTube client User-Agent explicitly set on `DefaultHttpDataSource.Factory.setUserAgent`.
+  - Android client fallback stripped of browser `Referer` header.
+- [x] BUG 2 - Session-bound auto-retry engine:
+  - `PlaybackRetryManager` implemented with generation session IDs.
+  - Max 2 retries with backoff (500ms, 1000ms), logging `"retry n/2"` with failure reason.
+  - Stale retries immediately cancelled when user selects another track, pauses, or stops.
+  - Deterministic Kotlin unit test suite in `PlaybackRetryTest.kt` verifying backoff, exhaustion, and cancellation.
+- [x] Android hygiene & packaging:
+  - Removed `android:usesCleartextTraffic="true"` from `AndroidManifest.xml`.
+  - `PlaybackService.onStartCommand` gracefully ignores `intent?.action == null`.
+  - Redundant service startup skipped when `PlaybackService.instance != null`.
+- [x] Quality verifier updated:
+  - YouTube streams verified via 1 MB bounded range GET with body bytes verification.
+  - Added `Playable Probe` column.
+  - 5-track `--no-saavn` run saved to `docs/agent/quality_nosaavn.txt` (100% playable 1.00MB).
+  - 30-track benchmark saved to `docs/agent/quality_30.txt` (30/30 resolved, 27/30 320 kbps, 3/30 YouTube 129 kbps).
+- [?] Physical playback on Moto G34 (NOT VERIFIED - awaiting user phone test).
 
 ## What works (verified by running it, with the command used)
-- **Desktop Test Suite**: 17 UniFFI integration tests passed (`./gradlew desktopTest`).
-- **Rust Backend**: 37 lib tests passed, 0 clippy warnings (`cargo test --lib && cargo clippy --lib -- -D warnings`).
-- **Android Debug APK Assembly**: Built fresh with `--rerun-tasks` (`./gradlew assembleDebug --rerun-tasks`, 40/40 executed).
-- **Diagnostics Screen & Logging**: Verified state flows, log buffer (max 300 lines), clipboard copy, share intent, and snackbar bus.
-- **Direct Playback Path**: `PlaybackService.onStartCommand` and direct instance invocations wired with full metadata, headers, and MIME types.
+- **Rust Backend**: 37 lib tests passed (`cargo test --lib`), 0 clippy warnings (`cargo clippy --lib -- -D warnings`).
+- **Desktop Tests**: 20 tests passed (`./gradlew desktopTest`): 17 UniFFI tests + 3 PlaybackRetry tests.
+- **Android Debug APK**: Fresh build with `--rerun-tasks` (`./gradlew assembleDebug --rerun-tasks`, 40/40 executed).
+- **YouTube Playable Probes**: 1 MB real body byte downloads confirmed (`YES (1.00MB)`).
+- **APK Copied**: Copied fresh 25MB debug APK to `/home/sarthak/Downloads/composeApp-debug.apk`.
 
-## Root Cause Analysis (Items a - g)
-1. **b (Primary) & c**: `PlaybackService` completely lacked `onStartCommand`! `startService(intent)` was called from `MainActivity`, but the intent was ignored and `playStream` was never called. Headers (`User-Agent`/`Referer`) were also omitted from the intent extras.
-2. **a (Android 14/15 Foreground Restrictions)**: `POST_NOTIFICATIONS` runtime permission was never requested on Android 13+ (Android 15), and `startForeground` called the 2-arg signature without `ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK` (throws `ForegroundServiceTypeInvalidException` on API 34+).
-3. **d (MIME Type)**: `MediaItem` lacked `mimeType`, causing ExoPlayer sniffing failures on stream URLs with query parameters and no file extension.
-4. **e (Cleartext Traffic)**: Missing `android:usesCleartextTraffic="true"` in `AndroidManifest.xml` (added for CDN redirect tolerance).
-5. **f (Error Silencing)**: `PlaybackViewModel` caught `Exception` during `resolveStream` and only printed to logcat without showing any error to the user.
-6. **g (Audio Focus)**: Configured `setAudioAttributes(audioAttributes, true)` for proper system audio focus management on Android 15.
+## YouTube Probe Matrix (OkHttp from Android Diagnostics)
+The Diagnostics screen now includes a dedicated "🔬 Probe last YouTube URL" button executing:
+1. `GET Range: bytes=0-1` with ExoPlayer headers
+2. `GET Range: bytes=0-` with ExoPlayer headers
+3. `GET Range: bytes=0-1048575` with ExoPlayer headers
+4. `GET Range: bytes=0-1` without Referer, with Client UA
+5. `GET Range: bytes=0-` without Referer, with Client UA
+6. `GET Range: bytes=0-1048575` without Referer, with Client UA
+Results are formatted into a live table in the Diagnostics console and can be copied or shared.
+
+## Quality Check: YouTube Fallback Tracks (--no-saavn 5)
+*(Full run recorded in `docs/agent/quality_nosaavn.txt`)*
+| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Playable Probe | Verified | TTFA |
+|---|-------|----------|----------|-------|-----------|--------|---------|----------------|----------|------|
+| 01 | Tum Hi Ho - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 2676 ms |
+| 02 | Kesariya - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1467 ms |
+| 03 | Blinding Lights - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1731 ms |
+| 04 | Shape of You - Ed Sheeran | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1248 ms |
+| 05 | Starboy - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1674 ms |
 
 ## What is stubbed or broken (be specific, no softening)
-- **Physical Device Playback**: Marked `[?] NOT VERIFIED`. No adb device or emulator connected; physical audio playback on Moto G34 must be verified by user.
+- **Physical Device Playback**: Marked `[?] NOT VERIFIED`. No adb device connected; physical audio playback on Moto G34 must be verified by user.
 
-## Test results (paste the real output summary: passed/failed counts)
+## Test results
 - `./gradlew desktopTest`:
-  `<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" time="2.567">`
+  `<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" time="3.519">`
+  `<testsuite name="com.softify.app.PlaybackRetryTest" tests="3" skipped="0" failures="0" errors="0" time="0.33">`
 - `./gradlew assembleDebug --rerun-tasks`:
-  `BUILD SUCCESSFUL in 1m 3s, 40 actionable tasks: 40 executed`
+  `BUILD SUCCESSFUL in 1m 32s, 40 actionable tasks: 40 executed`
 - Native libraries in APK (`unzip -l composeApp-debug.apk | grep '\.so'`):
   `5859048 lib/arm64-v8a/libsoftify_core.so`
   `6466208 lib/x86_64/libsoftify_core.so`
 
-## Quality check (320 kbps): provider, bitrate and time-to-first-audio for 10 tracks
-*(Full 30-track run recorded in `docs/agent/quality_30.txt`)*
-| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |
-|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|
-| 01 | Tum Hi Ho - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1089 ms |
-| 02 | Kesariya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 809 ms |
-| 03 | Blinding Lights - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 712 ms |
-| 04 | Shape of You - Ed Sheeran | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 951 ms |
-| 05 | Starboy - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 590 ms |
-| 11 | Lag Ja Gale - Lata Mangeshkar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 877 ms |
-| 14 | Brown Munde - AP Dhillon | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 618 ms |
-| 18 | Arabic Kuthu - Anirudh Ravichander | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 785 ms |
-| 24 | Baarishein - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 631 ms |
-| 26 | Choojhn De - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 2402 ms |
-
-## Decisions I made that you did not ask for
-1. Added direct fallback to `PlaybackService.instance` in `MainActivity` to allow zero-latency in-process playback dispatch when the service is already running.
-2. Formatted diagnostics log lines with contextual ANSI/Compose colors (red for errors, green for ready/success, yellow for buffering/starts).
-
-## Questions / blockers (numbered)
-1. Please install the updated APK from `~/Downloads/composeApp-debug.apk` on your Moto G34.
-2. In the app, open Diagnostics (via Settings or the 🐞 icon on Now Playing) and tap:
-   - "Play test URL" (confirms Media3 audio output)
-   - "Resolve only" (confirms Rust network/decryption)
-   - "Resolve+Play" or tap any search song
-   If any issue remains, tap "Copy log" or "Share log" to paste the exact log output.
-
-## Files changed (git diff --stat)
-```
- composeApp/src/androidMain/AndroidManifest.xml                  |   1 +
- composeApp/src/androidMain/kotlin/com/softify/app/MainActivity.kt | 183 ++++++++++++++-
- composeApp/src/androidMain/kotlin/com/softify/app/playback/PlaybackService.kt | 244 +++++++++++++++++++-
- composeApp/src/commonMain/kotlin/com/softify/app/ui/App.kt      |  90 +++++---
- composeApp/src/commonMain/kotlin/com/softify/app/ui/apple/AppleMusicNowPlaying.kt |  25 ++-
- composeApp/src/commonMain/kotlin/com/softify/app/ui/diagnostics/DiagnosticsScreen.kt | 227 +++++++++++++++++++
- composeApp/src/commonMain/kotlin/com/softify/app/ui/metrolist/MetrolistNowPlaying.kt |  27 ++-
- composeApp/src/commonMain/kotlin/com/softify/app/util/PlaybackLogger.kt |  42 ++++
- composeApp/src/commonMain/kotlin/com/softify/app/viewmodel/PlaybackViewModel.kt | 144 +++++++++++-
- 9 files changed, 946 insertions(+), 37 deletions(-)
-```
-
-## Proposed next step
-Wait for user on-device verification on Moto G34 using the in-app Diagnostics screen and test buttons.
+## Questions / blockers
+1. Install `/home/sarthak/Downloads/composeApp-debug.apk` on your Moto G34.
+2. Search and play a YouTube fallback track (e.g. "back to friends" by sombr / Rove).
+3. If any issue arises, open Diagnostics, tap "🔬 Probe last YouTube URL", and tap "Copy log" or "Share log".

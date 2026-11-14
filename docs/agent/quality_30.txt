@@ -1,101 +1,106 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.98s
+     Running `rust/softify_core/target/debug/quality_verifier 30`
 === Softify Audio Quality Verifier (Target: 320 kbps Studio Master) ===
 Mode: LIVE NETWORK VERIFICATION (Real JioSaavn CDN & YouTube Innertube)
 
-| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |
-|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|
+| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Playable Probe | Verified | TTFA |
+|---|-------|----------|----------|-------|-----------|--------|---------|----------------|----------|------|
 [SAAVN MATCH] Track 01 'Tum Hi Ho': Matched Saavn Title='tum hi ho', Artist(s)='Mithoon, Arijit Singh, Mithoon, Arijit Singh, Mithoon, mithoon, arijit singh, Mithoon', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Tum Hi Ho' -> 320 kbps, codec=aac, requested_quality_met=true
-| 01 | Tum Hi Ho - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1089 ms |
+| 01 | Tum Hi Ho - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1083 ms |
 [SAAVN MATCH] Track 02 'Kesariya': Matched Saavn Title='kesariya (tu fuljhadiyo wale tyohaaro jesi - happy diwali)', Artist(s)='Pritam, Arijit Singh, Amitabh Bhattacharya, Pritam, Amitabh Bhattacharya, pritam, arijit singh, amitabh bhattacharya, Pritam', Duration Diff=0s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Kesariya' -> 320 kbps, codec=aac, requested_quality_met=true
-| 02 | Kesariya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 809 ms |
+| 02 | Kesariya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 822 ms |
 [SAAVN MATCH] Track 03 'Blinding Lights': Matched Saavn Title='blinding lights', Artist(s)='The Weeknd, Max Martin, Oscar Holter, Abel &quot;The Weeknd&quot; Tesfaye, Ahmad Balshe, Jason &quot;daheala&quot; Quenneville, Max Martin, Oscar Holter, Abel &quot;The Weeknd&quot; Tesfaye, Ahmad Balshe, Jason &quot;daheala&quot; Quenneville, the weeknd, Max Martin, Oscar Holter, Abel &quot;The Weeknd&quot; Tesfaye, Ahmad Balshe, Jason &quot;daheala&quot; Quenneville', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Blinding Lights' -> 320 kbps, codec=aac, requested_quality_met=true
-| 03 | Blinding Lights - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 712 ms |
+| 03 | Blinding Lights - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 776 ms |
 [SAAVN MATCH] Track 04 'Shape of You': Matched Saavn Title='shape of you', Artist(s)='Ed Sheeran, Ed Sheeran, ed sheeran, ', Duration Diff=0s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Shape of You' -> 320 kbps, codec=aac, requested_quality_met=true
-| 04 | Shape of You - Ed Sheeran | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 951 ms |
-[SAAVN MATCH] Track 05 'Starboy': Matched Saavn Title='starboy', Artist(s)='The Weeknd, Daft Punk, Abel Tesfaye, Thomas Bangalter, Guy-Manuel De Homem-Christo, Martin Mckinney, Henry Walter, Jason Quenneville, Anirudh Ravichander, Sri Krishna, Sai Charan, Srinivasa Mouli, Abel Tesfaye, Thomas Bangalter, Guy-Manuel De Homem-Christo, Martin Mckinney, Henry Walter, Jason Quenneville, the weeknd ft. daft punk, Abel Tesfaye, Thomas Bangalter, Guy-Manuel De Homem-Christo, Martin Mckinney, Henry Walter, Jason Quenneville', Duration Diff=0s, Score=190.0
+| 04 | Shape of You - Ed Sheeran | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1072 ms |
+[SAAVN MATCH] Track 05 'Starboy': Matched Saavn Title='starboy', Artist(s)='The Weeknd, Daft Punk, Abel Tesfaye, Thomas Bangalter, Guy-Manuel De Homem-Christo, Martin Mckinney, Henry Walter, Jason Quenneville, The Weeknd, Abel Tesfaye, Thomas Bangalter, Guy-Manuel De Homem-Christo, Martin Mckinney, Henry Walter, Jason Quenneville, the weeknd ft. daft punk, Abel Tesfaye, Thomas Bangalter, Guy-Manuel De Homem-Christo, Martin Mckinney, Henry Walter, Jason Quenneville', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Starboy' -> 320 kbps, codec=aac, requested_quality_met=true
-| 05 | Starboy - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 590 ms |
+| 05 | Starboy - The Weeknd | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 874 ms |
 [SAAVN MATCH] Track 06 'Apna Bana Le': Matched Saavn Title='apna bana le', Artist(s)='Sachin-Jigar, Arijit Singh, Sachin-Jigar, Sachin-Jigar, Arijit Singh, Amitabh Bhattacharya, sachin-jigar, arijit singh, Sachin-Jigar', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Apna Bana Le' -> 320 kbps, codec=aac, requested_quality_met=true
-| 06 | Apna Bana Le - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1370 ms |
+| 06 | Apna Bana Le - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1486 ms |
 [SAAVN MATCH] Track 07 'Levitating': Matched Saavn Title='levitating', Artist(s)='Dua Lipa, Clarence Coffee Jr, Dua Lipa, Sarah Hudson, Stephen Kozmeniuk, dua lipa, ', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Levitating' -> 320 kbps, codec=aac, requested_quality_met=true
-| 07 | Levitating - Dua Lipa | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 734 ms |
+| 07 | Levitating - Dua Lipa | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1192 ms |
 [SAAVN MATCH] Track 08 'Chaleya': Matched Saavn Title='chaleya', Artist(s)='Anirudh Ravichander, Arijit Singh, Shilpa Rao, Anirudh Ravichander, Anirudh Ravichander, Arijit Singh, Shilpa Rao, Kumaar, anirudh ravichander, arijit singh, shilpa rao, Anirudh Ravichander', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Chaleya' -> 320 kbps, codec=aac, requested_quality_met=true
-| 08 | Chaleya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1041 ms |
+| 08 | Chaleya - Arijit Singh | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1198 ms |
 [SAAVN MATCH] Track 09 'Flowers': Matched Saavn Title='flowers', Artist(s)='Miley Cyrus, Michael Pollack, Miley Cyrus, Gregory Aldae Hein, Michael Pollack, Miley Cyrus, Gregory Aldae Hein, miley cyrus, Michael Pollack, Miley Cyrus, Gregory Aldae Hein', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Flowers' -> 320 kbps, codec=aac, requested_quality_met=true
-| 09 | Flowers - Miley Cyrus | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1241 ms |
+| 09 | Flowers - Miley Cyrus | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1296 ms |
 [SAAVN MATCH] Track 10 'Raataan Lambiyan': Matched Saavn Title='raataan lambiyan', Artist(s)='Tanishk Bagchi, Jubin Nautiyal, Asees Kaur, Sai Smriti, Tanishk Bagchi, Indresh Upadhyay, Tanishk Bagchi, tanishk bagchi, jubin nautiyal, asees kaur ft. sai smriti, Tanishk Bagchi', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Raataan Lambiyan' -> 320 kbps, codec=aac, requested_quality_met=true
-| 10 | Raataan Lambiyan - Jubin Nautiyal | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 1219 ms |
-[SAAVN MATCH] Track 11 'Lag Ja Gale': Matched Saavn Title='lag ja gale se phir', Artist(s)='Lata Mangeshkar, Lata Mangeshkar, Madan Mohan, Kishore Kumar, Raja Mehdi Ali Khan, lata mangeshkar, Lata Mangeshkar, Madan Mohan', Duration Diff=1s, Score=170.0
+| 10 | Raataan Lambiyan - Jubin Nautiyal | Popular | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1144 ms |
+[SAAVN MATCH] Track 11 'Lag Ja Gale': Matched Saavn Title='lag ja gale se phir', Artist(s)='Lata Mangeshkar, Lata Mangeshkar, Madan Mohan, Roopkumar Rathod, Raja Mehdi Ali Khan, lata mangeshkar, Lata Mangeshkar, Madan Mohan', Duration Diff=1s, Score=170.0
 [RESOLVER] JioSaavn resolved: 'Lag Ja Gale' -> 320 kbps, codec=aac, requested_quality_met=true
-| 11 | Lag Ja Gale - Lata Mangeshkar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 877 ms |
+| 11 | Lag Ja Gale - Lata Mangeshkar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1304 ms |
 [SAAVN MATCH] Track 12 'Pal Pal Dil Ke Paas': Matched Saavn Title='pal pal dil ke paas (from &quot;blackmail&quot;)', Artist(s)='Kishore Kumar, Kalyanji–Anandji, Kishore Kumar, Rajendra Krishan, kishore kumar, Kalyanji–Anandji', Duration Diff=2s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Pal Pal Dil Ke Paas' -> 320 kbps, codec=aac, requested_quality_met=true
-| 12 | Pal Pal Dil Ke Paas - Kishore Kumar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 809 ms |
+| 12 | Pal Pal Dil Ke Paas - Kishore Kumar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 964 ms |
 [SAAVN MATCH] Track 13 'Roop Tera Mastana': Matched Saavn Title='roop tera mastana', Artist(s)='Kishore Kumar, S. D. Burman, Kishore Kumar, Anand Bakshi, kishore kumar, S. D. Burman', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Roop Tera Mastana' -> 320 kbps, codec=aac, requested_quality_met=true
-| 13 | Roop Tera Mastana - Kishore Kumar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 849 ms |
+| 13 | Roop Tera Mastana - Kishore Kumar | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 960 ms |
 [SAAVN MATCH] Track 14 'Brown Munde': Matched Saavn Title='brown munde', Artist(s)='AP Dhillon, Gminxr, Gurinder Gill, Shinda Kahlon, Shinda Kahlon, AP Dhillon, Gminxr, Gurinder Gill, Shinda Kahlon, AP Dhillon, Shinda Kahlon, Luca Mauti, ap dhillon, gminxr, gurinder gill, shinda kahlon, ', Duration Diff=13s, Score=135.0
 [RESOLVER] JioSaavn resolved: 'Brown Munde' -> 320 kbps, codec=aac, requested_quality_met=true
-| 14 | Brown Munde - AP Dhillon | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 510 ms |
+| 14 | Brown Munde - AP Dhillon | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 571 ms |
 [SAAVN MATCH] Track 15 '295': Matched Saavn Title='295', Artist(s)='Sidhu Moose Wala, Sidhu Moose Wala, sidhu moose wala, Sidhu Moose Wala', Duration Diff=0s, Score=190.0
 [RESOLVER] JioSaavn resolved: '295' -> 320 kbps, codec=aac, requested_quality_met=true
-| 15 | 295 - Sidhu Moose Wala | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 815 ms |
+| 15 | 295 - Sidhu Moose Wala | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1054 ms |
 [SAAVN MATCH] Track 16 'Lover': Matched Saavn Title='lover', Artist(s)='Diljit Dosanjh, Diljit Dosanjh, diljit dosanjh, ', Duration Diff=1s, Score=190.0
 [RESOLVER] JioSaavn resolved: 'Lover' -> 320 kbps, codec=aac, requested_quality_met=true
-| 16 | Lover - Diljit Dosanjh | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 830 ms |
-[SAAVN MATCH] Track 17 'Why This Kolaveri Di': Matched Saavn Title='why this kolaveri di (the soup of love)', Artist(s)='Anirudh Ravichander, Dhanush, Anirudh Ravichander, Dhanush, Dhanush, anirudh ravichander, dhanush, Anirudh Ravichander', Duration Diff=18s, Score=160.0
+| 16 | Lover - Diljit Dosanjh | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 965 ms |
+[SAAVN MATCH] Track 17 'Why This Kolaveri Di': Matched Saavn Title='why this kolaveri di (the soup of love)', Artist(s)='Anirudh Ravichander, Dhanush, Sachin Jaat, Anirudh Ravichander, Dhanush, Dhanush, anirudh ravichander, dhanush ft. sachin jaat, Anirudh Ravichander', Duration Diff=18s, Score=160.0
 [RESOLVER] JioSaavn resolved: 'Why This Kolaveri Di' -> 320 kbps, codec=aac, requested_quality_met=true
-| 17 | Why This Kolaveri Di - Dhanush | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 736 ms |
+| 17 | Why This Kolaveri Di - Dhanush | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 743 ms |
 [SAAVN MATCH] Track 18 'Arabic Kuthu': Matched Saavn Title='arabic kuthu - halamithi habibo', Artist(s)='Anirudh Ravichander, Jonita Gandhi, Anirudh Ravichander, Sivakarthikeyan, Anirudh Ravichander, Jonita Gandhi, anirudh ravichander, jonita gandhi, Anirudh Ravichander, Sivakarthikeyan', Duration Diff=1s, Score=130.0
 [RESOLVER] JioSaavn resolved: 'Arabic Kuthu' -> 320 kbps, codec=aac, requested_quality_met=true
-| 18 | Arabic Kuthu - Anirudh Ravichander | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 928 ms |
+| 18 | Arabic Kuthu - Anirudh Ravichander | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 873 ms |
 [SAAVN MATCH] Track 19 'Samajavaragamana': Matched Saavn Title='samajavaragamana - male', Artist(s)='Sid Sriram, Thaman S, Sid Sriram, Sirivennela Seetharama Sastry, sid sriram, Thaman S', Duration Diff=5s, Score=130.0
 [RESOLVER] JioSaavn resolved: 'Samajavaragamana' -> 320 kbps, codec=aac, requested_quality_met=true
-| 19 | Samajavaragamana - Sid Sriram | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 905 ms |
+| 19 | Samajavaragamana - Sid Sriram | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1001 ms |
 [SAAVN MATCH] Track 20 'Rowdy Baby': Matched Saavn Title='rowdy baby', Artist(s)='Dhanush, Yuvan Shankar Raja, Dhee, Yuvan Shankar Raja, dhanush, yuvan shankar raja, dhee, Yuvan Shankar Raja', Duration Diff=3s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Rowdy Baby' -> 320 kbps, codec=aac, requested_quality_met=true
-| 20 | Rowdy Baby - Dhanush | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 971 ms |
-[SAAVN MATCH] Track 21 'Kasoor': Matched Saavn Title='kasoor', Artist(s)='Prateek Kuhad, Prateek Kuhad, Prateek Kuhad, prateek kuhad, Prateek Kuhad', Duration Diff=0s, Score=150.0
+| 20 | Rowdy Baby - Dhanush | Retro/Regional | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 1733 ms |
+[SAAVN MATCH] Track 21 'Kasoor': Matched Saavn Title='kasoor', Artist(s)='Prateek Kuhad, Prateek Kuhad, Prateek Kuhad, Prateek Kuhad, prateek kuhad, Prateek Kuhad', Duration Diff=0s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Kasoor' -> 320 kbps, codec=aac, requested_quality_met=true
-| 21 | Kasoor - Prateek Kuhad | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 533 ms |
+| 21 | Kasoor - Prateek Kuhad | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 735 ms |
 [SAAVN MATCH] Track 22 'Cold/mess': Matched Saavn Title='cold/mess', Artist(s)='Prateek Kuhad, Prateek Kuhad, prateek kuhad, ', Duration Diff=6s, Score=135.0
 [RESOLVER] JioSaavn resolved: 'Cold/mess' -> 320 kbps, codec=aac, requested_quality_met=true
-| 22 | Cold/mess - Prateek Kuhad | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 537 ms |
+| 22 | Cold/mess - Prateek Kuhad | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 573 ms |
 [SAAVN MATCH] Track 23 'Alag Aasmaan': Matched Saavn Title='alag aasmaan', Artist(s)='Anuv Jain, Anuv Jain, anuv jain, ', Duration Diff=1s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Alag Aasmaan' -> 320 kbps, codec=aac, requested_quality_met=true
-| 23 | Alag Aasmaan - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 556 ms |
+| 23 | Alag Aasmaan - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 776 ms |
 [SAAVN MATCH] Track 24 'Baarishein': Matched Saavn Title='baarishein', Artist(s)='Anuv Jain, Anuv Jain, Anuv Jain, anuv jain, Anuv Jain', Duration Diff=0s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Baarishein' -> 320 kbps, codec=aac, requested_quality_met=true
-| 24 | Baarishein - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 631 ms |
+| 24 | Baarishein - Anuv Jain | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 673 ms |
 [SAAVN MATCH] Track 25 'Roz Roz': Matched Saavn Title='roz roz', Artist(s)='The Yellow Diary, Shilpa Rao, The Yellow Diary, The Yellow Diary, Shilpa Rao, The Yellow Diary, the yellow diary, shilpa rao, The Yellow Diary', Duration Diff=18s, Score=120.0
 [RESOLVER] JioSaavn resolved: 'Roz Roz' -> 320 kbps, codec=aac, requested_quality_met=true
-| 25 | Roz Roz - The Yellow Diary | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 629 ms |
+| 25 | Roz Roz - The Yellow Diary | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 597 ms |
 [SAAVN REJECTION] Track 26 'Choojhn De': Best Candidate='toast', Artist(s)='Connor Price, Connor Price, Connor Price, connor price, Connor Price', Score=0.0, Reason=artist mismatch: primary 'when chai met toast' not found in candidate singers 'connor price connor price connor price connor price connor price'
 [RESOLVER] JioSaavn unavailable for 'Choojhn De' (Not found: No matching Saavn track found for 'Choojhn De' by 'When Chai Met Toast'): Falling back to YouTube Innertube
-[RESOLVER] YouTube fallback resolved: 'Choojhn De' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 26 | Choojhn De - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 2402 ms |
+[YOUTUBE BITRATE] video_id=RdkwfivJqt8: raw_bitrate=155506 bps, averageBitrate=Some(129535) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Choojhn De' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 26 | Choojhn De - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 2511 ms |
 [SAAVN REJECTION] Track 27 'Khoj': Best Candidate='khoj (nature tapes)', Artist(s)='When Chai Met Toast, Ashwin Gopakumar, Palee Francis, Achyuth Jaigopal, Sailesh Pai, When Chai Met Toast, Ashwin Gopakumar, Achyuth Jaigopal, Palee Francis, Pai Sailesh, when chai met toast, Ashwin Gopakumar, Palee Francis, Achyuth Jaigopal, Sailesh Pai', Score=0.0, Reason=duration guard: diff 32s > max allowed 24s (requested 245s vs Saavn 213s)
 [RESOLVER] JioSaavn unavailable for 'Khoj' (Not found: No matching Saavn track found for 'Khoj' by 'When Chai Met Toast'): Falling back to YouTube Innertube
-[RESOLVER] YouTube fallback resolved: 'Khoj' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 27 | Khoj - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 1479 ms |
-[SAAVN MATCH] Track 28 'Liggi': Matched Saavn Title='liggi', Artist(s)='Ritviz, Lata Mangeshkar, Suresh Wadkar, Laxmikant - Pyarelal, Ritviz, Anand Bakshi, ritviz, ', Duration Diff=1s, Score=150.0
+[YOUTUBE BITRATE] video_id=cnOihCJHk3g: raw_bitrate=131699 bps, averageBitrate=Some(129563) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Khoj' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 27 | Khoj - When Chai Met Toast | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1646 ms |
+[SAAVN MATCH] Track 28 'Liggi': Matched Saavn Title='liggi', Artist(s)='Ritviz, Ritviz, ritviz, ', Duration Diff=0s, Score=150.0
 [RESOLVER] JioSaavn resolved: 'Liggi' -> 320 kbps, codec=aac, requested_quality_met=true
-| 28 | Liggi - Ritviz | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 638 ms |
+| 28 | Liggi - Ritviz | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 628 ms |
 [SAAVN REJECTION] Track 29 'Sage': Best Candidate='sage', Artist(s)='Ritviz, Ritviz, ritviz, ', Score=0.0, Reason=duration guard: diff 47s > max allowed 18s (requested 184s vs Saavn 231s)
 [RESOLVER] JioSaavn unavailable for 'Sage' (Not found: No matching Saavn track found for 'Sage' by 'Ritviz'): Falling back to YouTube Innertube
-[RESOLVER] YouTube fallback resolved: 'Sage' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 29 | Sage - Ritviz | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 1350 ms |
+[YOUTUBE BITRATE] video_id=bFp0sX1lswk: raw_bitrate=133418 bps, averageBitrate=Some(129538) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Sage' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 29 | Sage - Ritviz | Indie/Obscure | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1596 ms |
 [SAAVN MATCH] Track 30 'Udaan': Matched Saavn Title='udaan (nadi mein talab hai)', Artist(s)='Amit Trivedi, Joi Barua, Neuman Pinto, Amit Trivedi, Amit Trivedi, Joi Barua, Neuman Pinto, Amitabh Bhattacharya, amit trivedi, joi barua, neuman pinto, Amit Trivedi', Duration Diff=24s, Score=160.0
 [RESOLVER] JioSaavn resolved: 'Udaan' -> 320 kbps, codec=aac, requested_quality_met=true
-| 30 | Udaan - Amit Trivedi | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES | 840 ms |
+| 30 | Udaan - Amit Trivedi | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 603 ms |
 
 === Summary ===
 Total tracks resolved: 30/30

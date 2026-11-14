@@ -143,6 +143,18 @@ fun DiagnosticsScreen(
                         Text("⚡ Resolve+Play", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { viewModel.probeLastYouTubeUrl() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("🔬 Probe last YouTube URL (OkHttp Matrix)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 

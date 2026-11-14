@@ -1,25 +1,33 @@
+   Compiling softify_core v0.1.0 (/home/sarthak/Desktop/Projects/Softify-experimental/rust/softify_core)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.62s
+     Running `rust/softify_core/target/debug/quality_verifier --no-saavn 5`
 === Softify Audio Quality Verifier (Target: 320 kbps Studio Master) ===
 Mode: LIVE NETWORK VERIFICATION (Real JioSaavn CDN & YouTube Innertube)
 
 >>> Flag enabled: --no-saavn (Forcing YouTube fallback path for all tracks) <<<
 
-| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |
-|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|
+| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Playable Probe | Verified | TTFA |
+|---|-------|----------|----------|-------|-----------|--------|---------|----------------|----------|------|
 [RESOLVER] JioSaavn disabled by option for 'Tum Hi Ho': Using YouTube fallback directly
-[RESOLVER] YouTube fallback resolved: 'Tum Hi Ho' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 01 | Tum Hi Ho - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 1588 ms |
+[YOUTUBE BITRATE] video_id=fsiPzT50ZiM: raw_bitrate=131162 bps, averageBitrate=Some(129530) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Tum Hi Ho' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 01 | Tum Hi Ho - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 2676 ms |
 [RESOLVER] JioSaavn disabled by option for 'Kesariya': Using YouTube fallback directly
-[RESOLVER] YouTube fallback resolved: 'Kesariya' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 02 | Kesariya - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 1132 ms |
+[YOUTUBE BITRATE] video_id=NJAv_7lHUIU: raw_bitrate=131205 bps, averageBitrate=Some(129563) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Kesariya' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 02 | Kesariya - Arijit Singh | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1467 ms |
 [RESOLVER] JioSaavn disabled by option for 'Blinding Lights': Using YouTube fallback directly
-[RESOLVER] YouTube fallback resolved: 'Blinding Lights' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 03 | Blinding Lights - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 934 ms |
+[YOUTUBE BITRATE] video_id=J7p4bzqLvCw: raw_bitrate=130916 bps, averageBitrate=Some(129548) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Blinding Lights' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 03 | Blinding Lights - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1731 ms |
 [RESOLVER] JioSaavn disabled by option for 'Shape of You': Using YouTube fallback directly
-[RESOLVER] YouTube fallback resolved: 'Shape of You' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 04 | Shape of You - Ed Sheeran | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 863 ms |
+[YOUTUBE BITRATE] video_id=xTvyyoF_LZY: raw_bitrate=131298 bps, averageBitrate=Some(129557) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Shape of You' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 04 | Shape of You - Ed Sheeran | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1248 ms |
 [RESOLVER] JioSaavn disabled by option for 'Starboy': Using YouTube fallback directly
-[RESOLVER] YouTube fallback resolved: 'Starboy' -> 129 kbps, codec=aac, provider=youtube_innertube_android (itag 140)
-| 05 | Starboy - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES | 910 ms |
+[YOUTUBE BITRATE] video_id=3_g2un5M350: raw_bitrate=131545 bps, averageBitrate=Some(129536) bps, measured Content-Length/duration=Some(130) kbps -> selected 129 kbps
+[RESOLVER] YouTube fallback resolved: 'Starboy' -> 129 kbps, codec=aac, provider=youtube_innertube_visionos (itag 140)
+| 05 | Starboy - The Weeknd | Popular | YouTube Fallback | AAC | 320 kbps | 129 kbps | NO | YES (1.00MB) | YES | 1674 ms |
 
 === Summary ===
 Total tracks resolved: 5/5

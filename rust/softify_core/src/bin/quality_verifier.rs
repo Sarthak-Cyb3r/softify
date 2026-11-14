@@ -73,8 +73,8 @@ async fn main() {
 
     let tracks_to_run: Vec<BenchmarkTrack> = catalog.into_iter().take(count).collect();
 
-    println!("| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Verified | TTFA |");
-    println!("|---|-------|----------|----------|-------|-----------|--------|---------|----------|------|");
+    println!("| # | Track | Category | Provider | Codec | Requested | Actual | Matched | Playable Probe | Verified | TTFA |");
+    println!("|---|-------|----------|----------|-------|-----------|--------|---------|----------------|----------|------|");
 
     let mut success_count = 0;
     let mut studio_master_320_count = 0;
@@ -122,19 +122,52 @@ async fn main() {
         let t0 = Instant::now();
         match resolver.resolve_with_options(&track, QualityPreset::High, disable_saavn).await {
             Ok(stream) => {
-                let mut req = http_client.get(&stream.url).header("Range", "bytes=0-1");
+                let is_youtube = !stream.provider.contains("jiosaavn");
+                let mut req_ttfa = http_client.get(&stream.url).header("Range", "bytes=0-1");
                 for h in &stream.headers {
-                    req = req.header(&h.name, &h.value);
+                    req_ttfa = req_ttfa.header(&h.name, &h.value);
                 }
 
-                let (verified, ttfa_ms) = match req.send().await {
+                let (ttfa_ok, ttfa_ms) = match req_ttfa.send().await {
                     Ok(resp) => {
                         let status = resp.status();
-                        let verified = status == 200 || status == 206;
-                        let elapsed = t0.elapsed().as_millis() as u64;
-                        (if verified { "YES" } else { "NO" }, elapsed)
+                        let ok = status == 200 || status == 206;
+                        (ok, t0.elapsed().as_millis() as u64)
                     }
-                    Err(_) => ("NO", t0.elapsed().as_millis() as u64),
+                    Err(_) => (false, t0.elapsed().as_millis() as u64),
+                };
+
+                // Playable probe (1 MB bounded range with real body bytes read)
+                let mut req_1mb = http_client.get(&stream.url).header("Range", "bytes=0-1048575");
+                for h in &stream.headers {
+                    req_1mb = req_1mb.header(&h.name, &h.value);
+                }
+
+                let (playable_probe, bytes_read_ok) = match req_1mb.send().await {
+                    Ok(resp) => {
+                        let status = resp.status();
+                        if status == 200 || status == 206 {
+                            match resp.bytes().await {
+                                Ok(b) if b.len() > 100_000 => {
+                                    (format!("YES ({:.2}MB)", b.len() as f64 / 1_048_576.0), true)
+                                }
+                                Ok(b) => {
+                                    (format!("PARTIAL ({}B)", b.len()), false)
+                                }
+                                Err(e) => (format!("ERR ({})", e), false),
+                            }
+                        } else {
+                            (format!("HTTP {}", status.as_u16()), false)
+                        }
+                    }
+                    Err(e) => (format!("ERR ({})", e), false),
+                };
+
+                let verified = if is_youtube {
+                    // For YouTube, verified strictly requires 1 MB playable probe with body bytes read
+                    if bytes_read_ok { "YES" } else { "NO" }
+                } else {
+                    if ttfa_ok { "YES" } else { "NO" }
                 };
 
                 let matched_requested = if stream.bitrate_kbps >= 320 && stream.is_requested_quality {
@@ -157,7 +190,7 @@ async fn main() {
                 }
 
                 println!(
-                    "| {:02} | {} - {} | {} | {} | {} | 320 kbps | {} kbps | {} | {} | {} ms |",
+                    "| {:02} | {} - {} | {} | {} | {} | 320 kbps | {} kbps | {} | {} | {} | {} ms |",
                     i + 1,
                     track.title,
                     track.artist,
@@ -166,13 +199,14 @@ async fn main() {
                     stream.codec.to_uppercase(),
                     stream.bitrate_kbps,
                     matched_requested,
+                    playable_probe,
                     verified,
                     ttfa_ms
                 );
             }
             Err(e) => {
                 println!(
-                    "| {:02} | {} - {} | {} | FAILED | N/A | 320 kbps | 0 kbps | NO | NO | {} ms ({}) |",
+                    "| {:02} | {} - {} | {} | FAILED | N/A | 320 kbps | 0 kbps | NO | NO | NO | {} ms ({}) |",
                     i + 1,
                     track.title,
                     track.artist,

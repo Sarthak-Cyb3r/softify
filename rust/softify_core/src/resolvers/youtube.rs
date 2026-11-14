@@ -228,26 +228,45 @@ impl YoutubeStreamResolver {
         })
     }
 
+    async fn fetch_visitor_data(&self) -> Option<String> {
+        let res = self.client.get("https://www.youtube.com/")
+            .header("User-Agent", WEB_REMIX_UA)
+            .send().await.ok()?;
+        let html = res.text().await.ok()?;
+        let re = regex::Regex::new(r#""VISITOR_DATA":"([^"]+)""#).ok()?;
+        re.captures(&html).and_then(|c| c.get(1)).map(|m| m.as_str().to_string())
+    }
+
     async fn query_innertube_player(&self, video_id: &str, client_name: &str) -> Result<StreamInfo, SoftifyError> {
+        let visitor_data = if client_name == "VISIONOS" {
+            self.fetch_visitor_data().await
+        } else {
+            None
+        };
+
         let (client_context, user_agent, extra_headers) = if client_name == "VISIONOS" {
-            (
-                json!({
-                    "clientName": "VISIONOS",
-                    "clientVersion": "1.02",
-                    "deviceMake": "Apple",
-                    "deviceModel": "RealityDevice17,1",
-                    "osName": "visionOS",
-                    "osVersion": "26.5.23O471",
-                    "hl": "en",
-                    "gl": "US"
-                }),
-                VISIONOS_UA,
-                vec![
-                    ("X-YouTube-Client-Name", "101"),
-                    ("X-YouTube-Client-Version", "1.02"),
-                    ("Origin", "https://www.youtube.com"),
-                ],
-            )
+            let mut ctx = json!({
+                "clientName": "VISIONOS",
+                "clientVersion": "1.02",
+                "deviceMake": "Apple",
+                "deviceModel": "RealityDevice17,1",
+                "osName": "visionOS",
+                "osVersion": "26.5.23O471",
+                "hl": "en",
+                "gl": "US"
+            });
+            let mut headers = vec![
+                ("X-YouTube-Client-Name", "101".to_string()),
+                ("X-YouTube-Client-Version", "1.02".to_string()),
+                ("Origin", "https://www.youtube.com".to_string()),
+            ];
+            if let Some(ref vis) = visitor_data {
+                if let Some(obj) = ctx.as_object_mut() {
+                    obj.insert("visitorData".to_string(), json!(vis));
+                }
+                headers.push(("X-Goog-Visitor-Id", vis.clone()));
+            }
+            (ctx, VISIONOS_UA, headers)
         } else {
             (
                 json!({
@@ -397,10 +416,16 @@ impl YoutubeStreamResolver {
             codec,
             provider: format!("youtube_innertube_{} (itag {itag})", client_name.to_lowercase()),
             is_requested_quality: false, // YouTube never yields true 320 kbps studio master
-            headers: vec![
-                HeaderPair { name: "User-Agent".to_string(), value: user_agent.to_string() },
-                HeaderPair { name: "Referer".to_string(), value: "https://www.youtube.com/".to_string() },
-            ],
+            headers: if client_name == "ANDROID" {
+                vec![
+                    HeaderPair { name: "User-Agent".to_string(), value: user_agent.to_string() },
+                ]
+            } else {
+                vec![
+                    HeaderPair { name: "User-Agent".to_string(), value: user_agent.to_string() },
+                    HeaderPair { name: "Referer".to_string(), value: "https://www.youtube.com/".to_string() },
+                ]
+            },
             expires_at,
         })
     }
