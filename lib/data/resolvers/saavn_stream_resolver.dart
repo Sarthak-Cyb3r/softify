@@ -195,25 +195,47 @@ class SaavnStreamResolver implements IStreamResolver {
         'music', 'band', 'records', 'official', 'original', 'soundtrack', 'all',
         'star', 'stars', 'dj', 'vj', 'mr', 'ms', 'mrs', 'dr', 'to', 'in', 'on', 'of',
       };
-      final targetWords = cleanArtist
+      final cleanPrimary = _normalize(primaryArtist);
+      final primaryWords = cleanPrimary
           .split(' ')
           .where((w) => w.length >= 3 && !artistStopWords.contains(w))
-          .toSet();
-      if (cleanArtist.isNotEmpty && targetWords.isNotEmpty) {
-        final hasArtistOverlap = targetWords.any((w) => candSingers.contains(w));
-        if (!hasArtistOverlap) {
-          continue; // Disqualify track by unrelated singer
+          .toList();
+
+      if (primaryWords.isNotEmpty) {
+        if (primaryWords.length >= 2) {
+          // Multi-token primary artist (e.g. "Atif Aslam", "Falak Shabbir", "Arijit Singh")
+          // Require full primary artist containment OR all significant tokens
+          final hasExactPrimary = candSingers.contains(cleanPrimary);
+          final hasAllTokens = primaryWords.every((w) => candSingers.contains(w));
+          if (!hasExactPrimary && !hasAllTokens) {
+            continue; // Disqualify unrelated artist
+          }
+        } else {
+          // Single-token primary artist (e.g. "Adele", "Eminem")
+          final token = primaryWords.first;
+          final candTokens = candSingers.split(RegExp(r'[^a-z0-9]+')).toSet();
+          if (!candTokens.contains(token) && !candSingers.contains(token)) {
+            continue;
+          }
         }
       }
 
-      // 2. Duration Guard: Reject extreme duration discrepancy (> 90s or 2x ratio)
+      // 2. Duration Guard: Reject extreme duration discrepancy (> 25s for tracks > 45s)
       final candDurSec = int.tryParse(moreInfo?['duration']?.toString() ?? '') ?? 0;
-      if (track.duration > const Duration(seconds: 30) && candDurSec > 0) {
-        final diffSec = (track.duration.inSeconds - candDurSec).abs();
-        final maxDur = track.duration.inSeconds > candDurSec ? track.duration.inSeconds : candDurSec;
-        final minDur = track.duration.inSeconds < candDurSec ? track.duration.inSeconds : candDurSec;
-        if (diffSec > 90 || (minDur > 0 && maxDur / minDur > 2.0)) {
-          continue; // Reject completely wrong tracks or mislabeled media
+      if (track.duration > const Duration(seconds: 45)) {
+        if (candDurSec <= 0) {
+          // If candidate duration is unknown, only allow if album matches target
+          final targetAlbum = _normalize(track.album ?? '');
+          final candAlbum = _normalize((moreInfo?['album'] ?? r['subtitle'] ?? '').toString());
+          if (targetAlbum.isEmpty || candAlbum.isEmpty || !candAlbum.contains(targetAlbum)) {
+            continue;
+          }
+        } else {
+          final diffSec = (track.duration.inSeconds - candDurSec).abs();
+          final maxAllowedDiff = (track.duration.inSeconds * 0.10).clamp(8, 25).toInt();
+          if (diffSec > maxAllowedDiff) {
+            continue; // Reject completely wrong recording or alternate live version
+          }
         }
       }
 
@@ -272,11 +294,11 @@ class SaavnStreamResolver implements IStreamResolver {
 
       // 6. Singer / artist bonus (proportional to overlap)
       if (cleanArtist.isNotEmpty && candSingers.isNotEmpty) {
-        if (candSingers.contains(cleanArtist)) {
-          score += 40.0; // Exact artist match
-        } else if (targetWords.isNotEmpty) {
-          final matchedTokens = targetWords.where((t) => candSingers.contains(t)).length;
-          score += 40.0 * (matchedTokens / targetWords.length);
+        if (candSingers.contains(cleanPrimary) || candSingers.contains(cleanArtist)) {
+          score += 40.0; // Exact primary artist match
+        } else if (primaryWords.isNotEmpty) {
+          final matchedTokens = primaryWords.where((t) => candSingers.contains(t)).length;
+          score += 40.0 * (matchedTokens / primaryWords.length);
         }
       }
 

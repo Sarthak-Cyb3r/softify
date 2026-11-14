@@ -460,12 +460,18 @@ class YoutubeStreamResolver implements IStreamResolver {
     if (tClean.isEmpty || cClean.isEmpty) return false;
     if (tClean == cClean) return true;
 
+    final tAllWords = tClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final cAllWords = cClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (tAllWords.length > cAllWords.length && (cClean.length / tClean.length < 0.85)) {
+      return false;
+    }
+
     // Word boundary containment for subtitles, artist prefixes, or title extensions
     final tPadded = ' $tClean ';
     final cPadded = ' $cClean ';
     final tWordsList = tClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (cPadded.contains(tPadded)) {
-      if (tWordsList.length > 1 || tClean.length >= 8 || (tClean.length / cClean.length >= 0.70)) {
+      if (tWordsList.length > 1 || tClean.length >= 4 || (tClean.length / cClean.length >= 0.70)) {
         return true;
       }
     }
@@ -474,14 +480,26 @@ class YoutubeStreamResolver implements IStreamResolver {
     }
 
     const titleStopWords = {'the', 'a', 'an', 'in', 'on', 'of', 'and', 'to', 'for', 'with', 'from', 'by', 'is', 'it', 'me', 'you'};
+    const titleMetaWords = {
+      'official', 'video', 'audio', 'music', 'song', 'lyrics', 'lyric', 'lyrical',
+      'full', 'original', 'soundtrack', 'ost', 'version', 'hd', '4k', 'visualizer',
+      'coke', 'studio', 'live', 'theme', 'prod', 'feat', 'ft',
+    };
     final tTokens = tClean.split(RegExp(r'\s+')).where((w) => w.length >= 3 && !titleStopWords.contains(w)).toSet();
     final cTokens = cClean.split(RegExp(r'\s+')).where((w) => w.length >= 3 && !titleStopWords.contains(w)).toSet();
     if (tTokens.isNotEmpty && cTokens.isNotEmpty) {
       final overlap = tTokens.intersection(cTokens);
       if (tTokens.length == 1) {
-        final tWordsAll = tClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
-        final cWordsAll = cClean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
-        if ((tWordsAll - cWordsAll).abs() > 0) return false;
+        if (cTokens.length > 1) {
+          final extraWords = cTokens.difference(tTokens);
+          final nonMetaExtra = extraWords.where((w) => !titleMetaWords.contains(w)).toList();
+          if (nonMetaExtra.isEmpty) {
+            return true;
+          }
+          if (tClean.length <= 3 || (tClean.length / cClean.length < 0.50)) {
+            return false;
+          }
+        }
       }
       return (overlap.length / tTokens.length) >= 0.60;
     }

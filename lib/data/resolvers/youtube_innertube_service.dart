@@ -76,20 +76,22 @@ class YoutubeInnertubeService {
   static const String visionosUserAgent =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
 
-  static String? _cachedVisitorData =
-      'CgtkUVZ6SFNGWXhmUSigy6HWBjIKCgJJThIEGgAgW2K1AgqyAkN1SUJDQVVTbEFFQjhRWnVadFctTkEwRENMcjNQYVlOZXlta3JqbGNHMmxiNTFJTVFVYzc5akp2NThZcnZPejBJd0JDelpKNVppYXEtTW5QcThXWHNNY1FYVUk0dEtkNXM2a0g1d2lkbVd1U0w1N2xJWWZCQkhMNHJoR3hlTU5IWVN5TGRDMmZWV2NiVU5nS056NTMzcnlnSEZTRHZ2MHZRZE9XVDFKNVFRZnVJclg5YTdRbF83TkQ1alpRNURnZGtOaGFvLVpzMlk0TmxvbG9LQVV5UlFIZXFaMVBUZUpRRE0wbFZrdE00enlsMVNtZGFWQi1aTTNwdHFtT0hEVnA2U1lTUDVobTBtMTJZRDhEVUQydEs0S1o1MlNKNV91Y3VpSUlyN3BUcjVIdVNOem9Ddw%3D%3D';
+  static String? _cachedVisitorData;
 
   Future<String?> _getVisitorData() async {
-    if (_cachedVisitorData != null) return _cachedVisitorData;
+    if (_cachedVisitorData != null && _cachedVisitorData!.isNotEmpty) {
+      return _cachedVisitorData;
+    }
     try {
       final req = await _client
           .getUrl(Uri.parse('https://www.youtube.com/'))
           .timeout(const Duration(seconds: 4));
-      req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
       final res = await req.close().timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         final html = await res.transform(utf8.decoder).join();
-        final match = RegExp(r'"visitorData":"([^"]+)"').firstMatch(html);
+        final match = RegExp(r'"VISITOR_DATA":"([^"]+)"').firstMatch(html) ??
+            RegExp(r'"visitorData":"([^"]+)"').firstMatch(html);
         if (match != null) {
           _cachedVisitorData = match.group(1);
           return _cachedVisitorData;
@@ -115,28 +117,37 @@ class YoutubeInnertubeService {
   /// Fetches video metadata and direct stream info via YouTube's InnerTube API.
   /// Completely bypasses web watch-page HTML scraping and bot-detection rate limits.
   Future<Map<String, dynamic>?> queryPlayer(String videoId) async {
-    // 1. Priority 0: iOS Client (supports unthrottled direct playback with User-Agent header)
-    final iosData = await _postPlayer(
-      videoId: videoId,
-      userAgent: iosUserAgent,
-      clientContext: {
-        'clientName': 'IOS',
-        'clientVersion': '20.10.4',
-        'deviceMake': 'Apple',
-        'deviceModel': 'iPhone16,2',
-        'osName': 'IOS',
-        'osVersion': '18.1.0.22B83',
-        'hl': 'en',
-        'timeZone': 'UTC',
-        'utcOffsetMinutes': 0,
-      },
-    );
+    // 1. Priority 0: Apple VisionOS Client with visitorData (unthrottled, direct audio playback)
+    try {
+      final visitor = await _getVisitorData();
+      final visionosData = await _postPlayer(
+        videoId: videoId,
+        userAgent: visionosUserAgent,
+        clientContext: {
+          'clientName': 'VISIONOS',
+          'clientVersion': '1.02',
+          'deviceMake': 'Apple',
+          'deviceModel': 'RealityDevice17,1',
+          'osName': 'visionOS',
+          'osVersion': '26.5.23O471',
+          'hl': 'en',
+          'gl': 'US',
+          if (visitor != null) 'visitorData': visitor,
+        },
+        extraHeaders: {
+          'X-YouTube-Client-Name': '101',
+          'X-YouTube-Client-Version': '1.02',
+          'Origin': 'https://www.youtube.com',
+          if (visitor != null) 'X-Goog-Visitor-Id': visitor,
+        },
+      );
 
-    if (iosData != null && _isPlayable(iosData)) {
-      iosData['_clientUserAgent'] = iosUserAgent;
-      iosData['_clientName'] = 'IOS';
-      return iosData;
-    }
+      if (visionosData != null && _isPlayable(visionosData)) {
+        visionosData['_clientUserAgent'] = visionosUserAgent;
+        visionosData['_clientName'] = 'VISIONOS';
+        return visionosData;
+      }
+    } catch (_) {}
 
     // 2. Fallback to Android Client
     final androidData = await _postPlayer(
@@ -159,45 +170,44 @@ class YoutubeInnertubeService {
       return androidData;
     }
 
-    // 3. Fallback to Apple VisionOS Client with visitorData
-    try {
-      final visitor = await _getVisitorData();
-      final visionosData = await _postPlayer(
-        videoId: videoId,
-        userAgent: visionosUserAgent,
-        clientContext: {
-          'clientName': 'VISIONOS',
-          'clientVersion': '1.02',
-          'deviceMake': 'Apple',
-          'deviceModel': 'RealityDevice17,1',
-          'osName': 'visionOS',
-          'osVersion': '26.5.23O471',
-          'hl': 'en',
-          'gl': 'US',
-          if (visitor != null) 'visitorData': visitor,
-        },
-      );
+    // 3. Fallback to iOS Client
+    final iosData = await _postPlayer(
+      videoId: videoId,
+      userAgent: iosUserAgent,
+      clientContext: {
+        'clientName': 'IOS',
+        'clientVersion': '20.10.4',
+        'deviceMake': 'Apple',
+        'deviceModel': 'iPhone16,2',
+        'osName': 'IOS',
+        'osVersion': '18.1.0.22B83',
+        'hl': 'en',
+        'timeZone': 'UTC',
+        'utcOffsetMinutes': 0,
+      },
+    );
 
-      if (visionosData != null && _isPlayable(visionosData)) {
-        visionosData['_clientUserAgent'] = visionosUserAgent;
-        visionosData['_clientName'] = 'VISIONOS';
-        return visionosData;
-      }
-    } catch (_) {}
+    if (iosData != null && _isPlayable(iosData)) {
+      iosData['_clientUserAgent'] = iosUserAgent;
+      iosData['_clientName'] = 'IOS';
+      return iosData;
+    }
 
-    return iosData ?? androidData;
+    return androidData ?? iosData;
   }
 
   Future<Map<String, dynamic>?> _postPlayer({
     required String videoId,
     required String userAgent,
     required Map<String, dynamic> clientContext,
+    Map<String, String>? extraHeaders,
   }) async {
     try {
       final uri = Uri.parse(_playerEndpoint);
       final req = await _client.postUrl(uri).timeout(const Duration(seconds: 6));
       req.headers.set('Content-Type', 'application/json');
       req.headers.set('User-Agent', userAgent);
+      extraHeaders?.forEach((k, v) => req.headers.set(k, v));
 
       final payload = {
         'context': {'client': clientContext},
@@ -393,8 +403,8 @@ class YoutubeInnertubeService {
     final streamUrl = Uri.parse(selected['url'] as String);
     final bitrate = (selected['bitrate'] as num?)?.toInt() ?? 128000;
     final itag = selected['itag'];
-    final clientUa = data['_clientUserAgent'] as String? ?? iosUserAgent;
-    final clientName = data['_clientName'] as String? ?? 'IOS';
+    final clientUa = data['_clientUserAgent'] as String? ?? visionosUserAgent;
+    final clientName = data['_clientName'] as String? ?? 'VISIONOS';
 
     return StreamInfo(
       url: streamUrl,
