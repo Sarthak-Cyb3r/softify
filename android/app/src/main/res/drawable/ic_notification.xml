@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Softify Soundwave Logo for Notification Tinting -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M110,240h16v32h-16z M134,224h16v64h-16z M158,208h16v96h-16z M182,188h16v136h-16z M206,168h16v176h-16z M230,144h16v224h-16z M254,128h16v256h-16z M278,144h16v224h-16z M302,168h16v176h-16z M326,188h16v136h-16z M350,208h16v96h-16z M374,224h16v64h-16z M398,240h16v32h-16z" />
+</vector>

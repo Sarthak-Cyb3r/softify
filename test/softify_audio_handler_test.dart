@@ -1,0 +1,614 @@
+import 'dart:async';
+
+import 'package:audio_service/audio_service.dart';
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:softify/data/database/app_database.dart';
+import 'package:softify/data/player/softify_audio_handler.dart';
+import 'package:softify/data/player/softify_audio_player.dart';
+import 'package:softify/data/repositories/drift_library_repository.dart';
+import 'package:softify/domain/entities/audio_quality_preset.dart';
+import 'package:softify/domain/entities/audio_repeat_mode.dart';
+import 'package:softify/domain/entities/download_item.dart';
+import 'package:softify/domain/entities/stream_info.dart';
+import 'package:softify/domain/entities/track.dart';
+import 'package:softify/domain/ports/i_download_repository.dart';
+import 'package:softify/domain/ports/i_stream_resolver.dart';
+
+class FakeSoftifyAudioPlayer implements ISoftifyAudioPlayer {
+  String? lastLoadedUrl;
+  String? lastLoadedFilePath;
+  bool _playing = false;
+  ProcessingState _processingState = ProcessingState.idle;
+  Duration _position = Duration.zero;
+
+  final BehaviorSubject<PlayerState> _playerStateSubject =
+      BehaviorSubject<PlayerState>.seeded(PlayerState(false, ProcessingState.idle));
+  final PublishSubject<PlaybackEvent> _playbackEventSubject =
+      PublishSubject<PlaybackEvent>();
+  final BehaviorSubject<Duration> _positionSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<Duration> _bufferedPositionSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<Duration?> _durationSubject =
+      BehaviorSubject<Duration?>.seeded(null);
+  double _volume = 1.0;
+  final BehaviorSubject<double> _volumeSubject =
+      BehaviorSubject<double>.seeded(1.0);
+  double _speed = 1.0;
+  final BehaviorSubject<double> _speedSubject =
+      BehaviorSubject<double>.seeded(1.0);
+
+  @override
+  bool get playing => _playing;
+
+  @override
+  ProcessingState get processingState => _processingState;
+
+  @override
+  Duration get position => _position;
+
+  @override
+  Duration get bufferedPosition => Duration.zero;
+
+  @override
+  Duration? get duration => _durationSubject.value;
+
+  @override
+  double get speed => _speed;
+
+  @override
+  Stream<double> get speedStream => _speedSubject.stream;
+
+  @override
+  Future<void> setSpeed(double speed) async {
+    _speed = speed;
+    _speedSubject.add(speed);
+  }
+
+  @override
+  double get volume => _volume;
+
+  @override
+  Stream<double> get volumeStream => _volumeSubject.stream;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    _volume = volume;
+    _volumeSubject.add(volume);
+  }
+
+  @override
+  Future<void> setEqualizerEnabled(bool enabled) async {}
+
+  @override
+  Future<void> setEqualizerBands(List<double> gains) async {}
+
+  @override
+  Future<void> setLoudnessEnhancerGain(double gain) async {}
+
+  @override
+  Future<void> setBassBoost(double boost) async {}
+
+  @override
+  Future<List<double>> getBandFrequencies() async =>
+      const [60.0, 230.0, 910.0, 3600.0, 14000.0];
+
+  @override
+  Stream<PlayerState> get playerStateStream => _playerStateSubject.stream;
+
+  @override
+  Stream<PlaybackEvent> get playbackEventStream => _playbackEventSubject.stream;
+
+  @override
+  Stream<Duration> get positionStream => _positionSubject.stream;
+
+  @override
+  Stream<Duration> get bufferedPositionStream => _bufferedPositionSubject.stream;
+
+  @override
+  Stream<Duration?> get durationStream => _durationSubject.stream;
+
+  @override
+  Future<void> play() async {
+    _playing = true;
+    _processingState = ProcessingState.ready;
+    _playerStateSubject.add(PlayerState(_playing, _processingState));
+    _playbackEventSubject.add(PlaybackEvent(
+      processingState: _processingState,
+      updatePosition: _position,
+    ));
+  }
+
+  @override
+  Future<void> pause() async {
+    _playing = false;
+    _playerStateSubject.add(PlayerState(_playing, _processingState));
+    _playbackEventSubject.add(PlaybackEvent(
+      processingState: _processingState,
+      updatePosition: _position,
+    ));
+  }
+
+  @override
+  Future<void> stop() async {
+    _playing = false;
+    _processingState = ProcessingState.idle;
+    _playerStateSubject.add(PlayerState(_playing, _processingState));
+    _playbackEventSubject.add(PlaybackEvent(
+      processingState: _processingState,
+      updatePosition: _position,
+    ));
+  }
+
+  @override
+  Future<void> seek(Duration pos) async {
+    _position = pos;
+    _positionSubject.add(pos);
+  }
+
+  String? _preloadedUrl;
+  String? _preloadedFilePath;
+  bool _hasPreloadedNext = false;
+
+  @override
+  bool get hasPreloadedNext => _hasPreloadedNext;
+
+  @override
+  bool get isCrossfading => false;
+
+  @override
+  String? get preloadedSource => _preloadedUrl ?? _preloadedFilePath;
+
+  @override
+  Future<void> preloadNextUrl(String url, {Map<String, String>? headers}) async {
+    _preloadedUrl = url;
+    _hasPreloadedNext = true;
+  }
+
+  @override
+  Future<void> preloadNextFilePath(String path) async {
+    _preloadedFilePath = path;
+    _hasPreloadedNext = true;
+  }
+
+  @override
+  Future<void> playPreloadedNext({Duration crossfade = Duration.zero}) async {
+    if (_hasPreloadedNext) {
+      lastLoadedUrl = _preloadedUrl;
+      lastLoadedFilePath = _preloadedFilePath;
+      _hasPreloadedNext = false;
+      _preloadedUrl = null;
+      _preloadedFilePath = null;
+      await play();
+    }
+  }
+
+  @override
+  void clearPreloadedNext() {
+    _hasPreloadedNext = false;
+    _preloadedUrl = null;
+    _preloadedFilePath = null;
+  }
+
+  @override
+  Future<Duration?> setUrl(String url, {Map<String, String>? headers, Duration? initialPosition}) async {
+    clearPreloadedNext();
+    lastLoadedUrl = url;
+    _position = initialPosition ?? Duration.zero;
+    _processingState = ProcessingState.ready;
+    _playerStateSubject.add(PlayerState(_playing, _processingState));
+    return const Duration(minutes: 3);
+  }
+
+  @override
+  Future<Duration?> setFilePath(String path, {Duration? initialPosition}) async {
+    clearPreloadedNext();
+    lastLoadedFilePath = path;
+    _position = initialPosition ?? Duration.zero;
+    _processingState = ProcessingState.ready;
+    _playerStateSubject.add(PlayerState(_playing, _processingState));
+    return const Duration(minutes: 3);
+  }
+
+  void simulateTrackCompletion() {
+    _processingState = ProcessingState.completed;
+    _playerStateSubject.add(PlayerState(_playing, _processingState));
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _playerStateSubject.close();
+    await _playbackEventSubject.close();
+    await _positionSubject.close();
+    await _bufferedPositionSubject.close();
+    await _durationSubject.close();
+  }
+}
+
+class MockStreamResolver implements IStreamResolver {
+  int resolveCalls = 0;
+
+  @override
+  Future<StreamInfo> resolve(
+    Track track, {
+    AudioQualityPreset quality = AudioQualityPreset.standard,
+    bool forceFresh = false,
+  }) async {
+    resolveCalls++;
+    return StreamInfo(
+      url: Uri.parse('https://example.com/audio_${track.id}.m4a'),
+      container: 'm4a',
+      bitrate: 128000,
+      codec: 'mp4a.40.2',
+      expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      providerName: 'mock',
+    );
+  }
+
+  @override
+  Future<void> prefetch(Track track, {AudioQualityPreset quality = AudioQualityPreset.standard}) async {}
+}
+
+class MockDownloadRepository implements IDownloadRepository {
+  final Map<String, String> downloadedFiles = {};
+
+  @override
+  Future<void> queueDownload(Track track, {AudioQualityPreset quality = AudioQualityPreset.standard}) async {}
+
+  @override
+  Future<void> pauseDownload(String trackId) async {}
+
+  @override
+  Future<void> resumeDownload(String trackId) async {}
+
+  @override
+  Future<void> cancelDownload(String trackId) async {}
+
+  @override
+  Future<void> deleteDownload(String trackId) async {
+    downloadedFiles.remove(trackId);
+  }
+
+  @override
+  Stream<List<DownloadItem>> watchDownloads() => const Stream.empty();
+
+  @override
+  Stream<DownloadItem?> watchDownload(String trackId) => const Stream.empty();
+
+  @override
+  Future<DownloadItem?> getDownload(String trackId) async => null;
+
+  @override
+  Future<bool> isDownloaded(String trackId) async => downloadedFiles.containsKey(trackId);
+
+  @override
+  Future<String?> getDownloadedFilePath(String trackId) async => downloadedFiles[trackId];
+
+  @override
+  Future<({int verified, int pruned})> verifyAndRepairDownloads() async => (verified: 0, pruned: 0);
+
+  @override
+  Future<void> dispose() async {}
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late AppDatabase db;
+  late DriftLibraryRepository libraryRepo;
+  late MockStreamResolver streamResolver;
+  late MockDownloadRepository downloadRepo;
+  late FakeSoftifyAudioPlayer fakePlayer;
+
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+    libraryRepo = DriftLibraryRepository(db);
+    streamResolver = MockStreamResolver();
+    downloadRepo = MockDownloadRepository();
+    fakePlayer = FakeSoftifyAudioPlayer();
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
+
+  const track1 = Track(
+    id: 't-1',
+    sourceId: 's-1',
+    title: 'Starboy',
+    artist: 'The Weeknd',
+    duration: Duration(seconds: 230),
+  );
+
+  const track2 = Track(
+    id: 't-2',
+    sourceId: 's-2',
+    title: 'Blinding Lights',
+    artist: 'The Weeknd',
+    duration: Duration(seconds: 200),
+  );
+
+  const track3 = Track(
+    id: 't-3',
+    sourceId: 's-3',
+    title: 'Save Your Tears',
+    artist: 'The Weeknd',
+    duration: Duration(seconds: 215),
+  );
+
+  group('SoftifyAudioHandler: Queue & Playback Management', () {
+    test('Queue operations: setQueue, addToQueue, playNext, reorder, remove', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      // Initial queue
+      await handler.setQueue([track1, track2], startIndex: 0);
+      expect(handler.currentQueue.length, 2);
+      expect(handler.currentTrack?.id, track1.id);
+      expect(handler.currentIndex, 0);
+      expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-1.m4a');
+      expect(fakePlayer.playing, isTrue);
+
+      // Add to queue
+      await handler.addToQueue(track3);
+      expect(handler.currentQueue.length, 3);
+      expect(handler.currentQueue.last.id, track3.id);
+
+      // Play next (insert immediately after current index 0)
+      const track4 = Track(
+        id: 't-4',
+        sourceId: 's-4',
+        title: 'In Your Eyes',
+        artist: 'The Weeknd',
+        duration: Duration(seconds: 237),
+      );
+      await handler.playNext(track4);
+      expect(handler.currentQueue.length, 4);
+      expect(handler.currentQueue[1].id, track4.id);
+
+      // Reorder queue: move item from index 1 to 3
+      await handler.reorderQueue(1, 3);
+      expect(handler.currentQueue[3].id, track4.id);
+
+      // Remove queue item
+      await handler.removeQueueItemAt(3);
+      expect(handler.currentQueue.length, 3);
+      expect(handler.currentQueue.any((t) => t.id == track4.id), isFalse);
+
+      // Clear queue
+      await handler.clearQueue();
+      expect(handler.currentQueue, isEmpty);
+      expect(handler.currentTrack, isNull);
+
+      await handler.dispose();
+    });
+
+    test('Repeat and Shuffle modes toggle correctly', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      await handler.setQueue([track1, track2, track3], startIndex: 0);
+
+      // Repeat mode
+      expect(handler.repeatMode, AudioRepeatMode.off);
+      await handler.setAudioRepeatMode(AudioRepeatMode.all);
+      expect(handler.repeatMode, AudioRepeatMode.all);
+      await handler.setAudioRepeatMode(AudioRepeatMode.one);
+      expect(handler.repeatMode, AudioRepeatMode.one);
+
+      // Shuffle mode
+      expect(handler.isShuffleEnabled, isFalse);
+      await handler.setShuffleEnabled(true);
+      expect(handler.isShuffleEnabled, isTrue);
+      // Current track remains active at index 0
+      expect(handler.currentTrack?.id, track1.id);
+      expect(handler.currentQueue.length, 3);
+
+      // Unshuffle restores original order
+      await handler.setShuffleEnabled(false);
+      expect(handler.isShuffleEnabled, isFalse);
+      expect(handler.currentQueue[0].id, track1.id);
+      expect(handler.currentQueue[1].id, track2.id);
+      expect(handler.currentQueue[2].id, track3.id);
+
+      await handler.dispose();
+    });
+
+    test('Offline Playback Routing (D7): plays from local file when downloaded', () async {
+      // Mark track1 as downloaded locally
+      downloadRepo.downloadedFiles[track1.id] = '/local/storage/tracks/t-1.m4a';
+
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      await handler.playTrack(track1);
+
+      // Must play from local file with zero network data usage
+      expect(fakePlayer.lastLoadedFilePath, '/local/storage/tracks/t-1.m4a');
+      expect(streamResolver.resolveCalls, 0); // Resolver NOT called!
+
+      await handler.dispose();
+    });
+
+    test('Persisted queue state restores on startup', () async {
+      // Pre-save state in library repository
+      await libraryRepo.saveQueueState([track1, track2], 1, const Duration(seconds: 42));
+
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      await handler.restorePersistedState();
+
+      expect(handler.currentQueue.length, 2);
+      expect(handler.currentIndex, 1);
+      expect(handler.currentTrack?.id, track2.id);
+
+      await handler.dispose();
+    });
+
+    test('Instant Gapless Next Track Transition: pre-buffers next track and switches instantly', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      // Start queue with [track1, track2]
+      await handler.setQueue([track1, track2], startIndex: 0);
+      await pumpEventQueue();
+
+      // track1 is playing
+      expect(handler.currentTrack?.id, track1.id);
+      expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-1.m4a');
+
+      // Next track (track2) must be preloaded on standby player
+      expect(fakePlayer.hasPreloadedNext, isTrue);
+      expect(fakePlayer.preloadedSource, 'https://example.com/audio_t-2.m4a');
+
+      // Now skipToNext
+      await handler.skipToNext();
+      await pumpEventQueue();
+
+      // Must switch instantly to track2 using preloaded audio without extra setUrl delay
+      expect(handler.currentTrack?.id, track2.id);
+      expect(fakePlayer.lastLoadedUrl, 'https://example.com/audio_t-2.m4a');
+      expect(fakePlayer.playing, isTrue);
+
+      await handler.dispose();
+    });
+
+    test('Local file playback error transparently falls back to network stream resolution', () async {
+      // Simulate corrupt local file that causes setFilePath to throw
+      downloadRepo.downloadedFiles[track1.id] = '/corrupt/local/file.m4a';
+
+      // Override fakePlayer to throw on setFilePath
+      final throwingPlayer = ThrowingSetFilePathFakePlayer();
+
+      final handler = SoftifyAudioHandler(
+        player: throwingPlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      await handler.playTrack(track1);
+
+      // When setFilePath failed, handler must have fallen back to streamResolver and setUrl!
+      expect(throwingPlayer.lastLoadedUrl, 'https://example.com/audio_t-1.m4a');
+      expect(throwingPlayer.playing, isTrue);
+      expect(streamResolver.resolveCalls, 1);
+
+      await handler.dispose();
+    });
+
+    test('setSpeed updates player speed and broadcasts speed stream and playbackState', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+      );
+
+      expect(handler.speed, 1.0);
+      expect(fakePlayer.speed, 1.0);
+
+      await handler.setSpeed(1.5);
+      expect(handler.speed, 1.5);
+      expect(fakePlayer.speed, 1.5);
+      expect(handler.playbackState.value.speed, 1.5);
+
+      await handler.setSpeed(2.0);
+      expect(handler.speed, 2.0);
+      expect(fakePlayer.speed, 2.0);
+      expect(handler.playbackState.value.speed, 2.0);
+
+      await handler.dispose();
+    });
+
+    test('onTaskRemoved and stop() transition playbackState to idle and pause player', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+        enableAudioSession: false,
+        autoRestoreState: false,
+      );
+
+      await handler.setQueue([track1]);
+      await handler.play();
+      expect(handler.playbackState.value.playing, isTrue);
+
+      await handler.onTaskRemoved();
+      expect(fakePlayer.playing, isFalse);
+      expect(handler.playbackState.value.playing, isFalse);
+      expect(handler.playbackState.value.processingState, AudioProcessingState.idle);
+
+      await handler.dispose();
+    });
+
+    test('playFromSearch ranks cached tracks with VoiceSearchMatcher and starts playback', () async {
+      final handler = SoftifyAudioHandler(
+        player: fakePlayer,
+        streamResolver: streamResolver,
+        libraryRepo: libraryRepo,
+        downloadRepo: downloadRepo,
+        enableAudioSession: false,
+        autoRestoreState: false,
+      );
+
+      // Seed local library with candidates
+      await libraryRepo.upsertTrack(track1); // Starboy - The Weeknd
+      await libraryRepo.upsertTrack(track2); // Blinding Lights - The Weeknd
+      await libraryRepo.upsertTrack(track3); // Save Your Tears - The Weeknd
+
+      // Test natural voice search with artist connector
+      await handler.playFromSearch('Starboy by The Weeknd');
+      expect(handler.currentTrack?.id, equals(track1.id));
+      expect(handler.currentTrack?.title, equals('Starboy'));
+      expect(fakePlayer.playing, isTrue);
+
+      // Test fuzzy search with typo
+      await handler.playFromSearch('Starboi Weeknd');
+      expect(handler.currentTrack?.id, equals(track1.id));
+
+      // Test voice search via extras
+      await handler.playFromSearch('', {
+        'android.intent.extra.title': 'Blinding Lights',
+        'android.intent.extra.artist': 'The Weeknd',
+      });
+      expect(handler.currentTrack?.id, equals(track2.id));
+      expect(handler.currentTrack?.title, equals('Blinding Lights'));
+
+      await handler.dispose();
+    });
+  });
+}
+
+class ThrowingSetFilePathFakePlayer extends FakeSoftifyAudioPlayer {
+  @override
+  Future<Duration?> setFilePath(String path, {Duration? initialPosition}) async {
+    throw Exception('Disk read error / Corrupt MP4 container');
+  }
+}
+

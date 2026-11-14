@@ -1,0 +1,64 @@
+name: softify
+description: "An ad-free, paywall-free mobile music streaming application."
+publish_to: 'none'
+
+version: 4.0.1+239
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  just_audio: ^0.9.36
+  audio_service: ^0.18.14
+  youtube_explode_dart: ^3.1.0
+  background_downloader: ^8.5.2
+  drift: ^2.16.0
+  sqlite3_flutter_libs: ^0.5.20
+  path_provider: ^2.1.2
+  path: ^1.9.0
+  http: ^1.2.0
+  audio_session: ^0.1.18
+  rxdart: ^0.27.7
+  crypto: ^3.0.3
+  dart_des: ^1.0.2
+  palette_generator: ^0.3.3+7
+  just_audio_media_kit: ^2.1.0
+  media_kit: ^1.2.6
+  just_audio_platform_interface: ^4.6.0
+  media_kit_libs_linux: ^1.2.1
+  media_kit_native_event_loop: ^1.0.9
+  url_launcher: ^6.3.3
+  audio_service_mpris: '>=0.2.1 <2.0.0'
+  device_info_plus: ^13.3.0
+  xml: ^6.5.0
+  protobuf: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  drift_dev: ^2.16.0
+  build_runner: ^2.4.8
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo/logo.png
+    - assets/fonts/
+
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-VariableFont_wght.ttf
+    - family: BricolageGrotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-VariableFont.ttf
+    - family: InstrumentSerif
+      fonts:
+        - asset: assets/fonts/InstrumentSerif-Regular.ttf
+        - asset: assets/fonts/InstrumentSerif-Italic.ttf
+          style: italic

@@ -57,8 +57,8 @@ print_banner() {
   ███████║╚██████╔╝██║        ██║   ██║██║        ██║   
   ╚══════╝ ╚═════╝ ╚═╝        ╚═╝   ╚═╝╚═╝        ╚═╝   
 EOF
-    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v4.0.2${COLOR_RESET}\n"
-    printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Dual UI (Metrolist & Apple Music)${COLOR_RESET}\n\n"
+    printf "  ${COLOR_EMERALD}${COLOR_BOLD}Linux Desktop Terminal Installer${COLOR_RESET} ${COLOR_MUTED}• v4.0.0-stable${COLOR_RESET}\n"
+    printf "  ${COLOR_DIM}Ad-Free • Studio Master Audio • Fast Local-First UI${COLOR_RESET}\n\n"
 }
 
 # ------------------------------------------------------------------------------
@@ -72,9 +72,9 @@ fi
 
 # Detect local Softify git repository if present
 LOCAL_REPO=""
-if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/build.gradle.kts" ]]; then
+if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/pubspec.yaml" ]]; then
     LOCAL_REPO="$SCRIPT_DIR"
-elif [[ -f "$(pwd)/build.gradle.kts" && $(grep -c "softify" "$(pwd)/build.gradle.kts" 2>/dev/null || true) -gt 0 ]]; then
+elif [[ -f "$(pwd)/pubspec.yaml" && $(grep -c "name: softify" "$(pwd)/pubspec.yaml" 2>/dev/null || true) -gt 0 ]]; then
     LOCAL_REPO="$(pwd)"
 fi
 
@@ -397,10 +397,10 @@ try_download_prebuilt() {
 
 # If user did NOT request --build, try pre-built package first
 if [[ "$BUILD_FROM_SOURCE" != true ]]; then
-    # First: Check if local repo already has a pre-built binary
-    if [[ -n "$LOCAL_REPO" && -f "${LOCAL_REPO}/target/release/softify" ]]; then
-        BUNDLE_DIR="${LOCAL_REPO}/target/release"
-        log_success "Found local pre-built binary at: ${BUNDLE_DIR}/softify"
+    # First: Check if local repo already has a pre-built bundle
+    if [[ -n "$LOCAL_REPO" && -d "${LOCAL_REPO}/build/linux/x64/release/bundle" && -f "${LOCAL_REPO}/build/linux/x64/release/bundle/softify" ]]; then
+        BUNDLE_DIR="${LOCAL_REPO}/build/linux/x64/release/bundle"
+        log_success "Found local pre-built bundle at: ${BUNDLE_DIR}"
     else
         # Second: Try downloading prebuilt binary from GitHub Releases
         if try_download_prebuilt; then
@@ -414,7 +414,7 @@ if [[ -z "$BUNDLE_DIR" ]]; then
     if [[ "$BUILD_FROM_SOURCE" == true ]] || [[ -n "$LOCAL_REPO" ]]; then
         TARGET_REPO="${LOCAL_REPO:-}"
         if [[ -z "$TARGET_REPO" ]]; then
-            log_error "--build was requested, but no Softify repository was found."
+            log_error "--build was requested, but no Softify Flutter repository was found."
             log_info "Please clone the repository first:"
             log_info "  git clone https://github.com/${GITHUB_REPO}.git && cd softify && ./install.sh --build"
             exit 1
@@ -423,21 +423,39 @@ if [[ -z "$BUNDLE_DIR" ]]; then
         log_warn "Pre-built binary package not found or --build requested."
         log_info "Detected local Softify repository at: ${COLOR_BOLD}${TARGET_REPO}${COLOR_RESET}"
 
-        if ! command -v cargo >/dev/null 2>&1; then
-            if [[ -f "$HOME/.cargo/env" ]]; then
-                source "$HOME/.cargo/env"
-            else
-                log_error "Rust/Cargo toolchain was not found."
-                log_info "Please install Rust (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh) to compile Softify from source."
-                exit 1
+        if (( TOTAL_MEM_MB <= 5120 )); then
+            log_warn "RAM Caution: Your system has ${AVAILABLE_MEM_MB} MB free RAM out of ${TOTAL_MEM_MB} MB."
+            log_warn "Building locally requires compilation that may take several minutes."
+            if [[ "$AUTO_CONFIRM" != true ]]; then
+                printf "\nProceed with memory-safe local compilation? [y/N]: "
+                read -r confirm_build </dev/tty || confirm_build="n"
+                if [[ ! "$confirm_build" =~ ^[Yy]$ ]]; then
+                    log_warn "Installation cancelled by user."
+                    exit 0
+                fi
             fi
         fi
 
-        log_info "Building Softify native Linux binary with Cargo in release mode..."
-        cd "${TARGET_REPO}"
-        cargo build --release
+        install_source_build_deps
 
-        BUNDLE_DIR="${TARGET_REPO}/target/release"
+        if ! command -v flutter >/dev/null 2>&1; then
+            log_error "Flutter SDK was not found in PATH."
+            log_info "Please install Flutter (https://docs.flutter.dev/get-started/install/linux) to build from source."
+            exit 1
+        fi
+
+        log_info "Building Softify native Linux bundle with low-memory safety..."
+        log_info "Concurrency limits: MAKEFLAGS=\"-j${MAX_CONCURRENT_JOBS}\""
+
+        cd "${TARGET_REPO}"
+        export MAKEFLAGS="-j${MAX_CONCURRENT_JOBS}"
+        export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_CONCURRENT_JOBS}"
+
+        flutter config --enable-linux-desktop >/dev/null 2>&1 || true
+        flutter pub get
+        flutter build linux --release
+
+        BUNDLE_DIR="${TARGET_REPO}/build/linux/x64/release/bundle"
     else
         log_error "No pre-built Linux release package found on GitHub Releases yet."
         log_info "Check https://github.com/${GITHUB_REPO}/releases for official Linux assets."
@@ -484,18 +502,12 @@ log_success "Installed executable wrapper: ${LAUNCHER_SCRIPT}"
 # Install Desktop Icons
 ICON_INSTALLED=false
 
-# 1. Check inside bundle assets
-if [[ -f "${APP_DIR}/softify.png" ]]; then
-    cp "${APP_DIR}/softify.png" "${ICON_DIR_PNG}/softify.png"
-    ICON_INSTALLED=true
-elif [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" ]]; then
+# 1. Check inside bundle flutter assets
+if [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" ]]; then
     cp "${APP_DIR}/data/flutter_assets/assets/logo/logo.png" "${ICON_DIR_PNG}/softify.png"
     ICON_INSTALLED=true
 fi
-if [[ -f "${APP_DIR}/softify.svg" ]]; then
-    cp "${APP_DIR}/softify.svg" "${ICON_DIR_SVG}/softify.svg"
-    ICON_INSTALLED=true
-elif [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" ]]; then
+if [[ -f "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" ]]; then
     cp "${APP_DIR}/data/flutter_assets/assets/logo/logo.svg" "${ICON_DIR_SVG}/softify.svg"
     ICON_INSTALLED=true
 fi
@@ -532,19 +544,17 @@ Version=1.0
 Type=Application
 Name=Softify
 GenericName=Music Player
-Comment=High-Performance Dual-UI Music Streaming Player (Metrolist & Apple Music)
+Comment=Ad-free, studio-fidelity music streaming application
 Exec=${LAUNCHER_SCRIPT} %u
 Icon=softify
 Terminal=false
-StartupWMClass=com.softify.app.MainKt
+StartupWMClass=softify
 Categories=AudioVideo;Audio;Player;Music;
-Keywords=music;audio;stream;player;lyrics;metrolist;applemusic;
+Keywords=music;audio;stream;player;lyrics;spotify;saavn;
 MimeType=x-scheme-handler/softify;
 StartupNotify=true
-X-GNOME-UsesNotifications=true
 EOF
 chmod 644 "${DESKTOP_FILE}"
-rm -f "${DESKTOP_DIR}/com.softify.softify.desktop"
 log_success "Installed desktop entry: ${DESKTOP_FILE}"
 
 # Update Desktop & Icon Caches

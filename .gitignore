@@ -33,12 +33,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-**/build/
 /coverage/
-/target/
-*.jar
-!gradle/wrapper/gradle-wrapper.jar
-
 
 # Symbolication related
 app.*.symbols
@@ -79,4 +74,3 @@ Mobile Design Softify/
 *.aab
 *.tar.gz
 dist/
-.gradle/

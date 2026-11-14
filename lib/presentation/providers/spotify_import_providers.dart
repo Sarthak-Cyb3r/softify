@@ -1,0 +1,447 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../data/importer/keyless_spotify_importer.dart';
+import '../../domain/entities/spotify_import.dart';
+import '../../domain/entities/track.dart';
+import '../../domain/ports/i_library_repository.dart';
+import '../../domain/ports/i_spotify_importer.dart';
+import 'player_providers.dart';
+
+import '../../data/services/spotify_auth_service.dart';
+
+final spotifyAuthServiceProvider = Provider<SpotifyAuthService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return SpotifyAuthService(db: db);
+});
+
+final spotifyImporterProvider = Provider<ISpotifyImporter>((ref) {
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  return KeylessSpotifyImporter(
+    catalog: catalog,
+    authService: authService,
+  );
+});
+
+final spotifyAuthStateProvider =
+    FutureProvider.autoDispose<({bool isLoggedIn, String? userName})>((ref) async {
+  final authService = ref.watch(spotifyAuthServiceProvider);
+  final loggedIn = await authService.isLoggedIn();
+  final userName = await authService.getConnectedUserName();
+  return (isLoggedIn: loggedIn, userName: userName);
+});
+
+enum SpotifyImportStatus {
+  idle,
+  fetchingPlaylist,
+  matchingTracks,
+  matched,
+  importingToDb,
+  importedSuccess,
+  error,
+}
+
+class SpotifyImportState {
+  final SpotifyImportStatus status;
+  final String? errorMessage;
+  final String inputUrl;
+  final SpotifyImportPlaylist? playlist;
+  final int matchedProgress;
+  final int totalToMatch;
+  final String? importedPlaylistId;
+
+  /// Tracks pulled from the Web API so far while status is
+  /// [SpotifyImportStatus.fetchingPlaylist].
+  final int fetchProgress;
+
+  const SpotifyImportState({
+    this.status = SpotifyImportStatus.idle,
+    this.errorMessage,
+    this.inputUrl = '',
+    this.playlist,
+    this.matchedProgress = 0,
+    this.totalToMatch = 0,
+    this.importedPlaylistId,
+    this.fetchProgress = 0,
+  });
+
+  SpotifyImportState copyWith({
+    SpotifyImportStatus? status,
+    String? errorMessage,
+    String? inputUrl,
+    SpotifyImportPlaylist? playlist,
+    int? matchedProgress,
+    int? totalToMatch,
+    String? importedPlaylistId,
+    int? fetchProgress,
+  }) {
+    return SpotifyImportState(
+      status: status ?? this.status,
+      errorMessage: errorMessage,
+      inputUrl: inputUrl ?? this.inputUrl,
+      playlist: playlist ?? this.playlist,
+      matchedProgress: matchedProgress ?? this.matchedProgress,
+      totalToMatch: totalToMatch ?? this.totalToMatch,
+      importedPlaylistId: importedPlaylistId ?? this.importedPlaylistId,
+      fetchProgress: fetchProgress ?? this.fetchProgress,
+    );
+  }
+}
+
+class SpotifyImportNotifier extends StateNotifier<SpotifyImportState> {
+  final ISpotifyImporter _importer;
+  final ILibraryRepository _libraryRepo;
+
+  SpotifyImportNotifier({
+    required ISpotifyImporter importer,
+    required ILibraryRepository libraryRepo,
+  })  : _importer = importer,
+        _libraryRepo = libraryRepo,
+        super(const SpotifyImportState());
+
+  void setInputUrl(String url) {
+    state = state.copyWith(inputUrl: url);
+  }
+
+  void reset() {
+    state = const SpotifyImportState();
+  }
+
+  Future<void> loadAndMatchPlaylist(String urlOrId) async {
+    final cleanUrl = urlOrId.trim();
+    if (cleanUrl.isEmpty) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Please enter a valid Spotify playlist link or URI.',
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      status: SpotifyImportStatus.fetchingPlaylist,
+      inputUrl: cleanUrl,
+      errorMessage: null,
+      fetchProgress: 0,
+    );
+
+    try {
+      final playlist = await _importer.fetchPlaylist(
+        cleanUrl,
+        onProgress: (loaded) {
+          if (mounted) state = state.copyWith(fetchProgress: loaded);
+        },
+      );
+      if (playlist.tracks.isEmpty) {
+        state = state.copyWith(
+          status: SpotifyImportStatus.error,
+          errorMessage: 'No playable tracks found in this Spotify playlist.',
+          playlist: playlist,
+        );
+        return;
+      }
+
+      final total = playlist.tracks.length;
+      state = state.copyWith(
+        status: SpotifyImportStatus.matchingTracks,
+        playlist: playlist,
+        matchedProgress: 0,
+        totalToMatch: total,
+      );
+
+      final List<SpotifyTrackItem> results = List<SpotifyTrackItem>.from(playlist.tracks);
+      int completed = 0;
+
+      // Match tracks in parallel chunks of 5 for ultra-fast throughput
+      const chunkSize = 5;
+      for (int i = 0; i < total; i += chunkSize) {
+        final end = (i + chunkSize < total) ? i + chunkSize : total;
+        final chunkIndices = List.generate(end - i, (k) => i + k);
+
+        await Future.wait(
+          chunkIndices.map((idx) async {
+            final item = playlist.tracks[idx];
+            Track? matchedTrack;
+            try {
+              matchedTrack = await _importer.matchTrack(item);
+            } catch (_) {
+              matchedTrack = null;
+            }
+
+            results[idx] = item.copyWith(
+              matchedTrack: matchedTrack,
+              isMatched: matchedTrack != null,
+              confidence: matchedTrack?.matchConfidence ?? 0.0,
+            );
+            completed++;
+          }),
+        );
+
+        state = state.copyWith(
+          matchedProgress: completed,
+          playlist: playlist.copyWith(tracks: List.from(results)),
+        );
+      }
+
+      state = state.copyWith(
+        status: SpotifyImportStatus.matched,
+        matchedProgress: total,
+        playlist: playlist.copyWith(tracks: results),
+      );
+    } catch (e) {
+      final cleanMessage = e
+          .toString()
+          .replaceAll('Exception: ', '')
+          .replaceAll('FormatException: ', '');
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: cleanMessage,
+      );
+    }
+  }
+
+  void updateTrackMatch(int index, Track newTrack) {
+    final currentPlaylist = state.playlist;
+    if (currentPlaylist == null || index < 0 || index >= currentPlaylist.tracks.length) {
+      return;
+    }
+
+    final tracks = List<SpotifyTrackItem>.from(currentPlaylist.tracks);
+    tracks[index] = tracks[index].copyWith(
+      matchedTrack: newTrack,
+      isMatched: true,
+      confidence: 1.0,
+    );
+
+    state = state.copyWith(
+      playlist: currentPlaylist.copyWith(tracks: tracks),
+    );
+  }
+
+  Future<String?> commitImportToLibrary() async {
+    final currentPlaylist = state.playlist;
+    if (currentPlaylist == null) return null;
+
+    state = state.copyWith(status: SpotifyImportStatus.importingToDb);
+
+    try {
+      final newPlaylist = await _libraryRepo.createPlaylist(
+        currentPlaylist.name,
+        description: currentPlaylist.description ?? 'Imported from Spotify',
+        isImported: true,
+        sourceUrl: 'https://open.spotify.com/playlist/${currentPlaylist.id}',
+      );
+
+      final matchedEntries = currentPlaylist.tracks
+          .where((t) => t.isMatched && t.matchedTrack != null)
+          .toList();
+      final matchedTracks = matchedEntries.map((t) => t.matchedTrack!).toList();
+      final originalMeta = matchedEntries
+          .map((t) => (title: t.title, artist: t.artist))
+          .toList();
+
+      // Atomic single-transaction batch insert with original Spotify titles & artists
+      await _libraryRepo.addTracksToPlaylist(
+        newPlaylist.id,
+        matchedTracks,
+        originalMetadata: originalMeta,
+      );
+
+      state = state.copyWith(
+        status: SpotifyImportStatus.importedSuccess,
+        importedPlaylistId: newPlaylist.id,
+      );
+
+      return newPlaylist.id;
+    } catch (e) {
+      state = state.copyWith(
+        status: SpotifyImportStatus.error,
+        errorMessage: 'Failed to save imported playlist: $e',
+      );
+      return null;
+    }
+  }
+}
+
+final spotifyImportNotifierProvider =
+    StateNotifierProvider.autoDispose<SpotifyImportNotifier, SpotifyImportState>((ref) {
+  final importer = ref.watch(spotifyImporterProvider);
+  final libraryRepo = ref.watch(libraryRepositoryProvider);
+  return SpotifyImportNotifier(importer: importer, libraryRepo: libraryRepo);
+});
+
+class SpotifyPlaylistSyncService {
+  final ISpotifyImporter _importer;
+  final ILibraryRepository _libraryRepo;
+
+  SpotifyPlaylistSyncService({
+    required ISpotifyImporter importer,
+    required ILibraryRepository libraryRepo,
+  })  : _importer = importer,
+        _libraryRepo = libraryRepo;
+
+  static String _cleanString(String s) {
+    return s
+        .toLowerCase()
+        // Remove text inside parentheses/brackets: (official video), [lyrics], (feat. x), etc.
+        .replaceAll(RegExp(r'\([^)]*\)|\[[^\]]*\]'), ' ')
+        // Remove common YouTube fluff words
+        .replaceAll(
+            RegExp(r'\b(official|music|video|audio|lyric|lyrics|remastered|hd|4k|visualizer|ft|feat|featuring)\b'),
+            ' ')
+        // Keep alphanumeric characters and spaces
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        // Collapse multiple spaces
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  /// Compares local imported playlist with the remote Spotify playlist.
+  /// Finds any newly added tracks, matches them, and adds them to the playlist.
+  /// Returns the number of newly added tracks (0 if up to date).
+  Future<int> syncPlaylist(String playlistId) async {
+    try {
+      final playlistData = await _libraryRepo.getPlaylistWithTracks(playlistId);
+      if (playlistData == null || !playlistData.playlist.isImported) {
+        return 0;
+      }
+
+      final sourceUrl = playlistData.playlist.sourceUrl;
+      if (sourceUrl == null || sourceUrl.isEmpty) {
+        return 0;
+      }
+
+      final spotifyId = _importer.extractPlaylistId(sourceUrl);
+      if (spotifyId == null || spotifyId.isEmpty) {
+        return 0;
+      }
+
+      // 1. Fetch remote tracks from Spotify
+      final remotePlaylist = await _importer.fetchPlaylist(spotifyId);
+      if (remotePlaylist.tracks.isEmpty) {
+        return 0;
+      }
+
+      // 2. Build multi-index structures of all existing tracks in playlist
+      final existingTrackIds = <String>{};
+      final existingSourceIds = <String>{};
+      final exactSignatures = <String>{};
+      final cleanSignatures = <String>{};
+      final entryCombinedList = <String>[];
+
+      for (final entry in playlistData.entries) {
+        if (entry.trackId != null && entry.trackId!.isNotEmpty) {
+          existingTrackIds.add(entry.trackId!.toLowerCase());
+        }
+        if (entry.track != null) {
+          existingTrackIds.add(entry.track!.id.toLowerCase());
+          existingSourceIds.add(entry.track!.sourceId.toLowerCase());
+
+          final tTitle = entry.track!.title.toLowerCase().trim();
+          final tArtist = entry.track!.artist.toLowerCase().trim();
+          exactSignatures.add('${tTitle}___${tArtist}');
+          cleanSignatures.add('${_cleanString(tTitle)}___${_cleanString(tArtist)}');
+        }
+
+        final oTitle = entry.originalTitle.toLowerCase().trim();
+        final oArtist = entry.originalArtist.toLowerCase().trim();
+        exactSignatures.add('${oTitle}___${oArtist}');
+        cleanSignatures.add('${_cleanString(oTitle)}___${_cleanString(oArtist)}');
+
+        final combined = _cleanString(
+            '$oArtist $oTitle ${entry.track?.artist ?? ''} ${entry.track?.title ?? ''}');
+        if (combined.isNotEmpty) {
+          entryCombinedList.add(combined);
+        }
+      }
+
+      // 3. Find newly added tracks from Spotify
+      final newItems = <SpotifyTrackItem>[];
+      for (final remoteTrack in remotePlaylist.tracks) {
+        final rTitle = remoteTrack.title.toLowerCase().trim();
+        final rArtist = remoteTrack.artist.toLowerCase().trim();
+        final rawSig = '${rTitle}___${rArtist}';
+        final cleanTitle = _cleanString(rTitle);
+        final cleanArtist = _cleanString(rArtist);
+        final cleanSig = '${cleanTitle}___${cleanArtist}';
+
+        // Check exact match on raw title/artist
+        if (exactSignatures.contains(rawSig)) continue;
+
+        // Check clean match
+        if (cleanSignatures.contains(cleanSig)) continue;
+
+        // Fuzzy match against combined text of existing entries
+        bool isAlreadyInPlaylist = false;
+        if (cleanTitle.isNotEmpty) {
+          for (final combined in entryCombinedList) {
+            if (combined.contains(cleanTitle)) {
+              if (cleanArtist.isEmpty ||
+                  combined.contains(cleanArtist) ||
+                  cleanArtist.contains(combined)) {
+                isAlreadyInPlaylist = true;
+                break;
+              }
+            }
+          }
+        }
+        if (isAlreadyInPlaylist) continue;
+
+        newItems.add(remoteTrack);
+      }
+
+      if (newItems.isEmpty) {
+        return 0;
+      }
+
+      // 4. Match new tracks and guard against duplicate YouTube matches
+      final matchedTracks = <Track>[];
+      final newMetadata = <({String title, String artist})>[];
+      final newMatchedSourceIds = <String>{};
+
+      for (final item in newItems) {
+        try {
+          final matched = await _importer.matchTrack(item);
+          if (matched != null) {
+            final mSourceId = matched.sourceId.toLowerCase().trim();
+            final mId = matched.id.toLowerCase().trim();
+
+            // Guard: Never add a track whose YouTube sourceId is already in the playlist
+            if (existingSourceIds.contains(mSourceId) ||
+                existingTrackIds.contains(mId) ||
+                newMatchedSourceIds.contains(mSourceId)) {
+              continue;
+            }
+
+            newMatchedSourceIds.add(mSourceId);
+            matchedTracks.add(matched);
+            newMetadata.add((title: item.title, artist: item.artist));
+          }
+        } catch (_) {}
+      }
+
+      if (matchedTracks.isEmpty) {
+        return 0;
+      }
+
+      // 5. Append to playlist with original Spotify metadata
+      await _libraryRepo.addTracksToPlaylist(
+        playlistId,
+        matchedTracks,
+        originalMetadata: newMetadata,
+      );
+      return matchedTracks.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+}
+
+final spotifyPlaylistSyncServiceProvider =
+    Provider<SpotifyPlaylistSyncService>((ref) {
+  final importer = ref.watch(spotifyImporterProvider);
+  final libraryRepo = ref.watch(libraryRepositoryProvider);
+  return SpotifyPlaylistSyncService(
+    importer: importer,
+    libraryRepo: libraryRepo,
+  );
+});

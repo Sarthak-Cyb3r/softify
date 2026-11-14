@@ -1,0 +1,4 @@
+app_identifier("com.softify.softify")
+apple_id(ENV["APPLE_ID"] || "developer@softify.app")
+itc_team_id(ENV["ITC_TEAM_ID"])
+team_id(ENV["APPLE_TEAM_ID"])

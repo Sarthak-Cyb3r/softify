@@ -1,22 +1,22 @@
-name: Multi-Engine Release Build & Deploy
+name: Linux Desktop Release Build
 
 on:
   workflow_dispatch:
     inputs:
       target_tag:
-        description: 'Target GitHub Release tag (e.g. v4.0.3)'
+        description: 'Target GitHub Release tag (e.g. v4.0.5)'
         required: false
-        default: 'v4.0.3'
+        default: 'v4.0.5'
         type: string
   push:
     tags:
       - 'v*'
 
 jobs:
-  build-and-release:
-    name: Build & Package Full Desktop Suite
+  build-linux:
+    name: Build Linux x64 Bundle
     runs-on: ubuntu-22.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     permissions:
       contents: write
 
@@ -24,116 +24,61 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install System Dependencies
+      - name: Install Linux Build Dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          sudo -E apt-get update -qq
+          sudo -E apt-get install -y -qq --no-install-recommends \
+            libgtk-3-dev \
+            liblzma-dev \
             libasound2-dev \
-            libfontconfig1-dev \
-            pkg-config
+            libpulse-dev \
+            libmpv-dev \
+            mpv
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+          channel: 'stable'
+          cache: true
 
-      - name: Grant Execute Permission to Gradlew
-        run: chmod +x gradlew
+      - name: Enable Linux Desktop Support
+        run: flutter config --enable-linux-desktop
 
-      - name: Set up Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Project Dependencies
+        run: flutter pub get
 
-      - name: Build Compose Multiplatform Desktop Uber JAR
-        run: ./gradlew :composeApp:packageUberJarForCurrentOS --no-daemon
+      - name: Generate Drift Database Code
+        run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Build Rust Engine Release Binary
-        run: cargo build --release
-
-      - name: Package Linux Desktop Release Bundle
+      - name: Run Quality Verification
         run: |
-          mkdir -p dist/bundle
-          cp target/release/softify dist/bundle/softify-engine
-          cp composeApp/build/compose/jars/*.jar dist/bundle/softify.jar
-          cp assets/logo/logo.png dist/bundle/softify.png
-          cp assets/logo/logo.svg dist/bundle/softify.svg
-          cp README.md dist/bundle/
-          cp LICENSE dist/bundle/
+          flutter analyze --no-fatal-infos || true
+          flutter test test/desktop_layout_test.dart test/ui_style_test.dart test/apple_music_and_animated_artwork_test.dart test/apple_music_player_screen_test.dart test/update_changelog_test.dart
 
-          cat << 'EOF' > dist/bundle/softify
-          #!/usr/bin/env bash
-          set -eo pipefail
-          DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+      - name: Build Linux Release Bundle
+        run: |
+          flutter build linux --release
+          ls -la build/linux/x64/release/bundle/
 
-          export DISPLAY="${DISPLAY:-:0}"
-          if [[ -z "${WAYLAND_DISPLAY:-}" && -e "${XDG_RUNTIME_DIR}/wayland-0" ]]; then
-              export WAYLAND_DISPLAY="wayland-0"
-          fi
+      - name: Package Release Tarball
+        run: |
+          # Create distributable archive with bundle and assets
+          cd build/linux/x64/release
+          tar -czvf "$GITHUB_WORKSPACE/Softify-Linux-x64.tar.gz" bundle
+          ls -lh "$GITHUB_WORKSPACE/Softify-Linux-x64.tar.gz"
 
-          JAVA_BIN=""
-          if [[ -x "${DIR}/jre/bin/java" ]]; then
-              JAVA_BIN="${DIR}/jre/bin/java"
-          elif [[ -x "${HOME}/.local/jdks/jdk-21.0.6+7/bin/java" ]]; then
-              JAVA_BIN="${HOME}/.local/jdks/jdk-21.0.6+7/bin/java"
-          elif [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
-              JAVA_BIN="${JAVA_HOME}/bin/java"
-          elif command -v java >/dev/null 2>&1; then
-              if java -version 2>&1 | grep -q -i "headless"; then
-                  JAVA_BIN=""
-              else
-                  JAVA_BIN="$(command -v java)"
-              fi
-          fi
-
-          if [[ -n "${JAVA_BIN}" && -f "${DIR}/softify.jar" ]]; then
-              exec "${JAVA_BIN}" -jar "${DIR}/softify.jar" "$@"
-          elif [[ -f "${DIR}/softify-engine" ]]; then
-              exec "${DIR}/softify-engine" "$@"
-          elif [[ -f "${DIR}/softify.jar" ]] && command -v java >/dev/null 2>&1; then
-              exec java -jar "${DIR}/softify.jar" "$@"
-          else
-              echo "Error: Neither functional Java runtime nor softify-engine binary found." >&2
-              exit 1
-          fi
-          EOF
-          chmod +x dist/bundle/softify
-
-          cat << 'EOF' > dist/bundle/softify.desktop
-          [Desktop Entry]
-          Name=Softify
-          Comment=High-Performance Dual-UI Music Streaming Player (Metrolist & Apple Music)
-          Exec=softify
-          Icon=softify
-          Terminal=false
-          Type=Application
-          Categories=AudioVideo;Audio;Player;Music;
-          StartupWMClass=com.softify.app.MainKt
-          EOF
-
-          tar -czvf Softify-Linux-x64.tar.gz -C dist/bundle .
-          sha256sum Softify-Linux-x64.tar.gz > Softify-Linux-x64.tar.gz.sha256
-          cp composeApp/build/compose/jars/*.jar Softify-Desktop-Compose.jar
-
-      - name: Upload Artifacts to Workflow
+      - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Softify-Linux-Release-Bundle
-          path: |
-            Softify-Linux-x64.tar.gz
-            Softify-Linux-x64.tar.gz.sha256
-            Softify-Desktop-Compose.jar
+          name: Softify-Linux-x64
+          path: Softify-Linux-x64.tar.gz
 
-      - name: Attach Assets to GitHub Release
+      - name: Attach Linux Tarball to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.target_tag || github.ref_name }}
-          files: |
-            Softify-Linux-x64.tar.gz
-            Softify-Linux-x64.tar.gz.sha256
-            Softify-Desktop-Compose.jar
-          prerelease: false
+          files: Softify-Linux-x64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
