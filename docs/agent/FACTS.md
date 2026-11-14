@@ -1,6 +1,7 @@
-# Facts 2026-11-14T18:52:30+05:30
-HEAD: 043ec8bf68e28516b95fd65c9a00bec66329b013
+# Facts 2026-11-14T18:56:58+05:30
+HEAD: 6128ea1ebb8fc0ae234c7e65ebb52ad13a641c0b
 ## Git
+6128ea1 test(m3a): fix syntax and update gallery screenshot
 043ec8b M3a: Material 3 Expressive theme, shapes, components & gallery
 964c460 fix: YouTube 403 + retry logic
 f79714f fix: Android playback + in-app diagnostics
@@ -10,33 +11,12 @@ b0af156 docs: update M2d REPORT.md and FACTS.md
 4349de2 M2: Complete core backend with Spotify importer, local audio scanner, recommendation engine, and desktop/android integration
 815e6cf M2b: Remote config, LRCLIB lyrics, M4A download tagger, real fixture test, and Kotlin integration tests
 97a26c2 M2: Database schema, FTS5 offline search engine, and library management
-d9d5e4a M1: vertical slice with Saavn 320kbps resolver, UniFFI, and Media3 playback
  M docs/agent/FACTS.md
 ## Diff stat
- composeApp/build.gradle.kts                        |  26 ++
- .../kotlin/com/softify/app/MainActivity.kt         |  22 ++
- .../commonMain/kotlin/com/softify/app/ui/App.kt    |  28 +-
- .../com/softify/app/ui/components/BitrateBadge.kt  | 156 ++++++++
- .../app/ui/components/ExpressiveVolumeSlider.kt    |  73 ++++
- .../ui/components/FloatingSegmentedPlayerDock.kt   | 353 ++++++++++++++++++
- .../softify/app/ui/components/LyricsPreviewLine.kt |  70 ++++
- .../softify/app/ui/components/ScallopedBadge.kt    |  72 ++++
- .../softify/app/ui/components/SquigglySlider.kt    | 251 +++++++++++++
- .../app/ui/diagnostics/DiagnosticsScreen.kt        |  21 ++
- .../app/ui/gallery/ComponentGalleryScreen.kt       | 401 +++++++++++++++++++++
- .../kotlin/com/softify/app/ui/theme/HctColor.kt    | 190 ++++++++++
- .../kotlin/com/softify/app/ui/theme/Shapes.kt      |  91 +++++
- .../kotlin/com/softify/app/ui/theme/Theme.kt       |  89 +++++
- .../com/softify/app/viewmodel/PlaybackViewModel.kt |  18 +
- .../kotlin/com/softify/app/M3aDesignSystemTest.kt  |  98 +++++
- docs/agent/FACTS.md                                | 153 +-------
- docs/agent/REPORT.md                               |  95 ++---
- docs/agent/screenshots/gallery_overview.png        | Bin 0 -> 111390 bytes
- docs/design/metrolist/now_playing_reference.jpg    | Bin 0 -> 45797 bytes
- .../design/metrolist/playlist_detail_reference.jpg | Bin 0 -> 62957 bytes
- .../design/metrolist/smart_playlists_reference.png | Bin 0 -> 20466 bytes
- tools/make_report.sh                               |  11 +-
- 23 files changed, 2002 insertions(+), 216 deletions(-)
+ .../kotlin/com/softify/app/M3aDesignSystemTest.kt  |   3 -
+ docs/agent/FACTS.md                                | 155 +--------------------
+ docs/agent/screenshots/gallery_overview.png        | Bin 111390 -> 171768 bytes
+ 3 files changed, 5 insertions(+), 153 deletions(-)
 ## Rust tests list
 config::tests::test_bundled_default_config_loads: test
 config::tests::test_remote_config_fails_fallback_to_bundled_default: test
@@ -78,18 +58,18 @@ search::tests::test_search_results_processing_and_deduplication: test
 
 37 tests, 0 benchmarks
 ## Rust tests summary
+test resolvers::tests::test_fixture_320_selected_when_available ... ok
 test search::tests::test_fts5_prefix_matching ... ok
 test search::tests::test_playlist_and_history_lifecycle ... ok
 test search::tests::test_search_results_processing_and_deduplication ... ok
-test resolvers::tests::test_fixture_320_fails_steps_down_to_160 ... ok
 test resolvers::tests::test_youtube_fallback_honest_bitrate_marking ... ok
 
-test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.00s
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
 
 ## Rust clippy
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.52s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
 ## Desktop tests summary
-> Get more help at https://help.gradle.org.
+[Incubating] Problems report is available at: file:///home/sarthak/Desktop/Projects/Softify-experimental/build/reports/problems/problems-report.html
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
 
@@ -97,5 +77,63 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 43s
-10 actionable tasks: 1 executed, 9 up-to-date
+BUILD SUCCESSFUL in 19s
+11 actionable tasks: 11 up-to-date
+<testsuite name="com.softify.app.M3aDesignSystemTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-14T13:26:06" hostname="fedora" time="3.503">
+  <testcase name="testRenderAndSaveGalleryScreenshots[desktop]" classname="com.softify.app.M3aDesignSystemTest" time="3.487"/>
+  <testcase name="testScallopedBadgeShape[desktop]" classname="com.softify.app.M3aDesignSystemTest" time="0.001"/>
+  <testcase name="testHctColorConversionAndPalette[desktop]" classname="com.softify.app.M3aDesignSystemTest" time="0.012"/>
+  <testcase name="testSquircleShape[desktop]" classname="com.softify.app.M3aDesignSystemTest" time="0.003"/>
+</testsuite>
+<testsuite name="com.softify.app.PlaybackRetryTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-14T13:26:09" hostname="fedora" time="0.084">
+  <testcase name="testNormalRetryBackoffAndExhaustion[desktop]" classname="com.softify.app.PlaybackRetryTest" time="0.074"/>
+  <testcase name="testStaleRetryCancelledOnUserPauseOrStop[desktop]" classname="com.softify.app.PlaybackRetryTest" time="0.005"/>
+  <testcase name="testStaleRetryCancelledOnTrackChange[desktop]" classname="com.softify.app.PlaybackRetryTest" time="0.004"/>
+</testsuite>
+<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-11-14T13:26:10" hostname="fedora" time="2.379">
+  <testcase name="test01_initDatabase[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.007"/>
+  <testcase name="test02_saveTrackAndSearchLibrary[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.01"/>
+  <testcase name="test03_searchCombined[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.938"/>
+  <testcase name="test04_toggleLikeAndGetLikedTracks[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.002"/>
+  <testcase name="test05_createAndGetPlaylists[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.007"/>
+  <testcase name="test06_addAndRemoveFromPlaylist[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.005"/>
+  <testcase name="test07_deletePlaylist[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
+  <testcase name="test08_recordAndGetHistory[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.004"/>
+  <testcase name="test09_clearHistory[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
+  <testcase name="test10_refreshRemoteConfig[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.361"/>
+  <testcase name="test11_checkProvidersHealth[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.453"/>
+  <testcase name="test12_getLyrics[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.568"/>
+  <testcase name="test13_downloadsApiAndDeletion[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
+  <testcase name="test14_tasteProfileAndRecommendationShelves[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.005"/>
+  <testcase name="test15_artistSnoozingLifecycle[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
+  <testcase name="test16_incognitoMode[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.001"/>
+  <testcase name="test17_localMusicScanner[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.005"/>
+</testsuite>
+## Gradle assembleDebug
+[Incubating] Problems report is available at: file:///home/sarthak/Desktop/Projects/Softify-experimental/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 5m 53s
+41 actionable tasks: 41 executed
+## Native libraries in APK
+    10096  01-01-1981 01:01   lib/arm64-v8a/libandroidx.graphics.path.so
+   168176  01-01-1981 01:01   lib/arm64-v8a/libjnidispatch.so
+  5859048  01-01-1981 01:01   lib/arm64-v8a/libsoftify_core.so
+    10760  01-01-1981 01:01   lib/x86_64/libandroidx.graphics.path.so
+   118584  01-01-1981 01:01   lib/x86_64/libjnidispatch.so
+  6466208  01-01-1981 01:01   lib/x86_64/libsoftify_core.so
+## Quality verifier 30 tracks reference
+Full output saved at docs/agent/quality_30.txt
+[RESOLVER] JioSaavn resolved: 'Udaan' -> 320 kbps, codec=aac, requested_quality_met=true
+| 30 | Udaan - Amit Trivedi | Indie/Obscure | JioSaavn Studio | AAC | 320 kbps | 320 kbps | YES | YES (1.00MB) | YES | 603 ms |
+
+=== Summary ===
+Total tracks resolved: 30/30
+Studio Master (320 kbps) achieved: 27/30
+Success rate: 100.0%
+
