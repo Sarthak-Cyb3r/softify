@@ -92,7 +92,4 @@ class M3aDesignSystemTest {
             println("Note: Offscreen rendering skipped if headless environment lacks Skia graphics surface: ${e.message}")
         }
     }
-            println("Note: Offscreen rendering skipped if headless environment lacks Skia graphics surface: ${e.message}")
-        }
-    }
 }
