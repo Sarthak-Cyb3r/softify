@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.metrics.performance.JankStats
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -84,6 +85,27 @@ class MainActivity : ComponentActivity() {
             val errMsg = "Database init failed: ${e.message}"
             PlaybackLogger.log("SoftifyPlayback", errMsg)
             viewModel.showSnackbar(errMsg)
+        }
+
+        // Initialize JankStats frame latency tracking (debug builds)
+        try {
+            val jankListener = JankStats.OnFrameListener { frameData ->
+                if (frameData.isJank) {
+                    val durationMs = frameData.frameDurationUiNanos / 1_000_000L
+                    viewModel.jankFramesCount++
+                    viewModel.maxFrameDurationMs = maxOf(viewModel.maxFrameDurationMs, durationMs)
+                    PlaybackLogger.log("SoftifyPlayback", "[JANK] Dropped frame: took ${durationMs}ms (deadline 16.6ms)")
+                }
+                viewModel.jankTotalFrames++
+                if (viewModel.jankTotalFrames > 0) {
+                    viewModel.jankPercentage = (viewModel.jankFramesCount.toFloat() / viewModel.jankTotalFrames.toFloat()) * 100f
+                }
+            }
+            val jankStats = JankStats.createAndTrack(window, jankListener)
+            jankStats.isTrackingEnabled = true
+            PlaybackLogger.log("SoftifyPlayback", "JankStats performance tracking initialized")
+        } catch (e: Throwable) {
+            PlaybackLogger.log("SoftifyPlayback", "JankStats init failed: ${e.message}")
         }
 
         // Connect ViewModel sharing callback (Android Share Sheet)

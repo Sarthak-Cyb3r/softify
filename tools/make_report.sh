@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # tools/make_report.sh - collects objective facts for REPORT.md
-set -u
+set -euo pipefail
 export JAVA_HOME="${JAVA_HOME:-$HOME/.local/jdk-17}"
 export PATH="$JAVA_HOME/bin:$HOME/.cargo/bin:$PATH"
+
+# Fail if working tree is dirty (ignoring FACTS.md)
+if [ -n "$(git status --porcelain | grep -v 'docs/agent/FACTS.md')" ]; then
+  echo "ERROR: Working tree is dirty! Commit all changes before running make_report.sh." >&2
+  git status --short
+  exit 1
+fi
+
 OUT=docs/agent/FACTS.md
 mkdir -p docs/agent
 {
   echo "# Facts $(date -Iseconds)"
+  echo "HEAD: $(git rev-parse HEAD)"
   echo "## Git"
   git log --oneline -n 10
   git status --short

@@ -47,6 +47,24 @@ class PlaybackViewModel(
     var isNativeLibLoaded: Boolean = false
     var isMediaControllerConnected: Boolean = false
 
+    // JankStats Telemetry
+    var jankTotalFrames: Long = 0L
+    var jankFramesCount: Long = 0L
+    var jankPercentage: Float = 0f
+    var maxFrameDurationMs: Long = 0L
+
+    // Debug Component Gallery State
+    private val _isGalleryOpen = MutableStateFlow(false)
+    val isGalleryOpen: StateFlow<Boolean> = _isGalleryOpen.asStateFlow()
+
+    fun openComponentGallery() {
+        _isGalleryOpen.value = true
+    }
+
+    fun closeComponentGallery() {
+        _isGalleryOpen.value = false
+    }
+
     private val _currentTab = MutableStateFlow(NavigationTab.SEARCH)
     val currentTab: StateFlow<NavigationTab> = _currentTab.asStateFlow()
 

@@ -19,7 +19,9 @@ import androidx.compose.ui.unit.sp
 import com.softify.app.ui.apple.AppleMusicNowPlaying
 import com.softify.app.ui.components.QualityBadge
 import com.softify.app.ui.diagnostics.DiagnosticsScreen
+import com.softify.app.ui.gallery.ComponentGalleryScreen
 import com.softify.app.ui.metrolist.MetrolistNowPlaying
+import com.softify.app.ui.theme.MetrolistTheme
 import com.softify.app.viewmodel.NavigationTab
 import com.softify.app.viewmodel.PlaybackViewModel
 import com.softify.app.viewmodel.UiStyle
@@ -49,6 +51,7 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
     var showNowPlaying by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showDiagnostics by remember { mutableStateOf(false) }
+    val isGalleryOpen by viewModel.isGalleryOpen.collectAsState()
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -59,20 +62,17 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
         }
     }
 
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            background = Color(0xFF0F0E17),
-            surface = Color(0xFF1E1B2E),
-            onBackground = Color.White,
-            onSurface = Color.White
-        )
-    ) {
+    MetrolistTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (showDiagnostics) {
+                if (isGalleryOpen) {
+                    ComponentGalleryScreen(
+                        onClose = { viewModel.closeComponentGallery() }
+                    )
+                } else if (showDiagnostics) {
                     DiagnosticsScreen(
                         viewModel = viewModel,
                         onClose = { showDiagnostics = false }
@@ -196,6 +196,16 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Text("🛠 Open Playback Diagnostics", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { viewModel.openComponentGallery() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("🎨 Open Component Gallery", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
                         }

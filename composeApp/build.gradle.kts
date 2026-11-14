@@ -39,6 +39,7 @@ kotlin {
                 implementation("androidx.media3:media3-session:1.3.1")
                 implementation("androidx.media3:media3-common:1.3.1")
                 implementation("androidx.media3:media3-datasource:1.3.1")
+                implementation("androidx.metrics:metrics-performance:1.0.0-beta01")
                 implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 implementation("net.java.dev.jna:jna:5.14.0@aar")
             }
@@ -107,4 +108,29 @@ compose.desktop {
 
 tasks.withType<Test> {
     systemProperty("jna.library.path", "${rootProject.projectDir}/rust/softify_core/target/debug")
+}
+
+val verifyNativeLibsExist = tasks.register("verifyNativeLibsExist") {
+    description = "Fails build if libsoftify_core.so is missing for target ABIs"
+    doLast {
+        val requiredAbis = listOf("arm64-v8a", "x86_64")
+        val jniLibsDir = file("src/androidMain/jniLibs")
+        for (abi in requiredAbis) {
+            val soFile = File(jniLibsDir, "$abi/libsoftify_core.so")
+            if (!soFile.exists()) {
+                throw GradleException(
+                    "\n================================================================================\n" +
+                    "FATAL ERROR: libsoftify_core.so is missing for ABI '$abi'!\n" +
+                    "Expected path: ${soFile.absolutePath}\n" +
+                    "Please build the native libraries first using:\n" +
+                    "    tools/build_android_libs.sh\n" +
+                    "================================================================================"
+                )
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("package") || it.name.startsWith("mergeDebugNativeLibs") }.configureEach {
+    dependsOn(verifyNativeLibsExist)
 }

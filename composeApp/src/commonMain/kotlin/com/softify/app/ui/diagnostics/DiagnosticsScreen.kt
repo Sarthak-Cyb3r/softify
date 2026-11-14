@@ -97,6 +97,15 @@ fun DiagnosticsScreen(
                     Text("MediaController: ${if (viewModel.isMediaControllerConnected) "CONNECTED" else "CONNECTING/IDLE"}", fontSize = 11.sp, color = mcColor, fontWeight = FontWeight.SemiBold)
                     Text("Preset: ${viewModel.qualityPreset.collectAsState().value.name}", fontSize = 11.sp, color = Color.LightGray)
                 }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    val jankColor = if (viewModel.jankPercentage < 5f) Color(0xFF34D399) else Color(0xFFFBBF24)
+                    Text(
+                        "JankStats: ${viewModel.jankFramesCount}/${viewModel.jankTotalFrames} (${"%.1f".format(viewModel.jankPercentage)}% jank, max ${viewModel.maxFrameDurationMs}ms)",
+                        fontSize = 10.sp,
+                        color = jankColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
@@ -154,6 +163,18 @@ fun DiagnosticsScreen(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("🔬 Probe last YouTube URL (OkHttp Matrix)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Button(
+                    onClick = { viewModel.openComponentGallery() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("🎨 Open M3 Expressive Component Gallery", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
