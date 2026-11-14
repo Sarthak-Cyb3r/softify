@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softify.app.ui.apple.AppleMusicNowPlaying
 import com.softify.app.ui.components.QualityBadge
+import com.softify.app.ui.diagnostics.DiagnosticsScreen
 import com.softify.app.ui.metrolist.MetrolistNowPlaying
 import com.softify.app.viewmodel.NavigationTab
 import com.softify.app.viewmodel.PlaybackViewModel
@@ -47,8 +48,16 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
 
     var showNowPlaying by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showDiagnostics by remember { mutableStateOf(false) }
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.snackbarEvents.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -62,35 +71,43 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            if (showNowPlaying && activeTrack != null) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    when (uiStyle) {
-                        UiStyle.METROLIST -> MetrolistNowPlaying(
-                            track = activeTrack,
-                            streamInfo = activeStream,
-                            isPlaying = isPlaying,
-                            onPlayPause = { viewModel.togglePlayPause() }
-                        )
-                        UiStyle.APPLE_MUSIC -> AppleMusicNowPlaying(
-                            track = activeTrack,
-                            streamInfo = activeStream,
-                            isPlaying = isPlaying,
-                            onPlayPause = { viewModel.togglePlayPause() }
-                        )
-                    }
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (showDiagnostics) {
+                    DiagnosticsScreen(
+                        viewModel = viewModel,
+                        onClose = { showDiagnostics = false }
+                    )
+                } else if (showNowPlaying && activeTrack != null) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        when (uiStyle) {
+                            UiStyle.METROLIST -> MetrolistNowPlaying(
+                                track = activeTrack,
+                                streamInfo = activeStream,
+                                isPlaying = isPlaying,
+                                onPlayPause = { viewModel.togglePlayPause() },
+                                onOpenDiagnostics = { showDiagnostics = true }
+                            )
+                            UiStyle.APPLE_MUSIC -> AppleMusicNowPlaying(
+                                track = activeTrack,
+                                streamInfo = activeStream,
+                                isPlaying = isPlaying,
+                                onPlayPause = { viewModel.togglePlayPause() },
+                                onOpenDiagnostics = { showDiagnostics = true }
+                            )
+                        }
 
-                    // Back / Collapse button
-                    IconButton(
-                        onClick = { showNowPlaying = false },
-                        modifier = Modifier
-                            .statusBarsPadding()
-                            .padding(16.dp)
-                            .align(Alignment.TopStart)
-                    ) {
-                        Text("✕", fontSize = 20.sp, color = Color.White)
+                        // Back / Collapse button
+                        IconButton(
+                            onClick = { showNowPlaying = false },
+                            modifier = Modifier
+                                .statusBarsPadding()
+                                .padding(16.dp)
+                                .align(Alignment.TopStart)
+                        ) {
+                            Text("✕", fontSize = 20.sp, color = Color.White)
+                        }
                     }
-                }
-            } else {
+                } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -169,6 +186,16 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                         onClick = { viewModel.setQualityPreset(QualityPreset.LOW) },
                                         label = { Text("Low (96k)") }
                                     )
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Button(
+                                    onClick = { showDiagnostics = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("🛠 Open Playback Diagnostics", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
                         }
@@ -484,8 +511,17 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                     containerColor = Color(0xFF1E1B2E)
                 )
             }
+
+            // Visible Snackbar Host for Error Notifications
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            )
         }
     }
+}
 }
 
 @Composable

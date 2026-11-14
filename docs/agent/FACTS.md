@@ -1,5 +1,6 @@
-# Facts 2026-11-14T17:14:00+05:30
+# Facts 2026-11-14T17:37:21+05:30
 ## Git
+0487535 M2e: verification and packaging fixes
 b0af156 docs: update M2d REPORT.md and FACTS.md
 332e86b M2d: verification close-out
 4349de2 M2: Complete core backend with Spotify importer, local audio scanner, recommendation engine, and desktop/android integration
@@ -9,40 +10,42 @@ d9d5e4a M1: vertical slice with Saavn 320kbps resolver, UniFFI, and Media3 playb
 0cf00db fix(linux): set window icon directly from bundled assets with GTK theme fallback
 b25ded2 feat(architecture): integrate Rust native core engine with authentic Flutter dual UI, restore v4.0.2 QoL suite, and bump to v4.0.3
 d02859b feat(ui): restore and optimize original Softify Flutter UI (v4.0.1 baseline)
-6e709f8 feat(ui): complete authentic Metrolist M3 & Apple Music Liquid Glass UI redesign
- M .gitignore
- M README.md
- M composeApp/build.gradle.kts
-D  composeApp/src/androidMain/jniLibs/arm64-v8a/libsoftify_core.so
-D  composeApp/src/androidMain/jniLibs/x86_64/libsoftify_core.so
- M composeApp/src/desktopTest/kotlin/com/softify/app/UniFfiIntegrationTest.kt
+ M composeApp/src/androidMain/AndroidManifest.xml
+ M composeApp/src/androidMain/kotlin/com/softify/app/MainActivity.kt
+ M composeApp/src/androidMain/kotlin/com/softify/app/playback/PlaybackService.kt
+ M composeApp/src/commonMain/kotlin/com/softify/app/ui/App.kt
+ M composeApp/src/commonMain/kotlin/com/softify/app/ui/apple/AppleMusicNowPlaying.kt
+ M composeApp/src/commonMain/kotlin/com/softify/app/ui/metrolist/MetrolistNowPlaying.kt
+ M composeApp/src/commonMain/kotlin/com/softify/app/viewmodel/PlaybackViewModel.kt
  M docs/agent/FACTS.md
- M docs/agent/quality_30.txt
- M rust/softify_core/Cargo.toml
- M rust/softify_core/src/bin/quality_verifier.rs
- M rust/softify_core/src/resolvers/saavn.rs
- M rust/softify_core/src/resolvers/tests.rs
- M rust/softify_core/src/resolvers/youtube.rs
- M tools/make_report.sh
-?? docs/agent/quality_nosaavn.txt
-?? tools/build_android_libs.sh
+?? composeApp/src/commonMain/kotlin/com/softify/app/ui/diagnostics/
+?? composeApp/src/commonMain/kotlin/com/softify/app/util/
 ## Diff stat
  .gitignore                                         |   1 +
  README.md                                          |  14 ++
  composeApp/build.gradle.kts                        |   3 +
+ composeApp/src/androidMain/AndroidManifest.xml     |   1 +
  .../jniLibs/arm64-v8a/libsoftify_core.so           | Bin 12236984 -> 0 bytes
  .../androidMain/jniLibs/x86_64/libsoftify_core.so  | Bin 12052464 -> 0 bytes
- .../com/softify/app/UniFfiIntegrationTest.kt       | 235 +++++++++++++--------
- docs/agent/FACTS.md                                |  84 ++------
- docs/agent/REPORT.md                               | 135 ++++++------
- docs/agent/quality_30.txt                          |  96 ++++++---
+ .../kotlin/com/softify/app/MainActivity.kt         | 183 +++++++++++++++-
+ .../com/softify/app/playback/PlaybackService.kt    | 244 +++++++++++++++++++--
+ .../commonMain/kotlin/com/softify/app/ui/App.kt    |  90 +++++---
+ .../softify/app/ui/apple/AppleMusicNowPlaying.kt   |  25 ++-
+ .../app/ui/metrolist/MetrolistNowPlaying.kt        |  27 ++-
+ .../com/softify/app/viewmodel/PlaybackViewModel.kt | 144 +++++++++++-
+ .../com/softify/app/UniFfiIntegrationTest.kt       | 235 ++++++++++++--------
+ docs/agent/FACTS.md                                | 132 +----------
+ docs/agent/REPORT.md                               | 117 +++++-----
+ docs/agent/quality_30.txt                          |  96 +++++---
+ docs/agent/quality_nosaavn.txt                     |  28 +++
  rust/softify_core/Cargo.toml                       |   8 +
  rust/softify_core/src/bin/quality_verifier.rs      |  28 +++
- rust/softify_core/src/resolvers/saavn.rs           | 142 +++++++++++--
+ rust/softify_core/src/resolvers/saavn.rs           | 142 ++++++++++--
  rust/softify_core/src/resolvers/tests.rs           |  81 +++++++
  rust/softify_core/src/resolvers/youtube.rs         |  22 +-
+ tools/build_android_libs.sh                        |  46 ++++
  tools/make_report.sh                               |   4 +-
- 15 files changed, 579 insertions(+), 274 deletions(-)
+ 24 files changed, 1267 insertions(+), 404 deletions(-)
 ## Rust tests list
 config::tests::test_bundled_default_config_loads: test
 config::tests::test_remote_config_fails_fallback_to_bundled_default: test
@@ -84,17 +87,16 @@ search::tests::test_search_results_processing_and_deduplication: test
 
 37 tests, 0 benchmarks
 ## Rust tests summary
+test resolvers::tests::test_youtube_fallback_honest_bitrate_marking ... ok
 test resolvers::tests::test_fixture_320_selected_when_available ... ok
-test resolvers::tests::test_fixture_320_fails_steps_down_to_160 ... ok
-test search::tests::test_fts5_prefix_matching ... ok
 test search::tests::test_search_results_processing_and_deduplication ... ok
 test search::tests::test_playlist_and_history_lifecycle ... ok
+test search::tests::test_fts5_prefix_matching ... ok
 
-test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
 
 ## Rust clippy
-    Checking softify_core v0.1.0 (/home/sarthak/Desktop/Projects/Softify-experimental/rust/softify_core)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.93s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
 ## Desktop tests summary
 [Incubating] Problems report is available at: file:///home/sarthak/Desktop/Projects/Softify-experimental/build/reports/problems/problems-report.html
 
@@ -104,25 +106,25 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 16s
+BUILD SUCCESSFUL in 17s
 11 actionable tasks: 11 up-to-date
-<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-11-14T11:39:35" hostname="fedora" time="2.578">
+<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-11-14T12:05:16" hostname="fedora" time="2.567">
   <testcase name="test01_initDatabase[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.022"/>
-  <testcase name="test02_saveTrackAndSearchLibrary[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.014"/>
-  <testcase name="test03_searchCombined[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="1.003"/>
-  <testcase name="test04_toggleLikeAndGetLikedTracks[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.002"/>
-  <testcase name="test05_createAndGetPlaylists[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.006"/>
-  <testcase name="test06_addAndRemoveFromPlaylist[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.006"/>
+  <testcase name="test02_saveTrackAndSearchLibrary[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.007"/>
+  <testcase name="test03_searchCombined[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="1.121"/>
+  <testcase name="test04_toggleLikeAndGetLikedTracks[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
+  <testcase name="test05_createAndGetPlaylists[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.005"/>
+  <testcase name="test06_addAndRemoveFromPlaylist[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.007"/>
   <testcase name="test07_deletePlaylist[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
-  <testcase name="test08_recordAndGetHistory[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.004"/>
+  <testcase name="test08_recordAndGetHistory[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
   <testcase name="test09_clearHistory[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.002"/>
-  <testcase name="test10_refreshRemoteConfig[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.391"/>
-  <testcase name="test11_checkProvidersHealth[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.531"/>
-  <testcase name="test12_getLyrics[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.574"/>
+  <testcase name="test10_refreshRemoteConfig[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.384"/>
+  <testcase name="test11_checkProvidersHealth[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.532"/>
+  <testcase name="test12_getLyrics[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.46"/>
   <testcase name="test13_downloadsApiAndDeletion[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.002"/>
   <testcase name="test14_tasteProfileAndRecommendationShelves[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.004"/>
-  <testcase name="test15_artistSnoozingLifecycle[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.004"/>
-  <testcase name="test16_incognitoMode[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.002"/>
+  <testcase name="test15_artistSnoozingLifecycle[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
+  <testcase name="test16_incognitoMode[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.003"/>
   <testcase name="test17_localMusicScanner[desktop]" classname="com.softify.app.UniFfiIntegrationTest" time="0.004"/>
 </testsuite>
 ## Gradle assembleDebug
@@ -134,7 +136,7 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 55s
+BUILD SUCCESSFUL in 1m 3s
 40 actionable tasks: 40 executed
 ## Native libraries in APK
     10096  01-01-1981 01:01   lib/arm64-v8a/libandroidx.graphics.path.so

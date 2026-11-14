@@ -30,6 +30,7 @@ fun MetrolistNowPlaying(
     streamInfo: StreamInfo?,
     isPlaying: Boolean,
     onPlayPause: () -> Unit,
+    onOpenDiagnostics: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (track == null) return
@@ -42,14 +43,24 @@ fun MetrolistNowPlaying(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top bar
-        Text(
-            text = "NOW PLAYING • METROLIST",
-            color = Color(0xFF9CA3AF),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.sp
-        )
+        // Top bar with diagnostics bug button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.size(36.dp))
+            Text(
+                text = "NOW PLAYING • METROLIST",
+                color = Color(0xFF9CA3AF),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.sp
+            )
+            IconButton(onClick = onOpenDiagnostics, modifier = Modifier.size(36.dp)) {
+                Text("🐞", fontSize = 16.sp)
+            }
+        }
 
         // Scalloped Album Cover Artwork Container
         Box(

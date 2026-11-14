@@ -27,6 +27,7 @@ fun AppleMusicNowPlaying(
     streamInfo: StreamInfo?,
     isPlaying: Boolean,
     onPlayPause: () -> Unit,
+    onOpenDiagnostics: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (track == null) return
@@ -43,13 +44,23 @@ fun AppleMusicNowPlaying(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Drag Pill
-        Box(
-            modifier = Modifier
-                .width(36.dp)
-                .height(4.dp)
-                .background(Color(0x44FFFFFF), RoundedCornerShape(2.dp))
-        )
+        // Drag Pill & Diagnostics Bug icon
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.size(36.dp))
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .background(Color(0x44FFFFFF), RoundedCornerShape(2.dp))
+            )
+            IconButton(onClick = onOpenDiagnostics, modifier = Modifier.size(36.dp)) {
+                Text("🐞", fontSize = 16.sp)
+            }
+        }
 
         // Apple Music Vinyl Acrylic Artwork Card
         Box(
