@@ -39,11 +39,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.12'
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
 
       - name: Set up Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
