@@ -2,7 +2,6 @@ package com.softify.app.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -11,44 +10,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.math.*
-
-/**
- * Parametric Scalloped Multi-Lobe Badge Shape.
- * Implements a smooth trochoid/rosette bezier curve for badges, avatars, and icons.
- * Formula: r(θ) = R * (1 - amplitude * cos(numLobes * θ))
- */
-class ScallopedBadgeShape(
-    private val numLobes: Int = 12,
-    private val amplitude: Float = 0.08f
-) : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        val path = Path()
-        val centerX = size.width / 2f
-        val centerY = size.height / 2f
-        val baseRadius = min(centerX, centerY)
-
-        val steps = numLobes * 16
-        for (i in 0..steps) {
-            val theta = (i.toFloat() / steps.toFloat()) * (2f * PI.toFloat())
-            val r = baseRadius * (1f - amplitude * cos(numLobes * theta))
-            val x = centerX + r * cos(theta)
-            val y = centerY + r * sin(theta)
-
-            if (i == 0) {
-                path.moveTo(x, y)
-            } else {
-                path.lineTo(x, y)
-            }
-        }
-        path.close()
-        return Outline.Generic(path)
-    }
-}
+import kotlin.math.min
 
 /**
  * Continuous curvature Squircle Shape (superellipse-style smooth corners).

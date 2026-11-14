@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -102,9 +105,10 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                             modifier = Modifier
                                 .statusBarsPadding()
                                 .padding(16.dp)
+                                .size(48.dp)
                                 .align(Alignment.TopStart)
                         ) {
-                            Text("✕", fontSize = 20.sp, color = Color.White)
+                            Icon(Icons.Filled.Close, contentDescription = "Close Now Playing", tint = Color.White)
                         }
                     }
                 } else {
@@ -137,8 +141,11 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                             )
                         }
 
-                        IconButton(onClick = { showSettings = !showSettings }) {
-                            Text("⚙", fontSize = 24.sp, color = Color.White)
+                        IconButton(
+                            onClick = { showSettings = !showSettings },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color.White)
                         }
                     }
 
@@ -191,21 +198,27 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Button(
                                     onClick = { showDiagnostics = true },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
-                                    Text("🛠 Open Playback Diagnostics", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Icon(Icons.Filled.BugReport, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                                        Text("Open Playback Diagnostics", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Button(
                                     onClick = { viewModel.openComponentGallery() },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
-                                    Text("🎨 Open Component Gallery", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Icon(Icons.Filled.Palette, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                                        Text("Open Component Gallery", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
                                 }
                             }
                         }
@@ -221,12 +234,14 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                         FilterChip(
                             selected = currentTab == NavigationTab.SEARCH,
                             onClick = { viewModel.setTab(NavigationTab.SEARCH) },
-                            label = { Text("🔍 Search") }
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text("Search") }
                         )
                         FilterChip(
                             selected = currentTab == NavigationTab.LIBRARY,
                             onClick = { viewModel.setTab(NavigationTab.LIBRARY) },
-                            label = { Text("📚 Library (${likedTracks.size})") }
+                            leadingIcon = { Icon(Icons.Filled.LibraryMusic, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text("Library (${likedTracks.size})") }
                         )
                     }
 
@@ -252,7 +267,7 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                         // Intent Chip
                         if (detectedIntent != SearchIntent.GENERAL && detectedEntity != null) {
                             Text(
-                                text = "🎯 Detected ${detectedIntent.name.lowercase().replaceFirstChar { it.uppercase() }}: \"$detectedEntity\"",
+                                text = "Detected ${detectedIntent.name.lowercase().replaceFirstChar { it.uppercase() }}: \"$detectedEntity\"",
                                 fontSize = 12.sp,
                                 color = Color(0xFF6EE7B7),
                                 modifier = Modifier.padding(bottom = 4.dp)
@@ -335,7 +350,7 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "❤️ Liked Songs (${likedTracks.size})",
+                                        text = "Liked Songs (${likedTracks.size})",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -367,7 +382,7 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "📁 Playlists (${playlists.size})",
+                                        text = "Playlists (${playlists.size})",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -397,7 +412,12 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                             modifier = Modifier.padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("🎵", fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                                            Icon(
+                                                imageVector = Icons.Filled.MusicNote,
+                                                contentDescription = null,
+                                                modifier = Modifier.padding(end = 12.dp).size(24.dp),
+                                                tint = Color.LightGray
+                                            )
                                             Column {
                                                 Text(pl.name, fontWeight = FontWeight.Bold, color = Color.White)
                                                 Text("${pl.trackCount} tracks", fontSize = 12.sp, color = Color.Gray)
@@ -412,7 +432,7 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                 item {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        text = "⏱️ Recently Played",
+                                        text = "Recently Played",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -571,10 +591,15 @@ private fun TrackRowItem(
                 )
             }
 
-            IconButton(onClick = onToggleLike) {
-                Text(
-                    text = if (isLiked) "❤️" else "🤍",
-                    fontSize = 16.sp
+            IconButton(
+                onClick = onToggleLike,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = if (isLiked) "Unlike Track" else "Like Track",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (isLiked) Color(0xFFF87171) else Color.Gray
                 )
             }
         }

@@ -7,6 +7,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softify.app.util.PlaybackLogger
 import com.softify.app.viewmodel.PlaybackViewModel
-import kotlinx.coroutines.launch
 
 @Composable
 fun DiagnosticsScreen(
@@ -31,7 +35,6 @@ fun DiagnosticsScreen(
     val logs by PlaybackLogger.logsFlow.collectAsState()
     val clipboardManager = LocalClipboardManager.current
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
 
     // Auto-scroll to bottom when new logs arrive
     LaunchedEffect(logs.size) {
@@ -57,7 +60,7 @@ fun DiagnosticsScreen(
         ) {
             Column {
                 Text(
-                    text = "🛠 Playback Diagnostics",
+                    text = "Playback Diagnostics",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -69,8 +72,15 @@ fun DiagnosticsScreen(
                 )
             }
 
-            IconButton(onClick = onClose) {
-                Text("✕", fontSize = 22.sp, color = Color.White)
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Close Diagnostics",
+                    tint = Color.White
+                )
             }
         }
 
@@ -97,10 +107,19 @@ fun DiagnosticsScreen(
                     Text("MediaController: ${if (viewModel.isMediaControllerConnected) "CONNECTED" else "CONNECTING/IDLE"}", fontSize = 11.sp, color = mcColor, fontWeight = FontWeight.SemiBold)
                     Text("Preset: ${viewModel.qualityPreset.collectAsState().value.name}", fontSize = 11.sp, color = Color.LightGray)
                 }
+                val activeStream = viewModel.activeStream.collectAsState().value
+                if (activeStream != null) {
+                    val isFallback = !activeStream.isRequestedQuality || activeStream.provider.contains("fallback", ignoreCase = true) || activeStream.provider.contains("youtube", ignoreCase = true)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Stream: ${activeStream.provider} (${activeStream.bitrateKbps} kbps, ${activeStream.codec})", fontSize = 11.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.SemiBold)
+                        Text(if (isFallback) "FALLBACK" else "DIRECT", fontSize = 11.sp, color = if (isFallback) Color(0xFFFBBF24) else Color(0xFF34D399), fontWeight = FontWeight.Bold)
+                    }
+                }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     val jankColor = if (viewModel.jankPercentage < 5f) Color(0xFF34D399) else Color(0xFFFBBF24)
+                    val formattedJank = ((viewModel.jankPercentage * 10).toInt() / 10f).toString()
                     Text(
-                        "JankStats: ${viewModel.jankFramesCount}/${viewModel.jankTotalFrames} (${"%.1f".format(viewModel.jankPercentage)}% jank, max ${viewModel.maxFrameDurationMs}ms)",
+                        "JankStats: ${viewModel.jankFramesCount}/${viewModel.jankTotalFrames} ($formattedJank% jank, max ${viewModel.maxFrameDurationMs}ms)",
                         fontSize = 10.sp,
                         color = jankColor,
                         fontWeight = FontWeight.SemiBold
@@ -124,32 +143,32 @@ fun DiagnosticsScreen(
                 ) {
                     Button(
                         onClick = { viewModel.playTestDirectUrl() },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("▶ Play Test URL", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Play Test URL", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Button(
                         onClick = { viewModel.resolveOnlyTestTrack() },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("🔍 Resolve Only", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Resolve Only", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Button(
                         onClick = { viewModel.resolveAndPlayTestTrack() },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("⚡ Resolve+Play", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Resolve + Play", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -157,24 +176,24 @@ fun DiagnosticsScreen(
 
                 Button(
                     onClick = { viewModel.probeLastYouTubeUrl() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("🔬 Probe last YouTube URL (OkHttp Matrix)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Probe last YouTube URL (OkHttp Matrix)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Button(
                     onClick = { viewModel.openComponentGallery() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("🎨 Open M3 Expressive Component Gallery", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Open M3 Expressive Component Gallery", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -201,10 +220,13 @@ fun DiagnosticsScreen(
                         clipboardManager.setText(AnnotatedString(fullLog))
                         viewModel.showSnackbar("Logs copied to clipboard (${logs.size} lines)")
                     },
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("📋 Copy", fontSize = 11.sp, color = Color.White)
+                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(14.dp), tint = Color.White)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Copy", fontSize = 11.sp, color = Color.White)
                 }
 
                 OutlinedButton(
@@ -218,18 +240,24 @@ fun DiagnosticsScreen(
                             viewModel.showSnackbar("Share unavailable; copied to clipboard")
                         }
                     },
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("📤 Share", fontSize = 11.sp, color = Color.White)
+                    Icon(Icons.Filled.Share, contentDescription = "Share", modifier = Modifier.size(14.dp), tint = Color.White)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Share", fontSize = 11.sp, color = Color.White)
                 }
 
                 OutlinedButton(
                     onClick = { PlaybackLogger.clear() },
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("🗑 Clear", fontSize = 11.sp, color = Color(0xFFF87171))
+                    Icon(Icons.Filled.Delete, contentDescription = "Clear", modifier = Modifier.size(14.dp), tint = Color(0xFFF87171))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Clear", fontSize = 11.sp, color = Color(0xFFF87171))
                 }
             }
         }
@@ -239,36 +267,33 @@ fun DiagnosticsScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(Color(0xFF07060A), RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFF222030), RoundedCornerShape(8.dp))
+                .background(Color(0xFF07060B), RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFF27273A), RoundedCornerShape(8.dp))
                 .padding(8.dp)
         ) {
             if (logs.isEmpty()) {
                 Text(
-                    text = "No playback logs captured yet. Tap a song or use test buttons above.",
-                    fontSize = 12.sp,
+                    text = "No logs captured yet. Tap actions above to record playback telemetry.",
                     color = Color.DarkGray,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    items(logs) { line ->
-                        val lineColor = when {
-                            line.contains("error", ignoreCase = true) || line.contains("FAILED", ignoreCase = true) -> Color(0xFFF87171)
-                            line.contains("Resolve end", ignoreCase = true) || line.contains("READY", ignoreCase = true) || line.contains("CONNECTED", ignoreCase = true) -> Color(0xFF34D399)
-                            line.contains("Resolve start", ignoreCase = true) || line.contains("BUFFERING", ignoreCase = true) -> Color(0xFFFBBF24)
-                            line.contains("Tap:", ignoreCase = true) || line.contains("Test button", ignoreCase = true) -> Color(0xFF60A5FA)
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                    items(logs) { entry ->
+                        val logColor = when {
+                            entry.contains("ERROR") || entry.contains("failed") || entry.contains("FAIL") || entry.contains("Exception") -> Color(0xFFF87171)
+                            entry.contains("READY") || entry.contains("Playing") || entry.contains("320 kbps") -> Color(0xFF34D399)
+                            entry.contains("BUFFERING") || entry.contains("Connecting") -> Color(0xFFFBBF24)
+                            entry.contains("WARN") || entry.contains("fallback") -> Color(0xFFF97316)
                             else -> Color(0xFFD1D5DB)
                         }
                         Text(
-                            text = line,
-                            fontFamily = FontFamily.Monospace,
+                            text = entry,
+                            color = logColor,
                             fontSize = 10.sp,
-                            color = lineColor,
+                            fontFamily = FontFamily.Monospace,
                             lineHeight = 14.sp
                         )
                     }

@@ -1,51 +1,41 @@
-# Report: M3a - Design System & Component Gallery - 2026-11-14
+# Report: M3a2 - Design System & Component Fix Pass - 2026-11-14
 ## Status: PARTIAL
 
 ## Acceptance Checklist
-- [x] Reference screenshots reviewed and organized in `docs/design/metrolist/`
-- [x] Gradle ABI check: `verifyNativeLibsExist` task fails if `libsoftify_core.so` is missing for `arm64-v8a` or `x86_64`, printing expected path and `tools/build_android_libs.sh`
-- [x] JankStats telemetry integrated for debug builds, tracking jank percentage, frame duration, and logging to Diagnostics
-- [x] Pure Kotlin Multiplatform HCT & Cam16 dynamic color engine (`HctColor.kt`), extracting seed colors with fallback to `#6750A4`
-- [x] Custom shapes: parametric `ScallopedBadgeShape` (trochoid/rosette bezier curve) and `SquircleShape` (continuous curvature)
-- [x] Stateless, state-hoisted Compose components with `@Preview`:
-  - `SquigglySlider`: sine wave with smoothstep playhead dampening, frame-clock phase animation, flat line on pause/unplayed, spring-stretched pill thumb during scrub
-  - `FloatingSegmentedPlayerDock`: center capsule with elapsed/total countdown timers and transport controls; auxiliary pills for speed, sleep timer, EQ, and spring-pop favorite heart; secondary utility dock
-  - `BitrateBadge`: real data only (provider, kbps, codec, fallback indicator; sample rate rendered only if read from player format, never hardcoded)
-  - `ScallopedBadge`: multi-lobe rosette container for badges and avatars
-  - `LyricsPreviewLine` & `ExpressiveVolumeSlider`
-- [x] Debug Component Gallery screen (`ComponentGalleryScreen.kt`) showcasing every component across all required states: idle, playing, paused, buffering, dragging, disabled, long text, and fallback
-- [x] Component Gallery screenshots captured offscreen and saved to `docs/agent/screenshots/gallery_overview.png`
-- [?] On-device rendering and JankStats on Moto G34 (NOT VERIFIED - awaiting user device test)
+- [x] Scalloped shapes and badges completely removed (`ScallopedBadgeShape`, `ScallopedBadge.kt`, tests, and gallery references deleted; `SquircleShape` preserved)
+- [x] Minimal, quiet BitrateBadge implemented (single-line rounded pill, no borders/thick colors/ALL CAPS, lowercase "fallback" with amber dot; provider and itags moved to Diagnostics screen only; optional dynamic sample rate; faint inactive state)
+- [x] Zero emojis or pictographs across all UI strings/components (replaced with Compose ImageVector icons; 48dp touch targets and content descriptions on all icons; verified by automated `NoEmojiTest`)
+- [x] Synced lyrics shine sweep on active line (`LyricsView.kt` and `LyricsPreviewLine.kt` with Brush/graphicsLayer `BlendMode.SrcIn`, interpolated line duration comment, instrumental Canvas pulsing dots, wrapping support, tap-to-seek, and animated centering)
+- [x] Component Gallery fixes (horizontally scrollable seed color chips without text wrapping; proper `CircularProgressIndicator` on buffering play pill; play/pause dimmed and non-clickable in disabled dock)
+- [x] Generated offscreen gallery screenshots in `docs/agent/screenshots/` (`gallery_overview.png`, `badge_states.png`, `dock_no_emojis.png`, `lyrics_shine_start.png`, `lyrics_shine_middle.png`, `lyrics_shine_end.png`)
+- [?] On-device rendering and smoothness on Moto G34 (NOT VERIFIED - awaiting user device test)
 
 ## What works (verified by running it, with commands)
-- **Design System & Component Tests**: 24 tests passed (`./gradlew desktopTest`), including 4 new unit tests in `M3aDesignSystemTest` verifying HCT color roundtrips, fallback seed handling, rosette bezier curves, squircle bounds, and offscreen screenshot rendering.
-- **Rust Backend**: 37 lib tests passed (`cargo test --lib`), 0 clippy warnings (`cargo clippy --lib -- -D warnings`).
-- **Gradle ABI Enforcement**: `verifyNativeLibsExist` task executed as a dependency of APK packaging.
-- **Android Debug APK Assembly**: Built fresh with `--rerun-tasks` (`./gradlew assembleDebug --rerun-tasks`, 41/41 tasks executed).
-- **Gallery Screenshots Generated**: Full offscreen Skia render saved to `docs/agent/screenshots/gallery_overview.png` (109 KB).
-- **Debug APK Copied**: Fresh 26MB APK copied to `/home/sarthak/Downloads/composeApp-debug.apk`.
+- **Unit & UI Tests**: 24 tests passed (`./gradlew desktopTest`), including `NoEmojiTest` scanning all Kotlin source files for emojis/forbidden glyphs and `M3aDesignSystemTest` generating component screenshots.
+- **Rust Core**: 37 lib unit tests passed (`cargo test --lib`), 0 clippy warnings (`cargo clippy --lib -- -D warnings`).
+- **Offscreen Screenshots**: Captured 6 PNG renders in `docs/agent/screenshots/` displaying minimal badges, emoji-free dock states, and lyrics sweep at start (15%), middle (50%), and end (90%).
+- **Diagnostics Screen**: Live JankStats line with dropped frame counter, total frames, jank %, and active stream telemetry (provider, kbps, codec, fallback status).
 
 ## Test results
 - `./gradlew desktopTest`:
-  `<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" time="3.238">`
-  `<testsuite name="com.softify.app.PlaybackRetryTest" tests="3" skipped="0" failures="0" errors="0" time="0.196">`
-  `<testsuite name="com.softify.app.M3aDesignSystemTest" tests="4" skipped="0" failures="0" errors="0" time="1.842">`
-- `./gradlew assembleDebug --rerun-tasks`:
-  `BUILD SUCCESSFUL in 2m 27s, 41 actionable tasks: 41 executed`
-- Native libraries in APK (`unzip -l composeApp-debug.apk | grep '\.so'`):
-  `5859048 lib/arm64-v8a/libsoftify_core.so`
-  `6466208 lib/x86_64/libsoftify_core.so`
+  `<testsuite name="com.softify.app.M3aDesignSystemTest" tests="3" skipped="0" failures="0" errors="0" time="6.849">`
+  `<testsuite name="com.softify.app.NoEmojiTest" tests="1" skipped="0" failures="0" errors="0" time="0.064">`
+  `<testsuite name="com.softify.app.PlaybackRetryTest" tests="3" skipped="0" failures="0" errors="0" time="0.100">`
+  `<testsuite name="com.softify.app.UniFfiIntegrationTest" tests="17" skipped="0" failures="0" errors="0" time="2.828">`
+- `cargo test --lib`:
+  `37 passed; 0 failed; 0 ignored; finished in 1.20s`
+- `cargo clippy --lib -- -D warnings`: 0 warnings
 
 ## What is stubbed or broken (be specific, no softening)
-- **On-Device JankStats & Rendering**: Marked `[?] NOT VERIFIED`. No physical device or emulator on build machine; Moto G34 test required to verify frame rate and JankStats metrics on real hardware.
-- **Screens**: M3b screens (Home shelves, Search, Library, Settings) not implemented yet per milestone staging rules.
+- **On-Device Look & Smoothness**: Marked `[?] NOT VERIFIED`. Must be verified by the user on the Moto G34 hardware.
+- **M3b Screens**: Home shelves with `home_explore`, Search, Library, Settings remain out of scope for this fix pass.
 
 ## What to test on the phone
 1. Install updated `/home/sarthak/Downloads/composeApp-debug.apk` on Moto G34.
-2. Open Settings (top right gear) or Diagnostics screen and tap **"🎨 Open M3 Expressive Component Gallery"**.
-3. In the gallery:
-   - Tap color seed chips (Indigo, Emerald, Amber, Rose) and observe smooth animated theme transitions.
-   - Interact with the **Squiggly Waveform Slider**: drag the pill thumb and observe spring stretching, playing sine wave animation, paused flat line, and buffering pulse.
-   - Interact with the **Floating Segmented Player Dock**: tap play/pause, prev/next, cycle speed, sleep timer, EQ, and tap the favorite heart to verify spring pop.
-   - Verify the **Bitrate Badges**: check Studio Master vs YouTube Fallback warning badges.
-4. Open **Diagnostics** screen and verify the live **JankStats** line showing dropped frame count, total frames, jank percentage, and max frame latency.
+2. Open Settings -> tap **"Open Component Gallery"** (or reach from Diagnostics).
+3. Test in the gallery:
+   - **Seed Chips**: Scroll horizontally, verify "Rose" chip does not wrap to "Ro / se".
+   - **Minimal Bitrate Badges**: Verify small single-line pill, no thick borders, lowercase "fallback" with amber dot, and faint inactive state.
+   - **Floating Dock**: Verify real vector icons (no emojis/pictographs), tap favorite heart for spring pop, verify proper circular progress indicator during buffering, and check play/pause is dimmed and non-clickable in disabled state.
+   - **Lyrics View & Sweep Highlight**: Tap Play or drag position slider in section 5 to observe the shine sweep across the active line (test at start 4.3s, middle 6.2s, end 8.1s, and instrumental 1.5s).
+4. Open **Diagnostics** screen and inspect the live **JankStats** line while the lyrics sweep is running to verify frame rate.

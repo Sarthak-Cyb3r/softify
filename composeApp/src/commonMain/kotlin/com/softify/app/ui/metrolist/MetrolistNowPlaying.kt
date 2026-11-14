@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -57,12 +59,17 @@ fun MetrolistNowPlaying(
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.sp
             )
-            IconButton(onClick = onOpenDiagnostics, modifier = Modifier.size(36.dp)) {
-                Text("🐞", fontSize = 16.sp)
+            IconButton(onClick = onOpenDiagnostics, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.BugReport,
+                    contentDescription = "Diagnostics",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.LightGray
+                )
             }
         }
 
-        // Scalloped Album Cover Artwork Container
+        // Album Cover Artwork Container
         Box(
             modifier = Modifier
                 .size(280.dp)
@@ -186,7 +193,7 @@ fun SquigglyWaveformSlider(
             strokeWidth = 3.dp.toPx()
         )
 
-        // Scalloped scrub thumb
+        // Scrub thumb
         drawCircle(
             color = Color(0xFF6EE7B7),
             radius = 6.dp.toPx(),

@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -57,8 +59,13 @@ fun AppleMusicNowPlaying(
                     .height(4.dp)
                     .background(Color(0x44FFFFFF), RoundedCornerShape(2.dp))
             )
-            IconButton(onClick = onOpenDiagnostics, modifier = Modifier.size(36.dp)) {
-                Text("🐞", fontSize = 16.sp)
+            IconButton(onClick = onOpenDiagnostics, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.BugReport,
+                    contentDescription = "Diagnostics",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.LightGray
+                )
             }
         }
 
