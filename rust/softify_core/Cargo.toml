@@ -1,0 +1,36 @@
+[package]
+name = "softify_core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sarthak Kumar <sarthak@softify.audio>"]
+description = "Pure Rust core engine for Softify music streaming"
+
+[lib]
+name = "softify_core"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "quality_verifier"
+path = "src/bin/quality_verifier.rs"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi_bindgen.rs"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.31", features = ["bundled"] }
+cipher = { version = "0.4", features = ["block-padding"] }
+des = "0.8"
+base64 = "0.22"
+regex = "1.10"
+url = "2.5"
+thiserror = "1.0"
+uniffi = { version = "0.28", features = ["tokio", "cli"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+tempfile = "3.10"

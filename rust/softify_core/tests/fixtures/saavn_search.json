@@ -1,0 +1,21 @@
+{
+  "results": [
+    {
+      "id": "s_123456",
+      "title": "Tum Hi Ho",
+      "subtitle": "Arijit Singh - Aashiqui 2",
+      "language": "hindi",
+      "singers": "Arijit Singh",
+      "primary_artists": "Arijit Singh",
+      "more_info": {
+        "album": "Aashiqui 2",
+        "duration": "262",
+        "artistMap": {
+          "primary_artists": [{ "name": "Arijit Singh" }],
+          "featured_artists": [],
+          "artists": [{ "name": "Arijit Singh", "role": "singer" }]
+        }
+      }
+    }
+  ]
+}
