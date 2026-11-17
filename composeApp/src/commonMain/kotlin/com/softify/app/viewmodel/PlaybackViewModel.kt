@@ -169,7 +169,12 @@ class PlaybackViewModel(
         when (tab) {
             NavigationTab.HOME -> loadHomeExplore()
             NavigationTab.SEARCH -> loadRecentSearches()
-            NavigationTab.LIBRARY -> refreshLibrary()
+            NavigationTab.LIBRARY -> {
+                refreshLibrary()
+                if (_playlists.value.filter { it.isImported }.any { it.matchedCount < it.trackCount }) {
+                    pollMatchingProgress()
+                }
+            }
         }
     }
 
@@ -395,13 +400,32 @@ class PlaybackViewModel(
         }
     }
 
+    private var matchPollJob: kotlinx.coroutines.Job? = null
+
+    fun pollMatchingProgress() {
+        matchPollJob?.cancel()
+        matchPollJob = scope.launch(Dispatchers.Default) {
+            var anyUnmatched = true
+            var attempts = 0
+            while (anyUnmatched && attempts < 60) {
+                delay(1500)
+                refreshLibrary()
+                val pls = _playlists.value
+                val imported = pls.filter { it.isImported }
+                anyUnmatched = imported.any { it.matchedCount < it.trackCount }
+                attempts++
+            }
+        }
+    }
+
     fun importSpotify(urlOrId: String) {
         scope.launch(Dispatchers.Default) {
             showSnackbar("Importing Spotify playlist...")
             try {
                 val res = importSpotifyPlaylist(urlOrId)
                 refreshLibrary()
-                showSnackbar("Imported '${res.playlist.name}' (${res.matchedTracks}/${res.totalTracks} tracks matched)")
+                showSnackbar("Imported '${res.playlist.name}' (${res.totalTracks} tracks). Matching in background...")
+                pollMatchingProgress()
             } catch (e: Exception) {
                 showSnackbar("Spotify import failed: ${e.message}")
             }

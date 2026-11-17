@@ -8,6 +8,7 @@ const ANDROID_UA: &str =
 const WEB_REMIX_UA: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+#[derive(Clone)]
 pub struct YoutubeStreamResolver {
     client: reqwest::Client,
     player_url: String,
@@ -190,8 +191,32 @@ impl YoutubeStreamResolver {
             }
         }
 
-        let cover_url = format!("https://i.ytimg.com/vi/{video_id}/hqdefault.jpg");
+        let cover_url = Self::extract_highest_res_thumbnail(item, video_id);
         (title, artist, album, duration_ms, cover_url)
+    }
+
+    pub fn extract_highest_res_thumbnail(item: &Value, video_id: &str) -> String {
+        let thumbs = item.pointer("/thumbnail/musicThumbnailRenderer/thumbnail/thumbnails")
+            .or_else(|| item.pointer("/musicThumbnailRenderer/thumbnail/thumbnails"))
+            .and_then(|v| v.as_array());
+
+        if let Some(arr) = thumbs {
+            let best = arr.iter().filter_map(|t| {
+                let u = t.get("url")?.as_str()?;
+                let w = t.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
+                Some((w, u))
+            }).max_by_key(|(w, _)| *w);
+
+            if let Some((_, u)) = best {
+                if u.contains("=w") {
+                    if let Ok(re) = regex::Regex::new(r"=w\d+-h\d+[^?&]*") {
+                        return re.replace(u, "=w544-h544-l90-rj").to_string();
+                    }
+                }
+                return u.to_string();
+            }
+        }
+        format!("https://i.ytimg.com/vi/{video_id}/hqdefault.jpg")
     }
 
     /// Resolves YouTube stream using VisionOS client context (unthrottled, no signature ciphers / n transform)

@@ -114,10 +114,18 @@ fun PlaylistDetailScreen(
                         overflow = TextOverflow.Ellipsis
                     )
 
+                    val detailSubtitle = if (playlist?.isImported == true) {
+                        "${tracks.size} tracks • matched ${playlist.matchedCount}/${playlist.trackCount} • $totalMinutes mins"
+                    } else {
+                        "${tracks.size} tracks • $totalMinutes mins"
+                    }
                     Text(
-                        text = "${tracks.size} tracks • $totalMinutes mins",
+                        text = detailSubtitle,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))

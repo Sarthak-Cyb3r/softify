@@ -83,6 +83,7 @@ fun TrackItemRow(
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                 color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -91,6 +92,7 @@ fun TrackItemRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
         }

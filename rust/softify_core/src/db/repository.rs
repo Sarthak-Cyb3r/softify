@@ -166,6 +166,7 @@ impl DatabaseRepository {
             source_url: None,
             track_count: 0,
             created_at: now,
+            matched_count: 0,
         })
     }
 
@@ -179,7 +180,8 @@ impl DatabaseRepository {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
         let mut stmt = conn.prepare(
             "SELECT p.id, p.name, p.description, p.is_imported, p.source_url, p.created_at,
-                    COUNT(pt.track_id) as track_count
+                    COUNT(pt.position) as track_count,
+                    COALESCE(SUM(CASE WHEN pt.match_status = 'matched' THEN 1 ELSE 0 END), 0) as matched_count
              FROM playlists p
              LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
              GROUP BY p.id
@@ -195,6 +197,7 @@ impl DatabaseRepository {
                 source_url: row.get(4)?,
                 created_at: row.get(5)?,
                 track_count: row.get::<_, i64>(6)? as u32,
+                matched_count: row.get::<_, i64>(7)? as u32,
             })
         })?;
 
@@ -242,10 +245,12 @@ impl DatabaseRepository {
     pub fn get_playlist_tracks(&self, playlist_id: &str) -> Result<Vec<Track>, SoftifyError> {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
         let mut stmt = conn.prepare(
-            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url,
+            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms,
+                    COALESCE(t.cover_url, sm.cover_url, CASE WHEN t.source_id LIKE 'ytm_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 5) || '/hqdefault.jpg' ELSE NULL END) as cover_url,
                     t.match_confidence, t.is_liked, t.is_unavailable
              FROM playlist_tracks pt
              JOIN tracks t ON pt.track_id = t.id
+             LEFT JOIN spotify_matches sm ON sm.spotify_id = REPLACE(t.source_id, 'spotify:', '')
              WHERE pt.playlist_id = ?1
              ORDER BY pt.position ASC"
         )?;
@@ -539,6 +544,111 @@ impl DatabaseRepository {
             params![playlist_id, position as i64, track_id, original_title, original_artist, match_status],
         )?;
         Ok(())
+    }
+
+    pub fn get_spotify_match(&self, spotify_id: &str) -> Result<Option<(String, Option<String>)>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare("SELECT video_id, cover_url FROM spotify_matches WHERE spotify_id = ?1")?;
+        let mut rows = stmt.query(params![spotify_id])?;
+        if let Some(row) = rows.next()? {
+            let vid: String = row.get(0)?;
+            let cover: Option<String> = row.get(1)?;
+            Ok(Some((vid, cover)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_spotify_match_by_title_artist(&self, title: &str, artist: &str) -> Result<Option<(String, Option<String>)>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare("SELECT video_id, cover_url FROM spotify_matches WHERE title = ?1 AND artist = ?2 LIMIT 1")?;
+        let mut rows = stmt.query(params![title, artist])?;
+        if let Some(row) = rows.next()? {
+            let vid: String = row.get(0)?;
+            let cover: Option<String> = row.get(1)?;
+            Ok(Some((vid, cover)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn insert_spotify_match(
+        &self,
+        spotify_id: &str,
+        video_id: &str,
+        title: &str,
+        artist: &str,
+        cover_url: Option<&str>,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+        conn.execute(
+            "INSERT INTO spotify_matches (spotify_id, video_id, title, artist, cover_url, matched_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(spotify_id) DO UPDATE SET
+                video_id = excluded.video_id,
+                cover_url = COALESCE(excluded.cover_url, spotify_matches.cover_url),
+                matched_at = excluded.matched_at",
+            params![spotify_id, video_id, title, artist, cover_url, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_imported_track_match(
+        &self,
+        track_id: &str,
+        video_id: &str,
+        cover_url: Option<&str>,
+        match_status: &str,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let ytm_source_id = format!("ytm_{video_id}");
+        conn.execute(
+            "UPDATE tracks 
+             SET source_id = ?1,
+                 cover_url = COALESCE(?2, cover_url),
+                 match_confidence = 1.0
+             WHERE id = ?3",
+            params![ytm_source_id, cover_url, track_id],
+        )?;
+        conn.execute(
+            "UPDATE playlist_tracks 
+             SET match_status = ?1 
+             WHERE track_id = ?2",
+            params![match_status, track_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_track_match_status(
+        &self,
+        playlist_id: &str,
+        track_id: &str,
+        match_status: &str,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute(
+            "UPDATE playlist_tracks SET match_status = ?1 WHERE playlist_id = ?2 AND track_id = ?3",
+            params![match_status, playlist_id, track_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_playlist_match_counts(&self, playlist_id: &str) -> Result<(u32, u32), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT 
+                COALESCE(SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END), 0),
+                COUNT(*)
+             FROM playlist_tracks
+             WHERE playlist_id = ?1"
+        )?;
+        let row = stmt.query_row(params![playlist_id], |r| {
+            let matched: i64 = r.get(0)?;
+            let total: i64 = r.get(1)?;
+            Ok((matched as u32, total as u32))
+        })?;
+        Ok(row)
     }
 
     pub fn get_recent_history(&self, limit: u32) -> Result<Vec<PlayHistory>, SoftifyError> {

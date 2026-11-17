@@ -156,32 +156,60 @@ fun LibraryScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         // Filter Chips Row (Downloads chip is intentionally HIDDEN per user instruction)
-        Row(
+        LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
+                .padding(vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FilterChip(
-                selected = selectedFilter == LibraryFilter.PLAYLISTS,
-                onClick = { selectedFilter = LibraryFilter.PLAYLISTS },
-                label = { Text("Playlists (${playlists.size})") },
-                shape = SquircleShape(12.dp)
-            )
+            item {
+                FilterChip(
+                    selected = selectedFilter == LibraryFilter.PLAYLISTS,
+                    onClick = { selectedFilter = LibraryFilter.PLAYLISTS },
+                    label = {
+                        Text(
+                            text = "Playlists (${playlists.size})",
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    shape = SquircleShape(12.dp)
+                )
+            }
 
-            FilterChip(
-                selected = selectedFilter == LibraryFilter.LIKED_SONGS,
-                onClick = { selectedFilter = LibraryFilter.LIKED_SONGS },
-                label = { Text("Liked Songs (${likedTracks.size})") },
-                shape = SquircleShape(12.dp)
-            )
+            item {
+                FilterChip(
+                    selected = selectedFilter == LibraryFilter.LIKED_SONGS,
+                    onClick = { selectedFilter = LibraryFilter.LIKED_SONGS },
+                    label = {
+                        Text(
+                            text = "Liked Songs (${likedTracks.size})",
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    shape = SquircleShape(12.dp)
+                )
+            }
 
-            FilterChip(
-                selected = selectedFilter == LibraryFilter.HISTORY,
-                onClick = { selectedFilter = LibraryFilter.HISTORY },
-                label = { Text("History") },
-                shape = SquircleShape(12.dp)
-            )
+            item {
+                FilterChip(
+                    selected = selectedFilter == LibraryFilter.HISTORY,
+                    onClick = { selectedFilter = LibraryFilter.HISTORY },
+                    label = {
+                        Text(
+                            text = "History",
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    shape = SquircleShape(12.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -517,12 +545,16 @@ fun SmartPlaylistCard(
                     fontWeight = FontWeight.Bold,
                     color = contentColor,
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.8f)
+                    color = contentColor.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -570,12 +602,21 @@ fun PlaylistRowItem(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
+            val subtitleText = if (playlist.isImported) {
+                "${playlist.trackCount} tracks • matched ${playlist.matchedCount}/${playlist.trackCount}"
+            } else {
+                "${playlist.trackCount} tracks"
+            }
             Text(
-                text = "${playlist.trackCount} tracks",
+                text = subtitleText,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
         }
 

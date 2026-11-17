@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use regex::Regex;
 use serde_json::Value;
-use crate::models::{ImportPlaylistResult, ImportedTrackMatch, Playlist, QualityPreset, SoftifyError, Track};
+use crate::models::{ImportPlaylistResult, ImportedTrackMatch, Playlist, SoftifyError, Track};
 use crate::db::repository::DatabaseRepository;
 use crate::resolvers::hybrid::HybridStreamResolver;
 
@@ -23,6 +23,7 @@ pub struct SpotifyEntityRef {
 
 #[derive(Debug, Clone)]
 pub struct RawSpotifyTrack {
+    pub spotify_id: Option<String>,
     pub title: String,
     pub artist: String,
     pub album: Option<String>,
@@ -172,13 +173,27 @@ impl SpotifyImporter {
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
 
+                let spotify_id = t.get("uri")
+                    .and_then(|v| v.as_str())
+                    .and_then(|u| {
+                        if u.starts_with("spotify:track:") {
+                            Some(u.trim_start_matches("spotify:track:").to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .or_else(|| {
+                        t.get("id").or_else(|| t.get("uid")).and_then(|v| v.as_str()).map(|s| s.to_string())
+                    });
+
+                // Bug 2 fix: only use track's own cover art; remove fallback to playlist coverArt
                 let t_cover = t.pointer("/albumOfTrack/coverArt/sources/0/url")
                     .or_else(|| t.pointer("/coverArt/sources/0/url"))
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .or_else(|| cover_url.clone());
+                    .map(|s| s.to_string());
 
                 tracks.push(RawSpotifyTrack {
+                    spotify_id,
                     title: track_title,
                     artist,
                     album,
@@ -195,6 +210,62 @@ impl SpotifyImporter {
             cover_url,
             tracks,
         })
+    }
+
+    pub async fn match_single_track(
+        db: &DatabaseRepository,
+        yt: &crate::resolvers::youtube::YoutubeStreamResolver,
+        playlist_id: &str,
+        track_id: &str,
+        spotify_id: Option<&str>,
+        title: &str,
+        artist: &str,
+    ) {
+        // 1. Check DB cache first
+        let cached = if let Some(sp_id) = spotify_id {
+            db.get_spotify_match(sp_id).ok().flatten()
+        } else {
+            None
+        }.or_else(|| {
+            db.get_spotify_match_by_title_artist(title, artist).ok().flatten()
+        });
+
+        if let Some((video_id, cover_url)) = cached {
+            let _ = db.update_imported_track_match(
+                track_id,
+                &video_id,
+                cover_url.as_deref(),
+                "matched",
+            );
+            return;
+        }
+
+        // 2. Query YTM
+        let query = format!("{} {}", title, artist);
+        match yt.search(&query).await {
+            Ok(results) if !results.is_empty() => {
+                let best = &results[0];
+                let video_id = best.source_id.trim_start_matches("ytm_").trim_start_matches("yt_");
+                let cover_url = best.cover_url.clone();
+
+                if let Some(sp_id) = spotify_id {
+                    let _ = db.insert_spotify_match(sp_id, video_id, title, artist, cover_url.as_deref());
+                }
+                let _ = db.insert_spotify_match(&format!("ta_{}_{}", title, artist), video_id, title, artist, cover_url.as_deref());
+
+                let _ = db.update_imported_track_match(
+                    track_id,
+                    video_id,
+                    cover_url.as_deref(),
+                    "matched",
+                );
+            }
+            _ => {
+                if !playlist_id.is_empty() {
+                    let _ = db.set_track_match_status(playlist_id, track_id, "unmatched");
+                }
+            }
+        }
     }
 
     pub async fn import_playlist(&self, input: &str) -> Result<ImportPlaylistResult, SoftifyError> {
@@ -218,87 +289,110 @@ impl SpotifyImporter {
             source_url: Some(input.trim().to_string()),
             track_count: raw.tracks.len() as u32,
             created_at: now,
+            matched_count: 0,
         };
 
         // Persist playlist row
         self.db.create_imported_playlist(&playlist)?;
 
-        let mut matches = Vec::new();
-        let mut matched_count = 0u32;
+        let mut matches = Vec::with_capacity(raw.tracks.len());
+        let mut initial_matched = 0u32;
 
-        for (pos, raw_t) in raw.tracks.into_iter().enumerate() {
+        for (pos, raw_t) in raw.tracks.iter().enumerate() {
             let track_id = format!("sp_tr_{}_{}", raw.id, pos);
+            let sp_source_id = raw_t.spotify_id.as_ref()
+                .map(|id| format!("spotify:{id}"))
+                .unwrap_or_else(|| format!("spotify:{}_{}_{}", raw.id, pos, raw_t.title));
+
+            // Check if already cached in DB
+            let cached = raw_t.spotify_id.as_deref()
+                .and_then(|id| self.db.get_spotify_match(id).ok().flatten())
+                .or_else(|| self.db.get_spotify_match_by_title_artist(&raw_t.title, &raw_t.artist).ok().flatten());
+
+            let (source_id, cover_url, match_status, confidence) = if let Some((vid, cached_cover)) = cached {
+                initial_matched += 1;
+                (format!("ytm_{vid}"), cached_cover.or_else(|| raw_t.cover_url.clone()), "matched".to_string(), Some(1.0))
+            } else {
+                (sp_source_id, raw_t.cover_url.clone(), "unresolved".to_string(), None)
+            };
+
             let track = Track {
                 id: track_id.clone(),
-                source_id: format!("spotify:{}_{}", raw_t.title, raw_t.artist),
+                source_id,
                 title: raw_t.title.clone(),
                 artist: raw_t.artist.clone(),
                 album: raw_t.album.clone(),
                 duration_ms: raw_t.duration_ms,
-                cover_url: raw_t.cover_url.clone(),
-                match_confidence: Some(1.0),
+                cover_url: cover_url.clone(),
+                match_confidence: confidence,
                 is_liked: false,
                 is_unavailable: false,
             };
 
-            let resolve_res = self.resolver.resolve(&track, QualityPreset::High).await;
+            let _ = self.db.insert_or_update_track(&track);
+            let _ = self.db.add_track_to_playlist(
+                &playlist_id,
+                (pos + 1) as u32,
+                Some(&track_id),
+                &raw_t.title,
+                &raw_t.artist,
+                &match_status,
+            );
 
-            match resolve_res {
-                Ok(stream_info) => {
-                    let _ = self.db.insert_or_update_track(&track);
-                    let _ = self.db.add_track_to_playlist(
-                        &playlist_id,
-                        (pos + 1) as u32,
-                        Some(&track_id),
-                        &raw_t.title,
-                        &raw_t.artist,
-                        "matched",
-                    );
-
-                    matched_count += 1;
-                    matches.push(ImportedTrackMatch {
-                        original_title: raw_t.title,
-                        original_artist: raw_t.artist,
-                        original_album: raw_t.album,
-                        duration_ms: raw_t.duration_ms,
-                        cover_url: raw_t.cover_url,
-                        resolved_track: Some(track),
-                        match_status: "matched".to_string(),
-                        bitrate_kbps: stream_info.bitrate_kbps,
-                        provider: stream_info.provider,
-                    });
-                }
-                Err(_) => {
-                    let _ = self.db.add_track_to_playlist(
-                        &playlist_id,
-                        (pos + 1) as u32,
-                        None,
-                        &raw_t.title,
-                        &raw_t.artist,
-                        "unmatched",
-                    );
-
-                    matches.push(ImportedTrackMatch {
-                        original_title: raw_t.title,
-                        original_artist: raw_t.artist,
-                        original_album: raw_t.album,
-                        duration_ms: raw_t.duration_ms,
-                        cover_url: raw_t.cover_url,
-                        resolved_track: None,
-                        match_status: "unmatched".to_string(),
-                        bitrate_kbps: 0,
-                        provider: "none".to_string(),
-                    });
-                }
-            }
+            matches.push(ImportedTrackMatch {
+                original_title: raw_t.title.clone(),
+                original_artist: raw_t.artist.clone(),
+                original_album: raw_t.album.clone(),
+                duration_ms: raw_t.duration_ms,
+                cover_url,
+                resolved_track: Some(track),
+                match_status,
+                bitrate_kbps: 0,
+                provider: "none".to_string(),
+            });
         }
+
+        // Spawn background matching with bounded concurrency (8, Semaphore)
+        let db_bg = self.db.clone();
+        let yt_bg = self.resolver.youtube().clone();
+        let pl_id_bg = playlist_id.clone();
+        let raw_tracks_bg = raw.tracks.clone();
+        let raw_id_bg = raw.id.clone();
+
+        tokio::spawn(async move {
+            let semaphore = Arc::new(tokio::sync::Semaphore::new(8));
+            let mut set = tokio::task::JoinSet::new();
+
+            for (pos, raw_t) in raw_tracks_bg.into_iter().enumerate() {
+                let track_id = format!("sp_tr_{}_{}", raw_id_bg, pos);
+                let sem = semaphore.clone();
+                let db = db_bg.clone();
+                let yt = yt_bg.clone();
+                let pl_id = pl_id_bg.clone();
+
+                set.spawn(async move {
+                    let _permit = sem.acquire().await;
+                    Self::match_single_track(
+                        &db,
+                        &yt,
+                        &pl_id,
+                        &track_id,
+                        raw_t.spotify_id.as_deref(),
+                        &raw_t.title,
+                        &raw_t.artist,
+                    ).await;
+                });
+            }
+
+            while let Some(_) = set.join_next().await {}
+        });
 
         let total_tracks = matches.len() as u32;
         Ok(ImportPlaylistResult {
             playlist,
             tracks: matches,
             total_tracks,
-            matched_tracks: matched_count,
+            matched_tracks: initial_matched,
             notice: None,
         })
     }
@@ -393,7 +487,45 @@ mod tests {
         assert_eq!(res.tracks[0].title, "Seven (feat. Latto)");
         assert_eq!(res.tracks[0].artist, "Jung Kook, Latto");
         assert_eq!(res.tracks[0].duration_ms, 184400);
+        assert_eq!(res.tracks[0].spotify_id.as_deref(), Some("12345"));
+        assert_eq!(res.tracks[0].cover_url.as_deref(), Some("https://i.scdn.co/image/track1"));
         assert_eq!(res.tracks[1].title, "Paint The Town Red");
+        assert_eq!(res.tracks[1].spotify_id.as_deref(), Some("67890"));
+    }
+
+    #[test]
+    fn test_track_does_not_inherit_playlist_cover() {
+        let no_track_cover_html = r#"
+        <script id="__NEXT_DATA__" type="application/json">
+        {
+          "props": {
+            "pageProps": {
+              "state": {
+                "data": {
+                  "entity": {
+                    "name": "Playlist With Cover",
+                    "coverArt": { "sources": [{"url": "https://i.scdn.co/image/playlist_cover"}] },
+                    "trackList": [
+                      {
+                        "uri": "spotify:track:abc123",
+                        "title": "Track Without Cover",
+                        "subtitle": "Artist A",
+                        "duration": 120000
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+        </script>
+        "#;
+        let res = SpotifyImporter::parse_embed_html("no_cover_test", no_track_cover_html).expect("parse");
+        assert_eq!(res.tracks.len(), 1);
+        assert_eq!(res.tracks[0].spotify_id.as_deref(), Some("abc123"));
+        // Track must NOT inherit playlist cover (must be None)
+        assert_eq!(res.tracks[0].cover_url, None);
     }
 
     #[test]

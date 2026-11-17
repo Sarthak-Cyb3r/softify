@@ -109,14 +109,53 @@ pub async fn search_combined(query: String, limit: u32) -> Result<SearchResult, 
 
 /// Asynchronous stream resolver following Local -> JioSaavn 320kbps -> YouTube fallback.
 /// Performs HTTP HEAD/Range probe quality verification and sanity checks byte rate.
+/// Unresolved imported tracks are resolved and matched on demand.
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn resolve_stream(track: Track, preset: QualityPreset) -> Result<StreamInfo, SoftifyError> {
+pub async fn resolve_stream(mut track: Track, preset: QualityPreset) -> Result<StreamInfo, SoftifyError> {
+    let repo_opt = get_db_repo().ok();
+
+    // On-demand resolution check for unresolved Spotify tracks
+    let mut sp_id_opt = None;
+    if track.source_id.starts_with("spotify:") {
+        let sp_id = track.source_id.trim_start_matches("spotify:").to_string();
+        sp_id_opt = Some(sp_id.clone());
+        if let Some(repo) = &repo_opt {
+            let cached = repo.get_spotify_match(&sp_id).ok().flatten()
+                .or_else(|| repo.get_spotify_match_by_title_artist(&track.title, &track.artist).ok().flatten());
+            if let Some((vid, cover)) = cached {
+                track.source_id = format!("ytm_{vid}");
+                if track.cover_url.is_none() {
+                    track.cover_url = cover;
+                }
+            }
+        }
+    }
+
     let resolver = get_hybrid_resolver();
     let stream_info = resolver.resolve(&track, preset).await?;
 
-    // If DB is initialized, persist track
-    if let Ok(repo) = get_db_repo() {
-        let _ = repo.insert_or_update_track(&track);
+    // If DB is initialized, persist and match unresolved track
+    if let Some(repo) = repo_opt {
+        if track.id.starts_with("sp_tr_") || sp_id_opt.is_some() {
+            let yt = resolver.youtube().clone();
+            let repo_clone = repo.clone();
+            let track_id = track.id.clone();
+            let title = track.title.clone();
+            let artist = track.artist.clone();
+            tokio::spawn(async move {
+                crate::importer::spotify::SpotifyImporter::match_single_track(
+                    &repo_clone,
+                    &yt,
+                    "",
+                    &track_id,
+                    sp_id_opt.as_deref(),
+                    &title,
+                    &artist,
+                ).await;
+            });
+        } else {
+            let _ = repo.insert_or_update_track(&track);
+        }
     }
 
     Ok(stream_info)

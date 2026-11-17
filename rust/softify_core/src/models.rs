@@ -56,6 +56,7 @@ pub struct Playlist {
     pub source_url: Option<String>,
     pub track_count: u32,
     pub created_at: i64,
+    pub matched_count: u32,
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

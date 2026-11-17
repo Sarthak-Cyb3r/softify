@@ -1262,7 +1262,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_rename_playlist() != 35472.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_softify_core_checksum_func_resolve_stream() != 64258.toShort()) {
+    if (lib.uniffi_softify_core_checksum_func_resolve_stream() != 18736.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_save_track() != 34024.toShort()) {
@@ -1830,7 +1830,8 @@ data class Playlist (
     var `isImported`: kotlin.Boolean, 
     var `sourceUrl`: kotlin.String?, 
     var `trackCount`: kotlin.UInt, 
-    var `createdAt`: kotlin.Long
+    var `createdAt`: kotlin.Long, 
+    var `matchedCount`: kotlin.UInt
 ) {
     
     companion object
@@ -1849,6 +1850,7 @@ public object FfiConverterTypePlaylist: FfiConverterRustBuffer<Playlist> {
             FfiConverterOptionalString.read(buf),
             FfiConverterUInt.read(buf),
             FfiConverterLong.read(buf),
+            FfiConverterUInt.read(buf),
         )
     }
 
@@ -1859,7 +1861,8 @@ public object FfiConverterTypePlaylist: FfiConverterRustBuffer<Playlist> {
             FfiConverterBoolean.allocationSize(value.`isImported`) +
             FfiConverterOptionalString.allocationSize(value.`sourceUrl`) +
             FfiConverterUInt.allocationSize(value.`trackCount`) +
-            FfiConverterLong.allocationSize(value.`createdAt`)
+            FfiConverterLong.allocationSize(value.`createdAt`) +
+            FfiConverterUInt.allocationSize(value.`matchedCount`)
     )
 
     override fun write(value: Playlist, buf: ByteBuffer) {
@@ -1870,6 +1873,7 @@ public object FfiConverterTypePlaylist: FfiConverterRustBuffer<Playlist> {
             FfiConverterOptionalString.write(value.`sourceUrl`, buf)
             FfiConverterUInt.write(value.`trackCount`, buf)
             FfiConverterLong.write(value.`createdAt`, buf)
+            FfiConverterUInt.write(value.`matchedCount`, buf)
     }
 }
 
@@ -3607,6 +3611,7 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         /**
          * Asynchronous stream resolver following Local -> JioSaavn 320kbps -> YouTube fallback.
          * Performs HTTP HEAD/Range probe quality verification and sanity checks byte rate.
+         * Unresolved imported tracks are resolved and matched on demand.
          */
     @Throws(SoftifyException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
