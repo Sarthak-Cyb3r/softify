@@ -98,10 +98,8 @@ fun SearchScreen(
             val intentLabel = when (detectedIntent) {
                 SearchIntent.ARTIST -> "Artist intent: ${detectedEntity ?: query}"
                 SearchIntent.ALBUM -> "Album intent: ${detectedEntity ?: query}"
-                SearchIntent.SONG -> "Song intent: ${detectedEntity ?: query}"
-                SearchIntent.EXACT_TITLE -> "Exact title: ${detectedEntity ?: query}"
-                SearchIntent.MOOD -> "Mood / Vibe search"
-                SearchIntent.GENERAL -> ""
+                SearchIntent.TRACK -> "Track intent: ${detectedEntity ?: query}"
+                else -> ""
             }
             if (intentLabel.isNotEmpty()) {
                 Surface(

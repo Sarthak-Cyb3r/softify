@@ -219,9 +219,10 @@ class PlaybackViewModel(
     fun loadSmartPlaylists() {
         scope.launch(Dispatchers.Default) {
             try {
-                _smartOnRepeat.value = getOnRepeatTracks(null)
-                _smartMostPlayed.value = getMostPlayedTracks(null)
-                _smartForgottenFavorites.value = getForgottenFavoritesTracks(null)
+                val nowMs = System.currentTimeMillis().toULong()
+                _smartOnRepeat.value = getOnRepeatTracks(nowMs, 50u)
+                _smartMostPlayed.value = getMostPlayedTracks(nowMs, 50u)
+                _smartForgottenFavorites.value = getForgottenFavoritesTracks(nowMs, 50u)
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Smart playlists load error: ${e.message}")
             }
@@ -400,7 +401,7 @@ class PlaybackViewModel(
             try {
                 val res = importSpotifyPlaylist(urlOrId)
                 refreshLibrary()
-                showSnackbar("Imported '${res.playlist.name}' (${res.tracksMatched}/${res.tracksTotal} tracks matched)")
+                showSnackbar("Imported '${res.playlist.name}' (${res.matchedTracks}/${res.totalTracks} tracks matched)")
             } catch (e: Exception) {
                 showSnackbar("Spotify import failed: ${e.message}")
             }
