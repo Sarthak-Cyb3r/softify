@@ -23,15 +23,47 @@
 
 ## Test Results
 - `cargo test --lib`:
-  `42 passed; 0 failed; 0 ignored; finished in 1.26s`
+  `43 passed; 0 failed; 0 ignored; finished in 5.57s`
 - `cargo clippy -- -D warnings`: 0 warnings
-- GitHub Actions Run `#44100393153`:
+- NoEmoji Python & Unit Check: 0 forbidden emojis or pictographs across all Kotlin files in `composeApp/src`.
+- GitHub Actions Run `#44100393153` (M3b Initial):
   `✓ Build Android Debug APK with Rust Core in 7m29s (ID 134098528815) - conclusion: success`
+- GitHub Actions Run `#44107511738` (M3b 3-Bug Fix Pass):
+  `✓ Build Android Debug APK with Rust Core - conclusion: success`
 - APK native library inspection (`unzip -l composeApp-debug.apk | grep '\.so'`):
   - `lib/arm64-v8a/libsoftify_core.so`
   - `lib/x86_64/libsoftify_core.so`
   - `lib/arm64-v8a/libjnidispatch.so`
   - `lib/x86_64/libjnidispatch.so`
+
+## M3b Bug Fixes (Completed & Cloud-Verified)
+
+### Bug 1: Spotify Import Concurrency & On-Demand Resolution
+- **Problem**: Tracks were matched to YTM sequentially, causing Spotify playlist imports to stall or take a very long time.
+- **Fix**:
+  1. All tracks are inserted immediately into SQLite in `unresolved` state with title, artist, album, and duration.
+  2. Bounded background concurrency (`tokio::sync::Semaphore::new(8)` with `tokio::task::JoinSet`) matches tracks asynchronously.
+  3. Caches matches in `spotify_matches` table (`spotify_id -> video_id`, `cover_url`, `matched_at`) with title/artist index.
+  4. Exposed `matched_count` on `Playlist` and updated `get_playlists` SQL query to return real-time matched counts.
+  5. In `LibraryScreen`, imported playlists show live progress: `"X tracks • matched N/X"`.
+  6. In `PlaybackViewModel`, added `pollMatchingProgress()` to poll library state every 1.5s until matching completes.
+  7. On-demand resolution in `resolve_stream`: playing an unresolved track checks cache or queries YTM/Saavn immediately, starts stream, and matches/caches in SQLite.
+
+### Bug 2: Track Artwork Resolution & Playlist Cover Separation
+- **Problem**: Imported tracks inherited the playlist's thumbnail instead of their own artwork.
+- **Fix**:
+  1. Removed `.or_else(|| cover_url.clone())` fallback in `SpotifyImporter::parse_embed_html`. Tracks without embedded album art initialize with `cover_url = None`.
+  2. In `YoutubeStreamResolver::extract_highest_res_thumbnail`, extracted the highest-resolution square thumbnail from `musicThumbnailRenderer/thumbnail/thumbnails` and rewrote the dimension parameter to `=w544-h544-l90-rj` (or `hqdefault.jpg` fallback).
+  3. Database migration cleans up previously imported tracks that mistakenly inherited playlist artwork:
+     `UPDATE tracks SET cover_url = NULL WHERE (id LIKE 'sp_tr_%' OR source_id LIKE 'spotify:%') AND cover_url IN (SELECT cover_url FROM playlists WHERE is_imported = 1);`
+  4. Updated `get_playlist_tracks` query with `COALESCE(t.cover_url, sm.cover_url, CASE WHEN t.source_id LIKE 'ytm_%' THEN ...)` so tracks without art dynamically resolve to matched square thumbnails.
+
+### Bug 3: LibraryScreen "History" Vertical Text & Width Constraint
+- **Problem**: In `LibraryScreen`, the filter chips row was a static `Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp))`. Because "Playlists (X)" and "Liked Songs (Y)" filled the horizontal space, "History" was constrained to minimal width, causing each character to wrap onto a new line vertically.
+- **Fix**:
+  1. Replaced static `Row` with scrollable `LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp))`.
+  2. Added `maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis` to "Playlists", "Liked Songs", and "History" filter chip labels.
+  3. Audited and fixed other Library labels: added `maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis` to `SmartPlaylistCard` (title and subtitle), `PlaylistRowItem` (name and subtitle), and `TrackItemRow` (title and artist/album).
 
 ## What is Stubbed or Deferred (By Approved Plan)
 - **Full Now Playing Screen & Apple Music Liquid UI**: Deferred to M3c (mini player tap shows informative snackbar; Apple Music chip disabled with M3c label).
