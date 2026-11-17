@@ -1,5 +1,8 @@
 package com.softify.app.viewmodel
 
+import com.softify.app.playback.QueueManager
+import com.softify.app.playback.QueueState
+import com.softify.app.playback.RepeatMode
 import com.softify.app.util.PlaybackLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,21 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import uniffi.softify_core.Playlist
-import uniffi.softify_core.PlayHistory
-import uniffi.softify_core.QualityPreset
-import uniffi.softify_core.SearchIntent
-import uniffi.softify_core.StreamInfo
-import uniffi.softify_core.Track
-import uniffi.softify_core.createPlaylist
-import uniffi.softify_core.getHistory
-import uniffi.softify_core.getLikedTracks
-import uniffi.softify_core.getPlaylists
-import uniffi.softify_core.resolveStream
-import uniffi.softify_core.saveTrack
-import uniffi.softify_core.searchCombined
-import uniffi.softify_core.searchLibrary
-import uniffi.softify_core.toggleLike
+import uniffi.softify_core.*
 
 enum class UiStyle {
     METROLIST,
@@ -33,6 +22,7 @@ enum class UiStyle {
 }
 
 enum class NavigationTab {
+    HOME,
     SEARCH,
     LIBRARY,
 }
@@ -65,9 +55,24 @@ class PlaybackViewModel(
         _isGalleryOpen.value = false
     }
 
-    private val _currentTab = MutableStateFlow(NavigationTab.SEARCH)
+    // Queue Manager (Single Source of Truth)
+    val queueManager = QueueManager(scope = scope)
+    val queueState: StateFlow<QueueState> = queueManager.queueState
+
+    private val _currentTab = MutableStateFlow(NavigationTab.HOME)
     val currentTab: StateFlow<NavigationTab> = _currentTab.asStateFlow()
 
+    // Home Shelves State
+    private val _homeShelves = MutableStateFlow<List<Shelf>>(emptyList())
+    val homeShelves: StateFlow<List<Shelf>> = _homeShelves.asStateFlow()
+
+    private val _isHomeLoading = MutableStateFlow(false)
+    val isHomeLoading: StateFlow<Boolean> = _isHomeLoading.asStateFlow()
+
+    private val _homeError = MutableStateFlow<String?>(null)
+    val homeError: StateFlow<String?> = _homeError.asStateFlow()
+
+    // Search State
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -76,6 +81,9 @@ class PlaybackViewModel(
 
     private val _onlineSearchResults = MutableStateFlow<List<Track>>(emptyList())
     val onlineSearchResults: StateFlow<List<Track>> = _onlineSearchResults.asStateFlow()
+
+    private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
+    val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
     private val _detectedIntent = MutableStateFlow(SearchIntent.GENERAL)
     val detectedIntent: StateFlow<SearchIntent> = _detectedIntent.asStateFlow()
@@ -86,6 +94,7 @@ class PlaybackViewModel(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    // Active Playback State
     private val _activeTrack = MutableStateFlow<Track?>(null)
     val activeTrack: StateFlow<Track?> = _activeTrack.asStateFlow()
 
@@ -95,11 +104,17 @@ class PlaybackViewModel(
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
+    private val _playbackProgress = MutableStateFlow(0f)
+    val playbackProgress: StateFlow<Float> = _playbackProgress.asStateFlow()
+
     private val _qualityPreset = MutableStateFlow(QualityPreset.HIGH)
     val qualityPreset: StateFlow<QualityPreset> = _qualityPreset.asStateFlow()
 
     private val _uiStyle = MutableStateFlow(UiStyle.METROLIST)
     val uiStyle: StateFlow<UiStyle> = _uiStyle.asStateFlow()
+
+    private val _isIncognito = MutableStateFlow(false)
+    val isIncognito: StateFlow<Boolean> = _isIncognito.asStateFlow()
 
     // Library State
     private val _likedTracks = MutableStateFlow<List<Track>>(emptyList())
@@ -110,6 +125,16 @@ class PlaybackViewModel(
 
     private val _history = MutableStateFlow<List<PlayHistory>>(emptyList())
     val history: StateFlow<List<PlayHistory>> = _history.asStateFlow()
+
+    // Smart Playlists
+    private val _smartOnRepeat = MutableStateFlow<List<Track>>(emptyList())
+    val smartOnRepeat: StateFlow<List<Track>> = _smartOnRepeat.asStateFlow()
+
+    private val _smartMostPlayed = MutableStateFlow<List<Track>>(emptyList())
+    val smartMostPlayed: StateFlow<List<Track>> = _smartMostPlayed.asStateFlow()
+
+    private val _smartForgottenFavorites = MutableStateFlow<List<Track>>(emptyList())
+    val smartForgottenFavorites: StateFlow<List<Track>> = _smartForgottenFavorites.asStateFlow()
 
     // Snackbar event bus for user-facing errors
     private val _snackbarEvents = MutableSharedFlow<String>(extraBufferCapacity = 10)
@@ -123,7 +148,7 @@ class PlaybackViewModel(
     var onProbeYouTubeRequested: (() -> Unit)? = null
 
     init {
-        refreshLibrary()
+        refreshAll()
     }
 
     fun showSnackbar(message: String) {
@@ -135,10 +160,46 @@ class PlaybackViewModel(
         _isPlaying.value = playing
     }
 
+    fun setPlaybackProgress(progress: Float) {
+        _playbackProgress.value = progress.coerceIn(0f, 1f)
+    }
+
     fun setTab(tab: NavigationTab) {
         _currentTab.value = tab
-        if (tab == NavigationTab.LIBRARY) {
-            refreshLibrary()
+        when (tab) {
+            NavigationTab.HOME -> loadHomeExplore()
+            NavigationTab.SEARCH -> loadRecentSearches()
+            NavigationTab.LIBRARY -> refreshLibrary()
+        }
+    }
+
+    fun refreshAll() {
+        refreshLibrary()
+        loadHomeExplore()
+        loadRecentSearches()
+        checkIncognitoStatus()
+    }
+
+    private fun checkIncognitoStatus() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                _isIncognito.value = isLearningPaused()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleIncognito() {
+        val next = !_isIncognito.value
+        scope.launch(Dispatchers.Default) {
+            try {
+                setLearningPaused(next)
+                _isIncognito.value = next
+                val stateText = if (next) "Incognito ON (history & learning paused)" else "Incognito OFF"
+                PlaybackLogger.log("SoftifyPlayback", stateText)
+                showSnackbar(stateText)
+            } catch (e: Exception) {
+                showSnackbar("Failed to toggle incognito: ${e.message}")
+            }
         }
     }
 
@@ -147,10 +208,73 @@ class PlaybackViewModel(
             try {
                 _likedTracks.value = getLikedTracks()
                 _playlists.value = getPlaylists()
-                _history.value = getHistory(20u)
+                _history.value = getHistory(25u)
+                loadSmartPlaylists()
             } catch (e: Exception) {
-                // Database may not be initialized yet
+                PlaybackLogger.log("SoftifyPlayback", "Library refresh error: ${e.message}")
             }
+        }
+    }
+
+    fun loadSmartPlaylists() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                _smartOnRepeat.value = getOnRepeatTracks(null)
+                _smartMostPlayed.value = getMostPlayedTracks(null)
+                _smartForgottenFavorites.value = getForgottenFavoritesTracks(null)
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "Smart playlists load error: ${e.message}")
+            }
+        }
+    }
+
+    fun loadHomeExplore() {
+        _isHomeLoading.value = true
+        _homeError.value = null
+        scope.launch(Dispatchers.Default) {
+            try {
+                // Try personalized recommendation shelves first
+                var shelves = runCatching { getRecommendationShelves() }.getOrDefault(emptyList())
+                val hasTracks = shelves.any { it.tracks.isNotEmpty() }
+
+                if (!hasTracks) {
+                    // Fall back to explore charts / trending (fixture or online)
+                    shelves = homeExplore()
+                }
+
+                _homeShelves.value = shelves
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "Home explore error: ${e.message}")
+                _homeError.value = e.message ?: "Failed to load explore content"
+            } finally {
+                _isHomeLoading.value = false
+            }
+        }
+    }
+
+    fun loadRecentSearches() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                _recentSearches.value = getRecentSearches(15u)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun deleteRecentSearchItem(query: String) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                deleteRecentSearch(query)
+                loadRecentSearches()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun clearAllRecentSearches() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                clearRecentSearches()
+                _recentSearches.value = emptyList()
+            } catch (_: Exception) {}
         }
     }
 
@@ -164,6 +288,7 @@ class PlaybackViewModel(
             _detectedIntent.value = SearchIntent.GENERAL
             _detectedEntity.value = null
             _isSearching.value = false
+            loadRecentSearches()
             return
         }
 
@@ -172,8 +297,9 @@ class PlaybackViewModel(
             _localSearchResults.value = searchLibrary(query, 10u)
         } catch (_: Exception) {}
 
-        // 2. Combined async search with online queries
+        // 2. Debounced combined async search (300ms) with online queries
         searchJob = scope.launch(Dispatchers.Default) {
+            kotlinx.coroutines.delay(300L)
             _isSearching.value = true
             try {
                 val combined = searchCombined(query, 25u)
@@ -181,6 +307,9 @@ class PlaybackViewModel(
                 _onlineSearchResults.value = combined.onlineTracks
                 _detectedIntent.value = combined.intent
                 _detectedEntity.value = combined.detectedEntity
+
+                // Record search query in DB (skipped if incognito in Rust core)
+                runCatching { recordSearchQuery(query) }
             } catch (e: Exception) {
                 // Ignore cancellation
             } finally {
@@ -192,15 +321,11 @@ class PlaybackViewModel(
     fun toggleLikeTrack(track: Track) {
         scope.launch(Dispatchers.Default) {
             try {
-                // Ensure track exists in DB
                 saveTrack(track)
                 val newLikedState = toggleLike(track.id)
-                
-                // Update in activeTrack if matched
                 if (_activeTrack.value?.id == track.id) {
                     _activeTrack.value = _activeTrack.value?.copy(isLiked = newLikedState)
                 }
-                
                 refreshLibrary()
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Failed to toggle like: ${e.message}")
@@ -213,27 +338,170 @@ class PlaybackViewModel(
             try {
                 createPlaylist(name, description)
                 refreshLibrary()
+                showSnackbar("Created playlist '$name'")
             } catch (e: Exception) {
-                PlaybackLogger.log("SoftifyPlayback", "Failed to create playlist: ${e.message}")
+                showSnackbar("Failed to create playlist: ${e.message}")
             }
         }
     }
 
+    fun renameUserPlaylist(playlistId: String, newName: String) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                renamePlaylist(playlistId, newName)
+                refreshLibrary()
+                showSnackbar("Renamed playlist to '$newName'")
+            } catch (e: Exception) {
+                showSnackbar("Failed to rename playlist: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteUserPlaylist(playlistId: String) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                deletePlaylist(playlistId)
+                refreshLibrary()
+                showSnackbar("Deleted playlist")
+            } catch (e: Exception) {
+                showSnackbar("Failed to delete playlist: ${e.message}")
+            }
+        }
+    }
+
+    fun addTrackToPlaylist(playlistId: String, track: Track) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                saveTrack(track)
+                addToPlaylist(playlistId, track.id)
+                refreshLibrary()
+                showSnackbar("Added '${track.title}' to playlist")
+            } catch (e: Exception) {
+                showSnackbar("Failed to add to playlist: ${e.message}")
+            }
+        }
+    }
+
+    fun removeTrackFromPlaylist(playlistId: String, trackId: String) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                removeFromPlaylist(playlistId, trackId)
+                refreshLibrary()
+                showSnackbar("Removed track from playlist")
+            } catch (e: Exception) {
+                showSnackbar("Failed to remove track: ${e.message}")
+            }
+        }
+    }
+
+    fun importSpotify(urlOrId: String) {
+        scope.launch(Dispatchers.Default) {
+            showSnackbar("Importing Spotify playlist...")
+            try {
+                val res = importSpotifyPlaylist(urlOrId)
+                refreshLibrary()
+                showSnackbar("Imported '${res.playlist.name}' (${res.tracksMatched}/${res.tracksTotal} tracks matched)")
+            } catch (e: Exception) {
+                showSnackbar("Spotify import failed: ${e.message}")
+            }
+        }
+    }
+
+    fun clearListeningHistory() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                clearHistory()
+                _history.value = emptyList()
+                loadSmartPlaylists()
+                showSnackbar("Listening history cleared")
+            } catch (e: Exception) {
+                showSnackbar("Failed to clear history: ${e.message}")
+            }
+        }
+    }
+
+    // Playback and Queue Controls
     fun playTrack(track: Track) {
-        PlaybackLogger.log("SoftifyPlayback", "Tap: track '${track.title}' (${track.id}) by '${track.artist}'")
+        queueManager.setQueue(listOf(track), startIndex = 0)
+        executePlayTrack(track)
+    }
+
+    fun playTrackInQueue(tracks: List<Track>, startIndex: Int) {
+        if (tracks.isEmpty()) return
+        queueManager.setQueue(tracks, startIndex)
+        val target = tracks.getOrNull(startIndex) ?: return
+        executePlayTrack(target)
+    }
+
+    fun playNext(track: Track) {
+        queueManager.playNext(track)
+        showSnackbar("Playing next: '${track.title}'")
+    }
+
+    fun addToQueue(track: Track) {
+        queueManager.addToQueue(track)
+        showSnackbar("Added to queue: '${track.title}'")
+    }
+
+    fun skipNext() {
+        val next = queueManager.skipNext()
+        if (next != null) {
+            executePlayTrack(next)
+        } else {
+            showSnackbar("End of queue")
+        }
+    }
+
+    fun skipPrevious() {
+        val prev = queueManager.skipPrevious()
+        if (prev != null) {
+            executePlayTrack(prev)
+        }
+    }
+
+    fun onTrackEnded() {
+        PlaybackLogger.log("SoftifyPlayback", "onTrackEnded received in ViewModel")
+        val next = queueManager.onTrackEnded()
+        if (next != null) {
+            executePlayTrack(next)
+        } else {
+            _isPlaying.value = false
+            PlaybackLogger.log("SoftifyPlayback", "Queue finished; stopping playback")
+        }
+    }
+
+    fun toggleRepeat() {
+        val mode = queueManager.toggleRepeatMode()
+        val text = when (mode) {
+            RepeatMode.OFF -> "Repeat OFF"
+            RepeatMode.ALL -> "Repeat ALL"
+            RepeatMode.ONE -> "Repeat ONE"
+        }
+        showSnackbar(text)
+    }
+
+    fun toggleShuffle() {
+        val isShuffle = queueManager.toggleShuffle()
+        showSnackbar(if (isShuffle) "Shuffle ON" else "Shuffle OFF")
+    }
+
+    private fun executePlayTrack(track: Track) {
+        PlaybackLogger.log("SoftifyPlayback", "executePlayTrack: '${track.title}' (${track.id})")
         scope.launch {
             _activeTrack.value = track
             _isPlaying.value = true
-            PlaybackLogger.log("SoftifyPlayback", "Resolve start: '${track.title}' preset=${_qualityPreset.value}")
+            _playbackProgress.value = 0f
+
             try {
-                val stream = resolveStream(track, _qualityPreset.value)
+                val stream = queueManager.resolveTrackStream(track, _qualityPreset.value)
                 _activeStream.value = stream
+
                 val host = runCatching { java.net.URI(stream.url).host ?: "unknown" }.getOrDefault("unknown")
                 PlaybackLogger.log(
                     "SoftifyPlayback",
-                    "Resolve end: provider=${stream.provider}, bitrate=${stream.bitrateKbps}kbps, codec=${stream.codec}, is_requested_quality=${stream.isRequestedQuality}, host=$host"
+                    "Resolve end: provider=${stream.provider}, bitrate=${stream.bitrateKbps}kbps, codec=${stream.codec}, host=$host"
                 )
-                
+
                 val handler = onStreamReadyForPlayback
                 if (handler != null) {
                     handler.invoke(track, stream)
@@ -242,6 +510,9 @@ class PlaybackViewModel(
                     PlaybackLogger.log("SoftifyPlayback", "ERROR: $errMsg")
                     showSnackbar(errMsg)
                 }
+
+                // Pre-resolve next track in background
+                queueManager.preResolveNext(_qualityPreset.value)
                 refreshLibrary()
             } catch (e: Exception) {
                 val errMsg = "Rust resolver error for '${track.title}': ${e.message}"
@@ -265,7 +536,7 @@ class PlaybackViewModel(
         _qualityPreset.value = preset
         val track = _activeTrack.value
         if (track != null && _isPlaying.value) {
-            playTrack(track)
+            executePlayTrack(track)
         }
     }
 

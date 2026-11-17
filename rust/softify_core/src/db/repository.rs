@@ -33,6 +33,10 @@ impl DatabaseRepository {
         Ok(())
     }
 
+    pub fn get_connection(&self) -> Arc<Mutex<Connection>> {
+        self.conn.clone()
+    }
+
     pub fn insert_or_update_track(&self, track: &Track) -> Result<(), SoftifyError> {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
         let now = std::time::SystemTime::now()
@@ -270,6 +274,19 @@ impl DatabaseRepository {
 
     pub fn record_play_history(&self, track_id: &str, completed_ratio: f64) -> Result<(), SoftifyError> {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+
+        // Incognito check: if learning is paused, do not record listening history
+        let is_paused: Result<String, rusqlite::Error> = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'learning_paused'",
+            [],
+            |r| r.get(0),
+        );
+        if let Ok(val) = is_paused {
+            if val == "true" {
+                return Ok(());
+            }
+        }
+
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -906,6 +923,241 @@ impl DatabaseRepository {
             tracks.push(r?);
         }
         Ok(tracks)
+    }
+
+    // --- Recent Searches ---
+
+    pub fn insert_recent_search(&self, query: &str) -> Result<(), SoftifyError> {
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            return Ok(());
+        }
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+
+        // Incognito check: if learning is paused, do not record recent searches
+        let is_paused: Result<String, rusqlite::Error> = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'learning_paused'",
+            [],
+            |r| r.get(0),
+        );
+        if let Ok(val) = is_paused {
+            if val == "true" {
+                return Ok(());
+            }
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+
+        conn.execute(
+            "INSERT INTO recent_searches (query, searched_at)
+             VALUES (?1, ?2)
+             ON CONFLICT(query) DO UPDATE SET searched_at = excluded.searched_at",
+            params![trimmed, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_recent_searches(&self, limit: u32) -> Result<Vec<String>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT query FROM recent_searches ORDER BY searched_at DESC LIMIT ?1"
+        )?;
+        let rows = stmt.query_map(params![limit as i64], |row| row.get(0))?;
+        let mut results = Vec::new();
+        for r in rows {
+            results.push(r?);
+        }
+        Ok(results)
+    }
+
+    pub fn delete_recent_search(&self, query: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute("DELETE FROM recent_searches WHERE query = ?1", params![query.trim()])?;
+        Ok(())
+    }
+
+    pub fn clear_recent_searches(&self) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        conn.execute("DELETE FROM recent_searches", [])?;
+        Ok(())
+    }
+
+    // --- Smart Playlists ---
+
+    /// On Repeat Smart Playlist:
+    /// Returns tracks played >= 1 time in the past 14 days (now_ms - 14 * 86_400_000),
+    /// ordered by play count descending, with ties broken by most recent play time.
+    pub fn get_on_repeat_tracks(&self, now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now_sec = (now_ms / 1000) as i64;
+        let cutoff_sec = now_sec - (14 * 86_400);
+
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url, t.match_confidence, t.is_liked, t.is_unavailable,
+                    COUNT(ph.id) AS play_count, MAX(ph.played_at) AS last_played
+             FROM play_histories ph
+             JOIN tracks t ON ph.track_id = t.id
+             WHERE ph.played_at >= ?1
+             GROUP BY t.id
+             ORDER BY play_count DESC, last_played DESC
+             LIMIT ?2"
+        )?;
+
+        let rows = stmt.query_map(params![cutoff_sec, limit as i64], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
+
+    /// Most Played Smart Playlist:
+    /// Returns tracks played in the past 30 days (now_ms - 30 * 86_400_000),
+    /// ordered by total play count descending, with ties broken by most recent play time.
+    pub fn get_most_played_tracks(&self, now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now_sec = (now_ms / 1000) as i64;
+        let cutoff_sec = now_sec - (30 * 86_400);
+
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url, t.match_confidence, t.is_liked, t.is_unavailable,
+                    COUNT(ph.id) AS play_count, MAX(ph.played_at) AS last_played
+             FROM play_histories ph
+             JOIN tracks t ON ph.track_id = t.id
+             WHERE ph.played_at >= ?1
+             GROUP BY t.id
+             ORDER BY play_count DESC, last_played DESC
+             LIMIT ?2"
+        )?;
+
+        let rows = stmt.query_map(params![cutoff_sec, limit as i64], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
+
+    /// Forgotten Favorites Smart Playlist:
+    /// Returns liked tracks (`is_liked = 1`) that have not been played in the past 60 days
+    /// (or have never been played at all), ordered by creation date descending.
+    pub fn get_forgotten_favorites_tracks(&self, now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now_sec = (now_ms / 1000) as i64;
+        let cutoff_sec = now_sec - (60 * 86_400);
+
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url, t.match_confidence, t.is_liked, t.is_unavailable
+             FROM tracks t
+             WHERE t.is_liked = 1
+               AND t.id NOT IN (
+                   SELECT ph.track_id
+                   FROM play_histories ph
+                   WHERE ph.played_at >= ?1
+               )
+             ORDER BY t.created_at DESC
+             LIMIT ?2"
+        )?;
+
+        let rows = stmt.query_map(params![cutoff_sec, limit as i64], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
+
+    // --- Playlist Rename ---
+
+    pub fn rename_playlist(&self, playlist_id: &str, new_name: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let rows_affected = conn.execute(
+            "UPDATE playlists SET name = ?1 WHERE id = ?2",
+            params![new_name.trim(), playlist_id],
+        )?;
+        if rows_affected == 0 {
+            return Err(SoftifyError::NotFound {
+                reason: format!("Playlist {} not found", playlist_id),
+            });
+        }
+        Ok(())
+    }
+
+    // --- Home Explore Cache ---
+
+    pub fn cache_home_explore(&self, json_payload: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        conn.execute(
+            "INSERT INTO home_explore_cache (id, json_payload, cached_at)
+             VALUES ('primary_explore', ?1, ?2)
+             ON CONFLICT(id) DO UPDATE SET json_payload = excluded.json_payload, cached_at = excluded.cached_at",
+            params![json_payload, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_cached_home_explore(&self) -> Result<Option<String>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let res: Result<String, rusqlite::Error> = conn.query_row(
+            "SELECT json_payload FROM home_explore_cache WHERE id = 'primary_explore'",
+            [],
+            |r| r.get(0),
+        );
+        match res {
+            Ok(json) => Ok(Some(json)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(SoftifyError::from(e)),
+        }
     }
 }
 

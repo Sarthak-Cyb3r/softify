@@ -187,6 +187,71 @@ pub fn create_playlist(name: String, description: Option<String>) -> Result<Play
     repo.create_playlist(&name, description.as_deref())
 }
 
+/// Renames an existing playlist
+#[uniffi::export]
+pub fn rename_playlist(playlist_id: String, new_name: String) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.rename_playlist(&playlist_id, &new_name)
+}
+
+/// Records a recent search query (skipped if incognito/learning is paused)
+#[uniffi::export]
+pub fn record_search_query(query: String) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.insert_recent_search(&query)
+}
+
+/// Retrieves recent searches ordered by most recent first
+#[uniffi::export]
+pub fn get_recent_searches(limit: u32) -> Result<Vec<String>, SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.get_recent_searches(limit)
+}
+
+/// Deletes a single recent search query
+#[uniffi::export]
+pub fn delete_recent_search(query: String) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.delete_recent_search(&query)
+}
+
+/// Clears all recent searches
+#[uniffi::export]
+pub fn clear_recent_searches() -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.clear_recent_searches()
+}
+
+/// On Repeat Smart Playlist: tracks played in the past 14 days, ordered by play count desc
+#[uniffi::export]
+pub fn get_on_repeat_tracks(now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.get_on_repeat_tracks(now_ms, limit)
+}
+
+/// Most Played Smart Playlist: tracks played in the past 30 days, ordered by play count desc
+#[uniffi::export]
+pub fn get_most_played_tracks(now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.get_most_played_tracks(now_ms, limit)
+}
+
+/// Forgotten Favorites Smart Playlist: liked tracks not played in 60+ days (or never played)
+#[uniffi::export]
+pub fn get_forgotten_favorites_tracks(now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.get_forgotten_favorites_tracks(now_ms, limit)
+}
+
+/// Asynchronously fetches explore charts / trending shelves for home screen.
+/// Uses remote config endpoint, caches in SQLite, falls back to embedded fixture.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn home_explore() -> Result<Vec<Shelf>, SoftifyError> {
+    let repo = get_db_repo()?;
+    let engine = reco::explore::HomeExploreEngine::new(repo);
+    engine.get_explore_shelves(get_config_mgr()).await
+}
+
 /// Deletes a playlist
 #[uniffi::export]
 pub fn delete_playlist(playlist_id: String) -> Result<(), SoftifyError> {

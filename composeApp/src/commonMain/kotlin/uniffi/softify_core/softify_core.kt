@@ -826,6 +826,24 @@ internal open class UniffiVTableCallbackInterfaceScanProgressCallback(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -853,15 +871,21 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_softify_core_fn_func_clear_history(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_clear_recent_searches(uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_create_playlist(`name`: RustBuffer.ByValue,`description`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_delete_download(`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_delete_playlist(`playlistId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_delete_recent_search(`query`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_download_track(`track`: RustBuffer.ByValue,`preset`: RustBuffer.ByValue,`targetDir`: RustBuffer.ByValue,`callback`: Long,
     ): Long
     fun uniffi_softify_core_fn_func_get_downloads(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_forgotten_favorites_tracks(`nowMs`: Long,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_history(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -869,14 +893,22 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_lyrics(`track`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_softify_core_fn_func_get_most_played_tracks(`nowMs`: Long,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_on_repeat_tracks(`nowMs`: Long,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_playlist_tracks(`playlistId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_playlists(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_recent_searches(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_recommendation_shelves(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_snoozed_artists(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_home_explore(
+    ): Long
     fun uniffi_softify_core_fn_func_import_spotify_playlist(`urlOrId`: RustBuffer.ByValue,
     ): Long
     fun uniffi_softify_core_fn_func_init_database(`dbPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -887,11 +919,15 @@ internal interface UniffiLib : Library {
     ): Byte
     fun uniffi_softify_core_fn_func_record_play(`trackId`: RustBuffer.ByValue,`completedRatio`: Double,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_record_search_query(`query`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_refresh_remote_config(`url`: RustBuffer.ByValue,
     ): Long
     fun uniffi_softify_core_fn_func_remove_artist_snooze(`artist`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_remove_from_playlist(`playlistId`: RustBuffer.ByValue,`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_softify_core_fn_func_rename_playlist(`playlistId`: RustBuffer.ByValue,`newName`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_resolve_stream(`track`: RustBuffer.ByValue,`preset`: RustBuffer.ByValue,
     ): Long
@@ -1031,15 +1067,21 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_clear_history(
     ): Short
+    fun uniffi_softify_core_checksum_func_clear_recent_searches(
+    ): Short
     fun uniffi_softify_core_checksum_func_create_playlist(
     ): Short
     fun uniffi_softify_core_checksum_func_delete_download(
     ): Short
     fun uniffi_softify_core_checksum_func_delete_playlist(
     ): Short
+    fun uniffi_softify_core_checksum_func_delete_recent_search(
+    ): Short
     fun uniffi_softify_core_checksum_func_download_track(
     ): Short
     fun uniffi_softify_core_checksum_func_get_downloads(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_forgotten_favorites_tracks(
     ): Short
     fun uniffi_softify_core_checksum_func_get_history(
     ): Short
@@ -1047,13 +1089,21 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_get_lyrics(
     ): Short
+    fun uniffi_softify_core_checksum_func_get_most_played_tracks(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_on_repeat_tracks(
+    ): Short
     fun uniffi_softify_core_checksum_func_get_playlist_tracks(
     ): Short
     fun uniffi_softify_core_checksum_func_get_playlists(
     ): Short
+    fun uniffi_softify_core_checksum_func_get_recent_searches(
+    ): Short
     fun uniffi_softify_core_checksum_func_get_recommendation_shelves(
     ): Short
     fun uniffi_softify_core_checksum_func_get_snoozed_artists(
+    ): Short
+    fun uniffi_softify_core_checksum_func_home_explore(
     ): Short
     fun uniffi_softify_core_checksum_func_import_spotify_playlist(
     ): Short
@@ -1065,11 +1115,15 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_record_play(
     ): Short
+    fun uniffi_softify_core_checksum_func_record_search_query(
+    ): Short
     fun uniffi_softify_core_checksum_func_refresh_remote_config(
     ): Short
     fun uniffi_softify_core_checksum_func_remove_artist_snooze(
     ): Short
     fun uniffi_softify_core_checksum_func_remove_from_playlist(
+    ): Short
+    fun uniffi_softify_core_checksum_func_rename_playlist(
     ): Short
     fun uniffi_softify_core_checksum_func_resolve_stream(
     ): Short
@@ -1121,6 +1175,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_clear_history() != 28802.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_clear_recent_searches() != 58243.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_create_playlist() != 38454.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1130,10 +1187,16 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_delete_playlist() != 53574.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_delete_recent_search() != 43453.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_download_track() != 9317.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_downloads() != 55902.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_forgotten_favorites_tracks() != 38689.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_history() != 613.toShort()) {
@@ -1145,16 +1208,28 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_get_lyrics() != 23626.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_get_most_played_tracks() != 62929.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_on_repeat_tracks() != 34200.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_get_playlist_tracks() != 17639.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_playlists() != 64480.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_get_recent_searches() != 6288.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_get_recommendation_shelves() != 22745.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_snoozed_artists() != 13571.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_home_explore() != 52837.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_import_spotify_playlist() != 17997.toShort()) {
@@ -1172,6 +1247,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_record_play() != 17940.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_record_search_query() != 13160.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_refresh_remote_config() != 49797.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1179,6 +1257,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_remove_from_playlist() != 12206.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_rename_playlist() != 35472.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_resolve_stream() != 64258.toShort()) {
@@ -3134,6 +3215,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Clears all recent searches
+         */
+    @Throws(SoftifyException::class) fun `clearRecentSearches`()
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_clear_recent_searches(
+        _status)
+}
+    
+    
+
+        /**
          * Creates a new user playlist
          */
     @Throws(SoftifyException::class) fun `createPlaylist`(`name`: kotlin.String, `description`: kotlin.String?): Playlist {
@@ -3171,6 +3264,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Deletes a single recent search query
+         */
+    @Throws(SoftifyException::class) fun `deleteRecentSearch`(`query`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_delete_recent_search(
+        FfiConverterString.lower(`query`),_status)
+}
+    
+    
+
+        /**
          * Downloads highest-quality stream as M4A with iTunes atom tagging and progress notifications
          */
     @Throws(SoftifyException::class)
@@ -3196,6 +3301,19 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     uniffiRustCallWithError(SoftifyException) { _status ->
     UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_downloads(
         _status)
+}
+    )
+    }
+    
+
+        /**
+         * Forgotten Favorites Smart Playlist: liked tracks not played in 60+ days (or never played)
+         */
+    @Throws(SoftifyException::class) fun `getForgottenFavoritesTracks`(`nowMs`: kotlin.ULong, `limit`: kotlin.UInt): List<Track> {
+            return FfiConverterSequenceTypeTrack.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_forgotten_favorites_tracks(
+        FfiConverterULong.lower(`nowMs`),FfiConverterUInt.lower(`limit`),_status)
 }
     )
     }
@@ -3246,6 +3364,32 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     }
 
         /**
+         * Most Played Smart Playlist: tracks played in the past 30 days, ordered by play count desc
+         */
+    @Throws(SoftifyException::class) fun `getMostPlayedTracks`(`nowMs`: kotlin.ULong, `limit`: kotlin.UInt): List<Track> {
+            return FfiConverterSequenceTypeTrack.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_most_played_tracks(
+        FfiConverterULong.lower(`nowMs`),FfiConverterUInt.lower(`limit`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * On Repeat Smart Playlist: tracks played in the past 14 days, ordered by play count desc
+         */
+    @Throws(SoftifyException::class) fun `getOnRepeatTracks`(`nowMs`: kotlin.ULong, `limit`: kotlin.UInt): List<Track> {
+            return FfiConverterSequenceTypeTrack.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_on_repeat_tracks(
+        FfiConverterULong.lower(`nowMs`),FfiConverterUInt.lower(`limit`),_status)
+}
+    )
+    }
+    
+
+        /**
          * Gets all tracks in a playlist ordered by position
          */
     @Throws(SoftifyException::class) fun `getPlaylistTracks`(`playlistId`: kotlin.String): List<Track> {
@@ -3266,6 +3410,19 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     uniffiRustCallWithError(SoftifyException) { _status ->
     UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_playlists(
         _status)
+}
+    )
+    }
+    
+
+        /**
+         * Retrieves recent searches ordered by most recent first
+         */
+    @Throws(SoftifyException::class) fun `getRecentSearches`(`limit`: kotlin.UInt): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_recent_searches(
+        FfiConverterUInt.lower(`limit`),_status)
 }
     )
     }
@@ -3296,6 +3453,25 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     )
     }
     
+
+        /**
+         * Asynchronously fetches explore charts / trending shelves for home screen.
+         * Uses remote config endpoint, caches in SQLite, falls back to embedded fixture.
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `homeExplore`() : List<Shelf> {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_home_explore(),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeShelf.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
 
         /**
          * Imports a public Spotify playlist, album, or track without OAuth or API key
@@ -3363,6 +3539,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Records a recent search query (skipped if incognito/learning is paused)
+         */
+    @Throws(SoftifyException::class) fun `recordSearchQuery`(`query`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_record_search_query(
+        FfiConverterString.lower(`query`),_status)
+}
+    
+    
+
+        /**
          * Fetches remote configuration with 3s timeout or falls back to bundled defaults
          */
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
@@ -3400,6 +3588,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     uniffiRustCallWithError(SoftifyException) { _status ->
     UniffiLib.INSTANCE.uniffi_softify_core_fn_func_remove_from_playlist(
         FfiConverterString.lower(`playlistId`),FfiConverterString.lower(`trackId`),_status)
+}
+    
+    
+
+        /**
+         * Renames an existing playlist
+         */
+    @Throws(SoftifyException::class) fun `renamePlaylist`(`playlistId`: kotlin.String, `newName`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_rename_playlist(
+        FfiConverterString.lower(`playlistId`),FfiConverterString.lower(`newName`),_status)
 }
     
     

@@ -103,6 +103,19 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
             snoozed_until INTEGER NOT NULL
         );
 
+        -- 11. Recent Searches Table
+        CREATE TABLE IF NOT EXISTS recent_searches (
+            query TEXT PRIMARY KEY,
+            searched_at INTEGER NOT NULL
+        );
+
+        -- 12. Home Explore Cache Table
+        CREATE TABLE IF NOT EXISTS home_explore_cache (
+            id TEXT PRIMARY KEY,
+            json_payload TEXT NOT NULL,
+            cached_at INTEGER NOT NULL
+        );
+
         -- Indices
         CREATE INDEX IF NOT EXISTS idx_tracks_source_id ON tracks(source_id);
         CREATE INDEX IF NOT EXISTS idx_tracks_is_liked ON tracks(is_liked);
@@ -111,6 +124,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
         CREATE INDEX IF NOT EXISTS idx_play_histories_played_at ON play_histories(played_at DESC);
         CREATE INDEX IF NOT EXISTS idx_taste_profiles_entity ON taste_profiles(entity_type, entity_id);
         CREATE INDEX IF NOT EXISTS idx_artist_snoozes_snoozed ON artist_snoozes(snoozed_until);
+        CREATE INDEX IF NOT EXISTS idx_recent_searches_searched_at ON recent_searches(searched_at DESC);
 
         -- 8. FTS5 Virtual Table for Instant Search
         CREATE VIRTUAL TABLE IF NOT EXISTS tracks_fts USING fts5(

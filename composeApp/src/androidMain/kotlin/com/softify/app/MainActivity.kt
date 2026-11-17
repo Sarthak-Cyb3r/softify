@@ -28,6 +28,7 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -221,6 +222,9 @@ class MainActivity : ComponentActivity() {
                             else -> "UNKNOWN($state)"
                         }
                         PlaybackLogger.log("SoftifyPlayback", "MediaController player state: $stateName")
+                        if (state == Player.STATE_ENDED) {
+                            viewModel.onTrackEnded()
+                        }
                     }
 
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -244,6 +248,22 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             App(viewModel = viewModel)
+        }
+
+        // Periodic playback position ticker for smooth squiggly line progress updates
+        CoroutineScope(Dispatchers.Main).launch {
+            while (true) {
+                delay(500L)
+                val controller = mediaController
+                if (controller != null && controller.isPlaying) {
+                    val duration = controller.duration
+                    val position = controller.currentPosition
+                    if (duration > 0L) {
+                        val progress = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                        viewModel.setPlaybackProgress(progress)
+                    }
+                }
+            }
         }
     }
 

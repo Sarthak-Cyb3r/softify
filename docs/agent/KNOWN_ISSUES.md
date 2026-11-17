@@ -11,3 +11,7 @@
 - **Resolution Plan**: 
   - For playlists exceeding 100 tracks, provide user feedback stating embed limit.
   - Maintain fallback parsers or allow optional user-provided Spotify Client ID / Client Secret in Settings for official Web API pagination when importing large playlists (> 100 tracks).
+
+## 3. Android Storage Access Framework (SAF) Directory Picker
+- **Constraint**: Arbitrary user folder selection for local music directories requires Android `ACTION_OPEN_DOCUMENT_TREE` and persistent URI permission grants (`takePersistableUriPermission`).
+- **Status**: The local folder picker in Settings is deferred to M4 alongside the download manager and offline local library scanner. In M3b, the core focuses on streaming, library playlists, and Smart Playlists.
