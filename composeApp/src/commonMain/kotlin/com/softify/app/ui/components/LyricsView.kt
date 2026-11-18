@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,22 +44,74 @@ data class LyricLine(
 )
 
 /**
+ * Metrolist / Apple Music typography for lyric lines:
+ * Left-aligned, large bold type (~28sp, Bold, lineHeight ~1.35x = 38sp, tight letter spacing -0.5sp).
+ */
+val LyricTextStyle = TextStyle(
+    fontSize = 28.sp,
+    fontWeight = FontWeight.Bold,
+    lineHeight = 38.sp,
+    letterSpacing = (-0.5).sp,
+    textAlign = TextAlign.Start
+)
+
+/**
+ * Splits a line's duration across words by character count.
+ */
+fun estimateWordsForLine(text: String, lineStartMs: Long, lineEndMs: Long): List<LyricWord> {
+    val tokens = text.split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (tokens.isEmpty()) return emptyList()
+
+    val lineDuration = if (lineEndMs > lineStartMs) lineEndMs - lineStartMs else 3000L
+    val charCounts = tokens.map { it.length.coerceAtLeast(1) }
+    val totalChars = charCounts.sum().coerceAtLeast(1)
+
+    val words = mutableListOf<LyricWord>()
+    var currentStart = lineStartMs
+
+    for (i in tokens.indices) {
+        val isLast = (i == tokens.lastIndex)
+        val wordDur = if (isLast) {
+            (lineEndMs - currentStart).coerceAtLeast(100L)
+        } else {
+            val propDur = (lineDuration * charCounts[i]) / totalChars
+            propDur.coerceAtLeast(100L)
+        }
+
+        val endMs = if (isLast) {
+            maxOf(lineEndMs, currentStart + 100L)
+        } else {
+            minOf(currentStart + wordDur, lineEndMs)
+        }
+
+        words.add(LyricWord(startMs = currentStart, endMs = endMs, text = tokens[i]))
+        currentStart = endMs
+    }
+    return words
+}
+
+/**
  * Parse plain LRC timestamp string lines "[mm:ss.xx] text" into a List<LyricLine>.
  */
 fun parseLrcLines(lrcContent: String): List<LyricLine> {
     val result = mutableListOf<LyricLine>()
     val lines = lrcContent.lines()
-    val regex = Regex("""\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)""")
+    val regex = Regex("""\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\](.*)""")
 
     for (line in lines) {
         val match = regex.find(line.trim()) ?: continue
         val (minStr, secStr, fracStr, lyricText) = match.destructured
         val minutes = minStr.toLongOrNull() ?: 0L
         val seconds = secStr.toLongOrNull() ?: 0L
-        val ms = if (fracStr.length == 2) fracStr.toLongOrNull()?.times(10) ?: 0L
-        else fracStr.toLongOrNull() ?: 0L
+        val fracClean = fracStr ?: ""
+        val ms = if (fracClean.length == 2) fracClean.toLongOrNull()?.times(10) ?: 0L
+        else fracClean.toLongOrNull() ?: 0L
         val totalMs = minutes * 60_000L + seconds * 1000L + ms
-        result.add(LyricLine(timeMs = totalMs, text = lyricText.trim()))
+        val text = lyricText.trim()
+        if (text.isNotBlank()) {
+            val words = estimateWordsForLine(text, totalMs, totalMs + 3000L)
+            result.add(LyricLine(timeMs = totalMs, endMs = totalMs + 3000L, text = text, words = words))
+        }
     }
     return result.sortedBy { it.timeMs }
 }
@@ -79,7 +132,7 @@ fun LyricsView(
     isSynced: Boolean = true,
     isWordSynced: Boolean = false,
     onSeekTo: (Long) -> Unit = {},
-    contentPadding: PaddingValues = PaddingValues(vertical = 120.dp, horizontal = 24.dp)
+    contentPadding: PaddingValues = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
 ) {
     if (lines.isEmpty()) {
         Box(
@@ -96,21 +149,24 @@ fun LyricsView(
         LazyColumn(
             modifier = modifier.fillMaxSize(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             itemsIndexed(
                 items = lines,
                 key = { index, line -> "plain_${line.timeMs}_$index" }
             ) { _, line ->
-                Text(
-                    text = line.text,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Start
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (line.text.trim() == "[Instrumental]" || line.text.isBlank()) {
+                    InstrumentalIndicator()
+                } else {
+                    Text(
+                        text = line.text,
+                        style = LyricTextStyle.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Start
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
         return
@@ -155,10 +211,9 @@ fun LyricsView(
             key = { index, line -> "synced_${line.timeMs}_$index" }
         ) { index, line ->
             val isActive = (index == activeIndex)
-            val isPast = (index < activeIndex)
 
             val animatedAlpha by animateFloatAsState(
-                targetValue = if (isActive) 1.0f else if (isPast) 0.40f else 0.45f,
+                targetValue = if (isActive) 1.0f else 0.35f,
                 animationSpec = tween(durationMillis = 250),
                 label = "lyricAlpha"
             )
@@ -175,7 +230,9 @@ fun LyricsView(
                     }
                     .padding(vertical = 4.dp)
             ) {
-                if (isActive) {
+                if (line.text.trim() == "[Instrumental]" || line.text.isBlank()) {
+                    InstrumentalIndicator()
+                } else if (isActive) {
                     ActiveLyricLine(
                         line = line,
                         positionProvider = positionProvider,
@@ -184,11 +241,11 @@ fun LyricsView(
                 } else {
                     Text(
                         text = line.text,
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        style = LyricTextStyle.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -235,13 +292,13 @@ fun ActiveLyricLine(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val aheadColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    val aheadColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
 
     if (line.words.isNotEmpty()) {
         FlowRow(
             modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             line.words.forEach { word ->
                 WordHighlightItem(
@@ -292,11 +349,9 @@ fun ActiveLyricLine(
         ) {
             Text(
                 text = line.text,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = onSurfaceColor
-                )
+                style = LyricTextStyle.copy(color = onSurfaceColor),
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -313,7 +368,7 @@ fun ActiveLyricLine(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val aheadColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    val aheadColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
 
     Box(
         modifier = modifier
@@ -347,11 +402,9 @@ fun ActiveLyricLine(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = onSurfaceColor
-            )
+            style = LyricTextStyle.copy(color = onSurfaceColor),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -359,7 +412,7 @@ fun ActiveLyricLine(
 /**
  * Single word item drawn in GPU draw phase:
  * - past word: fully lit (1.0f)
- * - upcoming word: dimmed (0.45f)
+ * - upcoming word: dimmed (0.35f)
  * - active word: dynamic fill sweep gradient
  * - tap to seek
  */
@@ -374,6 +427,7 @@ private fun WordHighlightItem(
 ) {
     Box(
         modifier = Modifier
+            .wrapContentSize(Alignment.CenterStart)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -426,11 +480,8 @@ private fun WordHighlightItem(
     ) {
         Text(
             text = word.text,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = onSurfaceColor
-            )
+            style = LyricTextStyle.copy(color = onSurfaceColor),
+            softWrap = false
         )
     }
 }

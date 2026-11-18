@@ -45,9 +45,14 @@ jobs:
           ls -lh composeApp/src/androidMain/jniLibs/arm64-v8a/libsoftify_core.so
           ls -lh composeApp/src/androidMain/jniLibs/x86_64/libsoftify_core.so
 
+      - name: Build Host Native Library & Run UI & Unit Tests
+        run: |
+          cargo build --manifest-path rust/softify_core/Cargo.toml
+          chmod +x gradlew
+          ./gradlew desktopTest --stacktrace --no-daemon
+
       - name: Build Android Debug APK
         run: |
-          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Locate and Verify APK

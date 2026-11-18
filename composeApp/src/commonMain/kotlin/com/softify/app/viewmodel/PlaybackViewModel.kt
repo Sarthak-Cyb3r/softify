@@ -201,7 +201,13 @@ class PlaybackViewModel(
     }
 
     fun toggleLyricsView() {
-        _showLyricsInPlayer.value = !_showLyricsInPlayer.value
+        val next = !_showLyricsInPlayer.value
+        PlaybackLogger.log("SoftifyPlayback", "toggleLyricsView: nextState=$next, activeTrack=${_activeTrack.value?.title}")
+        _showLyricsInPlayer.value = next
+        if (next && _lyrics.value == null && !_isLyricsLoading.value) {
+            PlaybackLogger.log("SoftifyPlayback", "toggleLyricsView: lyrics null, triggering loadLyricsForActiveTrack()")
+            loadLyricsForActiveTrack()
+        }
     }
 
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
@@ -243,15 +249,23 @@ class PlaybackViewModel(
     }
 
     fun loadLyricsForActiveTrack() {
-        val track = _activeTrack.value ?: return
+        val track = _activeTrack.value
+        if (track == null) {
+            PlaybackLogger.log("SoftifyPlayback", "loadLyricsForActiveTrack: activeTrack is null")
+            return
+        }
+        PlaybackLogger.log("SoftifyPlayback", "loadLyricsForActiveTrack: starting fetch for '${track.title}' by '${track.artist}'")
         scope.launch(Dispatchers.Default) {
             _isLyricsLoading.value = true
             try {
                 val res = getLyrics(track)
                 _lyrics.value = res
-                PlaybackLogger.log("SoftifyPlayback", "Loaded lyrics for '${track.title}': synced=${res.isSynced}, lines=${res.lines.size}")
+                PlaybackLogger.log(
+                    "SoftifyPlayback",
+                    "Loaded lyrics for '${track.title}': isSynced=${res.isSynced}, isWordSynced=${res.isWordSynced}, linesCount=${res.lines.size}, hasPlainText=${!res.plainText.isNullOrBlank()}"
+                )
             } catch (e: Exception) {
-                PlaybackLogger.log("SoftifyPlayback", "Failed to load lyrics: ${e.message}")
+                PlaybackLogger.log("SoftifyPlayback", "Failed to load lyrics for '${track.title}': ${e.message}")
                 _lyrics.value = null
             } finally {
                 _isLyricsLoading.value = false
@@ -676,6 +690,7 @@ class PlaybackViewModel(
             _playbackProgress.value = 0f
             _currentPositionMs.value = 0L
             _durationMs.value = track.durationMs.toLong()
+            _lyrics.value = null
             loadLyricsForActiveTrack()
 
             try {

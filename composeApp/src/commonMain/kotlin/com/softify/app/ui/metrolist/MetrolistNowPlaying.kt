@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.playback.PlaybackLogger
 import com.softify.app.playback.RepeatMode
 import com.softify.app.ui.components.*
 import com.softify.app.ui.theme.SquircleShape
@@ -70,12 +72,24 @@ fun MetrolistNowPlaying(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .then(dragModifier)
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 24.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
+        // Top drag handle for swipe-down to collapse (isolated touch target so it doesn't steal touches from lyrics/buttons)
+        Box(
+            modifier = Modifier
+                .padding(top = 4.dp, bottom = 6.dp)
+                .width(36.dp)
+                .height(4.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(2.dp)
+                )
+                .then(dragModifier)
+        )
+
         // 1. Top Bar: Collapse chevron, title, lyrics toggle, diagnostics
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -104,7 +118,10 @@ fun MetrolistNowPlaying(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
-                    onClick = { viewModel.toggleLyricsView() },
+                    onClick = {
+                        PlaybackLogger.log("SoftifyPlayback", "Top bar lyrics toggle clicked")
+                        viewModel.toggleLyricsView()
+                    },
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
@@ -134,42 +151,96 @@ fun MetrolistNowPlaying(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(vertical = 12.dp),
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             if (showLyricsInPlayer) {
-                // Synced Lyrics View with shine effect & tap to seek
+                PlaybackLogger.log("SoftifyPlayback", "MetrolistNowPlaying rendering lyrics: isLyricsLoading=$isLyricsLoading, lyricsNull=${lyrics == null}")
                 if (isLyricsLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = "Loading lyrics...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
+                    val isInstrumental = lyrics?.plainText?.trim() == "[Instrumental]"
                     val lyricLines = remember(lyrics) {
-                        lyrics?.lines?.map { l ->
-                            LyricLine(
-                                timeMs = l.startMs.toLong(),
-                                endMs = l.endMs.toLong(),
-                                text = l.text,
-                                words = l.words.map { w ->
-                                    LyricWord(
-                                        startMs = w.startMs.toLong(),
-                                        endMs = w.endMs.toLong(),
-                                        text = w.text
-                                    )
+                        val rawLines = lyrics?.lines ?: emptyList()
+                        if (rawLines.isNotEmpty()) {
+                            rawLines.map { l ->
+                                val words = if (l.words.isNotEmpty()) {
+                                    l.words.map { w ->
+                                        LyricWord(
+                                            startMs = w.startMs.toLong(),
+                                            endMs = w.endMs.toLong(),
+                                            text = w.text
+                                        )
+                                    }
+                                } else {
+                                    estimateWordsForLine(l.text, l.startMs.toLong(), l.endMs.toLong())
                                 }
-                            )
-                        } ?: emptyList()
+                                LyricLine(
+                                    timeMs = l.startMs.toLong(),
+                                    endMs = l.endMs.toLong(),
+                                    text = l.text,
+                                    words = words
+                                )
+                            }
+                        } else if (!lyrics?.plainText.isNullOrBlank() && !isInstrumental) {
+                            lyrics!!.plainText!!.lines().filter { it.isNotBlank() }.mapIndexed { idx, lineText ->
+                                val t = idx * 3000L
+                                val trimmed = lineText.trim()
+                                LyricLine(
+                                    timeMs = t,
+                                    endMs = t + 3000L,
+                                    text = trimmed,
+                                    words = estimateWordsForLine(trimmed, t, t + 3000L)
+                                )
+                            }
+                        } else {
+                            emptyList()
+                        }
                     }
 
-                    LyricsView(
-                        lines = lyricLines,
-                        positionProvider = { (viewModel.playbackProgress.value * effectiveDurationMs).toLong() },
-                        isSynced = lyrics?.isSynced ?: false,
-                        isWordSynced = lyrics?.isWordSynced ?: false,
-                        onSeekTo = { seekMs -> viewModel.seekTo(seekMs) },
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 40.dp, horizontal = 12.dp)
-                    )
+                    if (isInstrumental) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            InstrumentalIndicator()
+                        }
+                    } else if (lyricLines.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "No lyrics found",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(onClick = { viewModel.loadLyricsForActiveTrack() }) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    } else {
+                        LyricsView(
+                            lines = lyricLines,
+                            positionProvider = { (viewModel.playbackProgress.value * effectiveDurationMs).toLong() },
+                            isSynced = lyrics?.isSynced ?: false,
+                            isWordSynced = lyrics?.isWordSynced ?: false,
+                            onSeekTo = { seekMs -> viewModel.seekTo(seekMs) },
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
                 }
             } else {
                 // Standard Large Squircle Artwork View
@@ -392,8 +463,11 @@ fun MetrolistNowPlaying(
 
             Surface(
                 shape = SquircleShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                modifier = Modifier.clickable { viewModel.toggleLyricsView() }
+                color = if (showLyricsInPlayer) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                modifier = Modifier.clickable {
+                    PlaybackLogger.log("SoftifyPlayback", "Bottom pill lyrics toggle clicked")
+                    viewModel.toggleLyricsView()
+                }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
@@ -403,13 +477,13 @@ fun MetrolistNowPlaying(
                     Icon(
                         imageVector = Icons.Filled.Notes,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (showLyricsInPlayer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = if (showLyricsInPlayer) "Show Cover" else "Lyrics",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (showLyricsInPlayer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
