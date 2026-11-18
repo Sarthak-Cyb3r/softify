@@ -1,6 +1,9 @@
-# Facts 2026-11-18T11:08:00+05:30
-HEAD: 6a571eea8136aaf8a532f6a4afbd8f56d6966e16
+# Facts 2026-11-18T13:33:00+05:30
+HEAD: 7ac9188d4076356b7468165b4528eb32d56a2ae5
 ## Git
+7ac9188 fix(lyrics): correct PlaybackLogger import package in MetrolistNowPlaying
+64b235e fix(m3d): fix lyrics toggle touch interception, multi-word flow layout, and Apple Music typography
+4f4b76a docs: update FACTS.md and REPORT.md with M3d cloud build 44244631946
 6a571ee fix(lyrics): add ActiveLyricLine overload for single-line preview and previews
 7dbe2c6 feat(m3d): implement radio queue with local ranking, lyrics performance, and word-by-word timing
 1ab43fc docs: update FACTS.md and REPORT.md for M3c completion
