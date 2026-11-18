@@ -20,12 +20,12 @@ class CoverArtLoaderTest {
         assertEquals("https://lh3.googleusercontent.com/test=w180-h180-l90-rj", ytmThumb)
         assertEquals("https://lh3.googleusercontent.com/test=w544-h544-l90-rj", ytmFull)
 
-        // 2. Saavn CDN
+        // 2. Saavn CDN: preserved untouched to avoid 404s from unsupported dimension rewrites
         val saavnUrl = "https://c.saavncdn.com/123/Song-Title-500x500.jpg"
         val saavnThumb = formatCoverUrl(saavnUrl, CoverSize.THUMBNAIL)
         val saavnFull = formatCoverUrl(saavnUrl, CoverSize.FULL)
 
-        assertEquals("https://c.saavncdn.com/123/Song-Title-150x150.jpg", saavnThumb)
+        assertEquals("https://c.saavncdn.com/123/Song-Title-500x500.jpg", saavnThumb)
         assertEquals("https://c.saavncdn.com/123/Song-Title-500x500.jpg", saavnFull)
 
         // 3. YouTube standard CDN
@@ -42,5 +42,13 @@ class CoverArtLoaderTest {
         val summary = CoverArtEventListener.getStatsSummary()
         assertNotNull(summary)
         assertTrue(summary.contains("Memory Hits") && summary.contains("Disk Hits"))
+    }
+
+    @Test
+    fun testNegativeCacheLifecycle() {
+        val test404Url = "https://c.saavncdn.com/dead/not_found_123.jpg"
+        assertTrue(!com.softify.app.ui.components.CoverArtLoader.isNegativeCached(test404Url))
+        com.softify.app.ui.components.CoverArtLoader.recordNegativeCache(test404Url)
+        assertTrue(com.softify.app.ui.components.CoverArtLoader.isNegativeCached(test404Url))
     }
 }

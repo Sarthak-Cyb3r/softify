@@ -20,6 +20,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.softify.app.ui.theme.SquircleShape
+import com.softify.app.util.PlaybackLogger
 
 @Composable
 fun AsyncCoverArt(
@@ -32,7 +33,9 @@ fun AsyncCoverArt(
     backgroundColor: Color = Color(0xFF242424) // Solid tonal placeholder
 ) {
     val context = LocalPlatformContext.current
-    val formattedUrl = remember(url, size) { formatCoverUrl(url, size) }
+    val initialFormatted = remember(url, size) { formatCoverUrl(url, size) }
+    var activeUrl by remember(initialFormatted) { mutableStateOf(initialFormatted) }
+    val isNegCached = remember(activeUrl) { CoverArtLoader.isNegativeCached(activeUrl) }
     val imageLoader = remember(context) { CoverArtLoader.getImageLoader(context) }
 
     Box(
@@ -41,12 +44,12 @@ fun AsyncCoverArt(
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
-        if (!formattedUrl.isNullOrBlank()) {
-            val request = remember(formattedUrl) {
+        if (!activeUrl.isNullOrBlank() && !isNegCached) {
+            val request = remember(activeUrl) {
                 ImageRequest.Builder(context)
-                    .data(formattedUrl)
-                    .memoryCacheKey(formattedUrl)
-                    .diskCacheKey(formattedUrl)
+                    .data(activeUrl)
+                    .memoryCacheKey(activeUrl)
+                    .diskCacheKey(activeUrl)
                     .crossfade(false) // Zero crossfade delay for cache hits
                     .build()
             }
@@ -55,7 +58,19 @@ fun AsyncCoverArt(
                 imageLoader = imageLoader,
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                onError = {
+                    val failedUrl = activeUrl
+                    CoverArtLoader.recordNegativeCache(failedUrl)
+                    // If formatted URL failed and is different from original raw URL, fall back to raw URL
+                    if (failedUrl != url && !url.isNullOrBlank() && !CoverArtLoader.isNegativeCached(url)) {
+                        PlaybackLogger.log("SoftifyCoverArt", "Falling back from formatted art URL to raw URL: $url")
+                        activeUrl = url
+                    } else {
+                        // Both failed or raw failed -> show solid tonal placeholder
+                        activeUrl = null
+                    }
+                }
             )
         } else {
             Icon(

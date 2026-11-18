@@ -1,6 +1,8 @@
-# Facts 2026-11-18T18:25:00+05:30
-HEAD: 64ca6ed499838fb6255390a421bd6387005ccf8f
+# Facts 2026-11-18T19:10:00+05:30
+HEAD: pending_commit_m3d_fix4
 ## Git
+pending feat(m3d-fix4): root cause fix for lyrics nesting, startup database race, and resilient album art
+f15e7c9 docs: update REPORT.md and FACTS.md for M3d-fix3 completion
 64ca6ed fix(coil): resolve CoverArtLoader context and HomeScreen/PlaybackViewModel track references
 23295a6 fix(m3d-fix3): single Text paragraph lyrics with TextLayoutResult sweep, Coil 3 image caching, and prefetch
 81724d5 fix(lyrics): implement frame-driven withFrameNanos lyrics clock for 60fps word highlight
@@ -22,7 +24,7 @@ HEAD: 64ca6ed499838fb6255390a421bd6387005ccf8f
 22178a2 build: adjust gradle jvmargs for dexing with material icons extended
 6c86402 M3a2: remove scalloped, minimal badge, vector icons, lyrics shine & gallery fixes
 ac40064 docs: update FACTS.md after M3a build and tests
-6128ea1 test(m3a): fix syntax and update gallery screenshot
+25: 6128ea1 test(m3a): fix syntax and update gallery screenshot
 043ec8b M3a: Material 3 Expressive theme, shapes, components & gallery
 964c460 fix: YouTube 403 + retry logic
 f79714f fix: Android playback + in-app diagnostics
@@ -46,6 +48,7 @@ importer::spotify::tests::test_track_does_not_inherit_playlist_cover: test
 lyrics::parser::tests::test_estimate_words_character_proportion: test
 lyrics::parser::tests::test_parse_enhanced_lrc: test
 lyrics::parser::tests::test_parse_lrc_standard: test
+lyrics::parser::tests::test_parse_real_sombr_back_to_friends_lyricsfile: test
 lyrics::tests::test_lyrics_fetch_and_caching: test
 lyrics::tests::test_lyrics_lrclib_synced_and_plain_fallback: test
 reco::cooccurrence::tests::test_group_plays_into_sentences: test
@@ -78,4 +81,4 @@ search::tests::test_fts5_prefix_matching: test
 search::tests::test_playlist_and_history_lifecycle: test
 search::tests::test_search_results_processing_and_deduplication: test
 
-49 tests, 0 benchmarks
+50 tests, 0 benchmarks

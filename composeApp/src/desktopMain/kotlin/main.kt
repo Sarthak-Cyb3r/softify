@@ -1,5 +1,6 @@
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.softify.app.data.DatabaseGate
 import com.softify.app.ui.App
 import uniffi.softify_core.initDatabase
 import java.io.File
@@ -13,6 +14,7 @@ fun main() = application {
     val dbPath = File(dbDir, "softify.db").absolutePath
     try {
         initDatabase(dbPath)
+        DatabaseGate.markReady()
     } catch (e: Exception) {
         println("[Desktop] Database init notice: ${e.message}")
     }

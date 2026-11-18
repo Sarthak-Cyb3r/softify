@@ -135,34 +135,36 @@ fun parseLrcLines(lrcContent: String): List<LyricLine> {
  */
 @Composable
 fun rememberLyricsClock(
-    basePositionMs: Long,
+    positionProvider: () -> Long,
     isPlaying: Boolean,
     enabled: Boolean = true
 ): MutableLongState {
-    val clock = remember { mutableLongStateOf(basePositionMs) }
+    val initialPos = remember { positionProvider() }
+    val clock = remember { mutableLongStateOf(initialPos) }
 
     // Track baseline for interpolation
-    var syncPositionMs by remember { mutableLongStateOf(basePositionMs) }
+    var syncPositionMs by remember { mutableLongStateOf(initialPos) }
     var syncTimeNanos by remember { mutableLongStateOf(0L) }
 
-    // Re-sync whenever upstream publishes a new position (from player ticker) or seek occurs
-    LaunchedEffect(basePositionMs) {
-        val nowNanos = System.nanoTime()
-        syncPositionMs = basePositionMs
-        syncTimeNanos = nowNanos
-        clock.longValue = basePositionMs
+    // Re-sync whenever upstream publishes a new position or seek occurs without recomposing callers
+    LaunchedEffect(isPlaying, enabled) {
+        snapshotFlow { positionProvider() }.collect { baseMs ->
+            syncPositionMs = baseMs
+            syncTimeNanos = System.nanoTime()
+            clock.longValue = baseMs
+        }
     }
 
     // Frame-driven animation loop: runs withFrameNanos at display refresh rate (60/120 fps)
     LaunchedEffect(isPlaying, enabled) {
         if (!isPlaying || !enabled) {
-            clock.longValue = basePositionMs
+            clock.longValue = positionProvider()
             return@LaunchedEffect
         }
 
         if (syncTimeNanos == 0L) {
             syncTimeNanos = System.nanoTime()
-            syncPositionMs = basePositionMs
+            syncPositionMs = positionProvider()
         }
 
         var frameCount = 0
@@ -191,6 +193,17 @@ fun rememberLyricsClock(
 
     return clock
 }
+
+@Composable
+fun rememberLyricsClock(
+    basePositionMs: Long,
+    isPlaying: Boolean,
+    enabled: Boolean = true
+): MutableLongState = rememberLyricsClock(
+    positionProvider = { basePositionMs },
+    isPlaying = isPlaying,
+    enabled = enabled
+)
 
 /**
  * High-performance, 60 fps synced lyrics view.

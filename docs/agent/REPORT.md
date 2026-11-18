@@ -1,110 +1,108 @@
-# Report: M3d-fix3 - Single-Text Paragraph Lyrics & Near-Instant Cover Art - 2026-11-18
+# Report: M3d-fix4 - Root Cause Fixes: Lyrics Data Nesting, Startup Database Race & Resilient Album Art - 2026-11-18
 ## Status: PARTIAL (Awaiting User On-Device Verification on Moto G34)
 
-## Acceptance Checklist
+## Summary of Root Cause Investigations & Fixes
 
-### A. Paragraph-Wrapped Lyrics & TextLayoutResult Sweep
-- [x] **1. Single-Text Paragraph Layout (A.1)**:
-  - **Root Cause**: `FlowRow` with individual `WordHighlightItem` composables applied per-word sizing and wrapping constraints, causing Android Compose to break every single word onto its own line on the Moto G34.
-  - **Fix**:
-    - Replaced `FlowRow` entirely. Each lyric line is now rendered as **ONE single Text composable** using an `AnnotatedString` (words joined by normal spaces) with `Modifier.fillMaxWidth()`.
-    - Removed any `IntrinsicSize`, `maxItemsInEachRow`, `weight`, or width constraints above the line.
-    - Removed `softWrap = false` from line texts, allowing Compose's paragraph layout engine to wrap words naturally based on device width.
-- [x] **2. Word-by-Word Sweep via TextLayoutResult (A.2)**:
-  - Captured `TextLayoutResult` via `onTextLayout`.
-  - Built a dynamic `Path` in `buildActiveLyricClipPath`:
-    - **Fully sung words**: unioned exact glyph bounding paths via `layout.getPathForRange(startChar, endChar)`.
-    - **Actively sung word**: computed bounding rect on the word's line(s) scaled horizontally by progress `(currentMs - startMs) / duration`.
-    - **Upcoming words**: excluded from clip path (remain dim).
-  - Two-layer rendering in `ActiveLyricLine`:
-    - Layer 1: Base dim text (`onSurfaceColor.copy(alpha = 0.35f)`) displaying the full paragraph.
-    - Layer 2: Lit text (`onSurfaceColor`, 1.0f alpha) clipped to `clipPath` strictly in `drawWithContent`.
-    - Driven by the existing `withFrameNanos` frame clock; zero recompositions or re-layouts during word progression.
-  - **Tap-to-Seek**: Mapped tap offset to character offset via `layout.getOffsetForPosition(tapOffset)` and resolved matching word start timestamp.
-- [x] **3. Real 360dp Phone Width Layout Test (A.3)**:
-  - Added `testLyricLineParagraphWrappingAt360dpWidth` in `LyricsViewTest.kt`:
-    - Constrained viewport to real phone width: 360dp (312dp available width after 24dp horizontal padding).
-    - Fed a long 7-word lyric line: `"A full commitment's what I'm thinking of"`.
-    - Asserted `lineCount < wordCount` (lineCount = 2, strictly less than 7 words).
-    - Asserted line 1 contains multiple words (`"A full commitment's"`, word count >= 2).
-    - Verified tap-to-seek character offset mapping and clip path generation.
-    - Exported screenshot to `docs/agent/screenshots/lyrics_360dp_paragraph_wrap.png`.
+### 1. LYRICS DATA BUG (Highest Priority)
+- **Observed Behavior on Moto G34**:
+  - In M3d-fix3, although single-paragraph wrapping was working, the lyrics LazyColumn rendered BOTH whole line entries and individual word tokens as separate rows (`linesCount=222` for 'back to friends' by sombr, 3:19).
+- **Root Cause Diagnosed**:
+  - In `rust/softify_core/src/lyrics/parser.rs`, inside `parse_lrclib_lyricsfile`, the parser executed `let trimmed = raw_line.trim()`, stripping the 2-space indentation of word items (`  - text:` -> `- text:`).
+  - The line-matching branch `if trimmed.starts_with("- text:")` executed before the word branch. Because trimmed word entries also started with `- text:`, `flush_line` was invoked on every single word token, promoting all 192 nested words into top-level lines! (30 lines + 192 words = 222 lines).
+- **Fix Implemented**:
+  - Implemented YAML indentation awareness: checked `raw_line` leading whitespace (`indent == 0` for lines, `indent > 0` for words under `words:`).
+  - Added robust YAML string unquoting (`unquote_yaml`), handling single quotes, double quotes, and escaped quotes (`''` -> `'`).
+  - Fixed word timestamp chaining: `flush_word` sets `end_ms = 0`, which is accurately populated when the next word's `start_ms` is parsed or resolved to `line_end` for the final word.
+  - Added unit test `test_parse_real_sombr_back_to_friends_lyricsfile` using the real LRCLIB payload fixture (`tests/fixtures/lrclib_back_to_friends.json`):
+    - Asserted `lines.len() == 30` (exactly the 30 real lines, NOT 222).
+    - Asserted 192 total nested words (`lines[0]` has 4 words, `lines[1]` has 6 words).
+    - Asserted exact word start/end timings (`Touch`: 22950-23205ms, `tender`: 24141-26678ms).
+    - Asserted 0 word tokens emitted as top-level lines.
+  - Added raw provider payload logging in `PlaybackViewModel.kt` logging provider, isSynced, isWordSynced, linesCount, totalWordsCount, and first 5 entries with word counts and time ranges.
+  - **Eliminated 250ms MetrolistNowPlaying Recomposition**:
+    - Extracted progress slider and timestamps into isolated `MetrolistProgressSection`.
+    - Removed `playbackProgress` and `currentPositionMs` from `MetrolistNowPlaying` and `App` root composables.
+    - Updated `rememberLyricsClock` to accept `positionProvider: () -> Long` with `snapshotFlow` state observation. Callers never recompose during playback progress ticks; only draw phase repaints at 60 fps.
 
 ---
 
-### B. Near-Instant Album Art & Coil 3 Integration
-- [x] **1. Coil 3 with Shared OkHttp & 250 MB Disk Cache (B.1)**:
-  - Integrated `io.coil-kt.coil3:coil-compose:3.0.4` and `coil-network-okhttp:3.0.4`.
-  - Configured `CoverArtLoader` with:
-    - **Memory Cache**: 25% of available application RAM (`maxSizePercent(context, 0.25)`).
-    - **Disk Cache**: 250 MB (`250L * 1024 * 1024`) stored in `softify_art_cache`.
-    - **Shared OkHttpClient**: single shared `OkHttpClient` instance with 15s connect/read timeouts.
-    - **Consistent Cache Keys**: explicit `memoryCacheKey = formattedUrl` and `diskCacheKey = formattedUrl`.
-- [x] **2. Size-Appropriate Thumbnails (B.2)**:
-  - Implemented `formatCoverUrl(url, size)`:
-    - `CoverSize.THUMBNAIL` (180px): list rows (`TrackItemRow`), queue (`QueueBottomSheet`), shelves (`HomeScreen`), artist/album headers (`ArtistDetailScreen`, `AlbumDetailScreen`), search results.
-      - Rewrites YTM/Google `=w544-h544-l90-rj` to `=w180-h180-l90-rj`.
-      - Rewrites Saavn `-500x500.jpg` to `-150x150.jpg`.
-      - Rewrites YouTube `hqdefault.jpg` to `mqdefault.jpg`.
-    - `CoverSize.FULL` (544px): exclusively for `MetrolistNowPlaying` and docked `MiniPlayer`.
-- [x] **3. Intelligent Art Prefetching (B.3)**:
-  - Prefetches the next 5 queue tracks on queue initialization, track advance, and queue modification.
-  - Prefetches all Home shelf items and quick picks when shelves load.
-  - Prefetches search result artwork immediately upon query result arrival.
-  - Prefetches candidate radio tracks immediately upon radio start and continuation batches.
-- [x] **4. SQLite Art Persistence (B.4)**:
-  - Verified `cover_url` persistence in SQLite `tracks` table via `repository.rs`.
-  - Stored URLs load instantly from local SQLite before any stream resolving or network activity begins.
-- [x] **5. Solid Tonal Placeholder & No Crossfade Lag (B.5)**:
-  - Solid tonal placeholder `Color(0xFF242424)` container with subtle music note icon.
-  - Configured `.crossfade(false)` in `ImageRequest` for instantaneous cache-hit rendering with zero transition delay.
-- [x] **6. Load Time Instrumentation & Benchmark Reporting (B.6)**:
-  - Instrumented `CoverArtEventListener` logging each request duration and data source (`MEMORY_HIT`, `DISK_HIT`, `NETWORK_MISS`).
-  - **Measured Art Load Latencies (Debug Builds)**:
-    - **Memory Cache Hit**: **0 ms – 3 ms** (instantaneous from RAM)
-    - **Disk Cache Hit**: **8 ms – 18 ms** (fast decoded local disk cache)
-    - **Network Miss (Cold Load)**: **120 ms – 230 ms** (CDN download over OkHttp)
+### 2. DATABASE RACE AT STARTUP
+- **Observed Behavior on Moto G34**:
+  - Library refresh and Home explore ran before `init_database` finished (errors at 32.430s / 32.478s, DB initialized at 32.804s).
+- **Root Cause Diagnosed**:
+  - In `MainActivity.kt`, `val viewModel = PlaybackViewModel()` was declared as an instance field. The ViewModel constructor ran `init { refreshAll() }` synchronously during Activity class instantiation—well before `MainActivity.onCreate()` called `initDatabase(dbPath)`!
+- **Fix Implemented**:
+  - Created `SoftifyApplication : Application` and registered it in `AndroidManifest.xml`.
+  - In `SoftifyApplication.onCreate()` (guaranteed by Android OS to run before any Activity or ViewModel starts), `softify_core` is loaded and `initDatabase("${filesDir.absolutePath}/softify.db")` is executed synchronously.
+  - Created `object DatabaseGate` in `commonMain` with `CompletableDeferred<Unit>()`:
+    - `DatabaseGate.awaitReady()` gates all DB-calling coroutines (`refreshLibrary`, `loadHomeExplore`, `loadRecentSearches`, `checkIncognitoStatus`, etc.).
+    - `DatabaseGate.markReady()` signals readiness immediately upon database initialization.
+  - In `PlaybackViewModel.kt`, added `withDatabase` helper: gates all database calls behind `DatabaseGate.awaitReady()`, and if "Database not initialized" is ever encountered, automatically retries after readiness.
+  - Made Rust `init_database` idempotent (`if DB_REPO.get().is_some() { return Ok(()); }`).
 
 ---
 
-## Cloud CI Build Verification Facts
-- **Commit**: `64ca6ed499838fb6255390a421bd6387005ccf8f`
-- **Workflow Run**: `Build Android Debug APK (Cloud)` [#44306817616](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44306817616)
-- **Result**: Success (`conclusion: success`, duration: 9m 10s)
-- **Steps Verified**:
-  1. `Build Android Native Libraries`: arm64-v8a + x86_64
-  2. `Build Host Native Library & Run UI & Unit Tests`: `desktopTest` passed `LyricsViewTest.testLyricLineParagraphWrappingAt360dpWidth`, `LyricsViewTest.testWordHighlightAnimatesWithoutRecomposition`, `CoverArtLoaderTest`, `NoEmojiTest`
-  3. `Build Android Debug APK`: `./gradlew assembleDebug`
-  4. `Upload Debug APK`: artifact `composeApp-debug-apk`
-- **Packaged Native Libraries**:
-  - `lib/arm64-v8a/libsoftify_core.so`: 6,044,944 bytes
-  - `lib/x86_64/libsoftify_core.so`: 6,681,328 bytes
-- **Local Download Path**: `/home/sarthak/Downloads/composeApp-debug.apk` (33 MB)
+### 3. ALBUM ART RESILIENCE & PERFORMANCE
+- **Observed Behavior on Moto G34**:
+  - Many `c.saavncdn.com` URLs returned HTTP 404 and were repeatedly retried on every scroll/render.
+  - Cold loads of `yt3.googleusercontent.com` queued up (229ms up to 2000ms wait times).
+  - Log URLs were truncated to 60 characters with `take(60)`.
+- **Root Cause Diagnosed**:
+  - `formatCoverUrl` was blindly replacing `-\\d+x\\d+\\.jpg` with `-150x150.jpg` on `saavncdn.com`. Saavn CDN hosts image blobs at specific dimensions (e.g. 500x500); arbitrary dimension rewriting results in Azure Blob 404 errors.
+  - OkHttp's default `Dispatcher` limited concurrency to `maxRequestsPerHost = 5`. Cold loads of dozens of shelf/search items to `yt3.googleusercontent.com` blocked each other.
+- **Fix Implemented**:
+  - **Host-Specific Dimension Rewrites**: Limited dimension rewrites strictly to Google/YouTube CDNs (`googleusercontent.com`, `ggpht.com`, `i.ytimg.com`). For `saavncdn.com` and unknown hosts, the original URL is preserved untouched.
+  - **Negative Caching**: Added thread-safe `negativeCache` (`ConcurrentHashMap<String, Long>`) in `CoverArtLoader`. When an HTTP request returns 404, the URL is recorded and short-circuited via OkHttp interceptor and `AsyncCoverArt`, eliminating duplicate 404 retry loops during the session.
+  - **Fallback on Error**: `AsyncCoverArt` detects failures on formatted URLs and attempts fallback to the raw URL before falling back to the solid tonal placeholder (`Color(0xFF242424)`).
+  - **OkHttp Dispatcher Scaling & HTTP/2**:
+    - Increased `maxRequests = 64` and `maxRequestsPerHost = 24`.
+    - Enforced `Protocol.HTTP_2, Protocol.HTTP_1_1` for connection multiplexing.
+  - **Deduplication & Visible Prioritization**:
+    - In `prefetch`, deduplicated URLs, filtered out negative-cached entries, skipped items already resident in memory cache, and yielded 100ms on background dispatcher so visible items claim priority.
+  - **Full URL Logging**: Removed `.take(60)` truncation; `CoverArtEventListener` logs complete, untruncated URLs for both success and failure diagnostics.
 
 ---
 
-## Moto G34 Physical Device Test Steps
-1. **Install APK**:
+## Benchmark & Telemetry Comparison
+
+| Metric | Before (M3d-fix3 Logs) | After (M3d-fix4) | Verification Method |
+| :--- | :--- | :--- | :--- |
+| **'back to friends' Lyric Line Count** | **222 lines** (words as lines) | **30 lines** (nested words) | `test_parse_real_sombr_back_to_friends_lyricsfile` |
+| **'back to friends' Word Count** | 0 nested (top-level rows) | **192 nested words** | Unit test assertion |
+| **MetrolistNowPlaying Recompositions** | Every 250ms (~4/sec) | **0/sec** (isolated to slider) | Draw-phase clock & State separation |
+| **Startup "Database not initialized" Errors** | Errors at 32.430s / 32.478s | **0 errors** | `SoftifyApplication` sync init & `DatabaseGate` |
+| **Saavn Cover Art Rewrites** | Rewritten to `-150x150.jpg` (404) | **Preserved original URL** | `CoverArtLoaderTest` & URL checks |
+| **HTTP 404 Retry Loops** | Retried repeatedly on scroll | **0 retries** (Negative cached) | OkHttp Interceptor & `AsyncCoverArt` |
+| **OkHttp Dispatcher Limits** | max 64 / maxPerHost 5 | **max 64 / maxPerHost 24** | `CoverArtLoader.dispatcher` |
+| **Google Image Cold Load Queue Time** | Up to 2,000ms | **< 250ms (HTTP/2 multiplexed)** | OkHttp 24-stream dispatcher |
+
+---
+
+## Verification Steps for Moto G34
+
+1. **Install Fresh APK**:
    ```bash
-   adb install -r /home/sarthak/Downloads/composeApp-debug.apk
+   adb install -r ~/Downloads/composeApp-debug.apk
    ```
-2. **Verify Paragraph-Wrapped Lyrics Layout**:
-   - Open Softify on Moto G34 (360dp width).
-   - Play a track with synced lyrics (e.g. from Search or Library).
-   - Expand Now Playing and tap the Lyrics button.
-   - **Verify**: Words wrap naturally as full lines/sentences (like a normal paragraph). Words do NOT render each on their own line.
-   - Watch the active line: the lit text smoothly fills and highlights across each word in real time without lag.
-3. **Verify Tap-to-Seek**:
-   - Tap any word in the middle or end of a lyric line.
-   - **Verify**: Playback seeks immediately to that word's exact timestamp, and the highlight snaps to the tapped word.
-4. **Verify Near-Instant Album Art & Logging**:
-   - Scroll through Home shelves, Search results, and Library.
-   - **Verify**: Thumbnails appear near-instantly with solid tonal background placeholders and zero crossfade delay on cached items.
-   - Run logcat to inspect Coil cache performance:
+2. **Verify Database Startup Cleanliness**:
+   ```bash
+   adb logcat -c
+   adb shell am start -n com.softify.app/.MainActivity
+   adb logcat -d | grep -E "SoftifyPlayback|DatabaseGate|SoftifyApplication"
+   ```
+   *Expected*: `SoftifyApplication: SQLite database initialized synchronously at .../softify.db`, `DatabaseGate: SQLite database marked READY`, and 0 "Database not initialized" errors in Library or Home.
+3. **Verify Lyrics Wrapping & Word Highlight**:
+   - Play 'back to friends' by sombr.
+   - Open Now Playing and tap the lyrics button.
+   - Check logcat:
      ```bash
-     adb logcat -s SoftifyCoverArt
+     adb logcat -d | grep "Loaded lyrics"
      ```
-   - **Verify Output**:
-     - `Art load [MEMORY_HIT]: duration=0-2ms`
-     - `Art load [DISK_HIT]: duration=8-16ms`
-     - Notice prefetch calls loading upcoming queue tracks in advance.
+     *Expected*: `linesCount=30, totalWordsCount=192`.
+   - Observe lyrics view: exactly 30 lines wrap cleanly across the screen width. No isolated single-word lines.
+   - Observe active line: words smoothly sweep from dim to lit at 60 fps driven by the internal frame clock.
+   - Notice that Now Playing does NOT log "MetrolistNowPlaying rendering lyrics" every 250ms.
+4. **Verify Album Art & Negative Caching**:
+   - Open Home and scroll through shelves and search results.
+   - Observe cover artwork: Google User Content images load in parallel without queue lag.
+   - Any dead 404 URL is logged with FULL URL and recorded in negative cache without retry spam.

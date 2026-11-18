@@ -34,10 +34,6 @@ import uniffi.softify_core.Track
 @Composable
 fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
     val currentTab by viewModel.currentTab.collectAsState()
-    val activeTrack by viewModel.activeTrack.collectAsState()
-    val activeStream by viewModel.activeStream.collectAsState()
-    val isPlaying by viewModel.isPlaying.collectAsState()
-    val playbackProgress by viewModel.playbackProgress.collectAsState()
     val isNowPlayingExpanded by viewModel.isNowPlayingExpanded.collectAsState()
     val isQueueSheetOpen by viewModel.isQueueSheetOpen.collectAsState()
 
@@ -133,20 +129,11 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                             snackbarHost = { SnackbarHost(snackbarHostState) },
                             bottomBar = {
                                 Column(modifier = Modifier.navigationBarsPadding()) {
-                                    // Docked Mini Player
-                                    if (activeTrack != null) {
-                                        MiniPlayer(
-                                            track = activeTrack,
-                                            streamInfo = activeStream,
-                                            isPlaying = isPlaying,
-                                            progress = playbackProgress,
-                                            onPlayPause = { viewModel.togglePlayPause() },
-                                            onNext = { viewModel.skipNext() },
-                                            onClick = {
-                                                viewModel.openNowPlaying()
-                                            }
-                                        )
-                                    }
+                                    // Docked Mini Player (isolated recomposition)
+                                    MiniPlayer(
+                                        viewModel = viewModel,
+                                        onClick = { viewModel.openNowPlaying() }
+                                    )
 
                                     // Material 3 Expressive Navigation Bar
                                     NavigationBar(

@@ -55,6 +55,9 @@ fn get_config_mgr() -> &'static ConfigManager {
 
 #[uniffi::export]
 pub fn init_database(db_path: String) -> Result<(), SoftifyError> {
+    if DB_REPO.get().is_some() {
+        return Ok(());
+    }
     let repo = DatabaseRepository::new(&db_path)?;
     let _ = DB_REPO.set(Arc::new(repo));
     Ok(())

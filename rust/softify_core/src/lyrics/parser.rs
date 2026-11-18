@@ -217,6 +217,17 @@ pub fn estimate_words_for_line(text: &str, line_start_ms: u64, line_end_ms: u64)
     words
 }
 
+fn unquote_yaml(s: &str) -> String {
+    let s = s.trim();
+    if s.starts_with('\'') && s.ends_with('\'') && s.len() >= 2 {
+        s[1..s.len() - 1].replace("''", "'")
+    } else if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+        s[1..s.len() - 1].replace("\\\"", "\"")
+    } else {
+        s.to_string()
+    }
+}
+
 /// Parses LRCLIB `lyricsfile` format (YAML-like line/words structure)
 pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
     if !lyricsfile_str.contains("lines:") || !lyricsfile_str.contains("start_ms:") {
@@ -235,11 +246,16 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
 
     let mut current_word_text = String::new();
     let mut current_word_start: u64 = 0;
+    let mut current_word_end: u64 = 0;
 
-    let flush_word = |words: &mut Vec<LyricsWord>, text: &mut String, start: u64, next_start: u64| {
+    let flush_word = |words: &mut Vec<LyricsWord>, text: &mut String, start: u64, explicit_end: u64| {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
-            let end = if next_start > start { next_start } else { start + 300 };
+            let end = if explicit_end > start {
+                explicit_end
+            } else {
+                0 // Will be resolved by next word's start_ms or line_end
+            };
             words.push(LyricsWord {
                 text: trimmed.to_string(),
                 start_ms: start,
@@ -249,16 +265,28 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
         }
     };
 
-    let flush_line = |lines: &mut Vec<LyricsLine>, plain: &mut Vec<String>, text: &mut String, start: u64, end: u64, words: &mut Vec<LyricsWord>| {
+    let flush_line = |lines: &mut Vec<LyricsLine>,
+                      plain: &mut Vec<String>,
+                      text: &mut String,
+                      start: u64,
+                      end: u64,
+                      words: &mut Vec<LyricsWord>| {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
             let line_end = if end > start { end } else { start + 3000 };
             plain.push(trimmed.to_string());
-            if let Some(last) = words.last_mut() {
-                if last.end_ms <= last.start_ms || last.end_ms < line_end {
-                    last.end_ms = line_end;
+
+            // Resolve any unset or invalid word end timestamps
+            for i in 0..words.len() {
+                if words[i].end_ms <= words[i].start_ms {
+                    if i + 1 < words.len() && words[i + 1].start_ms > words[i].start_ms {
+                        words[i].end_ms = words[i + 1].start_ms;
+                    } else {
+                        words[i].end_ms = line_end.max(words[i].start_ms + 100);
+                    }
                 }
             }
+
             lines.push(LyricsLine {
                 start_ms: start,
                 end_ms: line_end,
@@ -271,6 +299,10 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
 
     for raw_line in lyricsfile_str.lines() {
         let trimmed = raw_line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
         if trimmed == "lines:" {
             in_lines = true;
             continue;
@@ -279,28 +311,40 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
             continue;
         }
 
-        if trimmed.starts_with("- text:") {
+        let indent = raw_line.chars().take_while(|c| *c == ' ').count();
+
+        // Line-level item starts with '- text:' at column 0 (indent == 0)
+        // or whenever not inside a words list
+        if indent == 0 && trimmed.starts_with("- text:") {
             if in_words && !current_word_text.is_empty() {
-                flush_word(&mut current_words, &mut current_word_text, current_word_start, current_line_end);
+                flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
             }
             flush_line(&mut lines, &mut plain_buffer, &mut current_line_text, current_line_start, current_line_end, &mut current_words);
             in_words = false;
-            let val = trimmed.trim_start_matches("- text:").trim().trim_matches('\'').trim_matches('"');
-            current_line_text = val.to_string();
-        } else if trimmed.starts_with("start_ms:") && !in_words {
+            let val = trimmed.trim_start_matches("- text:").trim();
+            current_line_text = unquote_yaml(val);
+            current_line_start = 0;
+            current_line_end = 0;
+            current_word_text.clear();
+            current_word_start = 0;
+            current_word_end = 0;
+        } else if !in_words && trimmed.starts_with("start_ms:") {
             let val = trimmed.trim_start_matches("start_ms:").trim();
             current_line_start = val.parse().unwrap_or(0);
-        } else if trimmed.starts_with("end_ms:") && !in_words {
+        } else if !in_words && trimmed.starts_with("end_ms:") {
             let val = trimmed.trim_start_matches("end_ms:").trim();
             current_line_end = val.parse().unwrap_or(0);
         } else if trimmed == "words:" {
             in_words = true;
-        } else if in_words && trimmed.starts_with("- text:") {
+        } else if in_words && indent > 0 && trimmed.starts_with("- text:") {
+            // Nested word inside line
             if !current_word_text.is_empty() {
-                flush_word(&mut current_words, &mut current_word_text, current_word_start, 0);
+                flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
             }
-            let val = trimmed.trim_start_matches("- text:").trim().trim_matches('\'').trim_matches('"');
-            current_word_text = val.to_string();
+            let val = trimmed.trim_start_matches("- text:").trim();
+            current_word_text = unquote_yaml(val);
+            current_word_start = 0;
+            current_word_end = 0;
         } else if in_words && trimmed.starts_with("start_ms:") {
             let val = trimmed.trim_start_matches("start_ms:").trim();
             let parsed_start = val.parse().unwrap_or(0);
@@ -311,11 +355,14 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
                 }
             }
             current_word_start = parsed_start;
+        } else if in_words && trimmed.starts_with("end_ms:") {
+            let val = trimmed.trim_start_matches("end_ms:").trim();
+            current_word_end = val.parse().unwrap_or(0);
         }
     }
 
     if in_words && !current_word_text.is_empty() {
-        flush_word(&mut current_words, &mut current_word_text, current_word_start, current_line_end);
+        flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
     }
     flush_line(&mut lines, &mut plain_buffer, &mut current_line_text, current_line_start, current_line_end, &mut current_words);
 
@@ -386,5 +433,58 @@ mod tests {
         let dur_short = words[0].end_ms - words[0].start_ms;
         let dur_long = words[1].end_ms - words[1].start_ms;
         assert!(dur_long > dur_short * 3, "Long word duration {} must be > 3x short word duration {}", dur_long, dur_short);
+    }
+
+    #[test]
+    fn test_parse_real_sombr_back_to_friends_lyricsfile() {
+        let fixture_path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/lrclib_back_to_friends.json");
+        let fixture_data = std::fs::read_to_string(fixture_path).expect("Failed to read lrclib fixture");
+        let parsed_json: serde_json::Value = serde_json::from_str(&fixture_data).expect("Failed to parse fixture JSON");
+        let lyricsfile_str = parsed_json["lyricsfile"].as_str().expect("Fixture missing lyricsfile");
+
+        let lyrics = parse_lrclib_lyricsfile(lyricsfile_str).expect("Failed to parse lyricsfile");
+        assert!(lyrics.is_synced);
+        assert!(lyrics.is_word_synced);
+
+        // Crucial bug check: Must be real number of lines (30), NOT 222!
+        assert_eq!(lyrics.lines.len(), 30, "Expected 30 lines for 'back to friends', found {}", lyrics.lines.len());
+
+        // First line assertions
+        let line0 = &lyrics.lines[0];
+        assert_eq!(line0.text, "Touch my body tender");
+        assert_eq!(line0.start_ms, 22950);
+        assert_eq!(line0.end_ms, 26678);
+        assert_eq!(line0.words.len(), 4, "Expected 4 nested words in line 0");
+        assert_eq!(line0.words[0].text, "Touch");
+        assert_eq!(line0.words[0].start_ms, 22950);
+        assert_eq!(line0.words[0].end_ms, 23205);
+        assert_eq!(line0.words[1].text, "my");
+        assert_eq!(line0.words[1].start_ms, 23205);
+        assert_eq!(line0.words[1].end_ms, 23526);
+        assert_eq!(line0.words[2].text, "body");
+        assert_eq!(line0.words[2].start_ms, 23526);
+        assert_eq!(line0.words[2].end_ms, 24141);
+        assert_eq!(line0.words[3].text, "tender");
+        assert_eq!(line0.words[3].start_ms, 24141);
+        assert_eq!(line0.words[3].end_ms, 26678);
+
+        // Second line assertions (unquoting YAML escaped single quotes)
+        let line1 = &lyrics.lines[1];
+        assert_eq!(line1.text, "'Cause the feeling makes me weak");
+        assert_eq!(line1.start_ms, 27140);
+        assert_eq!(line1.end_ms, 32867);
+        assert_eq!(line1.words.len(), 6, "Expected 6 nested words in line 1");
+        assert_eq!(line1.words[0].text, "'Cause");
+        assert_eq!(line1.words[0].start_ms, 27140);
+        assert_eq!(line1.words[0].end_ms, 27757);
+
+        // Verify total words count across all 30 lines matches the 192 nested words
+        let total_words: usize = lyrics.lines.iter().map(|l| l.words.len()).sum();
+        assert_eq!(total_words, 192, "Expected 192 total nested words");
+
+        // Verify zero word tokens are top-level lines
+        for (i, l) in lyrics.lines.iter().enumerate() {
+            assert!(!l.words.is_empty(), "Line {} ('{}') must have nested words", i, l.text);
+        }
     }
 }

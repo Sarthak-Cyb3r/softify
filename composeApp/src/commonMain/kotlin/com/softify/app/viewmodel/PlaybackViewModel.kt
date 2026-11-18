@@ -1,5 +1,6 @@
 package com.softify.app.viewmodel
 
+import com.softify.app.data.DatabaseGate
 import com.softify.app.playback.QueueManager
 import com.softify.app.playback.QueueState
 import com.softify.app.playback.RepeatMode
@@ -248,6 +249,25 @@ class PlaybackViewModel(
         return runCatching { getAlbumTracks(album, artist, 50u) }.getOrDefault(emptyList())
     }
 
+    /**
+     * Executes action only when SQLite database has been initialized.
+     * If uninitialized error occurs, automatically awaits gate and retries once.
+     */
+    suspend fun <T> withDatabase(action: suspend () -> T): T {
+        DatabaseGate.awaitReady()
+        return try {
+            action()
+        } catch (e: Exception) {
+            if (e.message?.contains("Database not initialized") == true) {
+                PlaybackLogger.log("SoftifyPlayback", "Database not initialized encountered; waiting on DatabaseGate to retry...")
+                DatabaseGate.awaitReady()
+                action()
+            } else {
+                throw e
+            }
+        }
+    }
+
     fun loadLyricsForActiveTrack() {
         val track = _activeTrack.value
         if (track == null) {
@@ -258,11 +278,15 @@ class PlaybackViewModel(
         scope.launch(Dispatchers.Default) {
             _isLyricsLoading.value = true
             try {
-                val res = getLyrics(track)
+                val res = withDatabase { getLyrics(track) }
                 _lyrics.value = res
+                val totalWords = res.lines.sumOf { it.words.size }
+                val first5 = res.lines.take(5).joinToString("; ") {
+                    "'${it.text}' (${it.words.size}w, ${it.startMs}-${it.endMs}ms)"
+                }
                 PlaybackLogger.log(
                     "SoftifyPlayback",
-                    "Loaded lyrics for '${track.title}': isSynced=${res.isSynced}, isWordSynced=${res.isWordSynced}, linesCount=${res.lines.size}, hasPlainText=${!res.plainText.isNullOrBlank()}"
+                    "Loaded lyrics for '${track.title}': provider=${res.provider}, isSynced=${res.isSynced}, isWordSynced=${res.isWordSynced}, linesCount=${res.lines.size}, totalWordsCount=$totalWords, first5=[$first5]"
                 )
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Failed to load lyrics for '${track.title}': ${e.message}")
@@ -310,7 +334,9 @@ class PlaybackViewModel(
     private fun checkIncognitoStatus() {
         scope.launch(Dispatchers.Default) {
             try {
-                _isIncognito.value = isLearningPaused()
+                withDatabase {
+                    _isIncognito.value = isLearningPaused()
+                }
             } catch (_: Exception) {}
         }
     }
@@ -319,7 +345,9 @@ class PlaybackViewModel(
         val next = !_isIncognito.value
         scope.launch(Dispatchers.Default) {
             try {
-                setLearningPaused(next)
+                withDatabase {
+                    setLearningPaused(next)
+                }
                 _isIncognito.value = next
                 val stateText = if (next) "Incognito ON (history & learning paused)" else "Incognito OFF"
                 PlaybackLogger.log("SoftifyPlayback", stateText)
@@ -333,10 +361,12 @@ class PlaybackViewModel(
     fun refreshLibrary() {
         scope.launch(Dispatchers.Default) {
             try {
-                _likedTracks.value = getLikedTracks()
-                _playlists.value = getPlaylists()
-                _history.value = getHistory(25u)
-                loadSmartPlaylists()
+                withDatabase {
+                    _likedTracks.value = getLikedTracks()
+                    _playlists.value = getPlaylists()
+                    _history.value = getHistory(25u)
+                    loadSmartPlaylists()
+                }
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Library refresh error: ${e.message}")
             }
@@ -346,10 +376,12 @@ class PlaybackViewModel(
     fun loadSmartPlaylists() {
         scope.launch(Dispatchers.Default) {
             try {
-                val nowMs = System.currentTimeMillis().toULong()
-                _smartOnRepeat.value = getOnRepeatTracks(nowMs, 50u)
-                _smartMostPlayed.value = getMostPlayedTracks(nowMs, 50u)
-                _smartForgottenFavorites.value = getForgottenFavoritesTracks(nowMs, 50u)
+                withDatabase {
+                    val nowMs = System.currentTimeMillis().toULong()
+                    _smartOnRepeat.value = getOnRepeatTracks(nowMs, 50u)
+                    _smartMostPlayed.value = getMostPlayedTracks(nowMs, 50u)
+                    _smartForgottenFavorites.value = getForgottenFavoritesTracks(nowMs, 50u)
+                }
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Smart playlists load error: ${e.message}")
             }
@@ -361,22 +393,24 @@ class PlaybackViewModel(
         _homeError.value = null
         scope.launch(Dispatchers.Default) {
             try {
-                // Try personalized recommendation shelves first
-                var shelves = runCatching { getRecommendationShelves() }.getOrDefault(emptyList())
-                val hasTracks = shelves.any { it.tracks.isNotEmpty() }
+                withDatabase {
+                    // Try personalized recommendation shelves first
+                    var shelves = runCatching { getRecommendationShelves() }.getOrDefault(emptyList())
+                    val hasTracks = shelves.any { it.tracks.isNotEmpty() }
 
-                if (!hasTracks) {
-                    // Fall back to explore charts / trending (fixture or online)
-                    shelves = homeExplore()
-                }
+                    if (!hasTracks) {
+                        // Fall back to explore charts / trending (fixture or online)
+                        shelves = homeExplore()
+                    }
 
-                _homeShelves.value = shelves
+                    _homeShelves.value = shelves
 
-                try {
-                    val picks = getQuickPicks(limit = 10u)
-                    _quickPicks.value = picks
-                } catch (e: Exception) {
-                    PlaybackLogger.log("SoftifyPlayback", "Quick picks error: ${e.message}")
+                    try {
+                        val picks = getQuickPicks(limit = 10u)
+                        _quickPicks.value = picks
+                    } catch (e: Exception) {
+                        PlaybackLogger.log("SoftifyPlayback", "Quick picks error: ${e.message}")
+                    }
                 }
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Home explore error: ${e.message}")
@@ -390,7 +424,9 @@ class PlaybackViewModel(
     fun loadRecentSearches() {
         scope.launch(Dispatchers.Default) {
             try {
-                _recentSearches.value = getRecentSearches(15u)
+                withDatabase {
+                    _recentSearches.value = getRecentSearches(15u)
+                }
             } catch (_: Exception) {}
         }
     }
@@ -398,7 +434,9 @@ class PlaybackViewModel(
     fun deleteRecentSearchItem(query: String) {
         scope.launch(Dispatchers.Default) {
             try {
-                deleteRecentSearch(query)
+                withDatabase {
+                    deleteRecentSearch(query)
+                }
                 loadRecentSearches()
             } catch (_: Exception) {}
         }
@@ -428,27 +466,31 @@ class PlaybackViewModel(
         }
 
         // 1. Instant local FTS5 search (synchronous, <10ms)
-        try {
-            _localSearchResults.value = searchLibrary(query, 10u)
-        } catch (_: Exception) {}
+        if (DatabaseGate.isReady) {
+            try {
+                _localSearchResults.value = searchLibrary(query, 10u)
+            } catch (_: Exception) {}
+        }
 
         // 2. Debounced combined async search (300ms) with online queries
         searchJob = scope.launch(Dispatchers.Default) {
             kotlinx.coroutines.delay(300L)
             _isSearching.value = true
             try {
-                val combined = searchCombined(query, 25u)
-                _localSearchResults.value = combined.localTracks
-                _onlineSearchResults.value = combined.onlineTracks
-                _detectedIntent.value = combined.intent
-                _detectedEntity.value = combined.detectedEntity
+                withDatabase {
+                    val combined = searchCombined(query, 25u)
+                    _localSearchResults.value = combined.localTracks
+                    _onlineSearchResults.value = combined.onlineTracks
+                    _detectedIntent.value = combined.intent
+                    _detectedEntity.value = combined.detectedEntity
 
-                // Prefetch artwork for search results immediately
-                val searchCovers = (combined.localTracks + combined.onlineTracks).mapNotNull { it.coverUrl }
-                com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(searchCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+                    // Prefetch artwork for search results immediately
+                    val searchCovers = (combined.localTracks + combined.onlineTracks).mapNotNull { it.coverUrl }
+                    com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(searchCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
 
-                // Record search query in DB (skipped if incognito in Rust core)
-                runCatching { recordSearchQuery(query) }
+                    // Record search query in DB (skipped if incognito in Rust core)
+                    runCatching { recordSearchQuery(query) }
+                }
             } catch (e: Exception) {
                 // Ignore cancellation
             } finally {
@@ -460,8 +502,10 @@ class PlaybackViewModel(
     fun toggleLikeTrack(track: Track) {
         scope.launch(Dispatchers.Default) {
             try {
-                saveTrack(track)
-                val newLikedState = toggleLike(track.id)
+                val newLikedState = withDatabase {
+                    saveTrack(track)
+                    toggleLike(track.id)
+                }
                 if (_activeTrack.value?.id == track.id) {
                     _activeTrack.value = _activeTrack.value?.copy(isLiked = newLikedState)
                 }
@@ -475,7 +519,7 @@ class PlaybackViewModel(
     fun createNewPlaylist(name: String, description: String? = null) {
         scope.launch(Dispatchers.Default) {
             try {
-                createPlaylist(name, description)
+                withDatabase { createPlaylist(name, description) }
                 refreshLibrary()
                 showSnackbar("Created playlist '$name'")
             } catch (e: Exception) {
@@ -487,7 +531,7 @@ class PlaybackViewModel(
     fun renameUserPlaylist(playlistId: String, newName: String) {
         scope.launch(Dispatchers.Default) {
             try {
-                renamePlaylist(playlistId, newName)
+                withDatabase { renamePlaylist(playlistId, newName) }
                 refreshLibrary()
                 showSnackbar("Renamed playlist to '$newName'")
             } catch (e: Exception) {
@@ -499,7 +543,7 @@ class PlaybackViewModel(
     fun deleteUserPlaylist(playlistId: String) {
         scope.launch(Dispatchers.Default) {
             try {
-                deletePlaylist(playlistId)
+                withDatabase { deletePlaylist(playlistId) }
                 refreshLibrary()
                 showSnackbar("Deleted playlist")
             } catch (e: Exception) {
@@ -511,8 +555,10 @@ class PlaybackViewModel(
     fun addTrackToPlaylist(playlistId: String, track: Track) {
         scope.launch(Dispatchers.Default) {
             try {
-                saveTrack(track)
-                addToPlaylist(playlistId, track.id)
+                withDatabase {
+                    saveTrack(track)
+                    addToPlaylist(playlistId, track.id)
+                }
                 refreshLibrary()
                 showSnackbar("Added '${track.title}' to playlist")
             } catch (e: Exception) {

@@ -13,11 +13,19 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.crossfade
 import com.softify.app.util.PlaybackLogger
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okio.Path
+import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Platform-specific cache directory for 250 MB disk cache.
@@ -37,30 +45,27 @@ enum class CoverSize {
 /**
  * Converts cover URL into size-appropriate thumbnail URL.
  * - Google / YouTube Music CDN: rewrites `=w...` or `=s...`
- * - Saavn CDN: rewrites `-\d+x\d+\.jpg` to `-150x150.jpg` vs `-500x500.jpg`
  * - YouTube: `mqdefault.jpg` (small) vs `hqdefault.jpg` (full)
+ * - Saavn CDN and other hosts: preserved untouched without breaking rewrites
  */
 fun formatCoverUrl(url: String?, size: CoverSize): String? {
     if (url.isNullOrBlank()) return null
     return when (size) {
         CoverSize.THUMBNAIL -> {
-            if (url.contains("=w") || url.contains("=s")) {
+            if (url.contains("=w") || url.contains("=s") || url.contains("googleusercontent.com") || url.contains("ggpht.com")) {
                 url.replace(Regex("=w\\d+-h\\d+[^?&]*"), "=w180-h180-l90-rj")
                     .replace(Regex("=s\\d+[^?&]*"), "=s180-c-k-c0x00ffffff-no-rj")
-            } else if (url.contains("saavncdn.com")) {
-                url.replace(Regex("-\\d+x\\d+\\.jpg"), "-150x150.jpg")
             } else if (url.contains("i.ytimg.com")) {
                 url.replace("hqdefault.jpg", "mqdefault.jpg")
             } else {
+                // Host-specific: preserve Saavn and other hosts without breaking rewrites
                 url
             }
         }
         CoverSize.FULL -> {
-            if (url.contains("=w") || url.contains("=s")) {
+            if (url.contains("=w") || url.contains("=s") || url.contains("googleusercontent.com") || url.contains("ggpht.com")) {
                 url.replace(Regex("=w\\d+-h\\d+[^?&]*"), "=w544-h544-l90-rj")
                     .replace(Regex("=s\\d+[^?&]*"), "=s544-c-k-c0x00ffffff-no-rj")
-            } else if (url.contains("saavncdn.com")) {
-                url.replace(Regex("-\\d+x\\d+\\.jpg"), "-500x500.jpg")
             } else if (url.contains("i.ytimg.com")) {
                 url.replace("mqdefault.jpg", "hqdefault.jpg")
             } else {
@@ -129,7 +134,7 @@ class CoverArtEventListener : EventListener() {
 
         PlaybackLogger.log(
             "SoftifyCoverArt",
-            "Art load [$hitOrMiss]: duration=${durationMs}ms, source=$source, url=${request.data.toString().take(60)}..."
+            "Art load [$hitOrMiss]: duration=${durationMs}ms, source=$source, url=${request.data}"
         )
     }
 
@@ -137,7 +142,7 @@ class CoverArtEventListener : EventListener() {
         val durationMs = (System.currentTimeMillis() - startTime).coerceAtLeast(0L)
         PlaybackLogger.log(
             "SoftifyCoverArt",
-            "Art load [FAILED]: duration=${durationMs}ms, error=${result.throwable.message}, url=${request.data.toString().take(60)}..."
+            "Art load [FAILED]: duration=${durationMs}ms, error=${result.throwable.message}, url=${request.data}"
         )
     }
 }
@@ -146,18 +151,52 @@ class CoverArtEventListener : EventListener() {
  * Singleton CoverArtLoader configuring Coil with:
  * - 25% RAM memory cache
  * - 250 MB disk cache
- * - Single shared OkHttpClient
- * - Consistent cache keys
- * - Immediate loading (no crossfade for cache hits)
+ * - Shared OkHttpClient with HTTP/2 and 64 max concurrent / 24 per host dispatcher
+ * - Negative caching for HTTP 404 URLs
+ * - Background prefetching prioritizing visible UI requests
  */
 object CoverArtLoader {
     private var loaderInstance: ImageLoader? = null
     private var storedContext: PlatformContext? = null
 
+    // Session negative cache: maps 404 URLs to timestamp to prevent retrying dead URLs
+    val negativeCache = ConcurrentHashMap<String, Long>()
+
+    fun isNegativeCached(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        return negativeCache.containsKey(url)
+    }
+
+    fun recordNegativeCache(url: String?) {
+        if (url.isNullOrBlank()) return
+        negativeCache[url] = System.currentTimeMillis()
+        PlaybackLogger.log("SoftifyCoverArt", "Recorded negative cache (HTTP 404): $url")
+    }
+
+    // High throughput OkHttp dispatcher: 64 concurrent requests, 24 per host
+    val dispatcher = Dispatcher().apply {
+        maxRequests = 64
+        maxRequestsPerHost = 24
+    }
+
     val sharedOkHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+            .dispatcher(dispatcher)
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val urlStr = request.url.toString()
+                if (negativeCache.containsKey(urlStr)) {
+                    throw IOException("HTTP 404 (negative cache hit): $urlStr")
+                }
+                val response = chain.proceed(request)
+                if (response.code == 404) {
+                    recordNegativeCache(urlStr)
+                }
+                response
+            }
             .build()
     }
 
@@ -199,7 +238,7 @@ object CoverArtLoader {
 
     /**
      * Prefetches cover art into disk and memory cache.
-     * Can prefetch for upcoming queue items, shelf items, or search/radio results.
+     * Deduplicates URLs, skips negative cache and memory-cached items, and yields to visible items.
      */
     fun prefetch(
         context: PlatformContext,
@@ -207,15 +246,27 @@ object CoverArtLoader {
         size: CoverSize = CoverSize.THUMBNAIL
     ) {
         val loader = getImageLoader(context)
-        for (rawUrl in urls) {
-            val formatted = formatCoverUrl(rawUrl, size) ?: continue
-            val request = ImageRequest.Builder(context)
-                .data(formatted)
-                .memoryCacheKey(formatted)
-                .diskCacheKey(formatted)
-                .crossfade(false)
-                .build()
-            loader.enqueue(request)
+        val distinctUrls = urls.distinct().filter { !isNegativeCached(it) }
+
+        // Yield to visible item network requests before background prefetch
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(100L)
+            for (rawUrl in distinctUrls) {
+                val formatted = formatCoverUrl(rawUrl, size) ?: continue
+                if (isNegativeCached(formatted)) continue
+
+                // Check memory cache first to skip already loaded items
+                val memoryKey = MemoryCache.Key(formatted)
+                if (loader.memoryCache?.get(memoryKey) != null) continue
+
+                val request = ImageRequest.Builder(context)
+                    .data(formatted)
+                    .memoryCacheKey(formatted)
+                    .diskCacheKey(formatted)
+                    .crossfade(false)
+                    .build()
+                loader.enqueue(request)
+            }
         }
     }
 
@@ -223,17 +274,7 @@ object CoverArtLoader {
      * Prefetch using currently cached loader instance if available.
      */
     fun prefetchIfInitialized(urls: List<String>, size: CoverSize = CoverSize.THUMBNAIL) {
-        val loader = loaderInstance ?: return
         val ctx = storedContext ?: return
-        for (rawUrl in urls) {
-            val formatted = formatCoverUrl(rawUrl, size) ?: continue
-            val request = ImageRequest.Builder(ctx)
-                .data(formatted)
-                .memoryCacheKey(formatted)
-                .diskCacheKey(formatted)
-                .crossfade(false)
-                .build()
-            loader.enqueue(request)
-        }
+        prefetch(ctx, urls, size)
     }
 }

@@ -1,5 +1,6 @@
 package com.softify.app
 
+import com.softify.app.data.DatabaseGate
 import kotlinx.coroutines.runBlocking
 import org.junit.BeforeClass
 import org.junit.FixMethodOrder
@@ -40,6 +41,7 @@ class UniFfiIntegrationTest {
             tempDbFile = File.createTempFile("softify_uniffi_suite", ".db")
             tempDbFile.deleteOnExit()
             initDatabase(tempDbFile.absolutePath)
+            DatabaseGate.markReady()
         }
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,11 +26,37 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softify.app.ui.theme.SquircleShape
+import com.softify.app.viewmodel.PlaybackViewModel
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import uniffi.softify_core.StreamInfo
 import uniffi.softify_core.Track
 import kotlin.math.PI
 import kotlin.math.sin
+
+@Composable
+fun MiniPlayer(
+    viewModel: PlaybackViewModel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val track by viewModel.activeTrack.collectAsState()
+    val streamInfo by viewModel.activeStream.collectAsState()
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val progress by viewModel.playbackProgress.collectAsState()
+
+    if (track == null) return
+
+    MiniPlayer(
+        track = track,
+        streamInfo = streamInfo,
+        isPlaying = isPlaying,
+        progress = progress,
+        onPlayPause = { viewModel.togglePlayPause() },
+        onNext = { viewModel.skipNext() },
+        onClick = onClick,
+        modifier = modifier
+    )
+}
 
 /**
  * Material 3 Expressive Mini Player docked above the bottom navigation bar.

@@ -40,8 +40,6 @@ fun MetrolistNowPlaying(
     val track by viewModel.activeTrack.collectAsState()
     val streamInfo by viewModel.activeStream.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
-    val playbackProgress by viewModel.playbackProgress.collectAsState()
-    val currentPositionMs by viewModel.currentPositionMs.collectAsState()
     val durationMs by viewModel.durationMs.collectAsState()
     val queueState by viewModel.queueState.collectAsState()
     val lyrics by viewModel.lyrics.collectAsState()
@@ -52,10 +50,13 @@ fun MetrolistNowPlaying(
 
     val currentTrack = track!!
     val effectiveDurationMs = if (durationMs > 0L) durationMs else currentTrack.durationMs.toLong()
-    val effectivePositionMs = if (currentPositionMs > 0L) currentPositionMs else (playbackProgress * effectiveDurationMs).toLong()
 
+    // Pass position provider reading State without recomposing MetrolistNowPlaying on every 250ms tick
     val lyricsClock = rememberLyricsClock(
-        basePositionMs = effectivePositionMs,
+        positionProvider = {
+            val cur = viewModel.currentPositionMs.value
+            if (cur > 0L) cur else (viewModel.playbackProgress.value * effectiveDurationMs).toLong()
+        },
         isPlaying = isPlaying,
         enabled = showLyricsInPlayer
     )
@@ -321,46 +322,12 @@ fun MetrolistNowPlaying(
             }
         }
 
-        // 3. Progress Section with Squiggly Waveform Slider & Timestamps
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            SquigglySlider(
-                value = playbackProgress,
-                onValueChange = { frac ->
-                    val seekMs = (frac * effectiveDurationMs).toLong()
-                    viewModel.seekTo(seekMs)
-                },
-                isPlaying = isPlaying,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-            )
-
-            // Timestamps: Elapsed & Remaining
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                val elapsedSec = (effectivePositionMs / 1000L).coerceAtLeast(0L)
-                val remainingSec = ((effectiveDurationMs - effectivePositionMs) / 1000L).coerceAtLeast(0L)
-
-                Text(
-                    text = "${elapsedSec / 60}:${(elapsedSec % 60).toString().padStart(2, '0')}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Text(
-                    text = "-${remainingSec / 60}:${(remainingSec % 60).toString().padStart(2, '0')}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        // 3. Progress Section with Squiggly Waveform Slider & Timestamps (isolated recomposition)
+        MetrolistProgressSection(
+            viewModel = viewModel,
+            effectiveDurationMs = effectiveDurationMs,
+            isPlaying = isPlaying
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -506,6 +473,62 @@ fun MetrolistNowPlaying(
                     modifier = Modifier.size(24.dp)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Isolated progress slider & timestamps composable.
+ * Recomposes on 250ms playbackProgress ticks without causing parent NowPlaying to recompose.
+ */
+@Composable
+private fun MetrolistProgressSection(
+    viewModel: PlaybackViewModel,
+    effectiveDurationMs: Long,
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val playbackProgress by viewModel.playbackProgress.collectAsState()
+    val currentPositionMs by viewModel.currentPositionMs.collectAsState()
+    val effectivePositionMs = if (currentPositionMs > 0L) currentPositionMs else (playbackProgress * effectiveDurationMs).toLong()
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        SquigglySlider(
+            value = playbackProgress,
+            onValueChange = { frac ->
+                val seekMs = (frac * effectiveDurationMs).toLong()
+                viewModel.seekTo(seekMs)
+            },
+            isPlaying = isPlaying,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(32.dp)
+        )
+
+        // Timestamps: Elapsed & Remaining
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            val elapsedSec = (effectivePositionMs / 1000L).coerceAtLeast(0L)
+            val remainingSec = ((effectiveDurationMs - effectivePositionMs) / 1000L).coerceAtLeast(0L)
+
+            Text(
+                text = "${elapsedSec / 60}:${(elapsedSec % 60).toString().padStart(2, '0')}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "-${remainingSec / 60}:${(remainingSec % 60).toString().padStart(2, '0')}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

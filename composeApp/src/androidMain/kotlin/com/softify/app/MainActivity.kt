@@ -17,6 +17,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.softify.app.playback.PlaybackService
 import com.softify.app.ui.App
+import com.softify.app.data.DatabaseGate
 import com.softify.app.util.PlaybackLogger
 import com.softify.app.viewmodel.PlaybackViewModel
 import uniffi.softify_core.initDatabase
@@ -81,6 +82,7 @@ class MainActivity : ComponentActivity() {
         val dbPath = "${filesDir.absolutePath}/softify.db"
         try {
             initDatabase(dbPath)
+            DatabaseGate.markReady()
             PlaybackLogger.log("SoftifyPlayback", "Database initialized at: $dbPath")
         } catch (e: Exception) {
             val errMsg = "Database init failed: ${e.message}"
