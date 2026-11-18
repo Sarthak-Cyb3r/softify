@@ -35,6 +35,8 @@ fun LibraryScreen(
     viewModel: PlaybackViewModel,
     onOpenPlaylistDetail: (Playlist) -> Unit,
     onOpenSmartPlaylist: (title: String, tracks: List<Track>) -> Unit,
+    onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val playlists by viewModel.playlists.collectAsState()
@@ -289,7 +291,9 @@ fun LibraryScreen(
                                 onPlayNext = { viewModel.playNext(track) },
                                 onAddToQueue = { viewModel.addToQueue(track) },
                                 onAddToPlaylist = { trackForPlaylistSheet = track },
-                                onToggleLike = { viewModel.toggleLikeTrack(track) }
+                                onToggleLike = { viewModel.toggleLikeTrack(track) },
+                                onOpenArtist = { onOpenArtist(track.artist) },
+                                onOpenAlbum = { albumName -> onOpenAlbum(albumName, track.artist) }
                             )
                         }
                     }
@@ -349,7 +353,9 @@ fun LibraryScreen(
                                     onPlayNext = { viewModel.playNext(track) },
                                     onAddToQueue = { viewModel.addToQueue(track) },
                                     onAddToPlaylist = { trackForPlaylistSheet = track },
-                                    onToggleLike = { viewModel.toggleLikeTrack(track) }
+                                    onToggleLike = { viewModel.toggleLikeTrack(track) },
+                                    onOpenArtist = { onOpenArtist(track.artist) },
+                                    onOpenAlbum = { albumName -> onOpenAlbum(albumName, track.artist) }
                                 )
                             }
                         }

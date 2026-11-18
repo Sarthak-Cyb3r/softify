@@ -40,7 +40,8 @@ data class QueueState(
     val tracks: List<Track> = emptyList(),
     val currentIndex: Int = -1,
     val repeatMode: RepeatMode = RepeatMode.OFF,
-    val isShuffle: Boolean = false
+    val isShuffle: Boolean = false,
+    val playNextTrackIds: Set<String> = emptySet()
 ) {
     val currentTrack: Track?
         get() = if (currentIndex in tracks.indices) tracks[currentIndex] else null
@@ -115,7 +116,11 @@ class QueueManager(
         }
         list.add(insertIndex, track)
         val newIndex = if (current.currentIndex == -1) 0 else current.currentIndex
-        _queueState.value = current.copy(tracks = list, currentIndex = newIndex)
+        _queueState.value = current.copy(
+            tracks = list,
+            currentIndex = newIndex,
+            playNextTrackIds = current.playNextTrackIds + track.id
+        )
         PlaybackLogger.log(
             "SoftifyPlayback",
             "QueueManager: playNext '${track.title}', inserted at index $insertIndex"
@@ -127,7 +132,11 @@ class QueueManager(
         val list = current.tracks.toMutableList()
         list.add(track)
         val newIndex = if (current.currentIndex == -1) 0 else current.currentIndex
-        _queueState.value = current.copy(tracks = list, currentIndex = newIndex)
+        _queueState.value = current.copy(
+            tracks = list,
+            currentIndex = newIndex,
+            playNextTrackIds = current.playNextTrackIds - track.id
+        )
         PlaybackLogger.log(
             "SoftifyPlayback",
             "QueueManager: addToQueue '${track.title}', total tracks=${list.size}"
@@ -138,14 +147,42 @@ class QueueManager(
         val current = _queueState.value
         if (index !in current.tracks.indices) return
         val list = current.tracks.toMutableList()
-        list.removeAt(index)
+        val removed = list.removeAt(index)
         val newIndex = when {
             list.isEmpty() -> -1
             current.currentIndex > index -> current.currentIndex - 1
             current.currentIndex == index -> index.coerceAtMost(list.size - 1)
             else -> current.currentIndex
         }
-        _queueState.value = current.copy(tracks = list, currentIndex = newIndex)
+        _queueState.value = current.copy(
+            tracks = list,
+            currentIndex = newIndex,
+            playNextTrackIds = current.playNextTrackIds - removed.id
+        )
+    }
+
+    fun move(fromIndex: Int, toIndex: Int) {
+        val current = _queueState.value
+        if (fromIndex !in current.tracks.indices || toIndex !in current.tracks.indices || fromIndex == toIndex) return
+        val list = current.tracks.toMutableList()
+        val item = list.removeAt(fromIndex)
+        list.add(toIndex, item)
+        val newCurrentIndex = when {
+            current.currentIndex == fromIndex -> toIndex
+            fromIndex < current.currentIndex && toIndex >= current.currentIndex -> current.currentIndex - 1
+            fromIndex > current.currentIndex && toIndex <= current.currentIndex -> current.currentIndex + 1
+            else -> current.currentIndex
+        }
+        _queueState.value = current.copy(tracks = list, currentIndex = newCurrentIndex)
+    }
+
+    fun jumpTo(index: Int): Track? {
+        val current = _queueState.value
+        if (index !in current.tracks.indices) return null
+        _queueState.value = current.copy(currentIndex = index)
+        val track = current.tracks[index]
+        PlaybackLogger.log("SoftifyPlayback", "QueueManager: jumpTo index $index: '${track.title}'")
+        return track
     }
 
     fun clear() {

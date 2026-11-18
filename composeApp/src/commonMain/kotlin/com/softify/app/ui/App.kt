@@ -1,5 +1,8 @@
 package com.softify.app.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -10,11 +13,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.softify.app.ui.components.MiniPlayer
+import com.softify.app.ui.components.QueueBottomSheet
+import com.softify.app.ui.details.AlbumDetailScreen
+import com.softify.app.ui.details.ArtistDetailScreen
 import com.softify.app.ui.diagnostics.DiagnosticsScreen
 import com.softify.app.ui.gallery.ComponentGalleryScreen
 import com.softify.app.ui.home.HomeScreen
 import com.softify.app.ui.library.LibraryScreen
 import com.softify.app.ui.library.PlaylistDetailScreen
+import com.softify.app.ui.metrolist.MetrolistNowPlaying
 import com.softify.app.ui.search.SearchScreen
 import com.softify.app.ui.settings.SettingsScreen
 import com.softify.app.ui.theme.MetrolistTheme
@@ -31,6 +38,8 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
     val activeStream by viewModel.activeStream.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val playbackProgress by viewModel.playbackProgress.collectAsState()
+    val isNowPlayingExpanded by viewModel.isNowPlayingExpanded.collectAsState()
+    val isQueueSheetOpen by viewModel.isQueueSheetOpen.collectAsState()
 
     var showSettings by remember { mutableStateOf(false) }
     var showDiagnostics by remember { mutableStateOf(false) }
@@ -39,6 +48,9 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
     var selectedPlaylistDetail by remember { mutableStateOf<Playlist?>(null) }
     var selectedSmartPlaylistTitle by remember { mutableStateOf<String?>(null) }
     var selectedSmartPlaylistTracks by remember { mutableStateOf<List<Track>?>(null) }
+
+    var selectedArtist by remember { mutableStateOf<String?>(null) }
+    var selectedAlbum by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -77,6 +89,29 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                         )
                     }
 
+                    selectedArtist != null -> {
+                        ArtistDetailScreen(
+                            artist = selectedArtist!!,
+                            viewModel = viewModel,
+                            onBack = { selectedArtist = null },
+                            onOpenAlbum = { album, artist ->
+                                selectedAlbum = album to artist
+                            }
+                        )
+                    }
+
+                    selectedAlbum != null -> {
+                        AlbumDetailScreen(
+                            album = selectedAlbum!!.first,
+                            artist = selectedAlbum!!.second,
+                            viewModel = viewModel,
+                            onBack = { selectedAlbum = null },
+                            onOpenArtist = { artist ->
+                                selectedArtist = artist
+                            }
+                        )
+                    }
+
                     selectedPlaylistDetail != null || selectedSmartPlaylistTitle != null -> {
                         PlaylistDetailScreen(
                             playlist = selectedPlaylistDetail,
@@ -87,7 +122,9 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                 selectedPlaylistDetail = null
                                 selectedSmartPlaylistTitle = null
                                 selectedSmartPlaylistTracks = null
-                            }
+                            },
+                            onOpenArtist = { artist -> selectedArtist = artist },
+                            onOpenAlbum = { album, artist -> selectedAlbum = album to artist }
                         )
                     }
 
@@ -106,7 +143,7 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                             onPlayPause = { viewModel.togglePlayPause() },
                                             onNext = { viewModel.skipNext() },
                                             onClick = {
-                                                viewModel.showSnackbar("Now Playing full screen arrives in M3c")
+                                                viewModel.openNowPlaying()
                                             }
                                         )
                                     }
@@ -164,12 +201,18 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                     NavigationTab.HOME -> {
                                         HomeScreen(
                                             viewModel = viewModel,
-                                            onOpenSettings = { showSettings = true }
+                                            onOpenSettings = { showSettings = true },
+                                            onOpenArtist = { artist -> selectedArtist = artist },
+                                            onOpenAlbum = { album, artist -> selectedAlbum = album to artist }
                                         )
                                     }
 
                                     NavigationTab.SEARCH -> {
-                                        SearchScreen(viewModel = viewModel)
+                                        SearchScreen(
+                                            viewModel = viewModel,
+                                            onOpenArtist = { artist -> selectedArtist = artist },
+                                            onOpenAlbum = { album, artist -> selectedAlbum = album to artist }
+                                        )
                                     }
 
                                     NavigationTab.LIBRARY -> {
@@ -181,13 +224,50 @@ fun App(viewModel: PlaybackViewModel = remember { PlaybackViewModel() }) {
                                             onOpenSmartPlaylist = { title, tracks ->
                                                 selectedSmartPlaylistTitle = title
                                                 selectedSmartPlaylistTracks = tracks
-                                            }
+                                            },
+                                            onOpenArtist = { artist -> selectedArtist = artist },
+                                            onOpenAlbum = { album, artist -> selectedAlbum = album to artist }
                                         )
                                     }
                                 }
                             }
                         }
                     }
+                }
+
+                // Full Now Playing overlay (Container Transform / Spring slide up)
+                AnimatedVisibility(
+                    visible = isNowPlayingExpanded,
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
+                    ) + fadeIn(),
+                    exit = slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
+                    ) + fadeOut()
+                ) {
+                    MetrolistNowPlaying(
+                        viewModel = viewModel,
+                        onCollapse = { viewModel.closeNowPlaying() },
+                        onOpenDiagnostics = { showDiagnostics = true },
+                        onOpenArtist = { artist ->
+                            viewModel.closeNowPlaying()
+                            selectedArtist = artist
+                        },
+                        onOpenAlbum = { album, artist ->
+                            viewModel.closeNowPlaying()
+                            selectedAlbum = album to artist
+                        }
+                    )
+                }
+
+                // Queue Bottom Sheet
+                if (isQueueSheetOpen) {
+                    QueueBottomSheet(
+                        viewModel = viewModel,
+                        onDismissRequest = { viewModel.closeQueueSheet() }
+                    )
                 }
             }
         }

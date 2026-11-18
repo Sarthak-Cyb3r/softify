@@ -180,3 +180,29 @@ fn test_playlist_rename() {
     let err = repo.rename_playlist("non_existent_id", "Fails");
     assert!(err.is_err());
 }
+
+#[test]
+fn test_get_tracks_by_artist_and_album() {
+    let repo = DatabaseRepository::in_memory().unwrap();
+    let mut t1 = create_test_track("t_art1", "Song A", "The Beatles", false);
+    t1.album = Some("Abbey Road".to_string());
+    let mut t2 = create_test_track("t_art2", "Song B", "The Beatles", true);
+    t2.album = Some("Let It Be".to_string());
+    let mut t3 = create_test_track("t_art3", "Song C", "Queen", false);
+    t3.album = Some("A Night at the Opera".to_string());
+
+    repo.insert_or_update_track(&t1).unwrap();
+    repo.insert_or_update_track(&t2).unwrap();
+    repo.insert_or_update_track(&t3).unwrap();
+
+    let beatles_tracks = repo.get_tracks_by_artist("The Beatles", 10).unwrap();
+    assert_eq!(beatles_tracks.len(), 2);
+    assert_eq!(beatles_tracks[0].artist, "The Beatles");
+
+    let abbey_road = repo.get_tracks_by_album("Abbey Road", 10).unwrap();
+    assert_eq!(abbey_road.len(), 1);
+    assert_eq!(abbey_road[0].title, "Song A");
+
+    let empty = repo.get_tracks_by_artist("Unknown Artist", 10).unwrap();
+    assert!(empty.is_empty());
+}

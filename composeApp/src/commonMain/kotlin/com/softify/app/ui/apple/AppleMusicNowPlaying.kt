@@ -7,6 +7,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -153,7 +157,12 @@ fun AppleMusicNowPlaying(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = {}) {
-                Text("⏮", fontSize = 28.sp, color = Color.White)
+                Icon(
+                    imageVector = Icons.Filled.SkipPrevious,
+                    contentDescription = "Previous",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
             }
 
             IconButton(
@@ -164,15 +173,21 @@ fun AppleMusicNowPlaying(
                     .background(Color(0x22FFFFFF))
                     .border(1.dp, Color(0x44FFFFFF), CircleShape)
             ) {
-                Text(
-                    text = if (isPlaying) "⏸" else "▶",
-                    fontSize = 32.sp,
-                    color = Color.White
+                Icon(
+                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
                 )
             }
 
             IconButton(onClick = {}) {
-                Text("⏭", fontSize = 28.sp, color = Color.White)
+                Icon(
+                    imageVector = Icons.Filled.SkipNext,
+                    contentDescription = "Next",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
             }
         }
     }

@@ -384,7 +384,7 @@ impl SpotifyImporter {
                 });
             }
 
-            while let Some(_) = set.join_next().await {}
+            while set.join_next().await.is_some() {}
         });
 
         let total_tracks = matches.len() as u32;

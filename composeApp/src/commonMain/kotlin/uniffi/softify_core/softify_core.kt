@@ -844,6 +844,10 @@ internal open class UniffiVTableCallbackInterfaceScanProgressCallback(
 
 
 
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -882,6 +886,10 @@ internal interface UniffiLib : Library {
     fun uniffi_softify_core_fn_func_delete_recent_search(`query`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_download_track(`track`: RustBuffer.ByValue,`preset`: RustBuffer.ByValue,`targetDir`: RustBuffer.ByValue,`callback`: Long,
+    ): Long
+    fun uniffi_softify_core_fn_func_get_album_tracks(`album`: RustBuffer.ByValue,`artist`: RustBuffer.ByValue,`limit`: Int,
+    ): Long
+    fun uniffi_softify_core_fn_func_get_artist_tracks(`artist`: RustBuffer.ByValue,`limit`: Int,
     ): Long
     fun uniffi_softify_core_fn_func_get_downloads(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1079,6 +1087,10 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_download_track(
     ): Short
+    fun uniffi_softify_core_checksum_func_get_album_tracks(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_artist_tracks(
+    ): Short
     fun uniffi_softify_core_checksum_func_get_downloads(
     ): Short
     fun uniffi_softify_core_checksum_func_get_forgotten_favorites_tracks(
@@ -1191,6 +1203,12 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_download_track() != 9317.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_album_tracks() != 53020.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_artist_tracks() != 30260.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_downloads() != 55902.toShort()) {
@@ -3292,6 +3310,42 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterTypeDownloadItem.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
+
+        /**
+         * Retrieves tracks by album from local library with online fallback/augmentation
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `getAlbumTracks`(`album`: kotlin.String, `artist`: kotlin.String, `limit`: kotlin.UInt) : List<Track> {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_album_tracks(FfiConverterString.lower(`album`),FfiConverterString.lower(`artist`),FfiConverterUInt.lower(`limit`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeTrack.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
+
+        /**
+         * Retrieves tracks by artist from local library with online fallback/augmentation
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `getArtistTracks`(`artist`: kotlin.String, `limit`: kotlin.UInt) : List<Track> {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_artist_tracks(FfiConverterString.lower(`artist`),FfiConverterUInt.lower(`limit`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeTrack.lift(it) },
         // Error FFI converter
         SoftifyException.ErrorHandler,
     )

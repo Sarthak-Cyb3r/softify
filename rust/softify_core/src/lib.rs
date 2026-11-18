@@ -440,3 +440,50 @@ pub fn is_learning_paused() -> Result<bool, SoftifyError> {
     let diversity = DiversityController::new(repo);
     diversity.is_learning_paused()
 }
+
+/// Retrieves tracks by artist from local library with online fallback/augmentation
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn get_artist_tracks(artist: String, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+    let mut local = if let Ok(repo) = get_db_repo() {
+        repo.get_tracks_by_artist(&artist, limit).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    if (local.len() as u32) < limit {
+        let resolver = get_youtube_resolver();
+        let query = format!("{} songs", artist);
+        if let Ok(online) = resolver.search(&query).await {
+            let mut seen = std::collections::HashSet::new();
+            for t in &local {
+                seen.insert(t.id.clone());
+            }
+            for t in online {
+                if seen.insert(t.id.clone()) {
+                    local.push(t);
+                    if (local.len() as u32) >= limit {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    Ok(local)
+}
+
+/// Retrieves tracks by album from local library with online fallback/augmentation
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn get_album_tracks(album: String, artist: String, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+    let mut local = if let Ok(repo) = get_db_repo() {
+        repo.get_tracks_by_album(&album, limit).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    if local.is_empty() {
+        let resolver = get_youtube_resolver();
+        let query = format!("{} {} album", artist, album);
+        if let Ok(online) = resolver.search(&query).await {
+            local = online;
+        }
+    }
+    Ok(local)
+}

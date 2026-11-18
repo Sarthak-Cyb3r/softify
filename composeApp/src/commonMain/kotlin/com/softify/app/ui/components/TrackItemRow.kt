@@ -29,9 +29,11 @@ fun TrackItemRow(
     onClick: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
-    onAddToPlaylist: () -> Unit,
-    onToggleLike: () -> Unit,
+    onAddToPlaylist: () -> Unit = {},
+    onToggleLike: () -> Unit = {},
     onRemoveFromPlaylist: (() -> Unit)? = null,
+    onOpenArtist: ((String) -> Unit)? = null,
+    onOpenAlbum: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -180,6 +182,32 @@ fun TrackItemRow(
                         onToggleLike()
                     }
                 )
+
+                if (onOpenArtist != null) {
+                    DropdownMenuItem(
+                        text = { Text("Go to artist") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onOpenArtist(track.artist)
+                        }
+                    )
+                }
+
+                if (onOpenAlbum != null && !track.album.isNullOrEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("Go to album") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Album, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onOpenAlbum(track.album!!)
+                        }
+                    )
+                }
 
                 if (onRemoveFromPlaylist != null) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

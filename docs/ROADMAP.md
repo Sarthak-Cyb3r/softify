@@ -17,7 +17,6 @@
   - Synced sweep lyrics rendering engine (`LyricsView`).
   - Isolated Component Gallery for visual inspection.
 
-## Current Milestone
 - **M3b: Metrolist Material 3 Expressive Core Screens**
   - Bottom navigation bar: Home, Search, Library.
   - Mini Player docked above navigation bar with lazy queue auto-advance.
@@ -27,11 +26,16 @@
   - Settings screen with quality presets, Incognito mode toggle, and links to Diagnostics and Gallery.
   - Cloud CI APK assembly on GitHub Actions.
 
+## Current Milestone
+- **M3c: Player Experience & Detail Screens (Metrolist Material 3 Expressive)**
+  - Fullscreen Now Playing screen: large squircle artwork (`SquircleShape(32.dp)`), squiggly progress/seek bar (`SquigglySlider`) with real-time scrub, play/pause/next/previous, repeat (OFF/ALL/ONE) + shuffle, and minimal bitrate pill (`BitrateBadge`).
+  - Container-transform spring slide-up animation expanding from `MiniPlayer`, swipe-down gesture or top chevron to collapse.
+  - Queue Bottom Sheet: current track highlight, upcoming tracks, reorder (`move`), remove, and visual "Play Next" chip badge distinction.
+  - LRCLIB Synced Lyrics: real-time timestamp sync, active line highlight with subtle shine sweep effect (`LyricsView`), tap a line to seek, plain-text fallback, and graceful instrumental state.
+  - Artist & Album Detail Screens: hero cover art, play/shuffle all, numbered track rows, reachable from track rows overflow and Now Playing header links.
+  - Zero emojis across UI (`NoEmojiTest` compliant), minimal bitrate badge, no scalloped shapes.
+
 ## Upcoming Milestones
-- **M3c: Full Now Playing Screen & Apple Music Liquid UI**
-  - Fullscreen Now Playing with hero cover art, fluid spring controls, and LRCLIB synchronized lyrics.
-  - Queue management bottom sheet with drag-and-drop reordering.
-  - Dual UI switcher toggle for Apple Music Liquid theme.
 - **M4: Offline Downloads & Audio Quality Suite**
   - **M4a: Background Download Worker + Progress Notification**
     - Android `WorkManager` background download orchestration.

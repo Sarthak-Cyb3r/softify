@@ -28,6 +28,8 @@ import uniffi.softify_core.Track
 fun HomeScreen(
     viewModel: PlaybackViewModel,
     onOpenSettings: () -> Unit,
+    onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val shelves by viewModel.homeShelves.collectAsState()
@@ -163,7 +165,9 @@ fun HomeScreen(
                             onPlayNext = { track -> viewModel.playNext(track) },
                             onAddToQueue = { track -> viewModel.addToQueue(track) },
                             onAddToPlaylist = { track -> trackForPlaylistSheet = track },
-                            onToggleLike = { track -> viewModel.toggleLikeTrack(track) }
+                            onToggleLike = { track -> viewModel.toggleLikeTrack(track) },
+                            onOpenArtist = onOpenArtist,
+                            onOpenAlbum = onOpenAlbum
                         )
                     }
                 }
@@ -194,6 +198,8 @@ fun HomeShelfSection(
     onAddToQueue: (Track) -> Unit,
     onAddToPlaylist: (Track) -> Unit,
     onToggleLike: (Track) -> Unit,
+    onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     if (shelf.tracks.isEmpty()) return
@@ -229,7 +235,9 @@ fun HomeShelfSection(
                     onPlayNext = { onPlayNext(track) },
                     onAddToQueue = { onAddToQueue(track) },
                     onAddToPlaylist = { onAddToPlaylist(track) },
-                    onToggleLike = { onToggleLike(track) }
+                    onToggleLike = { onToggleLike(track) },
+                    onOpenArtist = { onOpenArtist(track.artist) },
+                    onOpenAlbum = { if (!track.album.isNullOrEmpty()) onOpenAlbum(track.album!!, track.artist) }
                 )
             }
         }
@@ -244,6 +252,8 @@ fun HomeTrackCard(
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onToggleLike: () -> Unit,
+    onOpenArtist: () -> Unit = {},
+    onOpenAlbum: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -334,6 +344,28 @@ fun HomeTrackCard(
                                 onToggleLike()
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Go to artist") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(20.dp))
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onOpenArtist()
+                            }
+                        )
+                        if (!track.album.isNullOrEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Go to album") },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Album, contentDescription = null, modifier = Modifier.size(20.dp))
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onOpenAlbum()
+                                }
+                            )
+                        }
                     }
                 }
             }

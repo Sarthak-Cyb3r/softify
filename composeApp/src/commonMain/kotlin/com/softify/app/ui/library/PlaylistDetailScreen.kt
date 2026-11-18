@@ -30,6 +30,8 @@ fun PlaylistDetailScreen(
     smartTracks: List<Track>? = null,
     viewModel: PlaybackViewModel,
     onBack: () -> Unit,
+    onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val activeTrack by viewModel.activeTrack.collectAsState()
@@ -219,6 +221,8 @@ fun PlaylistDetailScreen(
                             onAddToQueue = { viewModel.addToQueue(track) },
                             onAddToPlaylist = { trackForPlaylistSheet = track },
                             onToggleLike = { viewModel.toggleLikeTrack(track) },
+                            onOpenArtist = { onOpenArtist(track.artist) },
+                            onOpenAlbum = { albumName -> onOpenAlbum(albumName, track.artist) },
                             onRemoveFromPlaylist = if (playlist != null) {
                                 {
                                     viewModel.removeTrackFromPlaylist(playlist.id, track.id)

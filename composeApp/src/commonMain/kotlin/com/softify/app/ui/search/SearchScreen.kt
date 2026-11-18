@@ -24,6 +24,8 @@ import uniffi.softify_core.Track
 @Composable
 fun SearchScreen(
     viewModel: PlaybackViewModel,
+    onOpenArtist: (String) -> Unit = {},
+    onOpenAlbum: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val query by viewModel.searchQuery.collectAsState()
@@ -274,7 +276,9 @@ fun SearchScreen(
                             onPlayNext = { viewModel.playNext(track) },
                             onAddToQueue = { viewModel.addToQueue(track) },
                             onAddToPlaylist = { trackForPlaylistSheet = track },
-                            onToggleLike = { viewModel.toggleLikeTrack(track) }
+                            onToggleLike = { viewModel.toggleLikeTrack(track) },
+                            onOpenArtist = { onOpenArtist(track.artist) },
+                            onOpenAlbum = { albumName -> onOpenAlbum(albumName, track.artist) }
                         )
                     }
                 }

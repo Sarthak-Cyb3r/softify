@@ -1002,6 +1002,35 @@ impl DatabaseRepository {
         Ok(tracks)
     }
 
+    pub fn get_tracks_by_album(&self, album: &str, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare(
+            "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
+             FROM tracks WHERE LOWER(album) = LOWER(?1) ORDER BY created_at DESC LIMIT ?2"
+        )?;
+
+        let rows = stmt.query_map(params![album, limit], |row| {
+            Ok(Track {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                title: row.get(2)?,
+                artist: row.get(3)?,
+                album: row.get(4)?,
+                duration_ms: row.get::<_, i64>(5)? as u64,
+                cover_url: row.get(6)?,
+                match_confidence: row.get(7)?,
+                is_liked: row.get::<_, i64>(8)? != 0,
+                is_unavailable: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+
+        let mut tracks = Vec::new();
+        for r in rows {
+            tracks.push(r?);
+        }
+        Ok(tracks)
+    }
+
     pub fn get_unplayed_tracks(&self, limit: u32) -> Result<Vec<Track>, SoftifyError> {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
         let mut stmt = conn.prepare(

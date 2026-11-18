@@ -246,6 +246,10 @@ class MainActivity : ComponentActivity() {
             }
         }, ContextCompat.getMainExecutor(this))
 
+        viewModel.onSeekToRequested = { posMs ->
+            mediaController?.seekTo(posMs)
+        }
+
         setContent {
             App(viewModel = viewModel)
         }
@@ -253,14 +257,14 @@ class MainActivity : ComponentActivity() {
         // Periodic playback position ticker for smooth squiggly line progress updates
         CoroutineScope(Dispatchers.Main).launch {
             while (true) {
-                delay(500L)
+                delay(250L)
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
                     val duration = controller.duration
                     val position = controller.currentPosition
                     if (duration > 0L) {
                         val progress = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-                        viewModel.setPlaybackProgress(progress)
+                        viewModel.setPlaybackPosition(progress, position, duration)
                     }
                 }
             }

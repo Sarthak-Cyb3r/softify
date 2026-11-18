@@ -162,4 +162,35 @@ class QueueManagerTest {
         // At 1,060,000 ms, past expiration
         assertTrue(cached.isExpired(1060000L))
     }
+
+    @Test
+    fun testMoveAndJumpToInQueue() {
+        val testDispatcher = StandardTestDispatcher()
+        val testScope = TestScope(testDispatcher)
+        val manager = QueueManager(scope = testScope)
+
+        val t1 = createTrack("1", "Track 1")
+        val t2 = createTrack("2", "Track 2")
+        val t3 = createTrack("3", "Track 3")
+        manager.setQueue(listOf(t1, t2, t3), startIndex = 0)
+
+        // Test jumpTo
+        val jumped = manager.jumpTo(2)
+        assertEquals("Track 3", jumped?.title)
+        assertEquals(2, manager.queueState.value.currentIndex)
+
+        // Test move track 2 to position 0
+        manager.move(2, 0)
+        assertEquals("Track 3", manager.queueState.value.tracks[0].title)
+        assertEquals(0, manager.queueState.value.currentIndex)
+
+        // Test playNext badge distinction
+        val nextTrack = createTrack("next1", "Play Next Item")
+        manager.playNext(nextTrack)
+        assertTrue(manager.queueState.value.playNextTrackIds.contains("next1"))
+
+        val queuedTrack = createTrack("q1", "Queued Item")
+        manager.addToQueue(queuedTrack)
+        assertFalse(manager.queueState.value.playNextTrackIds.contains("q1"))
+    }
 }

@@ -144,12 +144,112 @@ class PlaybackViewModel(
     private var searchJob: Job? = null
     var onStreamReadyForPlayback: ((Track, StreamInfo) -> Unit)? = null
     var onTogglePlayPauseRequested: (() -> Unit)? = null
+    var onSeekToRequested: ((Long) -> Unit)? = null
     var onShareText: ((String) -> Unit)? = null
     var onPlayTestUrlRequested: ((String) -> Unit)? = null
     var onProbeYouTubeRequested: (() -> Unit)? = null
 
+    // Player & Sheet Expanded States (M3c)
+    private val _isNowPlayingExpanded = MutableStateFlow(false)
+    val isNowPlayingExpanded: StateFlow<Boolean> = _isNowPlayingExpanded.asStateFlow()
+
+    private val _isQueueSheetOpen = MutableStateFlow(false)
+    val isQueueSheetOpen: StateFlow<Boolean> = _isQueueSheetOpen.asStateFlow()
+
+    // Lyrics State
+    private val _lyrics = MutableStateFlow<SyncedLyrics?>(null)
+    val lyrics: StateFlow<SyncedLyrics?> = _lyrics.asStateFlow()
+
+    private val _isLyricsLoading = MutableStateFlow(false)
+    val isLyricsLoading: StateFlow<Boolean> = _isLyricsLoading.asStateFlow()
+
+    private val _showLyricsInPlayer = MutableStateFlow(false)
+    val showLyricsInPlayer: StateFlow<Boolean> = _showLyricsInPlayer.asStateFlow()
+
+    // High Precision Time Tracking
+    private val _currentPositionMs = MutableStateFlow(0L)
+    val currentPositionMs: StateFlow<Long> = _currentPositionMs.asStateFlow()
+
+    private val _durationMs = MutableStateFlow(0L)
+    val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
+
     init {
         refreshAll()
+    }
+
+    fun openNowPlaying() {
+        _isNowPlayingExpanded.value = true
+    }
+
+    fun closeNowPlaying() {
+        _isNowPlayingExpanded.value = false
+    }
+
+    fun openQueueSheet() {
+        _isQueueSheetOpen.value = true
+    }
+
+    fun closeQueueSheet() {
+        _isQueueSheetOpen.value = false
+    }
+
+    fun toggleLyricsView() {
+        _showLyricsInPlayer.value = !_showLyricsInPlayer.value
+    }
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        queueManager.move(fromIndex, toIndex)
+    }
+
+    fun removeQueueItem(index: Int) {
+        queueManager.removeAt(index)
+    }
+
+    fun playQueueIndex(index: Int) {
+        val track = queueManager.jumpTo(index)
+        if (track != null) {
+            executePlayTrack(track)
+        }
+    }
+
+    fun seekTo(positionMs: Long) {
+        _currentPositionMs.value = positionMs
+        val dur = _durationMs.value
+        if (dur > 0L) {
+            _playbackProgress.value = (positionMs.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+        }
+        onSeekToRequested?.invoke(positionMs)
+    }
+
+    fun setPlaybackPosition(progress: Float, positionMs: Long = 0L, durationMs: Long = 0L) {
+        _playbackProgress.value = progress.coerceIn(0f, 1f)
+        if (positionMs > 0L) _currentPositionMs.value = positionMs
+        if (durationMs > 0L) _durationMs.value = durationMs
+    }
+
+    suspend fun fetchArtistTracks(artist: String): List<Track> {
+        return runCatching { getArtistTracks(artist, 50u) }.getOrDefault(emptyList())
+    }
+
+    suspend fun fetchAlbumTracks(album: String, artist: String): List<Track> {
+        return runCatching { getAlbumTracks(album, artist, 50u) }.getOrDefault(emptyList())
+    }
+
+    fun loadLyricsForActiveTrack() {
+        val track = _activeTrack.value ?: return
+        scope.launch(Dispatchers.Default) {
+            _isLyricsLoading.value = true
+            try {
+                val res = getLyrics(track)
+                _lyrics.value = res
+                PlaybackLogger.log("SoftifyPlayback", "Loaded lyrics for '${track.title}': synced=${res.isSynced}, lines=${res.lines.size}")
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "Failed to load lyrics: ${e.message}")
+                _lyrics.value = null
+            } finally {
+                _isLyricsLoading.value = false
+            }
+        }
     }
 
     fun showSnackbar(message: String) {
@@ -517,6 +617,9 @@ class PlaybackViewModel(
             _activeTrack.value = track
             _isPlaying.value = true
             _playbackProgress.value = 0f
+            _currentPositionMs.value = 0L
+            _durationMs.value = track.durationMs.toLong()
+            loadLyricsForActiveTrack()
 
             try {
                 val stream = queueManager.resolveTrackStream(track, _qualityPreset.value)
