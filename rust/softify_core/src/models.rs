@@ -101,16 +101,33 @@ pub struct ProviderHealth {
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct LyricsWord {
+    pub text: String,
+    pub start_ms: u64,
+    pub end_ms: u64,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LyricsLine {
     pub start_ms: u64,
+    pub end_ms: u64,
     pub text: String,
+    pub words: Vec<LyricsWord>,
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SyncedLyrics {
     pub is_synced: bool,
+    pub is_word_synced: bool,
     pub lines: Vec<LyricsLine>,
     pub plain_text: Option<String>,
+    pub provider: String,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RadioResult {
+    pub tracks: Vec<Track>,
+    pub continuation: Option<String>,
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

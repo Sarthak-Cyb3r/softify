@@ -94,7 +94,21 @@ class QueueManager(
 
     private val cachedStreams = mutableMapOf<String, CachedStream>()
 
+    var isRadioMode: Boolean = false
+        private set
+    var radioSeedId: String? = null
+        private set
+    var radioContinuationToken: String? = null
+        private set
+    var isFetchingContinuation: Boolean = false
+
+    var onNeedContinuation: ((seedId: String, token: String?) -> Unit)? = null
+
     fun setQueue(tracks: List<Track>, startIndex: Int = 0) {
+        isRadioMode = false
+        radioSeedId = null
+        radioContinuationToken = null
+        isFetchingContinuation = false
         val validIndex = if (tracks.isEmpty()) -1 else startIndex.coerceIn(0, tracks.size - 1)
         _queueState.value = _queueState.value.copy(
             tracks = tracks,
@@ -104,6 +118,57 @@ class QueueManager(
             "SoftifyPlayback",
             "QueueManager: setQueue with ${tracks.size} tracks, startIndex=$validIndex"
         )
+    }
+
+    fun setRadioQueue(seedTrack: Track, radioTracks: List<Track>, continuation: String?) {
+        isRadioMode = true
+        radioSeedId = seedTrack.id
+        radioContinuationToken = continuation
+        isFetchingContinuation = false
+        val deduplicated = radioTracks.filter { it.id != seedTrack.id }
+        val combined = listOf(seedTrack) + deduplicated
+        _queueState.value = _queueState.value.copy(
+            tracks = combined,
+            currentIndex = 0,
+            playNextTrackIds = emptySet()
+        )
+        PlaybackLogger.log(
+            "SoftifyPlayback",
+            "QueueManager: setRadioQueue with seed '${seedTrack.title}' + ${deduplicated.size} radio tracks, continuation=$continuation"
+        )
+    }
+
+    fun appendRadioTracks(newTracks: List<Track>, continuation: String?) {
+        val current = _queueState.value
+        val existingIds = current.tracks.map { it.id }.toSet()
+        val filtered = newTracks.filter { it.id !in existingIds }
+        radioContinuationToken = continuation
+        isFetchingContinuation = false
+        if (filtered.isEmpty()) {
+            return
+        }
+        val updated = current.tracks + filtered
+        _queueState.value = current.copy(tracks = updated)
+        PlaybackLogger.log(
+            "SoftifyPlayback",
+            "QueueManager: appendRadioTracks added ${filtered.size} tracks (total=${updated.size}), next continuation=$continuation"
+        )
+    }
+
+    fun checkContinuationThreshold() {
+        if (!isRadioMode || isFetchingContinuation) return
+        val current = _queueState.value
+        val remaining = current.tracks.size - current.currentIndex - 1
+        if (remaining <= 5) {
+            val seed = radioSeedId ?: return
+            val token = radioContinuationToken ?: return
+            isFetchingContinuation = true
+            PlaybackLogger.log(
+                "SoftifyPlayback",
+                "QueueManager: remaining upcoming tracks ($remaining) <= 5; triggering radio continuation..."
+            )
+            onNeedContinuation?.invoke(seed, token)
+        }
     }
 
     fun playNext(track: Track) {
@@ -182,6 +247,7 @@ class QueueManager(
         _queueState.value = current.copy(currentIndex = index)
         val track = current.tracks[index]
         PlaybackLogger.log("SoftifyPlayback", "QueueManager: jumpTo index $index: '${track.title}'")
+        checkContinuationThreshold()
         return track
     }
 
@@ -226,6 +292,7 @@ class QueueManager(
             _queueState.value = current.copy(currentIndex = nextIndex)
             val track = current.tracks[nextIndex]
             PlaybackLogger.log("SoftifyPlayback", "QueueManager: skipNext to index $nextIndex: '${track.title}'")
+            checkContinuationThreshold()
             track
         } else {
             PlaybackLogger.log("SoftifyPlayback", "QueueManager: skipNext reached end of queue")
@@ -274,6 +341,7 @@ class QueueManager(
             _queueState.value = current.copy(currentIndex = nextIndex)
             val track = current.tracks[nextIndex]
             PlaybackLogger.log("SoftifyPlayback", "QueueManager: onTrackEnded auto-advancing to '${track.title}'")
+            checkContinuationThreshold()
             track
         } else {
             PlaybackLogger.log("SoftifyPlayback", "QueueManager: onTrackEnded reached end of queue")

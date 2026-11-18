@@ -1,7 +1,7 @@
 use crate::models::{SoftifyError, SyncedLyrics, Track};
 use crate::db::repository::DatabaseRepository;
 use super::lrclib::LrclibClient;
-use super::parser::parse_lrc;
+use super::parser::{parse_lrc, parse_lrclib_lyricsfile};
 
 pub struct LyricsEngine {
     db: Option<DatabaseRepository>,
@@ -28,12 +28,19 @@ impl LyricsEngine {
                 if is_not_found {
                     return Ok(SyncedLyrics {
                         is_synced: false,
+                        is_word_synced: false,
                         lines: Vec::new(),
                         plain_text: None,
+                        provider: "cached".to_string(),
                     });
                 }
 
                 if let Some(lrc) = cached_synced {
+                    if lrc.contains("lines:") && lrc.contains("start_ms:") {
+                        if let Some(parsed) = parse_lrclib_lyricsfile(&lrc) {
+                            return Ok(parsed);
+                        }
+                    }
                     let parsed = parse_lrc(&lrc);
                     if parsed.is_synced {
                         return Ok(parsed);
@@ -43,8 +50,10 @@ impl LyricsEngine {
                 if let Some(plain) = cached_plain {
                     return Ok(SyncedLyrics {
                         is_synced: false,
+                        is_word_synced: false,
                         lines: Vec::new(),
                         plain_text: Some(plain),
+                        provider: "cached".to_string(),
                     });
                 }
             }
@@ -61,9 +70,23 @@ impl LyricsEngine {
                     }
                     return Ok(SyncedLyrics {
                         is_synced: false,
+                        is_word_synced: false,
                         lines: Vec::new(),
                         plain_text: Some("[Instrumental]".to_string()),
+                        provider: "lrclib".to_string(),
                     });
+                }
+
+                // Check for word-synced lyricsfile first
+                if data.has_word_sync.unwrap_or(false) {
+                    if let Some(ref lf) = data.lyricsfile {
+                        if let Some(parsed) = parse_lrclib_lyricsfile(lf) {
+                            if let Some(ref repo) = self.db {
+                                let _ = repo.save_cached_lyrics(&track.id, Some(lf), data.plain_lyrics.as_deref(), false);
+                            }
+                            return Ok(parsed);
+                        }
+                    }
                 }
 
                 let synced_str = data.synced_lyrics.as_deref();
@@ -83,8 +106,10 @@ impl LyricsEngine {
 
                 Ok(SyncedLyrics {
                     is_synced: false,
+                    is_word_synced: false,
                     lines: Vec::new(),
                     plain_text: data.plain_lyrics,
+                    provider: "lrclib".to_string(),
                 })
             }
             None => {
@@ -94,8 +119,10 @@ impl LyricsEngine {
                 }
                 Ok(SyncedLyrics {
                     is_synced: false,
+                    is_word_synced: false,
                     lines: Vec::new(),
                     plain_text: None,
+                    provider: "lrclib".to_string(),
                 })
             }
         }

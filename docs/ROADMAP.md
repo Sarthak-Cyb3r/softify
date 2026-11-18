@@ -26,7 +26,6 @@
   - Settings screen with quality presets, Incognito mode toggle, and links to Diagnostics and Gallery.
   - Cloud CI APK assembly on GitHub Actions.
 
-## Current Milestone
 - **M3c: Player Experience & Detail Screens (Metrolist Material 3 Expressive)**
   - Fullscreen Now Playing screen: large squircle artwork (`SquircleShape(32.dp)`), squiggly progress/seek bar (`SquigglySlider`) with real-time scrub, play/pause/next/previous, repeat (OFF/ALL/ONE) + shuffle, and minimal bitrate pill (`BitrateBadge`).
   - Container-transform spring slide-up animation expanding from `MiniPlayer`, swipe-down gesture or top chevron to collapse.
@@ -34,6 +33,16 @@
   - LRCLIB Synced Lyrics: real-time timestamp sync, active line highlight with subtle shine sweep effect (`LyricsView`), tap a line to seek, plain-text fallback, and graceful instrumental state.
   - Artist & Album Detail Screens: hero cover art, play/shuffle all, numbered track rows, reachable from track rows overflow and Now Playing header links.
   - Zero emojis across UI (`NoEmojiTest` compliant), minimal bitrate badge, no scalloped shapes.
+
+## Current Milestone
+- **M3d: Radio Queue, Local Recommendations, & 60 fps Word-by-Word Lyrics**
+  - Radio queue engine: dynamically builds queue from YouTube Music `next`/radio endpoint for any tapped track (search, library, home shelves, or "Start radio").
+  - Infinite playback continuation: automatically triggers next batch fetch when upcoming tracks drop below 5 tracks.
+  - Local SQLite re-ranking: scores candidate tracks using completed plays (+1.5), skips (-2.0), liked bonus (+2.5), artist affinity (+0.8/-1.0), and dedupes against last 10 played tracks.
+  - "Quick picks" shelf on Home: personalized recommendations respecting max 2 tracks per artist diversity invariant.
+  - 60 fps lyrics performance: draw-phase-only position reading (`drawWithContent`), `derivedStateOf` active line indexing, stable LazyColumn keys, and debounced smooth auto-scroll.
+  - Word-by-word lyrics: LRCLIB `hasWordSync` / enhanced LRC parsing, character-count proportional word duration estimation fallback, word highlight and sweep fill, tap word or line to seek.
+  - Zero emojis across UI (`NoEmojiTest` compliant), minimal bitrate badge, squircle design system.
 
 ## Upcoming Milestones
 - **M4: Offline Downloads & Audio Quality Suite**

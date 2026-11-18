@@ -15,17 +15,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.jetbrains.compose.ui.tooling.preview.Preview
 
 /**
- * Optional word-level timing for high-precision lyric rendering.
+ * Word-level timing for high-precision lyric rendering.
  */
 data class LyricWord(
     val startMs: Long,
@@ -35,12 +33,13 @@ data class LyricWord(
 
 /**
  * Lyric line data structure.
- * Supports line-level timestamps (LRCLIB format) with optional word timings for future extensions.
+ * Supports line-level timestamps with word timings (either from enhanced LRC or estimated).
  */
 data class LyricLine(
     val timeMs: Long,
+    val endMs: Long = timeMs + 3000L,
     val text: String,
-    val words: List<LyricWord>? = null
+    val words: List<LyricWord> = emptyList()
 )
 
 /**
@@ -65,17 +64,20 @@ fun parseLrcLines(lrcContent: String): List<LyricLine> {
 }
 
 /**
- * NOTE: LRCLIB provides line-level timestamps only, so this is an interpolated
- * line sweep progress based on elapsed time within the active line duration,
- * not true per-word vocal phoneme timing. The component accepts optional LyricWord
- * timings if word-level timestamps become available in the future.
+ * High-performance, 60 fps synced lyrics view.
+ * - Reads playback position only in draw phase (drawWithContent / graphicsLayer lambdas).
+ * - Computes active line index via derivedStateOf so composition only invalidates when active line changes.
+ * - Stable keys for LazyColumn items.
+ * - Word-by-word highlight and fill sweep.
+ * - Tap word or line to seek.
  */
 @Composable
 fun LyricsView(
     lines: List<LyricLine>,
-    currentPositionMs: Long,
+    positionProvider: () -> Long,
     modifier: Modifier = Modifier,
     isSynced: Boolean = true,
+    isWordSynced: Boolean = false,
     onSeekTo: (Long) -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(vertical = 120.dp, horizontal = 24.dp)
 ) {
@@ -96,7 +98,10 @@ fun LyricsView(
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            itemsIndexed(lines) { _, line ->
+            itemsIndexed(
+                items = lines,
+                key = { index, line -> "plain_${line.timeMs}_$index" }
+            ) { _, line ->
                 Text(
                     text = line.text,
                     style = MaterialTheme.typography.bodyLarge.copy(
@@ -111,22 +116,25 @@ fun LyricsView(
         return
     }
 
-    // Synced lyrics: find active line index
-    val activeIndex = remember(lines, currentPositionMs) {
-        var idx = -1
-        for (i in lines.indices) {
-            if (lines[i].timeMs <= currentPositionMs) {
-                idx = i
-            } else {
-                break
+    // Active line index computed via derivedStateOf: invalidates composition ONLY when index changes!
+    val activeIndex by remember(lines) {
+        derivedStateOf {
+            val currentMs = positionProvider()
+            var idx = -1
+            for (i in lines.indices) {
+                if (lines[i].timeMs <= currentMs) {
+                    idx = i
+                } else {
+                    break
+                }
             }
+            idx
         }
-        idx
     }
 
     val listState = rememberLazyListState()
 
-    // Smooth auto-scroll to keep active line centered
+    // Smooth auto-scroll to keep active line centered (triggers ONLY when active line changes)
     LaunchedEffect(activeIndex) {
         if (activeIndex in lines.indices) {
             listState.animateScrollToItem(
@@ -142,39 +150,22 @@ fun LyricsView(
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(22.dp)
     ) {
-        itemsIndexed(lines) { index, line ->
+        itemsIndexed(
+            items = lines,
+            key = { index, line -> "synced_${line.timeMs}_$index" }
+        ) { index, line ->
             val isActive = (index == activeIndex)
             val isPast = (index < activeIndex)
 
-            // Interpolated line sweep progress for active line
-            val progress = if (isActive) {
-                val nextStartMs = if (index + 1 < lines.size) lines[index + 1].timeMs else (line.timeMs + 4000L)
-                val durationMs = (nextStartMs - line.timeMs).coerceAtLeast(500L) // guard <0.5s duration
-                val elapsed = (currentPositionMs - line.timeMs).coerceAtLeast(0L)
-                (elapsed.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-            } else if (isPast) {
-                1f
-            } else {
-                0f
-            }
-
-            // Animated scale & alpha transitions for smooth focus shift
-            val animatedScale by animateFloatAsState(
-                targetValue = if (isActive) 1.05f else 0.94f,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                label = "lyricScale"
-            )
-
             val animatedAlpha by animateFloatAsState(
                 targetValue = if (isActive) 1.0f else if (isPast) 0.40f else 0.45f,
-                animationSpec = tween(durationMillis = 300),
+                animationSpec = tween(durationMillis = 250),
                 label = "lyricAlpha"
             )
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .scale(animatedScale)
                     .alpha(animatedAlpha)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -186,8 +177,9 @@ fun LyricsView(
             ) {
                 if (isActive) {
                     ActiveLyricLine(
-                        text = line.text,
-                        progress = progress
+                        line = line,
+                        positionProvider = positionProvider,
+                        onSeekTo = onSeekTo
                     )
                 } else {
                     Text(
@@ -205,52 +197,171 @@ fun LyricsView(
 }
 
 /**
- * Active lyric line with gradient shine sweep highlight.
- * Uses Brush gradient with graphicsLayer and BlendMode.SrcIn to avoid per-frame text re-layout.
+ * Backward compatibility overload accepting raw Long position.
  */
 @Composable
+fun LyricsView(
+    lines: List<LyricLine>,
+    currentPositionMs: Long,
+    modifier: Modifier = Modifier,
+    isSynced: Boolean = true,
+    isWordSynced: Boolean = false,
+    onSeekTo: (Long) -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(vertical = 120.dp, horizontal = 24.dp)
+) {
+    LyricsView(
+        lines = lines,
+        positionProvider = { currentPositionMs },
+        modifier = modifier,
+        isSynced = isSynced,
+        isWordSynced = isWordSynced,
+        onSeekTo = onSeekTo,
+        contentPadding = contentPadding
+    )
+}
+
+/**
+ * Active lyric line rendering word-by-word timing in the draw phase.
+ * If word timings exist, renders words with smooth fill sweep, lit past words, and dimmed upcoming words.
+ * If word timings are absent, renders line-level sweep gradient.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 fun ActiveLyricLine(
-    text: String,
-    progress: Float,
+    line: LyricLine,
+    positionProvider: () -> Long,
+    onSeekTo: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val aheadColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    val aheadColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
 
+    if (line.words.isNotEmpty()) {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            line.words.forEach { word ->
+                WordHighlightItem(
+                    word = word,
+                    positionProvider = positionProvider,
+                    primaryColor = primaryColor,
+                    onSurfaceColor = onSurfaceColor,
+                    aheadColor = aheadColor,
+                    onSeekTo = onSeekTo
+                )
+            }
+        }
+    } else {
+        // Line-level fallback sweep
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    val currentMs = positionProvider()
+                    val durationMs = (line.endMs - line.timeMs).coerceAtLeast(500L)
+                    val elapsed = (currentMs - line.timeMs).coerceAtLeast(0L)
+                    val p = (elapsed.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+
+                    val w = size.width.coerceAtLeast(1f)
+                    val edgePx = 28.dp.toPx()
+                    val edgeFraction = (edgePx / w).coerceIn(0.01f, 0.25f)
+                    val startEdge = (p - edgeFraction).coerceAtLeast(0f)
+                    val endEdge = (p + edgeFraction).coerceAtMost(1f)
+
+                    val sweepBrush = if (p <= 0.001f) {
+                        Brush.horizontalGradient(listOf(aheadColor, aheadColor))
+                    } else if (p >= 0.999f) {
+                        Brush.horizontalGradient(listOf(onSurfaceColor, onSurfaceColor))
+                    } else {
+                        Brush.horizontalGradient(
+                            0.0f to onSurfaceColor,
+                            startEdge to onSurfaceColor,
+                            p to primaryColor,
+                            endEdge to aheadColor,
+                            1.0f to aheadColor
+                        )
+                    }
+
+                    drawRect(brush = sweepBrush, blendMode = BlendMode.SrcIn)
+                }
+        ) {
+            Text(
+                text = line.text,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = onSurfaceColor
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Single word item drawn in GPU draw phase:
+ * - past word: fully lit (1.0f)
+ * - upcoming word: dimmed (0.45f)
+ * - active word: dynamic fill sweep gradient
+ * - tap to seek
+ */
+@Composable
+private fun WordHighlightItem(
+    word: LyricWord,
+    positionProvider: () -> Long,
+    primaryColor: Color,
+    onSurfaceColor: Color,
+    aheadColor: Color,
+    onSeekTo: (Long) -> Unit
+) {
     Box(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = Modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                onSeekTo(word.startMs)
+            }
             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
             .drawWithContent {
-                // 1. Draw base text content (generates the alpha mask)
+                // 1. Draw base text
                 drawContent()
 
-                // 2. Draw sweep highlight gradient using BlendMode.SrcIn
-                val w = size.width.coerceAtLeast(1f)
-                val clampedP = progress.coerceIn(0f, 1f)
-                val sweepX = w * clampedP
+                // 2. Read position strictly in draw phase
+                val currentMs = positionProvider()
+                val sweepBrush = when {
+                    currentMs >= word.endMs -> {
+                        // Word is fully sung: solid bright
+                        Brush.horizontalGradient(listOf(onSurfaceColor, onSurfaceColor))
+                    }
+                    currentMs < word.startMs -> {
+                        // Upcoming word: solid dimmed
+                        Brush.horizontalGradient(listOf(aheadColor, aheadColor))
+                    }
+                    else -> {
+                        // Actively singing: sweep progress
+                        val wordDuration = (word.endMs - word.startMs).coerceAtLeast(100L).toFloat()
+                        val wordElapsed = (currentMs - word.startMs).coerceAtLeast(0L).toFloat()
+                        val p = (wordElapsed / wordDuration).coerceIn(0f, 1f)
 
-                // Soft bright edge moving along the line
-                val edgePx = 28.dp.toPx()
-                val edgeFraction = (edgePx / w).coerceIn(0.01f, 0.25f)
+                        val w = size.width.coerceAtLeast(1f)
+                        val edgePx = 14.dp.toPx()
+                        val edgeFrac = (edgePx / w).coerceIn(0.02f, 0.4f)
+                        val startEdge = (p - edgeFrac).coerceAtLeast(0f)
+                        val endEdge = (p + edgeFrac).coerceAtMost(1f)
 
-                val startEdge = (clampedP - edgeFraction).coerceAtLeast(0f)
-                val center = clampedP
-                val endEdge = (clampedP + edgeFraction).coerceAtMost(1f)
-
-                val sweepBrush = if (center <= 0.001f) {
-                    Brush.horizontalGradient(listOf(aheadColor, aheadColor))
-                } else if (center >= 0.999f) {
-                    Brush.horizontalGradient(listOf(onSurfaceColor, onSurfaceColor))
-                } else {
-                    Brush.horizontalGradient(
-                        0.0f to onSurfaceColor,
-                        startEdge to onSurfaceColor,
-                        center to primaryColor,
-                        endEdge to aheadColor,
-                        1.0f to aheadColor
-                    )
+                        Brush.horizontalGradient(
+                            0.0f to onSurfaceColor,
+                            startEdge to onSurfaceColor,
+                            p to primaryColor,
+                            endEdge to aheadColor,
+                            1.0f to aheadColor
+                        )
+                    }
                 }
 
                 drawRect(
@@ -260,7 +371,7 @@ fun ActiveLyricLine(
             }
     ) {
         Text(
-            text = text,
+            text = word.text,
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -340,19 +451,4 @@ fun InstrumentalIndicator(
             )
         }
     }
-}
-
-@Preview
-@Composable
-fun PreviewActiveLyricLine() {
-    ActiveLyricLine(
-        text = "Floating through the neon night",
-        progress = 0.55f
-    )
-}
-
-@Preview
-@Composable
-fun PreviewInstrumentalIndicator() {
-    InstrumentalIndicator()
 }

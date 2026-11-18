@@ -67,6 +67,10 @@ class PlaybackViewModel(
     private val _homeShelves = MutableStateFlow<List<Shelf>>(emptyList())
     val homeShelves: StateFlow<List<Shelf>> = _homeShelves.asStateFlow()
 
+    // Quick picks State
+    private val _quickPicks = MutableStateFlow<List<Track>>(emptyList())
+    val quickPicks: StateFlow<List<Track>> = _quickPicks.asStateFlow()
+
     private val _isHomeLoading = MutableStateFlow(false)
     val isHomeLoading: StateFlow<Boolean> = _isHomeLoading.asStateFlow()
 
@@ -174,6 +178,9 @@ class PlaybackViewModel(
     val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
 
     init {
+        queueManager.onNeedContinuation = { seedId, token ->
+            fetchRadioContinuation(seedId, token)
+        }
         refreshAll()
     }
 
@@ -350,6 +357,13 @@ class PlaybackViewModel(
                 }
 
                 _homeShelves.value = shelves
+
+                try {
+                    val picks = getQuickPicks(limit = 10u)
+                    _quickPicks.value = picks
+                } catch (e: Exception) {
+                    PlaybackLogger.log("SoftifyPlayback", "Quick picks error: ${e.message}")
+                }
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Home explore error: ${e.message}")
                 _homeError.value = e.message ?: "Failed to load explore content"
@@ -550,6 +564,49 @@ class PlaybackViewModel(
     fun playTrack(track: Track) {
         queueManager.setQueue(listOf(track), startIndex = 0)
         executePlayTrack(track)
+        startRadioForTrack(track)
+    }
+
+    fun startRadio(track: Track) {
+        playTrack(track)
+        showSnackbar("Starting radio for '${track.title}'")
+    }
+
+    private fun startRadioForTrack(track: Track) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                val seedVid = if (track.sourceId.startsWith("ytm_")) {
+                    track.sourceId.removePrefix("ytm_")
+                } else if (track.id.startsWith("ytm_")) {
+                    track.id.removePrefix("ytm_")
+                } else {
+                    val searchResults = runCatching { searchTracks("${track.title} ${track.artist}") }.getOrDefault(emptyList())
+                    val matched = searchResults.firstOrNull()?.sourceId?.removePrefix("ytm_")
+                    matched ?: track.id
+                }
+
+                PlaybackLogger.log("SoftifyPlayback", "Starting radio for seed videoId: $seedVid")
+                val radioRes = getRadioTracks(seedTrackId = seedVid, continuation = null)
+                queueManager.setRadioQueue(track, radioRes.tracks, radioRes.continuation)
+                PlaybackLogger.log("SoftifyPlayback", "Radio queue initialized with ${radioRes.tracks.size} tracks")
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "Radio build failed for '${track.title}': ${e.message}")
+            }
+        }
+    }
+
+    private fun fetchRadioContinuation(seedId: String, token: String?) {
+        scope.launch(Dispatchers.Default) {
+            try {
+                PlaybackLogger.log("SoftifyPlayback", "Fetching radio continuation for seed $seedId...")
+                val res = getRadioTracks(seedTrackId = seedId, continuation = token)
+                queueManager.appendRadioTracks(res.tracks, res.continuation)
+                PlaybackLogger.log("SoftifyPlayback", "Radio continuation fetched: ${res.tracks.size} tracks added")
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "Radio continuation failed: ${e.message}")
+                queueManager.isFetchingContinuation = false
+            }
+        }
     }
 
     fun playTrackInQueue(tracks: List<Track>, startIndex: Int) {

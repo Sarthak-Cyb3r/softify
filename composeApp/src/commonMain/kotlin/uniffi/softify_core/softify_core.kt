@@ -848,6 +848,10 @@ internal open class UniffiVTableCallbackInterfaceScanProgressCallback(
 
 
 
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -909,6 +913,10 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_playlists(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_quick_picks(`limit`: Int,
+    ): Long
+    fun uniffi_softify_core_fn_func_get_radio_tracks(`seedTrackId`: RustBuffer.ByValue,`continuation`: RustBuffer.ByValue,
+    ): Long
     fun uniffi_softify_core_fn_func_get_recent_searches(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_recommendation_shelves(uniffi_out_err: UniffiRustCallStatus, 
@@ -1109,6 +1117,10 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_get_playlists(
     ): Short
+    fun uniffi_softify_core_checksum_func_get_quick_picks(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_radio_tracks(
+    ): Short
     fun uniffi_softify_core_checksum_func_get_recent_searches(
     ): Short
     fun uniffi_softify_core_checksum_func_get_recommendation_shelves(
@@ -1236,6 +1248,12 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_playlists() != 64480.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_quick_picks() != 14722.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_radio_tracks() != 15701.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_recent_searches() != 6288.toShort()) {
@@ -1771,7 +1789,9 @@ public object FfiConverterTypeImportedTrackMatch: FfiConverterRustBuffer<Importe
 
 data class LyricsLine (
     var `startMs`: kotlin.ULong, 
-    var `text`: kotlin.String
+    var `endMs`: kotlin.ULong, 
+    var `text`: kotlin.String, 
+    var `words`: List<LyricsWord>
 ) {
     
     companion object
@@ -1784,18 +1804,60 @@ public object FfiConverterTypeLyricsLine: FfiConverterRustBuffer<LyricsLine> {
     override fun read(buf: ByteBuffer): LyricsLine {
         return LyricsLine(
             FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
             FfiConverterString.read(buf),
+            FfiConverterSequenceTypeLyricsWord.read(buf),
         )
     }
 
     override fun allocationSize(value: LyricsLine) = (
             FfiConverterULong.allocationSize(value.`startMs`) +
-            FfiConverterString.allocationSize(value.`text`)
+            FfiConverterULong.allocationSize(value.`endMs`) +
+            FfiConverterString.allocationSize(value.`text`) +
+            FfiConverterSequenceTypeLyricsWord.allocationSize(value.`words`)
     )
 
     override fun write(value: LyricsLine, buf: ByteBuffer) {
             FfiConverterULong.write(value.`startMs`, buf)
+            FfiConverterULong.write(value.`endMs`, buf)
             FfiConverterString.write(value.`text`, buf)
+            FfiConverterSequenceTypeLyricsWord.write(value.`words`, buf)
+    }
+}
+
+
+
+data class LyricsWord (
+    var `text`: kotlin.String, 
+    var `startMs`: kotlin.ULong, 
+    var `endMs`: kotlin.ULong
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeLyricsWord: FfiConverterRustBuffer<LyricsWord> {
+    override fun read(buf: ByteBuffer): LyricsWord {
+        return LyricsWord(
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: LyricsWord) = (
+            FfiConverterString.allocationSize(value.`text`) +
+            FfiConverterULong.allocationSize(value.`startMs`) +
+            FfiConverterULong.allocationSize(value.`endMs`)
+    )
+
+    override fun write(value: LyricsWord, buf: ByteBuffer) {
+            FfiConverterString.write(value.`text`, buf)
+            FfiConverterULong.write(value.`startMs`, buf)
+            FfiConverterULong.write(value.`endMs`, buf)
     }
 }
 
@@ -1976,6 +2038,38 @@ public object FfiConverterTypeProviderHealth: FfiConverterRustBuffer<ProviderHea
             FfiConverterString.write(value.`provider`, buf)
             FfiConverterBoolean.write(value.`isHealthy`, buf)
             FfiConverterOptionalULong.write(value.`latencyMs`, buf)
+    }
+}
+
+
+
+data class RadioResult (
+    var `tracks`: List<Track>, 
+    var `continuation`: kotlin.String?
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeRadioResult: FfiConverterRustBuffer<RadioResult> {
+    override fun read(buf: ByteBuffer): RadioResult {
+        return RadioResult(
+            FfiConverterSequenceTypeTrack.read(buf),
+            FfiConverterOptionalString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: RadioResult) = (
+            FfiConverterSequenceTypeTrack.allocationSize(value.`tracks`) +
+            FfiConverterOptionalString.allocationSize(value.`continuation`)
+    )
+
+    override fun write(value: RadioResult, buf: ByteBuffer) {
+            FfiConverterSequenceTypeTrack.write(value.`tracks`, buf)
+            FfiConverterOptionalString.write(value.`continuation`, buf)
     }
 }
 
@@ -2163,8 +2257,10 @@ public object FfiConverterTypeStreamInfo: FfiConverterRustBuffer<StreamInfo> {
 
 data class SyncedLyrics (
     var `isSynced`: kotlin.Boolean, 
+    var `isWordSynced`: kotlin.Boolean, 
     var `lines`: List<LyricsLine>, 
-    var `plainText`: kotlin.String?
+    var `plainText`: kotlin.String?, 
+    var `provider`: kotlin.String
 ) {
     
     companion object
@@ -2177,21 +2273,27 @@ public object FfiConverterTypeSyncedLyrics: FfiConverterRustBuffer<SyncedLyrics>
     override fun read(buf: ByteBuffer): SyncedLyrics {
         return SyncedLyrics(
             FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
             FfiConverterSequenceTypeLyricsLine.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterString.read(buf),
         )
     }
 
     override fun allocationSize(value: SyncedLyrics) = (
             FfiConverterBoolean.allocationSize(value.`isSynced`) +
+            FfiConverterBoolean.allocationSize(value.`isWordSynced`) +
             FfiConverterSequenceTypeLyricsLine.allocationSize(value.`lines`) +
-            FfiConverterOptionalString.allocationSize(value.`plainText`)
+            FfiConverterOptionalString.allocationSize(value.`plainText`) +
+            FfiConverterString.allocationSize(value.`provider`)
     )
 
     override fun write(value: SyncedLyrics, buf: ByteBuffer) {
             FfiConverterBoolean.write(value.`isSynced`, buf)
+            FfiConverterBoolean.write(value.`isWordSynced`, buf)
             FfiConverterSequenceTypeLyricsLine.write(value.`lines`, buf)
             FfiConverterOptionalString.write(value.`plainText`, buf)
+            FfiConverterString.write(value.`provider`, buf)
     }
 }
 
@@ -3054,6 +3156,34 @@ public object FfiConverterSequenceTypeLyricsLine: FfiConverterRustBuffer<List<Ly
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeLyricsWord: FfiConverterRustBuffer<List<LyricsWord>> {
+    override fun read(buf: ByteBuffer): List<LyricsWord> {
+        val len = buf.getInt()
+        return List<LyricsWord>(len) {
+            FfiConverterTypeLyricsWord.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<LyricsWord>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeLyricsWord.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<LyricsWord>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeLyricsWord.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypePlayHistory: FfiConverterRustBuffer<List<PlayHistory>> {
     override fun read(buf: ByteBuffer): List<PlayHistory> {
         val len = buf.getInt()
@@ -3472,6 +3602,44 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     )
     }
     
+
+        /**
+         * Builds personalized "Quick picks" tracks for Home screen using local history signals:
+         * Loved tracks (completed plays >= 0.5, liked), max 2 per artist, backfilled with explore charts.
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `getQuickPicks`(`limit`: kotlin.UInt) : List<Track> {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_quick_picks(FfiConverterUInt.lower(`limit`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeTrack.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
+
+        /**
+         * Builds dynamic YouTube Music radio queue for a given seed track or continuation token.
+         * Re-ranks candidate tracks using local SQLite play history and dedupes against the last 10 played.
+         */
+    @Throws(SoftifyException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `getRadioTracks`(`seedTrackId`: kotlin.String, `continuation`: kotlin.String?) : RadioResult {
+        return uniffiRustCallAsync(
+        UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_radio_tracks(FfiConverterString.lower(`seedTrackId`),FfiConverterOptionalString.lower(`continuation`),),
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_softify_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeRadioResult.lift(it) },
+        // Error FFI converter
+        SoftifyException.ErrorHandler,
+    )
+    }
 
         /**
          * Retrieves recent searches ordered by most recent first

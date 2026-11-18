@@ -221,6 +221,7 @@ fun ArtistDetailScreen(
                         isActive = activeTrack?.id == track.id,
                         isPlaying = isPlaying,
                         onClick = { viewModel.playTrackInQueue(tracks, index) },
+                        onStartRadio = { viewModel.startRadio(track) },
                         onPlayNext = { viewModel.playNext(track) },
                         onAddToQueue = { viewModel.addToQueue(track) },
                         onToggleLike = { viewModel.toggleLikeTrack(track) },

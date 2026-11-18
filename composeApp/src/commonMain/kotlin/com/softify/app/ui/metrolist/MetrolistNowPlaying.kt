@@ -146,14 +146,26 @@ fun MetrolistNowPlaying(
                 } else {
                     val lyricLines = remember(lyrics) {
                         lyrics?.lines?.map { l ->
-                            LyricLine(timeMs = l.startMs.toLong(), text = l.text)
+                            LyricLine(
+                                timeMs = l.startMs.toLong(),
+                                endMs = l.endMs.toLong(),
+                                text = l.text,
+                                words = l.words.map { w ->
+                                    LyricWord(
+                                        startMs = w.startMs.toLong(),
+                                        endMs = w.endMs.toLong(),
+                                        text = w.text
+                                    )
+                                }
+                            )
                         } ?: emptyList()
                     }
 
                     LyricsView(
                         lines = lyricLines,
-                        currentPositionMs = effectivePositionMs,
+                        positionProvider = { (viewModel.playbackProgress.value * effectiveDurationMs).toLong() },
                         isSynced = lyrics?.isSynced ?: false,
+                        isWordSynced = lyrics?.isWordSynced ?: false,
                         onSeekTo = { seekMs -> viewModel.seekTo(seekMs) },
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = 40.dp, horizontal = 12.dp)

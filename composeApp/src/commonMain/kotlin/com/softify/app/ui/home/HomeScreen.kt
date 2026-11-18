@@ -33,6 +33,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val shelves by viewModel.homeShelves.collectAsState()
+    val quickPicks by viewModel.quickPicks.collectAsState()
     val isLoading by viewModel.isHomeLoading.collectAsState()
     val errorMessage by viewModel.homeError.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
@@ -156,12 +157,37 @@ fun HomeScreen(
                     contentPadding = PaddingValues(bottom = 120.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
+                    if (quickPicks.isNotEmpty()) {
+                        item(key = "quick_picks_shelf") {
+                            HomeShelfSection(
+                                shelf = Shelf(
+                                    id = "quick_picks",
+                                    title = "Quick picks",
+                                    subtitle = "Based on your taste & listening history",
+                                    rule = "quick_picks",
+                                    tracks = quickPicks
+                                ),
+                                onTrackClick = { track, _ ->
+                                    viewModel.playTrack(track)
+                                },
+                                onStartRadio = { track -> viewModel.startRadio(track) },
+                                onPlayNext = { track -> viewModel.playNext(track) },
+                                onAddToQueue = { track -> viewModel.addToQueue(track) },
+                                onAddToPlaylist = { track -> trackForPlaylistSheet = track },
+                                onToggleLike = { track -> viewModel.toggleLikeTrack(track) },
+                                onOpenArtist = onOpenArtist,
+                                onOpenAlbum = onOpenAlbum
+                            )
+                        }
+                    }
+
                     items(shelves) { shelf ->
                         HomeShelfSection(
                             shelf = shelf,
                             onTrackClick = { track, index ->
                                 viewModel.playTrackInQueue(shelf.tracks, index)
                             },
+                            onStartRadio = { track -> viewModel.startRadio(track) },
                             onPlayNext = { track -> viewModel.playNext(track) },
                             onAddToQueue = { track -> viewModel.addToQueue(track) },
                             onAddToPlaylist = { track -> trackForPlaylistSheet = track },
@@ -196,6 +222,7 @@ fun HomeShelfSection(
     onTrackClick: (Track, Int) -> Unit,
     onPlayNext: (Track) -> Unit,
     onAddToQueue: (Track) -> Unit,
+    onStartRadio: (Track) -> Unit = {},
     onAddToPlaylist: (Track) -> Unit,
     onToggleLike: (Track) -> Unit,
     onOpenArtist: (String) -> Unit = {},
@@ -232,6 +259,7 @@ fun HomeShelfSection(
                 HomeTrackCard(
                     track = track,
                     onClick = { onTrackClick(track, index) },
+                    onStartRadio = { onStartRadio(track) },
                     onPlayNext = { onPlayNext(track) },
                     onAddToQueue = { onAddToQueue(track) },
                     onAddToPlaylist = { onAddToPlaylist(track) },
@@ -250,6 +278,7 @@ fun HomeTrackCard(
     onClick: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
+    onStartRadio: () -> Unit = {},
     onAddToPlaylist: () -> Unit,
     onToggleLike: () -> Unit,
     onOpenArtist: () -> Unit = {},
@@ -299,6 +328,16 @@ fun HomeTrackCard(
                         shape = SquircleShape(12.dp),
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Start radio") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Radio, contentDescription = null, modifier = Modifier.size(20.dp))
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onStartRadio()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Play next") },
                             leadingIcon = {

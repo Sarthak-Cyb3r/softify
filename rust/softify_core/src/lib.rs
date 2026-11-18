@@ -11,9 +11,9 @@ pub mod reco;
 
 use std::sync::{Arc, OnceLock};
 use models::{
-    DownloadItem, DownloadProgressCallback, ImportPlaylistResult, Playlist, PlayHistory,
-    ProviderHealth, QualityPreset, ScanProgressCallback, ScanResult, SearchResult, Shelf,
-    SoftifyError, StreamInfo, SyncedLyrics, Track,
+    DownloadItem, DownloadProgressCallback, ImportPlaylistResult,
+    Playlist, PlayHistory, ProviderHealth, QualityPreset, RadioResult, ScanProgressCallback,
+    ScanResult, SearchResult, Shelf, SoftifyError, StreamInfo, SyncedLyrics, Track,
 };
 use resolvers::hybrid::HybridStreamResolver;
 use resolvers::youtube::YoutubeStreamResolver;
@@ -289,6 +289,50 @@ pub async fn home_explore() -> Result<Vec<Shelf>, SoftifyError> {
     let repo = get_db_repo()?;
     let engine = reco::explore::HomeExploreEngine::new(repo);
     engine.get_explore_shelves(get_config_mgr()).await
+}
+
+/// Builds dynamic YouTube Music radio queue for a given seed track or continuation token.
+/// Re-ranks candidate tracks using local SQLite play history and dedupes against the last 10 played.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn get_radio_tracks(seed_track_id: String, continuation: Option<String>) -> Result<RadioResult, SoftifyError> {
+    let resolver = get_youtube_resolver();
+    let radio_raw = resolver.get_radio(&seed_track_id, continuation.as_deref()).await?;
+
+    let history = if let Ok(repo) = get_db_repo() {
+        repo.get_history(50).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let reranked = reco::ranker::rerank_radio_tracks(radio_raw.tracks, &history, 10);
+    Ok(RadioResult {
+        tracks: reranked,
+        continuation: radio_raw.continuation,
+    })
+}
+
+/// Builds personalized "Quick picks" tracks for Home screen using local history signals:
+/// Loved tracks (completed plays >= 0.5, liked), max 2 per artist, backfilled with explore charts.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn get_quick_picks(limit: u32) -> Result<Vec<Track>, SoftifyError> {
+    let history = if let Ok(repo) = get_db_repo() {
+        repo.get_history(100).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let fallback_tracks = if let Ok(repo) = get_db_repo() {
+        let engine = reco::explore::HomeExploreEngine::new(repo);
+        engine.get_explore_shelves(get_config_mgr()).await
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|s| s.tracks)
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    Ok(reco::ranker::build_quick_picks(&history, &fallback_tracks, limit as usize))
 }
 
 /// Deletes a playlist

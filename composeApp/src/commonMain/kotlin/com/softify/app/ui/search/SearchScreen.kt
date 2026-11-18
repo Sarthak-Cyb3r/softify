@@ -270,9 +270,10 @@ fun SearchScreen(
                             isActive = activeTrack?.id == track.id,
                             isPlaying = isPlaying,
                             onClick = {
-                                // Tapping a search result plays it immediately and queues the rest!
-                                viewModel.playTrackInQueue(allMerged, index)
+                                // M3d: Tapping a track anywhere builds queue from YTM radio
+                                viewModel.playTrack(track)
                             },
+                            onStartRadio = { viewModel.startRadio(track) },
                             onPlayNext = { viewModel.playNext(track) },
                             onAddToQueue = { viewModel.addToQueue(track) },
                             onAddToPlaylist = { trackForPlaylistSheet = track },

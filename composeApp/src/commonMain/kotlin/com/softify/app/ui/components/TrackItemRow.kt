@@ -29,6 +29,7 @@ fun TrackItemRow(
     onClick: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
+    onStartRadio: (() -> Unit)? = null,
     onAddToPlaylist: () -> Unit = {},
     onToggleLike: () -> Unit = {},
     onRemoveFromPlaylist: (() -> Unit)? = null,
@@ -134,6 +135,19 @@ fun TrackItemRow(
                 shape = SquircleShape(12.dp),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
+                if (onStartRadio != null) {
+                    DropdownMenuItem(
+                        text = { Text("Start radio") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Radio, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onStartRadio()
+                        }
+                    )
+                }
+
                 DropdownMenuItem(
                     text = { Text("Play next") },
                     leadingIcon = {

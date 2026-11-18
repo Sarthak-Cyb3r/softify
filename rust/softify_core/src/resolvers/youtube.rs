@@ -1,5 +1,5 @@
 use serde_json::{json, Value};
-use crate::models::{HeaderPair, QualityPreset, SoftifyError, StreamInfo, Track};
+use crate::models::{HeaderPair, QualityPreset, RadioResult, SoftifyError, StreamInfo, Track};
 
 const VISIONOS_UA: &str =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
@@ -73,6 +73,149 @@ impl YoutubeStreamResolver {
 
         self.extract_music_items(&body, &mut tracks, &mut seen);
         Ok(tracks)
+    }
+
+    /// Fetches YouTube Music radio queue for a given video ID or continuation token
+    pub async fn get_radio(&self, video_id: &str, continuation: Option<&str>) -> Result<RadioResult, SoftifyError> {
+        let (payload, url) = if let Some(token) = continuation {
+            (
+                json!({
+                    "context": {
+                        "client": {
+                            "clientName": "WEB_REMIX",
+                            "clientVersion": "1.20240422.01.00",
+                            "hl": "en",
+                            "gl": "US"
+                        }
+                    },
+                    "continuation": token
+                }),
+                "https://music.youtube.com/youtubei/v1/next"
+            )
+        } else {
+            let clean_vid = video_id.trim_start_matches("ytm_");
+            (
+                json!({
+                    "context": {
+                        "client": {
+                            "clientName": "WEB_REMIX",
+                            "clientVersion": "1.20240422.01.00",
+                            "hl": "en",
+                            "gl": "US"
+                        }
+                    },
+                    "videoId": clean_vid,
+                    "playlistId": format!("RDAMVM{}", clean_vid),
+                    "isAudioOnly": true
+                }),
+                "https://music.youtube.com/youtubei/v1/next"
+            )
+        };
+
+        let res = self.client.post(url)
+            .header("User-Agent", WEB_REMIX_UA)
+            .header("Referer", "https://music.youtube.com/")
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| SoftifyError::Network { reason: format!("YouTube radio request failed: {e}") })?;
+
+        if !res.status().is_success() {
+            return Err(SoftifyError::Network {
+                reason: format!("YouTube radio endpoint returned HTTP {}", res.status()),
+            });
+        }
+
+        let body: Value = res.json().await
+            .map_err(|e| SoftifyError::Network { reason: format!("YouTube radio JSON decode failed: {e}") })?;
+
+        Self::parse_radio_response(&body, continuation.is_some())
+    }
+
+    pub fn parse_radio_response(body: &Value, is_continuation: bool) -> Result<RadioResult, SoftifyError> {
+        let (contents_ptr, continuations_ptr) = if is_continuation {
+            (
+                "/continuationContents/playlistPanelContinuation/contents",
+                "/continuationContents/playlistPanelContinuation/continuations",
+            )
+        } else {
+            (
+                "/contents/singleColumnMusicWatchNextResultsRenderer/tabbedRenderer/watchNextTabbedResultsRenderer/tabs/0/tabRenderer/content/musicQueueRenderer/content/playlistPanelRenderer/contents",
+                "/contents/singleColumnMusicWatchNextResultsRenderer/tabbedRenderer/watchNextTabbedResultsRenderer/tabs/0/tabRenderer/content/musicQueueRenderer/content/playlistPanelRenderer/continuations",
+            )
+        };
+
+        let mut tracks = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+
+        if let Some(items) = body.pointer(contents_ptr).and_then(|v| v.as_array()) {
+            for item in items {
+                if let Some(renderer) = item.get("playlistPanelVideoRenderer") {
+                    if let Some(track) = Self::parse_playlist_panel_video_renderer(renderer) {
+                        if seen.insert(track.id.clone()) {
+                            tracks.push(track);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut next_token = None;
+        if let Some(conts) = body.pointer(continuations_ptr).and_then(|v| v.as_array()) {
+            for cont in conts {
+                if let Some(token) = cont.pointer("/nextRadioContinuationData/continuation")
+                    .or_else(|| cont.pointer("/nextContinuationData/continuation"))
+                    .and_then(|v| v.as_str()) {
+                    next_token = Some(token.to_string());
+                    break;
+                }
+            }
+        }
+
+        Ok(RadioResult {
+            tracks,
+            continuation: next_token,
+        })
+    }
+
+    fn parse_playlist_panel_video_renderer(renderer: &Value) -> Option<Track> {
+        let vid = renderer.get("videoId").and_then(|v| v.as_str())?;
+        let title = renderer.pointer("/title/runs/0/text").and_then(|v| v.as_str())?;
+        let artist = renderer.pointer("/longBylineText/runs/0/text")
+            .or_else(|| renderer.pointer("/shortBylineText/runs/0/text"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown Artist");
+
+        let album = renderer.pointer("/longBylineText/runs/2/text")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let duration_ms = renderer.pointer("/lengthText/runs/0/text")
+            .and_then(|v| v.as_str())
+            .map(parse_colon_duration)
+            .unwrap_or(0);
+
+        let cover_url = renderer.pointer("/thumbnail/thumbnails")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.last())
+            .and_then(|t| t.get("url"))
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string());
+
+        let id = format!("ytm_{}", vid);
+        Some(Track {
+            id: id.clone(),
+            source_id: id,
+            title: title.to_string(),
+            artist: artist.to_string(),
+            album,
+            duration_ms,
+            cover_url,
+            match_confidence: Some(1.0),
+            is_liked: false,
+            is_unavailable: false,
+        })
     }
 
     fn extract_music_items(&self, node: &Value, tracks: &mut Vec<Track>, seen: &mut std::collections::HashSet<String>) {

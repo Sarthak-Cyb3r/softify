@@ -217,6 +217,7 @@ fun PlaylistDetailScreen(
                             isPlaying = isPlaying,
                             trackNumber = index + 1,
                             onClick = { viewModel.playTrackInQueue(tracks, index) },
+                            onStartRadio = { viewModel.startRadio(track) },
                             onPlayNext = { viewModel.playNext(track) },
                             onAddToQueue = { viewModel.addToQueue(track) },
                             onAddToPlaylist = { trackForPlaylistSheet = track },

@@ -13,6 +13,9 @@ pub struct LrclibResponse {
     pub plain_lyrics: Option<String>,
     pub instrumental: Option<bool>,
     pub duration: Option<f64>,
+    #[serde(rename = "hasWordSync")]
+    pub has_word_sync: Option<bool>,
+    pub lyricsfile: Option<String>,
 }
 
 pub struct LrclibClient {
