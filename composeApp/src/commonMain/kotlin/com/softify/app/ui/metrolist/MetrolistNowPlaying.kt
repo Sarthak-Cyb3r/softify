@@ -52,7 +52,13 @@ fun MetrolistNowPlaying(
 
     val currentTrack = track!!
     val effectiveDurationMs = if (durationMs > 0L) durationMs else currentTrack.durationMs.toLong()
-    val effectivePositionMs = (playbackProgress * effectiveDurationMs).toLong()
+    val effectivePositionMs = if (currentPositionMs > 0L) currentPositionMs else (playbackProgress * effectiveDurationMs).toLong()
+
+    val lyricsClock = rememberLyricsClock(
+        basePositionMs = effectivePositionMs,
+        isPlaying = isPlaying,
+        enabled = showLyricsInPlayer
+    )
 
     // Swipe down to collapse detection
     var dragAccumulator by remember { mutableStateOf(0f) }
@@ -233,7 +239,7 @@ fun MetrolistNowPlaying(
                     } else {
                         LyricsView(
                             lines = lyricLines,
-                            positionProvider = { (viewModel.playbackProgress.value * effectiveDurationMs).toLong() },
+                            positionProvider = { lyricsClock.longValue },
                             isSynced = lyrics?.isSynced ?: false,
                             isWordSynced = lyrics?.isWordSynced ?: false,
                             onSeekTo = { seekMs -> viewModel.seekTo(seekMs) },

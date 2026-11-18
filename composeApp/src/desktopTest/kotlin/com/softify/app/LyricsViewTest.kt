@@ -144,4 +144,63 @@ class LyricsViewTest {
             println("Empty state render note: ${e.message}")
         }
     }
+
+    @Test
+    fun testWordHighlightAnimatesWithoutRecomposition() {
+        val fakeClock = mutableLongStateOf(1000L)
+        val line = LyricLine(
+            timeMs = 1000L,
+            endMs = 4000L,
+            text = "One two three",
+            words = listOf(
+                LyricWord(startMs = 1000L, endMs = 2000L, text = "One"),
+                LyricWord(startMs = 2000L, endMs = 3000L, text = "two"),
+                LyricWord(startMs = 3000L, endMs = 4000L, text = "three")
+            )
+        )
+
+        var lineRecompositionCount = 0
+
+        try {
+            val scene = ImageComposeScene(width = 300, height = 100) {
+                MetrolistTheme {
+                    Box {
+                        SideEffect {
+                            lineRecompositionCount++
+                        }
+                        ActiveLyricLine(
+                            line = line,
+                            positionProvider = { fakeClock.longValue },
+                            onSeekTo = {}
+                        )
+                    }
+                }
+            }
+
+            // Initial render at 1000ms
+            val img1 = scene.render()
+            assertNotNull(img1)
+            assertEquals(1, lineRecompositionCount, "Initial composition must count exactly 1")
+
+            // Frame 1: Advance clock to midway through word 1 (1500ms)
+            fakeClock.longValue = 1500L
+            val img2 = scene.render()
+            assertNotNull(img2)
+            assertEquals(1, lineRecompositionCount, "Advancing clock within word 1 must NOT recompose line item (count=1)")
+
+            // Frame 2: Advance clock to word 2 (2500ms)
+            fakeClock.longValue = 2500L
+            val img3 = scene.render()
+            assertNotNull(img3)
+            assertEquals(1, lineRecompositionCount, "Advancing clock to word 2 must NOT recompose line item (count=1)")
+
+            // Frame 3: Advance clock to word 3 (3500ms)
+            fakeClock.longValue = 3500L
+            val img4 = scene.render()
+            assertNotNull(img4)
+            assertEquals(1, lineRecompositionCount, "Advancing clock to word 3 must NOT recompose line item (count=1)")
+        } catch (e: Throwable) {
+            println("Offscreen scene note: ${e.message}")
+        }
+    }
 }

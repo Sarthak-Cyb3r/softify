@@ -256,6 +256,8 @@ class MainActivity : ComponentActivity() {
 
         // Periodic playback position ticker for smooth squiggly line progress updates
         CoroutineScope(Dispatchers.Main).launch {
+            var tickerCount = 0
+            var lastTickerLogTime = System.currentTimeMillis()
             while (true) {
                 delay(250L)
                 val controller = mediaController
@@ -265,6 +267,18 @@ class MainActivity : ComponentActivity() {
                     if (duration > 0L) {
                         val progress = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
                         viewModel.setPlaybackPosition(progress, position, duration)
+
+                        tickerCount++
+                        val now = System.currentTimeMillis()
+                        if (now - lastTickerLogTime >= 5000L) {
+                            val elapsed = now - lastTickerLogTime
+                            if (elapsed > 0) {
+                                val rate = (tickerCount * 1000f) / elapsed
+                                PlaybackLogger.log("SoftifyPlayback", "Playback position ticker publishing rate: ${"%.1f".format(rate)} updates/sec (pos=${position}ms, dur=${duration}ms)")
+                            }
+                            tickerCount = 0
+                            lastTickerLogTime = now
+                        }
                     }
                 }
             }

@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.util.PlaybackLogger
+import kotlinx.coroutines.isActive
 
 /**
  * Word-level timing for high-precision lyric rendering.
@@ -114,6 +116,74 @@ fun parseLrcLines(lrcContent: String): List<LyricLine> {
         }
     }
     return result.sortedBy { it.timeMs }
+}
+
+/**
+ * Frame-driven lyrics clock:
+ * Keeps (lastPositionMs, lastUpdateNanos, isPlaying).
+ * Runs a LaunchedEffect loop using withFrameNanos that writes
+ * interpolatedPositionMs = lastPositionMs + (now - lastUpdateNanos) / 1_000_000L when playing,
+ * and re-syncs whenever the player publishes a new position or a seek happens.
+ * Pauses the loop when playback is paused or enabled is false (no wasted frames).
+ * Exposes a MutableLongState read strictly by draw phase lambdas.
+ */
+@Composable
+fun rememberLyricsClock(
+    basePositionMs: Long,
+    isPlaying: Boolean,
+    enabled: Boolean = true
+): MutableLongState {
+    val clock = remember { mutableLongStateOf(basePositionMs) }
+
+    // Track baseline for interpolation
+    var syncPositionMs by remember { mutableLongStateOf(basePositionMs) }
+    var syncTimeNanos by remember { mutableLongStateOf(0L) }
+
+    // Re-sync whenever upstream publishes a new position (from player ticker) or seek occurs
+    LaunchedEffect(basePositionMs) {
+        val nowNanos = System.nanoTime()
+        syncPositionMs = basePositionMs
+        syncTimeNanos = nowNanos
+        clock.longValue = basePositionMs
+    }
+
+    // Frame-driven animation loop: runs withFrameNanos at display refresh rate (60/120 fps)
+    LaunchedEffect(isPlaying, enabled) {
+        if (!isPlaying || !enabled) {
+            clock.longValue = basePositionMs
+            return@LaunchedEffect
+        }
+
+        if (syncTimeNanos == 0L) {
+            syncTimeNanos = System.nanoTime()
+            syncPositionMs = basePositionMs
+        }
+
+        var frameCount = 0
+        var lastFpsLogTime = System.currentTimeMillis()
+
+        while (isActive) {
+            withFrameNanos { frameTimeNanos ->
+                val elapsedNanos = (frameTimeNanos - syncTimeNanos).coerceAtLeast(0L)
+                val interpolatedMs = syncPositionMs + (elapsedNanos / 1_000_000L)
+                clock.longValue = interpolatedMs
+
+                frameCount++
+                val nowWall = System.currentTimeMillis()
+                if (nowWall - lastFpsLogTime >= 5000L) {
+                    val duration = nowWall - lastFpsLogTime
+                    if (duration > 0) {
+                        val fps = (frameCount * 1000f) / duration.toFloat()
+                        PlaybackLogger.log("SoftifyLyrics", "Lyrics clock frame rate: ${fps.toInt()} fps (interpolatedPos=${interpolatedMs}ms)")
+                    }
+                    frameCount = 0
+                    lastFpsLogTime = nowWall
+                }
+            }
+        }
+    }
+
+    return clock
 }
 
 /**
@@ -254,21 +324,50 @@ fun LyricsView(
 }
 
 /**
- * Backward compatibility overload accepting raw Long position.
+ * Overload accepting raw Long position and isPlaying state, driving the internal 60 fps lyrics clock.
  */
 @Composable
 fun LyricsView(
     lines: List<LyricLine>,
     currentPositionMs: Long,
+    isPlaying: Boolean = true,
     modifier: Modifier = Modifier,
     isSynced: Boolean = true,
     isWordSynced: Boolean = false,
     onSeekTo: (Long) -> Unit = {},
-    contentPadding: PaddingValues = PaddingValues(vertical = 120.dp, horizontal = 24.dp)
+    contentPadding: PaddingValues = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+) {
+    val clock = rememberLyricsClock(
+        basePositionMs = currentPositionMs,
+        isPlaying = isPlaying
+    )
+    LyricsView(
+        lines = lines,
+        positionProvider = { clock.longValue },
+        modifier = modifier,
+        isSynced = isSynced,
+        isWordSynced = isWordSynced,
+        onSeekTo = onSeekTo,
+        contentPadding = contentPadding
+    )
+}
+
+/**
+ * Overload accepting State<Long> clock directly.
+ */
+@Composable
+fun LyricsView(
+    lines: List<LyricLine>,
+    positionState: State<Long>,
+    modifier: Modifier = Modifier,
+    isSynced: Boolean = true,
+    isWordSynced: Boolean = false,
+    onSeekTo: (Long) -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
 ) {
     LyricsView(
         lines = lines,
-        positionProvider = { currentPositionMs },
+        positionProvider = { positionState.value },
         modifier = modifier,
         isSynced = isSynced,
         isWordSynced = isWordSynced,
