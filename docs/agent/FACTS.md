@@ -1,6 +1,12 @@
-# Facts 2026-11-17T19:51:00+05:30
-HEAD: 25420d594d3af8f94d0d9c227976176a8e17d912
+# Facts 2026-11-18T10:07:00+05:30
+HEAD: 3a25c9a5d9c6b7983b969e6e00e793b7aba1b130
 ## Git
+3a25c9a fix(m3c): fix AsyncCoverArt, BitrateBadge, and LyricsLine parameter signatures in M3c screens
+4d27d27 feat(m3c): implement full now playing screen, queue bottom sheet, lyrics, and artist/album details
+7f9c480 docs: update REPORT.md with successful cloud build 44109297967
+566c3c6 fix(viewmodel): import kotlinx.coroutines.delay
+79b556b docs: update REPORT.md with M3b 3-bug fix details
+862c2f6 fix(m3b): resolve Spotify import concurrency, track artwork fallback, and library vertical text
 25420d5 fix(m3b): resolve SearchIntent enum branches and smart playlist ULong signatures
 6deb8b4 feat(m3b): implement Metrolist M3 screens, queue manager, and cloud build CI
 5859476 docs: update FACTS.md with M3a2 verification facts
@@ -16,6 +22,7 @@ f79714f fix: Android playback + in-app diagnostics
 config::tests::test_bundled_default_config_loads: test
 config::tests::test_remote_config_fails_fallback_to_bundled_default: test
 db::migrations::tests::test_migrations_and_fts5_triggers: test
+db::tests::test_get_tracks_by_artist_and_album: test
 db::tests::test_incognito_mode_blocks_recent_searches_and_history: test
 db::tests::test_playlist_rename: test
 db::tests::test_recent_searches_lifecycle: test
@@ -26,6 +33,7 @@ downloads::tests::test_download_recording_and_retrieval: test
 importer::spotify::tests::test_fixture_playlist_import_to_n_tracks: test
 importer::spotify::tests::test_parse_embed_html: test
 importer::spotify::tests::test_parse_spotify_entities: test
+importer::spotify::tests::test_track_does_not_inherit_playlist_cover: test
 lyrics::parser::tests::test_parse_lrc_standard: test
 lyrics::tests::test_lyrics_fetch_and_caching: test
 lyrics::tests::test_lyrics_lrclib_synced_and_plain_fallback: test
@@ -56,29 +64,4 @@ search::tests::test_fts5_prefix_matching: test
 search::tests::test_playlist_and_history_lifecycle: test
 search::tests::test_search_results_processing_and_deduplication: test
 
-42 tests, 0 benchmarks
-
-## Rust tests summary
-test result: ok. 42 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
-
-## Rust clippy
-Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.51s (0 warnings)
-
-## NoEmojiTest Verification
-SUCCESS: 0 emoji/pictograph violations across all Kotlin source files in composeApp/src.
-
-## GitHub Actions Cloud Build
-Workflow: Build Android Debug APK (Cloud) (.github/workflows/build_kmp_android_apk.yml)
-Run ID: 44100393153
-Conclusion: success
-Duration: 7m 29s
-Artifact: composeApp-debug-apk (32MB)
-Local Path: /home/sarthak/Downloads/composeApp-debug.apk
-
-## Native libraries in APK
-10096   lib/arm64-v8a/libandroidx.graphics.path.so
-168176  lib/arm64-v8a/libjnidispatch.so
-5926096 lib/arm64-v8a/libsoftify_core.so
-10760   lib/x86_64/libandroidx.graphics.path.so
-118584  lib/x86_64/libjnidispatch.so
-6539760 lib/x86_64/libsoftify_core.so
+44 tests, 0 benchmarks

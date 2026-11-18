@@ -1,98 +1,100 @@
-# Report: M3b - Metrolist Material 3 Expressive Screens - 2026-11-17
-## Status: PARTIAL
+# Report: M3c - Player Experience & Detail Screens (Metrolist Material 3 Expressive) - 2026-11-18
+## Status: PARTIAL (Awaiting User On-Device Verification on Moto G34)
 
 ## Acceptance Checklist
-- [x] **Rust Core Extensions**: Migrated database with `recent_searches` and `home_explore_cache` tables; added `home_explore` with network + cached SQLite + bundled fixture fallbacks; added Smart Playlists (`get_on_repeat_tracks`, `get_most_played_tracks`, `get_forgotten_favorites_tracks`) with deterministic cutoff rules; playlist rename support; Incognito mode enforcement (`learning_paused` blocks searches, history, and taste updates). 42 unit tests passed.
-- [x] **Kotlin Queue Architecture**: Implemented `QueueManager.kt` as single source of truth for queue state, lazy stream resolution with TTL/expiration check, lookahead pre-resolution of upcoming track, play next vs add to queue, repeat modes (OFF, ALL, ONE), skip controls, and auto-advance on track completion. Unit tested in `QueueManagerTest.kt`.
-- [x] **Mini Player**: Docked above bottom navigation across all screens; features squircle cover art, bold title, muted artist, minimal `BitrateBadge` (single-line pill, lowercase "fallback" with amber dot), thin squiggly line synced to playback progress, play/pause and next controls with >=48dp touch targets, and tap notification ("Now Playing full screen arrives in M3c").
-- [x] **Home Screen**: Header with "320 kbps Studio Fidelity", personalized recommendation shelves with fallback to charts/trending explore shelves, horizontal card rows with squircle artwork, track overflow options (Play next, Add to queue, Add to playlist, Like), and real loading/empty/error states with retry.
-- [x] **Search Screen**: Search input with 300ms debounce, instant local FTS5 matches merged with online results, classification intent badge (Artist, Album, Track), recent search history with individual delete and clear-all, and tapping a search result plays immediately while queuing the rest.
-- [x] **Library Screen**: Smart playlist cards ("On Repeat", "Most Played", "Forgotten Favorites"), filter chips for Playlists, Liked Songs, and History (Downloads chip intentionally hidden per instructions), playlist creation dialog, rename dialog, delete confirmation, and keyless Spotify playlist import dialog.
-- [x] **Playlist Detail Screen**: Dynamic gradient header, track count, total calculated duration, Play and Shuffle controls, numbered track rows, active playback indicator, and track removal.
-- [x] **Settings Screen**: Audio quality stream presets (High 320k, Med 160k, Low 96k), UI design system picker, Incognito mode toggle, history and search clearing, system info diagnostics, and entry points to Diagnostics and Component Gallery.
-- [x] **Design Constraints & Cleanliness**: Zero emojis or pictographs across all Kotlin code and UI strings; validated by `NoEmojiTest`.
-- [x] **Cloud Build Pipeline**: Created `.github/workflows/build_kmp_android_apk.yml`; built on GitHub Actions runner (run #44100393153, 7m 29s); verified arm64-v8a and x86_64 `libsoftify_core.so` native libraries; APK downloaded to `/home/sarthak/Downloads/composeApp-debug.apk` (32MB).
-- [x] **Documentation Updates**: Added "M4a: download worker + progress notification" to `docs/ROADMAP.md`; documented Android SAF directory picker in `docs/agent/KNOWN_ISSUES.md`.
-- [?] **On-Device Verification on Moto G34 (Android 15)**: (NOT VERIFIED - awaiting user device test).
+- [x] **1. Fullscreen Now Playing Screen**:
+  - Replaced legacy text glyphs with clean Compose vector icons (`Icons.Filled.*`).
+  - Hero squircle artwork using `SquircleShape(32.dp)` with fallback placeholder.
+  - Interactive squiggly seek slider (`SquigglySlider`) synchronized to real playback time with elapsed and remaining timestamps (`mm:ss`).
+  - Transport controls: Previous, Play/Pause (64dp elevated container), Next, Shuffle toggle, and Repeat mode cycle (`OFF` -> `ALL` -> `ONE`).
+  - Minimal Bitrate Badge: single-line quiet pill showing real runtime bitrate (e.g., `320 kbps AAC` or `129 kbps AAC fallback` with amber indicator).
+  - Fluid container-transform / spring slide-and-fade animation transitioning from the docked `MiniPlayer`.
+  - Swipe-down vertical drag gesture or header collapse chevron to return to previous screen.
+- [x] **2. Queue Management Bottom Sheet**:
+  - Modal bottom sheet (`QueueBottomSheet.kt`) with squircle styling (`SquircleShape(24.dp)`).
+  - Displays "Now Playing" hero item with dynamic waveform/play indicator.
+  - Displays "Up Next" tracks list with clear visual distinction for tracks queued via "Play Next" (`Play Next` chip badge).
+  - Interactive item reordering (`move(fromIndex, toIndex)`) and removal (`removeQueueItem(index)`).
+  - Tap any queued track to immediately jump and play.
+- [x] **3. LRCLIB Synchronized Lyrics Engine**:
+  - Integrated LRCLIB synced lyrics via Rust core UniFFI `get_lyrics` export.
+  - Synchronized line rendering with automatic scroll to active line.
+  - Active line highlighted with animated subtle sweep shine gradient effect (`LyricsView.kt`).
+  - Tap any lyric line to seek directly to that timestamp in the track.
+  - Plain-text fallback and graceful instrumental/"No lyrics found" empty states.
+- [x] **4. Artist & Album Detail Screens**:
+  - Created `ArtistDetailScreen.kt` and `AlbumDetailScreen.kt` with Material 3 Expressive layout.
+  - Reachable from track row 3-dots overflow menus ("Go to artist", "Go to album") and from clickable artist/album text in Now Playing.
+  - Prominent hero cover art / artist avatar, Play All and Shuffle All buttons, numbered track rows with duration formatting.
+  - Integrated into app navigation back stack with instant back navigation.
+- [x] **5. Strict Design & Purity Constraints**:
+  - Zero emojis or pictographic glyphs anywhere in UI strings or Kotlin sources (`NoEmojiTest` compliant).
+  - No scalloped shapes; all cards and containers utilize `SquircleShape`.
+  - Minimal quiet bitrate badge with honest quality indicators.
+  - Zero hardcoded mock data; all data flows from UniFFI Rust core and SQLite.
+- [x] **6. Core Tests & Verification**:
+  - `cargo test --lib`: 44 passed; 0 failed (`softify_core`).
+  - `cargo clippy --lib -- -D warnings`: 0 warnings.
+  - Desktop unit tests: `QueueManagerTest.kt` passes test cases for queue ordering, `move`, `jumpTo`, `playNext` tracking, and stream caching.
+- [x] **7. Cloud CI APK Assembly**:
+  - Executed on GitHub Actions runner (Run ID: `44236908017`, 7m 21s).
+  - Packaged native libraries `libsoftify_core.so` (arm64-v8a: 5,979,912 bytes; x86_64: 6,605,216 bytes).
+  - APK delivered to `/home/sarthak/Downloads/composeApp-debug.apk` (33 MB).
 
-## What Works (Verified)
-- **Rust Core**: 42 lib unit tests passed (`cargo test --lib`), 0 clippy warnings (`cargo clippy --lib -- -D warnings`).
-- **NoEmojiTest**: 0 forbidden emojis or pictographs across all Kotlin files in `composeApp/src`.
-- **Cloud Build**: GitHub Actions workflow completed with exit code 0; universal APK assembled and verified.
-- **Native Libraries**: `lib/arm64-v8a/libsoftify_core.so` (5,926,096 bytes) and `lib/x86_64/libsoftify_core.so` (6,539,760 bytes) packaged inside APK.
+---
 
-## Test Results
-- `cargo test --lib`:
-  `43 passed; 0 failed; 0 ignored; finished in 5.57s`
-- `cargo clippy -- -D warnings`: 0 warnings
-- NoEmoji Python & Unit Check: 0 forbidden emojis or pictographs across all Kotlin files in `composeApp/src`.
-- GitHub Actions Run `#44100393153` (M3b Initial):
-  `✓ Build Android Debug APK with Rust Core in 7m29s (ID 134098528815) - conclusion: success`
-- GitHub Actions Run `#44109297967` (M3b 3-Bug Fix Pass):
-  `✓ Build Android Debug APK with Rust Core in 6m53s (ID 134130204898) - conclusion: success`
-- APK native library inspection (`unzip -l composeApp-debug.apk | grep '\.so'`):
-  - `lib/arm64-v8a/libsoftify_core.so`
-  - `lib/x86_64/libsoftify_core.so`
-  - `lib/arm64-v8a/libjnidispatch.so`
-  - `lib/x86_64/libjnidispatch.so`
+## Cloud CI Build Verification Facts
+- **Commit**: `3a25c9a5d9c6b7983b969e6e00e793b7aba1b130`
+- **Workflow Run**: `Build Android Debug APK (Cloud)` [#44236908017](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44236908017)
+- **Result**: Success (`conclusion: success`, duration: 7m 21s)
+- **Output Artifact**: `composeApp-debug-apk` (24.56 MB zip, 33 MB unpacked APK)
+- **Local APK Path**: `/home/sarthak/Downloads/composeApp-debug.apk`
+- **Native ABI Verification**:
+  ```text
+  lib/arm64-v8a/libsoftify_core.so (5,979,912 bytes)
+  lib/x86_64/libsoftify_core.so   (6,605,216 bytes)
+  lib/arm64-v8a/libjnidispatch.so
+  lib/x86_64/libjnidispatch.so
+  ```
 
-## M3b Bug Fixes (Completed & Cloud-Verified)
+---
 
-### Bug 1: Spotify Import Concurrency & On-Demand Resolution
-- **Problem**: Tracks were matched to YTM sequentially, causing Spotify playlist imports to stall or take a very long time.
-- **Fix**:
-  1. All tracks are inserted immediately into SQLite in `unresolved` state with title, artist, album, and duration.
-  2. Bounded background concurrency (`tokio::sync::Semaphore::new(8)` with `tokio::task::JoinSet`) matches tracks asynchronously.
-  3. Caches matches in `spotify_matches` table (`spotify_id -> video_id`, `cover_url`, `matched_at`) with title/artist index.
-  4. Exposed `matched_count` on `Playlist` and updated `get_playlists` SQL query to return real-time matched counts.
-  5. In `LibraryScreen`, imported playlists show live progress: `"X tracks • matched N/X"`.
-  6. In `PlaybackViewModel`, added `pollMatchingProgress()` to poll library state every 1.5s until matching completes.
-  7. On-demand resolution in `resolve_stream`: playing an unresolved track checks cache or queries YTM/Saavn immediately, starts stream, and matches/caches in SQLite.
+## On-Device Verification Steps for Moto G34 (Android 15)
 
-### Bug 2: Track Artwork Resolution & Playlist Cover Separation
-- **Problem**: Imported tracks inherited the playlist's thumbnail instead of their own artwork.
-- **Fix**:
-  1. Removed `.or_else(|| cover_url.clone())` fallback in `SpotifyImporter::parse_embed_html`. Tracks without embedded album art initialize with `cover_url = None`.
-  2. In `YoutubeStreamResolver::extract_highest_res_thumbnail`, extracted the highest-resolution square thumbnail from `musicThumbnailRenderer/thumbnail/thumbnails` and rewrote the dimension parameter to `=w544-h544-l90-rj` (or `hqdefault.jpg` fallback).
-  3. Database migration cleans up previously imported tracks that mistakenly inherited playlist artwork:
-     `UPDATE tracks SET cover_url = NULL WHERE (id LIKE 'sp_tr_%' OR source_id LIKE 'spotify:%') AND cover_url IN (SELECT cover_url FROM playlists WHERE is_imported = 1);`
-  4. Updated `get_playlist_tracks` query with `COALESCE(t.cover_url, sm.cover_url, CASE WHEN t.source_id LIKE 'ytm_%' THEN ...)` so tracks without art dynamically resolve to matched square thumbnails.
+1. **Install the APK**:
+   ```bash
+   adb install -r /home/sarthak/Downloads/composeApp-debug.apk
+   ```
 
-### Bug 3: LibraryScreen "History" Vertical Text & Width Constraint
-- **Problem**: In `LibraryScreen`, the filter chips row was a static `Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp))`. Because "Playlists (X)" and "Liked Songs (Y)" filled the horizontal space, "History" was constrained to minimal width, causing each character to wrap onto a new line vertically.
-- **Fix**:
-  1. Replaced static `Row` with scrollable `LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp))`.
-  2. Added `maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis` to "Playlists", "Liked Songs", and "History" filter chip labels.
-  3. Audited and fixed other Library labels: added `maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis` to `SmartPlaylistCard` (title and subtitle), `PlaylistRowItem` (name and subtitle), and `TrackItemRow` (title and artist/album).
+2. **Test Mini Player -> Full Now Playing Expansion**:
+   - Open Softify on the phone.
+   - Tap any track from Home shelves or Search results to start playback.
+   - Observe the docked `MiniPlayer` above the bottom bar with squircle art and minimal bitrate pill.
+   - Tap the `MiniPlayer` card.
+   - **Verify**: The screen expands smoothly with a spring container-transform animation into the full Now Playing screen.
 
-## What is Stubbed or Deferred (By Approved Plan)
-- **Full Now Playing Screen & Apple Music Liquid UI**: Deferred to M3c (mini player tap shows informative snackbar; Apple Music chip disabled with M3c label).
-- **Offline Download Manager**: Background download worker and notification deferred to M4a (`docs/ROADMAP.md`). Downloads chip in Library screen is hidden.
-- **Android SAF Local Storage Picker**: Local directory picker deferred to M4 (`docs/agent/KNOWN_ISSUES.md`).
-- **On-Device Look & Feel**: Status is `PARTIAL` pending physical device verification on Moto G34 (Android 15).
+3. **Test Now Playing Controls & Progress Scrub**:
+   - Verify large squircle artwork (`SquircleShape(32.dp)`).
+   - Drag the squiggly slider back and forth: observe smooth seek response and updated elapsed/remaining timestamps.
+   - Toggle Repeat mode: cycles `OFF` -> `ALL` -> `ONE`.
+   - Toggle Shuffle mode: verifies shuffle state.
+   - Verify minimal bitrate badge: shows `320 kbps AAC` or `fallback` without bulky borders or emojis.
 
-## What to Test on the Moto G34
-1. Install `/home/sarthak/Downloads/composeApp-debug.apk`.
-2. **Bottom Navigation**: Tap Home, Search, and Library. Verify bottom navigation bar transitions and back stack behavior (pressing back on Search or Library returns to Home).
-3. **Home Screen**:
-   - Verify recommendation shelves ("Jump Back In", "Daily Mix", "Trending", "Top Charts").
-   - Scroll horizontally across track cards.
-   - Tap 3-dots overflow menu on a card: verify "Play next", "Add to queue", "Add to playlist", "Like".
-4. **Search Screen**:
-   - Type a query (e.g. "Arijit"). Verify 300ms debouncing and search intent badge.
-   - Tap a track: verify it plays immediately and queues the remaining results in the mini player.
-   - Clear query: verify Recent Searches list appears with query text, individual delete buttons, and "Clear all".
-5. **Mini Player & Queue**:
-   - Verify docked mini player displays squircle cover art, title, artist, minimal `BitrateBadge` (e.g. "320 kbps AAC"), and animated squiggly progress line.
-   - Tap Play/Pause and Next buttons; verify smooth playback transition.
-   - Let a track end: verify `QueueManager` auto-advances to the next queued track.
-   - Tap the mini player card: verify snackbar displays "Now Playing full screen arrives in M3c".
-6. **Library Screen**:
-   - Verify Smart Playlist cards ("On Repeat", "Most Played", "Forgotten Favorites"). Tap one to inspect tracks.
-   - Tap "New Playlist" button: create a playlist, tap overflow to rename or delete.
-   - Tap Spotify import icon: enter a playlist URL or ID and test keyless import.
-7. **Settings Screen**:
-   - Switch stream quality preset between High (320k), Med (160k), Low (96k).
-   - Toggle Incognito Mode: verify snackbar confirmation and that searches/history are paused.
-   - Tap "Diagnostics": verify live playback logs, host, bitrate, and JankStats.
-   - Tap "Component Gallery": verify M3a components remain intact.
+4. **Test LRCLIB Synced Lyrics View**:
+   - In Now Playing, tap the lyrics icon button in the top action bar.
+   - **Verify**: Smoothly toggles into the synced lyrics view.
+   - **Verify**: The active singing line is highlighted with a subtle sweep shine effect.
+   - Tap any future lyric line: playback jumps to that timestamp and lyrics continue smoothly.
+
+5. **Test Queue Bottom Sheet**:
+   - In Now Playing, tap the queue icon in the top action bar.
+   - **Verify**: The modal bottom sheet slides up showing "Now Playing" and "Up Next".
+   - Notice the "Play Next" badge on tracks added via Play Next.
+   - Tap the up/down arrows to reorder items; tap the close icon to remove an item.
+   - Tap any track to play it immediately.
+
+6. **Test Artist and Album Navigation**:
+   - In Now Playing, tap the artist name: opens `ArtistDetailScreen` with avatar and track list.
+   - In Now Playing, tap the album name: opens `AlbumDetailScreen` with album art and track list.
+   - Tap the top-left back arrow: returns to Now Playing.
+   - Swipe down on the Now Playing screen: collapses smoothly back to the previous screen with the docked `MiniPlayer`.
