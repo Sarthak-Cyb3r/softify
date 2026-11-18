@@ -303,6 +303,60 @@ fun ActiveLyricLine(
 }
 
 /**
+ * Preview / single-line overload for ActiveLyricLine.
+ */
+@Composable
+fun ActiveLyricLine(
+    text: String,
+    progress: Float,
+    modifier: Modifier = Modifier
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val aheadColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+            .drawWithContent {
+                drawContent()
+                val p = progress.coerceIn(0f, 1f)
+                val w = size.width.coerceAtLeast(1f)
+                val edgePx = 28.dp.toPx()
+                val edgeFraction = (edgePx / w).coerceIn(0.01f, 0.25f)
+                val startEdge = (p - edgeFraction).coerceAtLeast(0f)
+                val endEdge = (p + edgeFraction).coerceAtMost(1f)
+
+                val sweepBrush = if (p <= 0.001f) {
+                    Brush.horizontalGradient(listOf(aheadColor, aheadColor))
+                } else if (p >= 0.999f) {
+                    Brush.horizontalGradient(listOf(onSurfaceColor, onSurfaceColor))
+                } else {
+                    Brush.horizontalGradient(
+                        0.0f to onSurfaceColor,
+                        startEdge to onSurfaceColor,
+                        p to primaryColor,
+                        endEdge to aheadColor,
+                        1.0f to aheadColor
+                    )
+                }
+
+                drawRect(brush = sweepBrush, blendMode = BlendMode.SrcIn)
+            }
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = onSurfaceColor
+            )
+        )
+    }
+}
+
+/**
  * Single word item drawn in GPU draw phase:
  * - past word: fully lit (1.0f)
  * - upcoming word: dimmed (0.45f)
