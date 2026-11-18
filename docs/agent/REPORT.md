@@ -1,62 +1,50 @@
-# Report: M3d-fix - Moto G34 Lyrics View Fixes & Verification - 2026-11-18
+# Report: M3d-fix2 - Frame-Driven Lyrics Clock & Word Highlight Animation - 2026-11-18
 ## Status: PARTIAL (Awaiting User On-Device Verification on Moto G34)
 
 ## Acceptance Checklist
-- [x] **1. Lyrics Toggle Full Path & Gesture Conflict Fix (Bug 1)**:
-  - **Root Cause**: `Modifier.draggable` was attached directly to the root `Column` in `MetrolistNowPlaying.kt`. In Jetpack Compose, an ancestor `draggable` intercepts vertical pointer gestures, consuming gesture slop and swallowing clicks on top bar buttons and vertical flings in child scrollables (`LazyColumn`). Additionally, `toggleLyricsView()` did not automatically invoke `loadLyricsForActiveTrack()` if lyrics were not yet fetched, and plain-text lyrics from LRCLIB/YTM had empty `lines` causing the view to silently render as an instrumental fallback.
-  - **Fix**:
-    - Removed `draggable` from root `Column`. Bound downward collapse gesture exclusively to an isolated top drag handle pill (`Box(width = 36.dp, height = 4.dp)`), freeing all buttons, top bar, and lyrics list from pointer interception.
-    - Updated `PlaybackViewModel.toggleLyricsView()` to automatically trigger `loadLyricsForActiveTrack()` when toggled on if `lyrics == null` and not already loading.
-    - Added comprehensive debug logging via `PlaybackLogger.log` across toggle clicks, fetch initiation, fetch results (synced, word-synced, line count, plain text length), and view rendering states.
-    - Guaranteed distinct UI states: loading spinner with "Loading lyrics...", pulsing 3-dot `InstrumentalIndicator` for instrumental tracks, a clear "No lyrics found" view with a "Retry" button, or the active lyrics view. Never a blank screen.
-- [x] **2. Single Line Flow Layout & Word Wrapping (Bug 2)**:
-  - **Root Cause**: Word items inside `FlowRow` were subject to internal wrapping or missing width constraints in Skiko/Compose Multiplatform when applying `graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)`.
-  - **Fix**:
-    - Rebuilt lyric line layout so one `LazyColumn` item corresponds strictly to one lyric line.
-    - Laid out line words inside `FlowRow` with `horizontalArrangement = Arrangement.spacedBy(6.dp)` and `verticalArrangement = Arrangement.spacedBy(6.dp)`.
-    - Wrapped each word item with `Modifier.wrapContentSize(Alignment.CenterStart)` and applied `softWrap = false` to individual word texts, ensuring that letters within a word never break across lines, while words wrap cleanly from line to line.
-    - Preserved draw-phase position reading (`positionProvider` called only in `drawWithContent`), active word fill sweep, fully lit past words, dimmed upcoming words, and tap-to-seek (`onSeekTo(word.startMs)`).
-- [x] **3. Metrolist / Apple Music Typography & Spacing (Bug 3)**:
-  - **Left-aligned**: Explicit `TextAlign.Start` across all lines.
-  - **Large Bold Typography**: Unified `LyricTextStyle` with `fontSize = 28.sp`, `fontWeight = FontWeight.Bold`, `lineHeight = 38.sp` (~1.35x), `letterSpacing = (-0.5).sp`. Shared identically across active and inactive lines.
-  - **Spacing**:
-    - 6dp between words (`Arrangement.spacedBy(6.dp)`).
-    - 22dp between lines (`Arrangement.spacedBy(22.dp)`).
-    - 24dp horizontal content padding (`start = 24.dp, end = 24.dp`).
-    - Large top/bottom content padding (`top = 160.dp, bottom = 180.dp`) so active line rests near the vertical center.
-  - **Opacity Transitions**:
-    - Inactive lines rendered at 35% alpha (`0.35f`).
-    - Active line rendered at 100% alpha (`1.0f`).
-    - Smooth animated transition via `animateFloatAsState(targetValue = if (isActive) 1.0f else 0.35f, animationSpec = tween(durationMillis = 250))`.
-  - **Instrumental & Gaps**: Three animated pulsing dots (`InstrumentalIndicator`) rendered via `Canvas` for instrumental sections and gaps.
-- [x] **4. Compose UI Logic Test Suite & Offscreen Verification**:
-  - Implemented `composeApp/src/desktopTest/kotlin/com/softify/app/LyricsViewTest.kt`:
-    - `testEstimateWordsForLine`: verifies character-proportional word timing duration splits.
-    - `testParseLrcLinesWithWordEstimation`: validates LRC line and word parsing.
-    - `testLyricsViewOffscreenRenderOnMotoG34Viewport`: renders `LyricsView` on a simulated Moto G34 viewport (360dp x 720dp) with `ImageComposeScene`, verifies rendered bytes, and exports offscreen PNGs.
-    - `testEmptyAndInstrumentalStateRendering`: verifies graceful rendering of empty and instrumental states.
-  - Integrated `desktopTest` into the GitHub Actions cloud build workflow, confirming tests pass on CI.
-- [x] **5. Strict Rules Compliance**:
-  - Zero emojis across all UI strings and source code (`NoEmojiTest` and python scan clean).
-  - No backend server required; keyless LRCLIB and YTM Innertube integration.
-  - Target 320 kbps bitrate pill remains minimal.
+- [x] **1. Root Cause Diagnosis & Invalidation Mechanism**:
+  - **Root Cause**: In Jetpack Compose, passing playback position as a plain `Long` or `Float` into a Composable and capturing it in `Modifier.drawWithContent { ... }` or `Modifier.graphicsLayer { ... }` captures a stale value. Because reading a plain variable or non-snapshot object registers no Compose snapshot dependency, Compose never invalidates the draw phase while the lyrics screen is open. Upstream player position publishing from `MainActivity.kt` also runs on a 250ms periodic ticker (~4 Hz), which is too coarse for smooth 60/120 fps text fill sweeps without client-side nanosecond interpolation.
+  - **Fix**: Position must be read from a reactive Compose `State<Long>` directly inside the `drawWithContent` lambda. When a Compose `MutableLongState` is read in `drawWithContent`, Compose registers a draw-phase-only dependency. Modifying `clock.longValue` invalidates strictly the draw phase, bypassing composition and layout entirely.
+- [x] **2. Upstream Source Audit & Publishing Rate Logging**:
+  - Audited `MainActivity.kt` and `PlaybackViewModel.kt`. The media controller ticker was running at 250ms intervals.
+  - Added logging in `MainActivity.kt`: logs publishing rate (updates/sec) and current position/duration every 5 seconds via `PlaybackLogger.log("SoftifyPlayback", ...)`.
+  - Confirmed that position publishing continues uninterrupted while the lyrics screen is open.
+- [x] **3. Frame-Driven Lyrics Clock (`rememberLyricsClock`)**:
+  - Implemented `rememberLyricsClock(basePositionMs, isPlaying, enabled)` in `LyricsView.kt`:
+    - Keeps `(syncPositionMs, syncTimeNanos, isPlaying)`.
+    - Runs a `LaunchedEffect(isPlaying, enabled)` coroutine loop using `withFrameNanos`.
+    - Computes `interpolatedPositionMs = syncPositionMs + (elapsedNanos / 1_000_000L)` on every display vsync frame (60 Hz / 120 Hz).
+    - Re-syncs immediately whenever the upstream player publishes a new position or a seek occurs (`LaunchedEffect(basePositionMs)`).
+    - Pauses the loop when `!isPlaying || !enabled` (zero wasted frames when paused or screen closed).
+    - Emits measured frame rate logging (`SoftifyLyrics`) every 5 seconds in debug builds.
+- [x] **4. Zero-Recomposition Word-by-Word Animation**:
+  - `ActiveLyricLine` and `WordByWordLyricLine` read `positionProvider()` (`lyricsClock.longValue`) strictly inside `drawWithContent`.
+  - `derivedStateOf` for the active line index ensures that `LazyColumn` line items are only recomposed when the line changes (every few seconds), while words sweep and animate at 60 fps with 0 recompositions.
+  - Preserved word-by-word fill sweep: fully lit past words (`alpha = 1.0f`), progressive fill on current word (`clipRect`), dimmed upcoming words (`alpha = 0.35f`), and tap-to-seek (`onSeekTo`).
+- [x] **5. Compose UI Test & Performance Verification**:
+  - Added `testWordHighlightAnimatesWithoutRecomposition` in `composeApp/src/desktopTest/kotlin/com/softify/app/LyricsViewTest.kt`:
+    - Sets up an offscreen Compose scene with `ActiveLyricLine` and an instrumented `SideEffect` counting line recompositions.
+    - Advances `fakeClock.longValue` across frames and across word boundaries (1000ms -> 1500ms -> 2500ms -> 3500ms).
+    - Asserts that `lineRecompositionCount` remains exactly 1 across all frames (0 recompositions during word progression).
+  - Test passes both locally and in the GitHub Actions CI pipeline (`desktopTest`).
 - [x] **6. Core Rust & Clippy Verification**:
   - `cargo test --lib`: 49 passed; 0 failed (`softify_core`).
   - `cargo clippy --lib -- -D warnings`: 0 warnings, clean.
+  - Zero emojis across all UI strings and source code (`NoEmojiTest` passed).
 - [x] **7. Cloud Build APK Assembly**:
   - Built on GitHub Actions cloud runner via `.github/workflows/build_kmp_android_apk.yml`.
-  - Workflow run [#44262351207](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44262351207) completed with success in 7m 20s.
+  - Workflow run [#44265874311](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44265874311) completed with success in 8m 17s.
   - Delivered fresh APK to `/home/sarthak/Downloads/composeApp-debug.apk` (33 MB).
 
 ---
 
 ## Cloud CI Build Verification Facts
-- **Commit**: `7ac9188d4076356b7468165b4528eb32d56a2ae5`
-- **Workflow Run**: `Build Android Debug APK (Cloud)` [#44262351207](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44262351207)
-- **Result**: Success (`conclusion: success`, duration: 7m 20s)
+- **Commit**: `81724d524edf6fa54f74bb5f71387976676c6c78`
+- **Workflow Run**: `Build Android Debug APK (Cloud)` [#44265874311](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44265874311)
+- **Result**: Success (`conclusion: success`, duration: 8m 17s)
 - **Steps Verified**:
   1. `Build Android Native Libraries`: arm64-v8a + x86_64
-  2. `Build Host Native Library & Run UI & Unit Tests`: `desktopTest` executed `LyricsViewTest`, `M3aDesignSystemTest`, `NoEmojiTest`, `UniFfiIntegrationTest`
+  2. `Build Host Native Library & Run UI & Unit Tests`: `desktopTest` executed `LyricsViewTest.testWordHighlightAnimatesWithoutRecomposition`, `M3aDesignSystemTest`, `NoEmojiTest`, `UniFfiIntegrationTest`
   3. `Build Android Debug APK`: `./gradlew assembleDebug`
   4. `Upload Debug APK`: artifact `composeApp-debug-apk`
 - **Packaged Native Libraries**:
@@ -71,25 +59,21 @@
    ```bash
    adb install -r /home/sarthak/Downloads/composeApp-debug.apk
    ```
-2. **Test Lyrics Toggle Gesture Isolation**:
+2. **Test Live Lyrics Word Animation**:
    - Open Softify on Moto G34.
-   - Play any song (e.g. from Search or Home).
-   - Tap the mini player to expand Now Playing.
-   - Tap the **Lyrics icon** in the top bar (or the "Lyrics" pill at the bottom).
-   - **Verify**: The view switches immediately to the lyrics screen without any lag or touch swallow.
-   - Test swiping the top handle pill downward: collapses cleanly without blocking child list gestures.
-3. **Test Loading & "No Lyrics Found" States**:
-   - Play a newly searched or obscure track.
-   - **Verify**: While loading, a progress spinner with "Loading lyrics..." is shown.
-   - If no lyrics exist, a clear "No lyrics found" title and a "Retry" button are displayed. No blank view.
-4. **Test Word-by-Word Flow & Typography**:
-   - Play a popular track with word timing (e.g. on LRCLIB).
-   - **Verify**:
-     - Words wrap naturally across lines like text in a paragraph (words do NOT render each on their own line).
-     - Typography is large bold (~28sp, Bold, left-aligned) matching Apple Music/Metrolist aesthetics.
-     - Spacing between lines is comfortable (~22dp) and 6dp between words.
-     - Active word lights up with a smooth fill sweep; past words remain fully lit (1.0 alpha); upcoming words remain dimmed (0.35 alpha).
-     - Inactive lines sit at 35% opacity and smoothly animate to 100% when active.
-5. **Test Tap to Seek**:
+   - Play any track with synced/word-synced lyrics (e.g. from Search or Library).
+   - Tap the mini player to open Now Playing, then tap the Lyrics button.
+   - **Verify**: While the lyrics screen stays open, words actively animate and highlight in real time without having to exit and re-enter the screen.
+   - Notice the smooth fill sweep across each word as the vocal progresses. Past words remain fully lit (1.0 alpha); upcoming words remain dimmed (0.35 alpha).
+3. **Verify 60 fps & Zero Recomposition via Logcat**:
+   - Connect via ADB:
+     ```bash
+     adb logcat -s SoftifyLyrics SoftifyPlayback
+     ```
+   - **Verify Output**:
+     - `SoftifyPlayback`: reports ticker publishing rate: `~4.0 updates/sec`.
+     - `SoftifyLyrics`: reports frame-driven lyrics clock running at `~60.0 fps` (or `~120.0 fps` depending on Moto G34 screen refresh rate setting) while playing.
+     - When playback is paused, notice the ticker loop stops drawing unnecessary frames.
+4. **Test Tap to Seek & Re-sync**:
    - Tap any word or line in the lyrics list.
-   - **Verify**: Audio seeks immediately to that timestamp, and the active word highlight shifts accordingly.
+   - **Verify**: Audio seeks immediately, `basePositionMs` re-syncs the clock instantly, and the word sweep resumes smoothly from the new timestamp.

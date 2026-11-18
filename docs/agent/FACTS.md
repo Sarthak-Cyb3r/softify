@@ -1,6 +1,7 @@
-# Facts 2026-11-18T13:33:00+05:30
-HEAD: 7ac9188d4076356b7468165b4528eb32d56a2ae5
+# Facts 2026-11-18T13:58:00+05:30
+HEAD: 81724d524edf6fa54f74bb5f71387976676c6c78
 ## Git
+81724d5 fix(lyrics): implement frame-driven withFrameNanos lyrics clock for 60fps word highlight
 7ac9188 fix(lyrics): correct PlaybackLogger import package in MetrolistNowPlaying
 64b235e fix(m3d): fix lyrics toggle touch interception, multi-word flow layout, and Apple Music typography
 4f4b76a docs: update FACTS.md and REPORT.md with M3d cloud build 44244631946
