@@ -146,7 +146,7 @@ fun MetrolistNowPlaying(
                 } else {
                     val lyricLines = remember(lyrics) {
                         lyrics?.lines?.map { l ->
-                            LyricLine(timeMs = l.timestampMs.toLong(), text = l.text)
+                            LyricLine(timeMs = l.startMs.toLong(), text = l.text)
                         } ?: emptyList()
                     }
 
@@ -166,7 +166,7 @@ fun MetrolistNowPlaying(
                     verticalArrangement = Arrangement.Center
                 ) {
                     AsyncCoverArt(
-                        coverUrl = currentTrack.coverUrl,
+                        url = currentTrack.coverUrl,
                         contentDescription = currentTrack.title,
                         modifier = Modifier
                             .size(280.dp)
@@ -221,7 +221,12 @@ fun MetrolistNowPlaying(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Minimal Bitrate Badge
-                    BitrateBadge(streamInfo = streamInfo)
+                    BitrateBadge(
+                        bitrateKbps = streamInfo?.bitrateKbps ?: 320u,
+                        codec = streamInfo?.codec ?: "aac",
+                        isFallback = streamInfo?.isRequestedQuality == false || streamInfo?.provider == "youtube",
+                        enabled = streamInfo != null
+                    )
                 }
             }
         }
@@ -229,7 +234,7 @@ fun MetrolistNowPlaying(
         // 3. Progress Section with Squiggly Waveform Slider & Timestamps
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             SquigglySlider(
                 value = playbackProgress,

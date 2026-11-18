@@ -105,7 +105,7 @@ fun AlbumDetailScreen(
                 ) {
                     val firstCover = tracks.firstOrNull { !it.coverUrl.isNullOrEmpty() }?.coverUrl
                     AsyncCoverArt(
-                        coverUrl = firstCover,
+                        url = firstCover,
                         contentDescription = album,
                         modifier = Modifier
                             .size(90.dp)

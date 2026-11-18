@@ -181,7 +181,7 @@ private fun CurrentQueueItemCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncCoverArt(
-                coverUrl = track.coverUrl,
+                url = track.coverUrl,
                 contentDescription = track.title,
                 modifier = Modifier
                     .size(48.dp)
@@ -249,7 +249,7 @@ private fun UpcomingQueueItemRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncCoverArt(
-                coverUrl = track.coverUrl,
+                url = track.coverUrl,
                 contentDescription = track.title,
                 modifier = Modifier
                     .size(42.dp)

@@ -99,7 +99,7 @@ fun ArtistDetailScreen(
                     val firstCover = tracks.firstOrNull { !it.coverUrl.isNullOrEmpty() }?.coverUrl
                     if (!firstCover.isNullOrEmpty()) {
                         AsyncCoverArt(
-                            coverUrl = firstCover,
+                            url = firstCover,
                             contentDescription = artist,
                             modifier = Modifier
                                 .size(80.dp)
