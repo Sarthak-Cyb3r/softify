@@ -1,6 +1,9 @@
-# Facts 2026-11-18T10:07:00+05:30
-HEAD: 3a25c9a5d9c6b7983b969e6e00e793b7aba1b130
+# Facts 2026-11-18T11:08:00+05:30
+HEAD: 6a571eea8136aaf8a532f6a4afbd8f56d6966e16
 ## Git
+6a571ee fix(lyrics): add ActiveLyricLine overload for single-line preview and previews
+7dbe2c6 feat(m3d): implement radio queue with local ranking, lyrics performance, and word-by-word timing
+1ab43fc docs: update FACTS.md and REPORT.md for M3c completion
 3a25c9a fix(m3c): fix AsyncCoverArt, BitrateBadge, and LyricsLine parameter signatures in M3c screens
 4d27d27 feat(m3c): implement full now playing screen, queue bottom sheet, lyrics, and artist/album details
 7f9c480 docs: update REPORT.md with successful cloud build 44109297967
@@ -34,6 +37,8 @@ importer::spotify::tests::test_fixture_playlist_import_to_n_tracks: test
 importer::spotify::tests::test_parse_embed_html: test
 importer::spotify::tests::test_parse_spotify_entities: test
 importer::spotify::tests::test_track_does_not_inherit_playlist_cover: test
+lyrics::parser::tests::test_estimate_words_character_proportion: test
+lyrics::parser::tests::test_parse_enhanced_lrc: test
 lyrics::parser::tests::test_parse_lrc_standard: test
 lyrics::tests::test_lyrics_fetch_and_caching: test
 lyrics::tests::test_lyrics_lrclib_synced_and_plain_fallback: test
@@ -43,6 +48,9 @@ reco::diversity::tests::test_mmr_max_per_artist_invariant: test
 reco::diversity::tests::test_snooze_artist_30_days: test
 reco::explore::tests::test_parse_recorded_explore_fixture: test
 reco::ranker::tests::test_artist_skip_penalty_invariant: test
+reco::ranker::tests::test_build_quick_picks_artist_diversity: test
+reco::ranker::tests::test_rerank_radio_tracks_dedupes_last_n: test
+reco::ranker::tests::test_rerank_radio_tracks_scoring_prefers_affinity_and_penalizes_skips: test
 reco::taste::tests::test_incognito_mode_pauses_learning: test
 reco::taste::tests::test_taste_decay_math: test
 resolvers::tests::test_band_name_and_featured_artist_matching_regression: test
@@ -64,4 +72,4 @@ search::tests::test_fts5_prefix_matching: test
 search::tests::test_playlist_and_history_lifecycle: test
 search::tests::test_search_results_processing_and_deduplication: test
 
-44 tests, 0 benchmarks
+49 tests, 0 benchmarks

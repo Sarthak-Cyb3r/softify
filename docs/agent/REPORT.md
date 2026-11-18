@@ -50,6 +50,18 @@
 
 ---
 
+## Cloud CI Build Verification Facts
+- **Commit**: `6a571eea8136aaf8a532f6a4afbd8f56d6966e16`
+- **Workflow Run**: `Build Android Debug APK (Cloud)` [#44244631946](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44244631946)
+- **Result**: Success (`conclusion: success`, duration: 7m 16s)
+- **Output Artifact**: `composeApp-debug-apk` (25.83 MB zip, 33 MB unpacked APK)
+- **Packaged Native Libraries**:
+  - `lib/arm64-v8a/libsoftify_core.so`: 6,044,944 bytes
+  - `lib/x86_64/libsoftify_core.so`: 6,681,328 bytes
+- **Local Path**: `/home/sarthak/Downloads/composeApp-debug.apk`
+
+---
+
 ## Provider Investigation Summary
 | Provider | Endpoint | Word Timings | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
