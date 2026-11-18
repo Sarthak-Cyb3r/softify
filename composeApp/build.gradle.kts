@@ -29,6 +29,9 @@ kotlin {
                 implementation(compose.components.resources)
                 implementation(compose.components.uiToolingPreview)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+                implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+                implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
+                implementation("com.squareup.okio:okio:3.9.1")
             }
         }
         val androidMain by getting {
@@ -48,6 +51,7 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
+                implementation("com.squareup.okhttp3:okhttp:4.12.0")
                 implementation("net.java.dev.jna:jna:5.14.0")
             }
         }

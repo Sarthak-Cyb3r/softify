@@ -4,9 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.softify.app.ui.components.*
 import com.softify.app.ui.theme.MetrolistTheme
@@ -142,6 +146,94 @@ class LyricsViewTest {
             assertNotNull(image)
         } catch (e: Throwable) {
             println("Empty state render note: ${e.message}")
+        }
+    }
+
+    @Test
+    fun testLyricLineParagraphWrappingAt360dpWidth() {
+        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
+        val screenshotDir = File(rootDir, "docs/agent/screenshots")
+        screenshotDir.mkdirs()
+
+        val longLine = LyricLine(
+            timeMs = 1000L,
+            endMs = 6000L,
+            text = "A full commitment's what I'm thinking of",
+            words = listOf(
+                LyricWord(1000L, 1600L, "A"),
+                LyricWord(1600L, 2400L, "full"),
+                LyricWord(2400L, 3400L, "commitment's"),
+                LyricWord(3400L, 4000L, "what"),
+                LyricWord(4000L, 4600L, "I'm"),
+                LyricWord(4600L, 5300L, "thinking"),
+                LyricWord(5300L, 6000L, "of")
+            )
+        )
+        val wordCount = longLine.words.size
+
+        var capturedLayout: TextLayoutResult? = null
+
+        // Render at real phone viewport width: 360dp with 24dp horizontal padding
+        val scene = ImageComposeScene(width = 360, height = 300, density = Density(1f)) {
+            MetrolistTheme {
+                Box(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .padding(horizontal = 24.dp)
+                ) {
+                    Text(
+                        text = longLine.words.joinToString(" ") { it.text },
+                        style = LyricTextStyle,
+                        modifier = Modifier.fillMaxWidth(),
+                        onTextLayout = { capturedLayout = it }
+                    )
+                }
+            }
+        }
+
+        val img = scene.render()
+        assertNotNull(img, "Rendered scene must not be null")
+
+        val layout = capturedLayout
+        assertNotNull(layout, "TextLayoutResult must be captured at 360dp width")
+
+        // 1. Assert line count < word count (paragraph wrapping instead of 1 word per line)
+        val lineCount = layout.lineCount
+        println("At 360dp width (312dp available): lineCount=$lineCount, wordCount=$wordCount")
+        assertTrue(lineCount < wordCount, "Paragraph wrapping must result in line count ($lineCount) < word count ($wordCount)")
+        assertTrue(lineCount > 1, "Long 7-word line must wrap to at least 2 lines at 360dp width")
+
+        // 2. Assert first line contains multiple words
+        val firstLineEnd = layout.getLineEnd(0)
+        val fullText = longLine.words.joinToString(" ") { it.text }
+        val firstLineText = fullText.substring(0, firstLineEnd).trim()
+        val firstLineWords = firstLineText.split(Regex("\\s+")).filter { it.isNotBlank() }
+        println("First line text at 360dp: '$firstLineText', words=${firstLineWords.size}")
+        assertTrue(firstLineWords.size >= 2, "First line must contain multiple words, but was: '$firstLineText'")
+
+        // 3. Verify tap-to-seek character offset mapping
+        val tapOffset = Offset(20f, 10f)
+        val charOffset = layout.getOffsetForPosition(tapOffset)
+        assertTrue(charOffset >= 0, "Tap offset must map to valid character index")
+
+        // 4. Verify clip path generation for active word progression
+        val wordRanges = mutableListOf<WordCharRange>()
+        var curr = 0
+        for (w in longLine.words) {
+            val start = curr
+            val end = start + w.text.length
+            wordRanges.add(WordCharRange(w, start, end))
+            curr = end + 1
+        }
+        val clipPath = buildActiveLyricClipPath(layout, wordRanges, 2500L, longLine)
+        assertNotNull(clipPath)
+
+        // Save screenshot
+        val data = img.encodeToData(EncodedImageFormat.PNG)
+        if (data != null) {
+            val outFile = File(screenshotDir, "lyrics_360dp_paragraph_wrap.png")
+            outFile.writeBytes(data.bytes)
+            println("Saved 360dp paragraph wrap screenshot: ${outFile.length()} bytes")
         }
     }
 

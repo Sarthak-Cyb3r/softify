@@ -88,6 +88,14 @@ class MainActivity : ComponentActivity() {
             viewModel.showSnackbar(errMsg)
         }
 
+        // Initialize Coil ImageLoader with 250 MB disk cache & OkHttp
+        try {
+            com.softify.app.ui.components.CoverArtLoader.getImageLoader(applicationContext)
+            PlaybackLogger.log("SoftifyCoverArt", "Coil CoverArtLoader initialized with 250 MB disk cache & shared OkHttpClient")
+        } catch (e: Exception) {
+            PlaybackLogger.log("SoftifyCoverArt", "CoverArtLoader init error: ${e.message}")
+        }
+
         // Initialize JankStats frame latency tracking (debug builds)
         try {
             val jankListener = JankStats.OnFrameListener { frameData ->

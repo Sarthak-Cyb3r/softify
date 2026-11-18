@@ -40,6 +40,12 @@ fun HomeScreen(
 
     var trackForPlaylistSheet by remember { mutableStateOf<Track?>(null) }
 
+    LaunchedEffect(shelves, quickPicks) {
+        val shelfUrls = shelves.flatMap { it.items }.mapNotNull { it.coverUrl }
+        val quickUrls = quickPicks.mapNotNull { it.coverUrl }
+        com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(shelfUrls + quickUrls, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()

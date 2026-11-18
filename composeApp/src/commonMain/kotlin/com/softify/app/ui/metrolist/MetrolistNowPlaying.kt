@@ -256,6 +256,7 @@ fun MetrolistNowPlaying(
                 ) {
                     AsyncCoverArt(
                         url = currentTrack.coverUrl,
+                        size = CoverSize.FULL,
                         contentDescription = currentTrack.title,
                         modifier = Modifier
                             .size(280.dp)

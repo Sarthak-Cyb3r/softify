@@ -1,6 +1,5 @@
 package com.softify.app.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,36 +12,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.softify.app.ui.theme.SquircleShape
-
-expect suspend fun loadNetworkImageBitmap(url: String): ImageBitmap?
-
-private val imageMemoryCache = mutableMapOf<String, ImageBitmap>()
 
 @Composable
 fun AsyncCoverArt(
     url: String?,
     modifier: Modifier = Modifier,
+    size: CoverSize = CoverSize.THUMBNAIL,
     shape: Shape = SquircleShape(12.dp),
     contentDescription: String? = "Cover Art",
     fallbackIconColor: Color = Color.Gray,
-    backgroundColor: Color = Color(0xFF262626)
+    backgroundColor: Color = Color(0xFF242424) // Solid tonal placeholder
 ) {
-    var bitmap by remember(url) { mutableStateOf(url?.let { imageMemoryCache[it] }) }
-
-    LaunchedEffect(url) {
-        if (url != null && bitmap == null) {
-            val loaded = loadNetworkImageBitmap(url)
-            if (loaded != null) {
-                imageMemoryCache[url] = loaded
-                bitmap = loaded
-            }
-        }
-    }
+    val context = LocalPlatformContext.current
+    val formattedUrl = remember(url, size) { formatCoverUrl(url, size) }
+    val imageLoader = remember(context) { CoverArtLoader.getImageLoader(context) }
 
     Box(
         modifier = modifier
@@ -50,10 +41,18 @@ fun AsyncCoverArt(
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
-        val currentBitmap = bitmap
-        if (currentBitmap != null) {
-            Image(
-                bitmap = currentBitmap,
+        if (!formattedUrl.isNullOrBlank()) {
+            val request = remember(formattedUrl) {
+                ImageRequest.Builder(context)
+                    .data(formattedUrl)
+                    .memoryCacheKey(formattedUrl)
+                    .diskCacheKey(formattedUrl)
+                    .crossfade(false) // Zero crossfade delay for cache hits
+                    .build()
+            }
+            AsyncImage(
+                model = request,
+                imageLoader = imageLoader,
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -63,7 +62,7 @@ fun AsyncCoverArt(
                 imageVector = Icons.Filled.MusicNote,
                 contentDescription = contentDescription,
                 modifier = Modifier.size(24.dp),
-                tint = fallbackIconColor
+                tint = fallbackIconColor.copy(alpha = 0.5f)
             )
         }
     }

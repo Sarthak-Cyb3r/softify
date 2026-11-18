@@ -443,6 +443,10 @@ class PlaybackViewModel(
                 _detectedIntent.value = combined.intent
                 _detectedEntity.value = combined.detectedEntity
 
+                // Prefetch artwork for search results immediately
+                val searchCovers = (combined.localTracks + combined.onlineTracks).mapNotNull { it.coverUrl }
+                com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(searchCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+
                 // Record search query in DB (skipped if incognito in Rust core)
                 runCatching { recordSearchQuery(query) }
             } catch (e: Exception) {
@@ -603,6 +607,11 @@ class PlaybackViewModel(
                 val radioRes = getRadioTracks(seedTrackId = seedVid, continuation = null)
                 queueManager.setRadioQueue(track, radioRes.tracks, radioRes.continuation)
                 PlaybackLogger.log("SoftifyPlayback", "Radio queue initialized with ${radioRes.tracks.size} tracks")
+
+                // Prefetch artwork for candidate radio tracks immediately
+                val radioCovers = radioRes.tracks.mapNotNull { it.coverUrl }
+                com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(radioCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+                prefetchUpcomingQueueArt()
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Radio build failed for '${track.title}': ${e.message}")
             }
@@ -616,10 +625,23 @@ class PlaybackViewModel(
                 val res = getRadioTracks(seedTrackId = seedId, continuation = token)
                 queueManager.appendRadioTracks(res.tracks, res.continuation)
                 PlaybackLogger.log("SoftifyPlayback", "Radio continuation fetched: ${res.tracks.size} tracks added")
+
+                // Prefetch continuation artwork
+                val contCovers = res.tracks.mapNotNull { it.coverUrl }
+                com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(contCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+                prefetchUpcomingQueueArt()
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Radio continuation failed: ${e.message}")
                 queueManager.isFetchingContinuation = false
             }
+        }
+    }
+
+    private fun prefetchUpcomingQueueArt() {
+        val upcoming = queueManager.upcomingTracks.take(5).mapNotNull { it.coverUrl }
+        com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(upcoming, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+        if (upcoming.isNotEmpty()) {
+            com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(listOf(upcoming.first()), com.softify.app.ui.components.CoverSize.FULL)
         }
     }
 
@@ -628,16 +650,19 @@ class PlaybackViewModel(
         queueManager.setQueue(tracks, startIndex)
         val target = tracks.getOrNull(startIndex) ?: return
         executePlayTrack(target)
+        prefetchUpcomingQueueArt()
     }
 
     fun playNext(track: Track) {
         queueManager.playNext(track)
         showSnackbar("Playing next: '${track.title}'")
+        prefetchUpcomingQueueArt()
     }
 
     fun addToQueue(track: Track) {
         queueManager.addToQueue(track)
         showSnackbar("Added to queue: '${track.title}'")
+        prefetchUpcomingQueueArt()
     }
 
     fun skipNext() {

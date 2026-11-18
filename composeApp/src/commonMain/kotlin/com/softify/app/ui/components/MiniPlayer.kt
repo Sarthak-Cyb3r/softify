@@ -131,6 +131,7 @@ fun MiniPlayer(
                 // Cover Art Thumbnail
                 AsyncCoverArt(
                     url = track.coverUrl,
+                    size = CoverSize.FULL,
                     modifier = Modifier.size(46.dp),
                     shape = SquircleShape(10.dp)
                 )
