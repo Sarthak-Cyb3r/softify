@@ -1,6 +1,8 @@
-# Facts 2026-11-18T13:58:00+05:30
-HEAD: 81724d524edf6fa54f74bb5f71387976676c6c78
+# Facts 2026-11-18T18:25:00+05:30
+HEAD: 64ca6ed499838fb6255390a421bd6387005ccf8f
 ## Git
+64ca6ed fix(coil): resolve CoverArtLoader context and HomeScreen/PlaybackViewModel track references
+23295a6 fix(m3d-fix3): single Text paragraph lyrics with TextLayoutResult sweep, Coil 3 image caching, and prefetch
 81724d5 fix(lyrics): implement frame-driven withFrameNanos lyrics clock for 60fps word highlight
 7ac9188 fix(lyrics): correct PlaybackLogger import package in MetrolistNowPlaying
 64b235e fix(m3d): fix lyrics toggle touch interception, multi-word flow layout, and Apple Music typography
