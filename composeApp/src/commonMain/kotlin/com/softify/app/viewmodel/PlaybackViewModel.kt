@@ -638,10 +638,17 @@ class PlaybackViewModel(
     }
 
     private fun prefetchUpcomingQueueArt() {
-        val upcoming = queueManager.upcomingTracks.take(5).mapNotNull { it.coverUrl }
-        com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(upcoming, com.softify.app.ui.components.CoverSize.THUMBNAIL)
-        if (upcoming.isNotEmpty()) {
-            com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(listOf(upcoming.first()), com.softify.app.ui.components.CoverSize.FULL)
+        val qState = queueManager.queueState.value
+        val upcoming = if (qState.currentIndex in qState.tracks.indices) {
+            qState.tracks.drop(qState.currentIndex + 1).take(5)
+        } else {
+            qState.tracks.take(5)
+        }
+        val upcomingUrls = upcoming.mapNotNull { it.coverUrl }
+        com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(upcomingUrls, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+        val firstCover = upcomingUrls.firstOrNull()
+        if (firstCover != null) {
+            com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(listOf(firstCover), com.softify.app.ui.components.CoverSize.FULL)
         }
     }
 

@@ -152,6 +152,7 @@ class CoverArtEventListener : EventListener() {
  */
 object CoverArtLoader {
     private var loaderInstance: ImageLoader? = null
+    private var storedContext: PlatformContext? = null
 
     val sharedOkHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -161,6 +162,7 @@ object CoverArtLoader {
     }
 
     fun getImageLoader(context: PlatformContext): ImageLoader {
+        storedContext = context
         return loaderInstance ?: synchronized(this) {
             loaderInstance ?: buildImageLoader(context).also {
                 loaderInstance = it
@@ -222,9 +224,10 @@ object CoverArtLoader {
      */
     fun prefetchIfInitialized(urls: List<String>, size: CoverSize = CoverSize.THUMBNAIL) {
         val loader = loaderInstance ?: return
+        val ctx = storedContext ?: return
         for (rawUrl in urls) {
             val formatted = formatCoverUrl(rawUrl, size) ?: continue
-            val request = ImageRequest.Builder(loader.defaults.context)
+            val request = ImageRequest.Builder(ctx)
                 .data(formatted)
                 .memoryCacheKey(formatted)
                 .diskCacheKey(formatted)
