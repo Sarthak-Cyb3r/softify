@@ -381,3 +381,27 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
 | Accessibility fontScale = 1.3f non-overlapping | Skia Compose desktop test | **verified headless (real data)** |
 | Phone physical on-device testing | Moto G34 physical device | **not verified (no device connected)** |
 
+---
+
+## 6. GitHub Actions Cloud CI & Cloud APK Build
+
+- **Cloud Workflow**: [Build Android Debug APK (Cloud) - Run #44534867271](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44534867271)
+- **Status**: **PASSED (Success)**
+- **Durations**:
+  - `Headless Verification & Static Analysis`: **4m 16s**
+    - `cargo fmt --check`: Clean (0 diffs)
+    - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings)
+    - `cargo test --lib`: Passed (55 passed, 0 failed)
+    - `Compose desktopTest` under xvfb: Passed (11/11 passed, including all invariant assertions and NoEmojiTest)
+  - `Build Android Debug APK with Rust Core`: **9m 3s**
+    - Built arm64-v8a & x86_64 release native libraries (`libsoftify_core.so`)
+    - Built debug split APKs (`composeApp-arm64-v8a-debug.apk`, `composeApp-universal-debug.apk`)
+- **Downloaded Cloud Artifacts** (`~/Downloads`):
+  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices):
+    - Size: **27,513,995 bytes (26.2 MB)**
+    - SHA256: `3462759addd342a5584bf0a7656372bbc1c167642ef4272fc74ed5bacc058459`
+  - **`composeApp-universal-debug.apk`**:
+    - Size: **34,676,145 bytes (33.1 MB)**
+    - SHA256: `1dc0e8b1d45e4a6f565ee87a542d938682374ae1d66478709e6be8ab176c920b`
+
+
