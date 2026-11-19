@@ -31,6 +31,11 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softify.app.util.PlaybackLogger
+import androidx.compose.foundation.gestures.scrollBy
+import kotlin.math.abs
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 /**
@@ -246,14 +251,60 @@ fun LyricsView(
     }
 
     val listState = rememberLazyListState()
+    val visualTranslationY = remember { Animatable(0f) }
+    var manualScrollEndTime by remember { mutableStateOf<TimeMark?>(null) }
 
-    // Smooth auto-scroll to keep active line centered (triggers ONLY when active line changes)
-    LaunchedEffect(activeIndex) {
-        if (activeIndex in lines.indices) {
-            listState.animateScrollToItem(
-                index = activeIndex,
-                scrollOffset = -150
-            )
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            manualScrollEndTime = null
+            visualTranslationY.snapTo(0f)
+        } else {
+            manualScrollEndTime = TimeSource.Monotonic.markNow()
+        }
+    }
+
+    // FLIP spring auto-scroll with 400ms gesture lockout (instant scrollBy shift + damped spring graphicsLayer decay)
+    LaunchedEffect(activeIndex, listState.isScrollInProgress) {
+        if (activeIndex !in lines.indices) return@LaunchedEffect
+
+        // 400ms gesture lockout: suppress while user touches or flings
+        while (listState.isScrollInProgress) {
+            delay(50)
+        }
+        val endTime = manualScrollEndTime
+        if (endTime != null) {
+            val elapsed = endTime.elapsedNow().inWholeMilliseconds
+            if (elapsed < 400L) {
+                delay(400L - elapsed)
+            }
+        }
+        if (listState.isScrollInProgress) return@LaunchedEffect
+
+        val visibleItems = listState.layoutInfo.visibleItemsInfo
+        val targetItem = visibleItems.find { it.index == activeIndex }
+        val viewportHeight = listState.layoutInfo.viewportSize.height
+        val targetCenter = (viewportHeight * 0.35f).toInt().coerceAtLeast(80)
+
+        if (targetItem != null) {
+            val currentCenter = targetItem.offset + targetItem.size / 2
+            val delta = (currentCenter - targetCenter).toFloat()
+            if (abs(delta) > 2f) {
+                // FLIP shift: instant list viewport update
+                listState.scrollBy(delta)
+                // Inverse visual offset on graphicsLayer to prevent any visual jump
+                visualTranslationY.snapTo(delta)
+                // Decays smoothly to 0 with a damped spring
+                visualTranslationY.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.85f,
+                        stiffness = 200f
+                    )
+                )
+            }
+        } else {
+            // Far jump / initial positioning
+            listState.scrollToItem(activeIndex, scrollOffset = -targetCenter)
         }
     }
 
@@ -278,6 +329,7 @@ fun LyricsView(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .graphicsLayer { translationY = visualTranslationY.value }
                     .alpha(animatedAlpha)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
