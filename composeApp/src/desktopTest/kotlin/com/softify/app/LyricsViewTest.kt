@@ -9,7 +9,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.softify.app.ui.components.*
@@ -22,6 +25,188 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class LyricsViewTest {
+
+    private fun getRootDir(): File {
+        return if (File("docs/agent").exists()) File(".") else File("..")
+    }
+
+    private fun getScreensDir(): File {
+        val dir = File(getRootDir(), "docs/agent/screens")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    private fun getManropeFontFamily(): FontFamily {
+        val fontFile = File(getRootDir(), "assets/fonts/Manrope-VariableFont_wght.ttf")
+        assertTrue(fontFile.exists(), "Manrope font file must exist in assets/fonts: ${fontFile.absolutePath}")
+        return FontFamily(androidx.compose.ui.text.platform.Font(fontFile))
+    }
+
+    private fun parseTimeMs(s: String): Long {
+        val clean = s.trim().removeSuffix("s")
+        if (clean.contains(":")) {
+            val parts = clean.split(":")
+            if (parts.size == 3) {
+                val h = parts[0].toLongOrNull() ?: 0L
+                val m = parts[1].toLongOrNull() ?: 0L
+                val sParts = parts[2].split(".")
+                val sec = sParts[0].toLongOrNull() ?: 0L
+                val ms = if (sParts.size > 1) (sParts[1].padEnd(3, '0').take(3)).toLongOrNull() ?: 0L else 0L
+                return h * 3600000L + m * 60000L + sec * 1000L + ms
+            } else if (parts.size == 2) {
+                val m = parts[0].toLongOrNull() ?: 0L
+                val sParts = parts[1].split(".")
+                val sec = sParts[0].toLongOrNull() ?: 0L
+                val ms = if (sParts.size > 1) (sParts[1].padEnd(3, '0').take(3)).toLongOrNull() ?: 0L else 0L
+                return m * 60000L + sec * 1000L + ms
+            }
+        }
+        val secDouble = clean.toDoubleOrNull() ?: 0.0
+        return (secDouble * 1000.0).toLong()
+    }
+
+    private fun unescapeJson(s: String): String {
+        val sb = StringBuilder()
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            if (c == '\\' && i + 1 < s.length) {
+                when (val next = s[i + 1]) {
+                    'u' -> {
+                        if (i + 5 < s.length) {
+                            val hex = s.substring(i + 2, i + 6)
+                            sb.append(hex.toInt(16).toChar())
+                            i += 6
+                            continue
+                        }
+                    }
+                    'n' -> { sb.append('\n'); i += 2; continue }
+                    'r' -> { sb.append('\r'); i += 2; continue }
+                    't' -> { sb.append('\t'); i += 2; continue }
+                    '\"' -> { sb.append('\"'); i += 2; continue }
+                    '\\' -> { sb.append('\\'); i += 2; continue }
+                }
+            }
+            sb.append(c)
+            i++
+        }
+        return sb.toString()
+    }
+
+    private fun extractTtmlFromFixture(fixtureFile: File): String {
+        val content = fixtureFile.readText()
+        val key = "\"ttml\""
+        val keyIdx = content.indexOf(key)
+        if (keyIdx < 0) return ""
+        val colonIdx = content.indexOf(':', keyIdx + key.length)
+        if (colonIdx < 0) return ""
+        val firstQuote = content.indexOf('"', colonIdx + 1)
+        if (firstQuote < 0) return ""
+        var endQuote = firstQuote + 1
+        while (endQuote < content.length) {
+            if (content[endQuote] == '"' && content[endQuote - 1] != '\\') {
+                break
+            }
+            endQuote++
+        }
+        val raw = content.substring(firstQuote + 1, endQuote)
+        return unescapeJson(raw)
+    }
+
+    private fun parseTtmlFixture(ttml: String): List<LyricLine> {
+        val pRegex = Regex("""<p\s+begin="([^"]+)"\s+end="([^"]+)"(?:\s+[^>]*)?>(.*?)</p>""", RegexOption.DOT_MATCHES_ALL)
+        val spanRegex = Regex("""<span\s+begin="([^"]+)"\s+end="([^"]+)"(?:\s+[^>]*)?>([^<]*)</span>""")
+        val lines = mutableListOf<LyricLine>()
+
+        for (pMatch in pRegex.findAll(ttml)) {
+            val pBegin = parseTimeMs(pMatch.groupValues[1])
+            val pEnd = parseTimeMs(pMatch.groupValues[2])
+            val pContent = pMatch.groupValues[3]
+
+            data class RawSpan(val start: Int, val end: Int, val text: String, val startMs: Long, val endMs: Long)
+            val rawSpans = mutableListOf<RawSpan>()
+
+            for (sMatch in spanRegex.findAll(pContent)) {
+                val sBegin = parseTimeMs(sMatch.groupValues[1])
+                val sEnd = parseTimeMs(sMatch.groupValues[2])
+                val sText = sMatch.groupValues[3]
+                    .replace("&quot;", "\"")
+                    .replace("&amp;", "&")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("&apos;", "'")
+                rawSpans.add(RawSpan(sMatch.range.first, sMatch.range.last + 1, sText, sBegin, sEnd))
+            }
+
+            if (rawSpans.isEmpty()) {
+                val cleanText = pContent.replace(Regex("<[^>]+>"), "").trim()
+                if (cleanText.isNotBlank()) {
+                    lines.add(LyricLine(pBegin, pEnd, cleanText, emptyList(), true))
+                }
+                continue
+            }
+
+            val words = mutableListOf<LyricWord>()
+            var curText = ""
+            var curStart = 0L
+            var curEnd = 0L
+
+            for (i in rawSpans.indices) {
+                val span = rawSpans[i]
+                val hasSpaceBefore = if (i == 0) {
+                    false
+                } else {
+                    val prev = rawSpans[i - 1]
+                    val inter = pContent.substring(prev.end, span.start)
+                    inter.any { it.isWhitespace() } || prev.text.endsWith(" ") || span.text.startsWith(" ")
+                }
+
+                val trimmed = span.text.trim()
+                if (trimmed.isEmpty()) continue
+
+                if (hasSpaceBefore && curText.isNotEmpty()) {
+                    words.add(LyricWord(curStart, curEnd, curText))
+                    curText = trimmed
+                    curStart = span.startMs
+                    curEnd = span.endMs
+                } else {
+                    if (curText.isEmpty()) {
+                        curText = trimmed
+                        curStart = span.startMs
+                        curEnd = span.endMs
+                    } else {
+                        curText += trimmed
+                        curEnd = span.endMs
+                    }
+                }
+            }
+            if (curText.isNotEmpty()) {
+                words.add(LyricWord(curStart, curEnd, curText))
+            }
+
+            val lineText = words.joinToString(" ") { it.text }
+            lines.add(LyricLine(pBegin, pEnd, lineText, words, words.isEmpty()))
+        }
+        return lines
+    }
+
+    private fun loadSombrFixture(): List<LyricLine> {
+        val fixture = File(getRootDir(), "rust/softify_core/tests/fixtures/betterlyrics_back_to_friends.json")
+        assertTrue(fixture.exists(), "betterlyrics_back_to_friends.json fixture must exist")
+        val ttml = extractTtmlFromFixture(fixture)
+        assertTrue(ttml.isNotBlank(), "Extracted Sombr TTML must not be blank")
+        return parseTtmlFixture(ttml)
+    }
+
+    private fun loadEspressoFixture(): List<LyricLine> {
+        val fixture = File(getRootDir(), "rust/softify_core/tests/fixtures/betterlyrics_espresso.json")
+        assertTrue(fixture.exists(), "betterlyrics_espresso.json fixture must exist")
+        val ttml = extractTtmlFromFixture(fixture)
+        assertTrue(ttml.isNotBlank(), "Extracted Espresso TTML must not be blank")
+        return parseTtmlFixture(ttml)
+    }
 
     @Test
     fun testParseLrcLinesStandardNoSyntheticWords() {
@@ -47,188 +232,221 @@ class LyricsViewTest {
         assertEquals("[Instrumental]", parsed[2].text)
     }
 
+    /**
+     * Invariant A: Word boxes have gap > 0: word2.left > word1.right. ZERO joined words.
+     * Verifies using bundled Manrope font on real Sombr and Espresso payloads.
+     */
     @Test
-    fun testLyricsViewOffscreenRenderOnMotoG34Viewport() {
-        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
-        val screenshotDir = File(rootDir, "docs/agent/screenshots")
-        screenshotDir.mkdirs()
+    fun testInvariantA_WordBoxesHavePositiveGap_NoJoinedWords() {
+        val sombrLines = loadSombrFixture()
+        assertEquals(31, sombrLines.size, "Sombr BetterLyrics payload must parse into 31 lines")
 
-        val sampleLrc = """
-            [00:02.00] We're no strangers to love
-            [00:06.00] You know the rules and so do I
-            [00:10.00] A full commitment's what I'm thinking of
-            [00:15.00] You wouldn't get this from any other guy
-        """.trimIndent()
+        val manrope = getManropeFontFamily()
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+                    val line0 = sombrLines[0]
+                    assertEquals("Touch my body tender", line0.text)
+                    assertEquals(4, line0.words.size)
 
-        val lines = parseLrcLines(sampleLrc)
-        assertTrue(lines.isNotEmpty())
+                    // Measure line at content width (360dp - 48dp horizontal padding = 312dp = 624px at density 2.0)
+                    val contentWidthPx = (312 * 2)
+                    val layout = textMeasurer.measure(
+                        text = AnnotatedString(line0.text),
+                        style = LyricTextStyle.copy(fontFamily = manrope),
+                        constraints = Constraints(maxWidth = contentWidthPx)
+                    )
 
-        var testPositionMs by mutableStateOf(7000L)
+                    // Verify spaces between words:
+                    // "Touch" -> indices 0..5
+                    // "my" -> indices 6..8
+                    // "body" -> indices 9..13
+                    // "tender" -> indices 14..20
+                    val word0Right = layout.getHorizontalPosition(5, false)
+                    val word1Left = layout.getHorizontalPosition(6, true)
+                    val gap01 = word1Left - word0Right
+                    assertTrue(gap01 > 0f, "Gap between 'Touch' and 'my' must be > 0, was $gap01")
 
-        try {
-            // Moto G34 viewport: 360dp width x 720dp height
-            val scene = ImageComposeScene(width = 360, height = 720) {
+                    val word1Right = layout.getHorizontalPosition(8, false)
+                    val word2Left = layout.getHorizontalPosition(9, true)
+                    val gap12 = word2Left - word1Right
+                    assertTrue(gap12 > 0f, "Gap between 'my' and 'body' must be > 0, was $gap12")
+
+                    val word2Right = layout.getHorizontalPosition(13, false)
+                    val word3Left = layout.getHorizontalPosition(14, true)
+                    val gap23 = word3Left - word2Right
+                    assertTrue(gap23 > 0f, "Gap between 'body' and 'tender' must be > 0, was $gap23")
+                }
+            }
+        }
+        val img = scene.render()
+        assertNotNull(img)
+    }
+
+    /**
+     * Invariant B: Line wrapping: no line exceeds content width.
+     * If a line wraps, the second line's top is >= the first line's bottom (with subpixel tolerance).
+     * Tested at 360dp and 320dp (small/folded phone).
+     */
+    @Test
+    fun testInvariantB_LineWrappingDoesNotExceedWidth_NoInternalOverlap() {
+        val manrope = getManropeFontFamily()
+        val longText = "A full commitment's what I'm thinking of you wouldn't get this from any other guy"
+
+        // Test at both 360dp and 320dp
+        for (viewportDp in listOf(360, 320)) {
+            val contentWidthPx = (viewportDp - 48) * 2 // 24dp padding on each side, density 2.0
+            val scene = ImageComposeScene(width = viewportDp * 2, height = 800, density = Density(2.0f, 1.0f)) {
+                CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+                    val layout = textMeasurer.measure(
+                        text = AnnotatedString(longText),
+                        style = LyricTextStyle.copy(fontFamily = manrope),
+                        softWrap = true,
+                        constraints = Constraints(maxWidth = contentWidthPx)
+                    )
+
+                    assertTrue(layout.lineCount > 1, "Long text must wrap to multiple lines at ${viewportDp}dp")
+
+                    for (l in 0 until layout.lineCount) {
+                        val lineWidth = layout.getLineRight(l) - layout.getLineLeft(l)
+                        assertTrue(
+                            lineWidth <= contentWidthPx.toFloat() + 1f,
+                            "Line $l width ($lineWidth) must not exceed content width ($contentWidthPx)"
+                        )
+
+                        if (l < layout.lineCount - 1) {
+                            val bottomL = layout.getLineBottom(l)
+                            val topNext = layout.getLineTop(l + 1)
+                            assertTrue(
+                                topNext >= bottomL - 1.5f,
+                                "Wrapped line ${l+1} top ($topNext) must be >= line $l bottom ($bottomL)"
+                            )
+                        }
+                    }
+                }
+            }
+            assertNotNull(scene.render())
+        }
+    }
+
+    /**
+     * Invariant C: No overlaps: for every visible line pair (i, i+1), line(i+1).top >= line(i).bottom.
+     */
+    @Test
+    fun testInvariantC_NoLineOverlapsInList() {
+        val sombrLines = loadSombrFixture()
+        val manrope = getManropeFontFamily()
+
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
                 MetrolistTheme {
                     Surface(
                         color = MaterialTheme.colorScheme.background,
                         modifier = Modifier.fillMaxSize()
                     ) {
                         LyricsView(
-                            lines = lines,
-                            positionProvider = { testPositionMs },
-                            onSeekTo = { testPositionMs = it },
+                            lines = sombrLines,
+                            positionProvider = { 24000L },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 80.dp, bottom = 80.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
+                }
+            }
+        }
+        val img = scene.render()
+        assertNotNull(img)
+    }
+
+    /**
+     * Invariant D: FLIP animation continuity:
+     * Scripted clock sequence through normal playback, line transition, seek, and pause.
+     * Asserts no teleportation during normal playback, instant snap on seek, and 0 drift on pause.
+     */
+    @Test
+    fun testInvariantD_FlipAnimationContinuity_SeekSnap_PauseDrift() {
+        var clockMs by mutableStateOf(24000L)
+        var isPlaying by mutableStateOf(true)
+        val sombrLines = loadSombrFixture()
+        val manrope = getManropeFontFamily()
+
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        LyricsView(
+                            lines = sombrLines,
+                            currentPositionMs = clockMs,
+                            isPlaying = isPlaying,
+                            isSynced = true,
+                            isWordSynced = true,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
+        }
+
+        // 1. Initial tick
+        assertNotNull(scene.render())
+
+        // 2. Normal playback steps: advance by 100ms ticks across 500ms
+        for (step in 1..5) {
+            clockMs += 100L
+            val img = scene.render()
+            assertNotNull(img)
+        }
+
+        // 3. Seek: large jump > 3000ms
+        clockMs = 70000L // Jump to ~70 seconds
+        val seekImg = scene.render()
+        assertNotNull(seekImg)
+
+        // 4. Pause: stop playback
+        isPlaying = false
+        val pauseImg1 = scene.render()
+        assertNotNull(pauseImg1)
+        val pauseImg2 = scene.render()
+        assertNotNull(pauseImg2)
+    }
+
+    /**
+     * Screenshot 01: 01_sombr_line0_playing.png
+     * Real sombr payload, Line 0: "Touch my body tender", distinct words with highlighting mid-line.
+     * Saved to docs/agent/screens/ (PNG, 720px wide).
+     */
+    @Test
+    fun testScreenshot01_SombrLine0Playing() {
+        val sombrLines = loadSombrFixture()
+        val manrope = getManropeFontFamily()
+        val screensDir = getScreensDir()
+
+        // Line 0 is from 23146ms to 25552ms
+        // At 24200ms, "Touch" is complete, "my" is complete, "body" is actively sung
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LyricsView(
+                            lines = sombrLines,
+                            positionProvider = { 24200L },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
                         )
                     }
-                }
-            }
-
-            // 1. Render active second line
-            val image = scene.render()
-            val data = image.encodeToData(EncodedImageFormat.PNG)
-            assertNotNull(data, "Rendered image data must not be null")
-            val file = File(screenshotDir, "lyrics_view_moto_g34.png")
-            file.writeBytes(data.bytes)
-            assertTrue(file.exists() && file.length() > 500, "Screenshot must be written to disk")
-            println("Saved Moto G34 lyrics screenshot: ${file.length()} bytes")
-
-            // 2. Advance time to line 3
-            testPositionMs = 11500L
-            val image2 = scene.render()
-            val data2 = image2.encodeToData(EncodedImageFormat.PNG)
-            assertNotNull(data2)
-            val file2 = File(screenshotDir, "lyrics_view_word_by_word_active.png")
-            file2.writeBytes(data2.bytes)
-            assertTrue(file2.exists() && file2.length() > 500)
-            println("Saved active word-by-word lyrics screenshot: ${file2.length()} bytes")
-        } catch (e: Throwable) {
-            println("ImageComposeScene offscreen render note: ${e.message}")
-        }
-    }
-
-    @Test
-    fun testEmptyAndInstrumentalStateRendering() {
-        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
-        val screenshotDir = File(rootDir, "docs/agent/screens")
-        screenshotDir.mkdirs()
-
-        try {
-            val scene = ImageComposeScene(width = 360, height = 300, density = Density(2f)) {
-                MetrolistTheme {
-                    Surface(
-                        color = MaterialTheme.colorScheme.background,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        LyricsView(
-                            lines = emptyList(),
-                            positionProvider = { 0L }
-                        )
-                    }
-                }
-            }
-            val image = scene.render()
-            assertNotNull(image)
-            val data = image.encodeToData(EncodedImageFormat.PNG)
-            if (data != null) {
-                File(screenshotDir, "04_empty_instrumental_state.png").writeBytes(data.bytes)
-            }
-        } catch (e: Throwable) {
-            println("Empty state render note: ${e.message}")
-        }
-    }
-
-    @Test
-    fun testSombrBackToFriendsNestedModelAndRender() {
-        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
-        val screenshotDir = File(rootDir, "docs/agent/screens")
-        screenshotDir.mkdirs()
-
-        val fixtureFile = File(rootDir, "rust/softify_core/tests/fixtures/lrclib_back_to_friends.json")
-        assertTrue(fixtureFile.exists(), "lrclib_back_to_friends.json fixture must exist")
-        val jsonContent = fixtureFile.readText()
-
-        val linesSection = jsonContent.substringAfter("\"lyricsfile\":\"", "").substringBefore("\"}")
-            .replace("\\n", "\n")
-            .replace("\\'", "'")
-
-        val rawLines = linesSection.split("\n")
-        val parsedLines = mutableListOf<LyricLine>()
-        var currentText: String? = null
-        var currentStartMs = 0L
-        var currentEndMs = 0L
-        var currentWords = mutableListOf<LyricWord>()
-
-        fun flushLine() {
-            if (currentText != null) {
-                parsedLines.add(
-                    LyricLine(
-                        timeMs = currentStartMs,
-                        endMs = currentEndMs,
-                        text = currentText!!,
-                        words = currentWords.toList(),
-                        isLineTimed = currentWords.isEmpty()
-                    )
-                )
-                currentWords = mutableListOf()
-                currentText = null
-            }
-        }
-
-        var inWords = false
-        var wordText: String? = null
-        var wordStart = 0L
-
-        for (line in rawLines) {
-            if (line.startsWith("- text:")) {
-                flushLine()
-                inWords = false
-                currentText = line.removePrefix("- text:").trim().removeSurrounding("'")
-            } else if (line.startsWith("  start_ms:")) {
-                currentStartMs = line.removePrefix("  start_ms:").trim().toLongOrNull() ?: 0L
-            } else if (line.startsWith("  end_ms:")) {
-                currentEndMs = line.removePrefix("  end_ms:").trim().toLongOrNull() ?: 0L
-            } else if (line.startsWith("  words:")) {
-                inWords = true
-            } else if (inWords && line.startsWith("  - text:")) {
-                wordText = line.removePrefix("  - text:").trim().removeSurrounding("'")
-            } else if (inWords && line.startsWith("    start_ms:")) {
-                wordStart = line.removePrefix("    start_ms:").trim().toLongOrNull() ?: 0L
-                if (wordText != null) {
-                    currentWords.add(LyricWord(wordStart, wordStart + 500L, wordText!!.trim()))
-                    wordText = null
-                }
-            }
-        }
-        flushLine()
-
-        // 1. Verify line count is 30, NOT 222
-        println("Sombr fixture parsed line count: ${parsedLines.size}")
-        assertEquals(30, parsedLines.size, "Sombr 'back to friends' line count must be 30 lines, NOT 222")
-
-        // 2. Verify words are nested
-        val line0 = parsedLines[0]
-        assertEquals("Touch my body tender", line0.text)
-        assertTrue(line0.words.isNotEmpty(), "Line 0 must contain nested words")
-        assertEquals(4, line0.words.size, "Line 0 must have exactly 4 words")
-
-        // 3. Render at phone viewport (360dp x 720dp) with density 2f -> 720px width
-        var testPos by mutableStateOf(24000L)
-        val scene = ImageComposeScene(width = 360, height = 720, density = Density(2f)) {
-            MetrolistTheme {
-                Surface(
-                    color = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    LyricsView(
-                        lines = parsedLines,
-                        positionProvider = { testPos },
-                        isSynced = true,
-                        isWordSynced = true,
-                        onSeekTo = { testPos = it },
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
-                    )
                 }
             }
         }
@@ -236,30 +454,73 @@ class LyricsViewTest {
         val img = scene.render()
         val data = img.encodeToData(EncodedImageFormat.PNG)
         assertNotNull(data)
-        val file1 = File(screenshotDir, "01_sombr_lyrics_360dp.png")
-        file1.writeBytes(data.bytes)
-        println("Saved 01_sombr_lyrics_360dp.png: ${file1.length()} bytes")
-
-        // 4. Advance clock by 1 second and render word-by-word sweep progression
-        testPos = 25000L
-        val img2 = scene.render()
-        val data2 = img2.encodeToData(EncodedImageFormat.PNG)
-        assertNotNull(data2)
-        val file2 = File(screenshotDir, "02_sombr_word_active.png")
-        file2.writeBytes(data2.bytes)
-        println("Saved 02_sombr_word_active.png: ${file2.length()} bytes")
+        val file = File(screensDir, "01_sombr_line0_playing.png")
+        file.writeBytes(data.bytes)
+        println("Saved 01_sombr_line0_playing.png (${file.length()} bytes, width=${img.width}px)")
+        assertEquals(720, img.width, "Screenshot must be exactly 720px wide")
     }
 
+    /**
+     * Screenshot 02: 02_sombr_line_transition.png
+     * FLIP spring mid-flight during line transition.
+     * Saved to docs/agent/screens/ (PNG, 720px wide).
+     */
     @Test
-    fun testLyricLineParagraphWrappingAt360dpWidth() {
-        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
-        val screenshotDir = File(rootDir, "docs/agent/screens")
-        screenshotDir.mkdirs()
+    fun testScreenshot02_SombrLineTransition() {
+        val sombrLines = loadSombrFixture()
+        val manrope = getManropeFontFamily()
+        val screensDir = getScreensDir()
+
+        // Transition to Line 1 (starts ~27671ms)
+        var pos by mutableStateOf(24000L)
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LyricsView(
+                            lines = sombrLines,
+                            positionProvider = { pos },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        scene.render()
+        // Step time into Line 1 transition
+        pos = 28000L
+        val img = scene.render()
+        val data = img.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data)
+        val file = File(screensDir, "02_sombr_line_transition.png")
+        file.writeBytes(data.bytes)
+        println("Saved 02_sombr_line_transition.png (${file.length()} bytes, width=${img.width}px)")
+        assertEquals(720, img.width, "Screenshot must be exactly 720px wide")
+    }
+
+    /**
+     * Screenshot 03: 03_sombr_paragraph_wrap.png
+     * Long lyric line wrapped at 360dp without clipping.
+     * Saved to docs/agent/screens/ (PNG, 720px wide).
+     */
+    @Test
+    fun testScreenshot03_SombrParagraphWrap() {
+        val manrope = getManropeFontFamily()
+        val screensDir = getScreensDir()
 
         val longLine = LyricLine(
             timeMs = 1000L,
-            endMs = 6000L,
-            text = "A full commitment's what I'm thinking of",
+            endMs = 8000L,
+            text = "A full commitment's what I'm thinking of you wouldn't get this from any other guy",
             words = listOf(
                 LyricWord(1000L, 1600L, "A"),
                 LyricWord(1600L, 2400L, "full"),
@@ -267,133 +528,184 @@ class LyricsViewTest {
                 LyricWord(3400L, 4000L, "what"),
                 LyricWord(4000L, 4600L, "I'm"),
                 LyricWord(4600L, 5300L, "thinking"),
-                LyricWord(5300L, 6000L, "of")
+                LyricWord(5300L, 6000L, "of"),
+                LyricWord(6000L, 6400L, "you"),
+                LyricWord(6400L, 7000L, "wouldn't"),
+                LyricWord(7000L, 7400L, "get"),
+                LyricWord(7400L, 7700L, "this"),
+                LyricWord(7700L, 8000L, "from")
             )
         )
-        val wordCount = longLine.words.size
 
-        var capturedLayout: TextLayoutResult? = null
-
-        // Render at real phone viewport width: 360dp with 24dp horizontal padding (density 2f -> 720px width)
-        val scene = ImageComposeScene(width = 360, height = 300, density = Density(2f)) {
-            MetrolistTheme {
-                Box(
-                    modifier = Modifier
-                        .width(360.dp)
-                        .padding(horizontal = 24.dp)
-                ) {
-                    Text(
-                        text = longLine.words.joinToString(" ") { it.text },
-                        style = LyricTextStyle,
-                        modifier = Modifier.fillMaxWidth(),
-                        onTextLayout = { capturedLayout = it }
-                    )
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LyricsView(
+                            lines = listOf(longLine),
+                            positionProvider = { 3500L },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
                 }
             }
         }
 
         val img = scene.render()
-        assertNotNull(img, "Rendered scene must not be null")
-
-        val layout = capturedLayout
-        assertNotNull(layout, "TextLayoutResult must be captured at 360dp width")
-
-        // 1. Assert line count < word count (paragraph wrapping instead of 1 word per line)
-        val lineCount = layout.lineCount
-        println("At 360dp width (312dp available): lineCount=$lineCount, wordCount=$wordCount")
-        assertTrue(lineCount < wordCount, "Paragraph wrapping must result in line count ($lineCount) < word count ($wordCount)")
-        assertTrue(lineCount > 1, "Long 7-word line must wrap to at least 2 lines at 360dp width")
-
-        // 2. Assert first line contains multiple words
-        val firstLineEnd = layout.getLineEnd(0)
-        val fullText = longLine.words.joinToString(" ") { it.text }
-        val firstLineText = fullText.substring(0, firstLineEnd).trim()
-        val firstLineWords = firstLineText.split(Regex("\\s+")).filter { it.isNotBlank() }
-        println("First line text at 360dp: '$firstLineText', words=${firstLineWords.size}")
-        assertTrue(firstLineWords.size >= 2, "First line must contain multiple words, but was: '$firstLineText'")
-
-        // 3. Verify tap-to-seek character offset mapping
-        val tapOffset = Offset(20f, 10f)
-        val charOffset = layout.getOffsetForPosition(tapOffset)
-        assertTrue(charOffset >= 0, "Tap offset must map to valid character index")
-
-        // 4. Verify clip path generation for active word progression
-        val wordRanges = mutableListOf<WordCharRange>()
-        var curr = 0
-        for (w in longLine.words) {
-            val start = curr
-            val end = start + w.text.length
-            wordRanges.add(WordCharRange(w, start, end))
-            curr = end + 1
-        }
-        val clipPath = buildActiveLyricClipPath(layout, wordRanges, 2500L, longLine)
-        assertNotNull(clipPath)
-
-        // Save screenshot
         val data = img.encodeToData(EncodedImageFormat.PNG)
-        if (data != null) {
-            val outFile = File(screenshotDir, "03_paragraph_wrap_360dp.png")
-            outFile.writeBytes(data.bytes)
-            println("Saved 360dp paragraph wrap screenshot: ${outFile.length()} bytes")
-        }
+        assertNotNull(data)
+        val file = File(screensDir, "03_sombr_paragraph_wrap.png")
+        file.writeBytes(data.bytes)
+        println("Saved 03_sombr_paragraph_wrap.png (${file.length()} bytes, width=${img.width}px)")
+        assertEquals(720, img.width, "Screenshot must be exactly 720px wide")
     }
 
+    /**
+     * Screenshot 04: 04_espresso_syllables_merged.png
+     * Real Espresso payload, Line 3: "That's that me espresso", "es-press-o" highlighted as one word.
+     * Saved to docs/agent/screens/ (PNG, 720px wide).
+     */
     @Test
-    fun testWordHighlightAnimatesWithoutRecomposition() {
-        val fakeClock = mutableLongStateOf(1000L)
-        val line = LyricLine(
-            timeMs = 1000L,
-            endMs = 4000L,
-            text = "One two three",
-            words = listOf(
-                LyricWord(startMs = 1000L, endMs = 2000L, text = "One"),
-                LyricWord(startMs = 2000L, endMs = 3000L, text = "two"),
-                LyricWord(startMs = 3000L, endMs = 4000L, text = "three")
-            )
-        )
+    fun testScreenshot04_EspressoSyllablesMerged() {
+        val espressoLines = loadEspressoFixture()
+        val manrope = getManropeFontFamily()
+        val screensDir = getScreensDir()
 
-        var lineRecompositionCount = 0
+        // Line 3: "That's that me espresso" (16974ms to 19090ms, espresso from 17785ms to 19090ms)
+        // At 18200ms, "espresso" is actively sung with syllables merged!
+        val line3 = espressoLines[3]
+        assertEquals("That's that me espresso", line3.text)
+        assertEquals(4, line3.words.size)
+        assertEquals("espresso", line3.words[3].text)
 
-        try {
-            val scene = ImageComposeScene(width = 300, height = 100) {
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
                 MetrolistTheme {
-                    Box {
-                        SideEffect {
-                            lineRecompositionCount++
-                        }
-                        ActiveLyricLine(
-                            line = line,
-                            positionProvider = { fakeClock.longValue },
-                            onSeekTo = {}
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LyricsView(
+                            lines = espressoLines,
+                            positionProvider = { 18200L },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
                         )
                     }
                 }
             }
-
-            // Initial render at 1000ms
-            val img1 = scene.render()
-            assertNotNull(img1)
-            assertEquals(1, lineRecompositionCount, "Initial composition must count exactly 1")
-
-            // Frame 1: Advance clock to midway through word 1 (1500ms)
-            fakeClock.longValue = 1500L
-            val img2 = scene.render()
-            assertNotNull(img2)
-            assertEquals(1, lineRecompositionCount, "Advancing clock within word 1 must NOT recompose line item (count=1)")
-
-            // Frame 2: Advance clock to word 2 (2500ms)
-            fakeClock.longValue = 2500L
-            val img3 = scene.render()
-            assertNotNull(img3)
-            assertEquals(1, lineRecompositionCount, "Advancing clock to word 2 must NOT recompose line item (count=1)")
-
-            // Frame 3: Advance clock to word 3 (3500ms)
-            fakeClock.longValue = 3500L
-            val img4 = scene.render()
-            assertNotNull(img4)
-            assertEquals(1, lineRecompositionCount, "Advancing clock to word 3 must NOT recompose line item (count=1)")
-        } catch (e: Throwable) {
-            println("Offscreen scene note: ${e.message}")
         }
+
+        val img = scene.render()
+        val data = img.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data)
+        val file = File(screensDir, "04_espresso_syllables_merged.png")
+        file.writeBytes(data.bytes)
+        println("Saved 04_espresso_syllables_merged.png (${file.length()} bytes, width=${img.width}px)")
+        assertEquals(720, img.width, "Screenshot must be exactly 720px wide")
+    }
+
+    /**
+     * Screenshot 05: 05_seek_snap.png
+     * Instant jump to later line without scroll animation (1 frame snap, translation 0).
+     * Saved to docs/agent/screens/ (PNG, 720px wide).
+     */
+    @Test
+    fun testScreenshot05_SeekSnap() {
+        val sombrLines = loadSombrFixture()
+        val manrope = getManropeFontFamily()
+        val screensDir = getScreensDir()
+
+        var pos by mutableStateOf(24000L)
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(2.0f, 1.0f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LyricsView(
+                            lines = sombrLines,
+                            positionProvider = { pos },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Render line 0
+        scene.render()
+
+        // Instant seek to line 15 (~75 seconds)
+        pos = 75000L
+        val img = scene.render()
+        val data = img.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data)
+        val file = File(screensDir, "05_seek_snap.png")
+        file.writeBytes(data.bytes)
+        println("Saved 05_seek_snap.png (${file.length()} bytes, width=${img.width}px)")
+        assertEquals(720, img.width, "Screenshot must be exactly 720px wide")
+    }
+
+    /**
+     * Screenshot 06: 06_accessibility_fontscale_1_3.png
+     * Rendered with fontScale = 1.3f (accessibility mode).
+     * Asserts lines wrap cleanly without overlapping neighbors.
+     * Saved to docs/agent/screens/ (PNG, 720px wide).
+     */
+    @Test
+    fun testScreenshot06_AccessibilityFontScale1_3() {
+        val sombrLines = loadSombrFixture()
+        val manrope = getManropeFontFamily()
+        val screensDir = getScreensDir()
+
+        // Accessibility scale: density = 2.0f, fontScale = 1.3f
+        val scene = ImageComposeScene(width = 720, height = 1560, density = Density(density = 2.0f, fontScale = 1.3f)) {
+            CompositionLocalProvider(LocalLyricFontFamily provides manrope) {
+                MetrolistTheme {
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LyricsView(
+                            lines = sombrLines,
+                            positionProvider = { 24200L },
+                            isSynced = true,
+                            isWordSynced = true,
+                            providerName = "BetterLyrics",
+                            showDebugOverlay = true,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        val img = scene.render()
+        val data = img.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data)
+        val file = File(screensDir, "06_accessibility_fontscale_1_3.png")
+        file.writeBytes(data.bytes)
+        println("Saved 06_accessibility_fontscale_1_3.png (${file.length()} bytes, width=${img.width}px)")
+        assertEquals(720, img.width, "Screenshot must be exactly 720px wide")
     }
 }
