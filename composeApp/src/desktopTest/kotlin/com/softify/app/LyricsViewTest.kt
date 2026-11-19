@@ -109,8 +109,12 @@ class LyricsViewTest {
 
     @Test
     fun testEmptyAndInstrumentalStateRendering() {
+        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
+        val screenshotDir = File(rootDir, "docs/agent/screens")
+        screenshotDir.mkdirs()
+
         try {
-            val scene = ImageComposeScene(width = 360, height = 300) {
+            val scene = ImageComposeScene(width = 360, height = 300, density = Density(2f)) {
                 MetrolistTheme {
                     Surface(
                         color = MaterialTheme.colorScheme.background,
@@ -125,15 +129,131 @@ class LyricsViewTest {
             }
             val image = scene.render()
             assertNotNull(image)
+            val data = image.encodeToData(EncodedImageFormat.PNG)
+            if (data != null) {
+                File(screenshotDir, "04_empty_instrumental_state.png").writeBytes(data.bytes)
+            }
         } catch (e: Throwable) {
             println("Empty state render note: ${e.message}")
         }
     }
 
     @Test
+    fun testSombrBackToFriendsNestedModelAndRender() {
+        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
+        val screenshotDir = File(rootDir, "docs/agent/screens")
+        screenshotDir.mkdirs()
+
+        val fixtureFile = File(rootDir, "rust/softify_core/tests/fixtures/lrclib_back_to_friends.json")
+        assertTrue(fixtureFile.exists(), "lrclib_back_to_friends.json fixture must exist")
+        val jsonContent = fixtureFile.readText()
+
+        val linesSection = jsonContent.substringAfter("\"lyricsfile\":\"", "").substringBefore("\"}")
+            .replace("\\n", "\n")
+            .replace("\\'", "'")
+
+        val rawLines = linesSection.split("\n")
+        val parsedLines = mutableListOf<LyricLine>()
+        var currentText: String? = null
+        var currentStartMs = 0L
+        var currentEndMs = 0L
+        var currentWords = mutableListOf<LyricWord>()
+
+        fun flushLine() {
+            if (currentText != null) {
+                parsedLines.add(
+                    LyricLine(
+                        timeMs = currentStartMs,
+                        endMs = currentEndMs,
+                        text = currentText!!,
+                        words = currentWords.toList(),
+                        isLineTimed = currentWords.isEmpty()
+                    )
+                )
+                currentWords = mutableListOf()
+                currentText = null
+            }
+        }
+
+        var inWords = false
+        var wordText: String? = null
+        var wordStart = 0L
+
+        for (line in rawLines) {
+            if (line.startsWith("- text:")) {
+                flushLine()
+                inWords = false
+                currentText = line.removePrefix("- text:").trim().removeSurrounding("'")
+            } else if (line.startsWith("  start_ms:")) {
+                currentStartMs = line.removePrefix("  start_ms:").trim().toLongOrNull() ?: 0L
+            } else if (line.startsWith("  end_ms:")) {
+                currentEndMs = line.removePrefix("  end_ms:").trim().toLongOrNull() ?: 0L
+            } else if (line.startsWith("  words:")) {
+                inWords = true
+            } else if (inWords && line.startsWith("  - text:")) {
+                wordText = line.removePrefix("  - text:").trim().removeSurrounding("'")
+            } else if (inWords && line.startsWith("    start_ms:")) {
+                wordStart = line.removePrefix("    start_ms:").trim().toLongOrNull() ?: 0L
+                if (wordText != null) {
+                    currentWords.add(LyricWord(wordStart, wordStart + 500L, wordText!!.trim()))
+                    wordText = null
+                }
+            }
+        }
+        flushLine()
+
+        // 1. Verify line count is 30, NOT 222
+        println("Sombr fixture parsed line count: ${parsedLines.size}")
+        assertEquals(30, parsedLines.size, "Sombr 'back to friends' line count must be 30 lines, NOT 222")
+
+        // 2. Verify words are nested
+        val line0 = parsedLines[0]
+        assertEquals("Touch my body tender", line0.text)
+        assertTrue(line0.words.isNotEmpty(), "Line 0 must contain nested words")
+        assertEquals(4, line0.words.size, "Line 0 must have exactly 4 words")
+
+        // 3. Render at phone viewport (360dp x 720dp) with density 2f -> 720px width
+        var testPos by mutableStateOf(24000L)
+        val scene = ImageComposeScene(width = 360, height = 720, density = Density(2f)) {
+            MetrolistTheme {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LyricsView(
+                        lines = parsedLines,
+                        positionProvider = { testPos },
+                        isSynced = true,
+                        isWordSynced = true,
+                        onSeekTo = { testPos = it },
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)
+                    )
+                }
+            }
+        }
+
+        val img = scene.render()
+        val data = img.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data)
+        val file1 = File(screenshotDir, "01_sombr_lyrics_360dp.png")
+        file1.writeBytes(data.bytes)
+        println("Saved 01_sombr_lyrics_360dp.png: ${file1.length()} bytes")
+
+        // 4. Advance clock by 1 second and render word-by-word sweep progression
+        testPos = 25000L
+        val img2 = scene.render()
+        val data2 = img2.encodeToData(EncodedImageFormat.PNG)
+        assertNotNull(data2)
+        val file2 = File(screenshotDir, "02_sombr_word_active.png")
+        file2.writeBytes(data2.bytes)
+        println("Saved 02_sombr_word_active.png: ${file2.length()} bytes")
+    }
+
+    @Test
     fun testLyricLineParagraphWrappingAt360dpWidth() {
         val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
-        val screenshotDir = File(rootDir, "docs/agent/screenshots")
+        val screenshotDir = File(rootDir, "docs/agent/screens")
         screenshotDir.mkdirs()
 
         val longLine = LyricLine(
@@ -154,8 +274,8 @@ class LyricsViewTest {
 
         var capturedLayout: TextLayoutResult? = null
 
-        // Render at real phone viewport width: 360dp with 24dp horizontal padding
-        val scene = ImageComposeScene(width = 360, height = 300, density = Density(1f)) {
+        // Render at real phone viewport width: 360dp with 24dp horizontal padding (density 2f -> 720px width)
+        val scene = ImageComposeScene(width = 360, height = 300, density = Density(2f)) {
             MetrolistTheme {
                 Box(
                     modifier = Modifier
@@ -212,7 +332,7 @@ class LyricsViewTest {
         // Save screenshot
         val data = img.encodeToData(EncodedImageFormat.PNG)
         if (data != null) {
-            val outFile = File(screenshotDir, "lyrics_360dp_paragraph_wrap.png")
+            val outFile = File(screenshotDir, "03_paragraph_wrap_360dp.png")
             outFile.writeBytes(data.bytes)
             println("Saved 360dp paragraph wrap screenshot: ${outFile.length()} bytes")
         }

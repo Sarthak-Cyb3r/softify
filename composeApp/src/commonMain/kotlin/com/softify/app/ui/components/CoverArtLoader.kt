@@ -360,7 +360,7 @@ object CoverArtLoader {
             .diskCache {
                 DiskCache.Builder()
                     .directory(diskCacheDir)
-                    .maxSizeBytes(250L * 1024 * 1024) // 250 MB disk cache
+                    .maxSizeBytes(150L * 1024 * 1024) // 150 MB disk cache (optimized footprint, ~3000 covers)
                     .build()
             }
             .components {
