@@ -1,10 +1,16 @@
 pub mod parser;
 pub mod lrclib;
+pub mod betterlyrics;
+pub mod lrcred;
+pub mod unison;
+pub mod paxsenix;
+pub mod youtube_captions;
+pub mod kugou;
 pub mod engine;
 
 #[cfg(test)]
 mod tests {
-    use super::engine::LyricsEngine;
+    use super::engine::{LyricsEngine, LyricsProvidersConfig};
     use super::lrclib::LrclibClient;
     use crate::db::repository::DatabaseRepository;
     use crate::models::Track;
@@ -78,7 +84,6 @@ mod tests {
     #[tokio::test]
     async fn test_lyrics_lrclib_synced_and_plain_fallback() {
         let mock_server = MockServer::start().await;
-        // Response with only plain lyrics (syncedLyrics is null)
         let lrclib_body = r#"{
             "id": 9999,
             "trackName": "Plain Song",
@@ -110,5 +115,39 @@ mod tests {
         let lyrics = engine.get_lyrics(&track).await.unwrap();
         assert!(!lyrics.is_synced, "Must fallback to unsynced/plain");
         assert_eq!(lyrics.plain_text.as_deref(), Some("Line one plain\nLine two plain"));
+    }
+
+    #[tokio::test]
+    async fn test_negative_caching_and_kill_switches() {
+        let db = DatabaseRepository::in_memory().unwrap();
+        let mut config = LyricsProvidersConfig::default();
+        // Disable all remote providers to test negative caching behavior
+        config.enable_betterlyrics = false;
+        config.enable_lrcred = false;
+        config.enable_unison = false;
+        config.enable_paxsenix = false;
+        config.enable_youtube_captions = false;
+        config.enable_lrclib = false;
+        config.enable_kugou = false;
+
+        let engine = LyricsEngine::with_config(Some(db.clone()), config);
+        let track = dummy_track("neg1");
+        db.insert_or_update_track(&track).unwrap();
+
+        // 1. Fetch: all providers disabled -> records negative cache
+        let lyrics = engine.get_lyrics(&track).await.unwrap();
+        assert!(!lyrics.is_synced);
+        assert_eq!(lyrics.provider, "none");
+
+        // 2. Verify negative cache was saved in DB
+        let cached = db.get_cached_lyrics("neg1").unwrap();
+        assert!(cached.is_some());
+        let (_, _, is_not_found) = cached.unwrap();
+        assert!(is_not_found, "Must be recorded as is_not_found");
+
+        // 3. Second call returns cached immediately
+        let cached_res = engine.get_lyrics(&track).await.unwrap();
+        assert!(!cached_res.is_synced);
+        assert_eq!(cached_res.provider, "cached");
     }
 }

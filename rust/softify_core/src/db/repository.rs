@@ -400,6 +400,17 @@ impl DatabaseRepository {
         }
     }
 
+    pub fn get_cached_lyrics_timestamp(&self, track_id: &str) -> Result<i64, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut stmt = conn.prepare("SELECT cached_at FROM cached_lyrics WHERE track_id = ?1")?;
+        let mut rows = stmt.query(params![track_id])?;
+        if let Some(row) = rows.next()? {
+            Ok(row.get(0)?)
+        } else {
+            Ok(0)
+        }
+    }
+
     pub fn save_cached_lyrics(
         &self,
         track_id: &str,
