@@ -113,6 +113,8 @@ pub struct LyricsLine {
     pub end_ms: u64,
     pub text: String,
     pub words: Vec<LyricsWord>,
+    pub is_line_timed: bool,
+    pub is_background: bool,
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

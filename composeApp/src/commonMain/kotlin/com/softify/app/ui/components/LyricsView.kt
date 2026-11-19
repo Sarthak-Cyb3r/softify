@@ -42,13 +42,15 @@ data class LyricWord(
 
 /**
  * Lyric line data structure.
- * Supports line-level timestamps with word timings (either from enhanced LRC or estimated).
+ * Supports line-level timestamps with word timings (only from true word-synced sources; never synthetic).
  */
 data class LyricLine(
     val timeMs: Long,
     val endMs: Long = timeMs + 3000L,
     val text: String,
-    val words: List<LyricWord> = emptyList()
+    val words: List<LyricWord> = emptyList(),
+    val isLineTimed: Boolean = words.isEmpty(),
+    val isBackground: Boolean = false
 )
 
 /**
@@ -62,41 +64,6 @@ val LyricTextStyle = TextStyle(
     letterSpacing = (-0.5).sp,
     textAlign = TextAlign.Start
 )
-
-/**
- * Splits a line's duration across words by character count.
- */
-fun estimateWordsForLine(text: String, lineStartMs: Long, lineEndMs: Long): List<LyricWord> {
-    val tokens = text.split(Regex("\\s+")).filter { it.isNotBlank() }
-    if (tokens.isEmpty()) return emptyList()
-
-    val lineDuration = if (lineEndMs > lineStartMs) lineEndMs - lineStartMs else 3000L
-    val charCounts = tokens.map { it.length.coerceAtLeast(1) }
-    val totalChars = charCounts.sum().coerceAtLeast(1)
-
-    val words = mutableListOf<LyricWord>()
-    var currentStart = lineStartMs
-
-    for (i in tokens.indices) {
-        val isLast = (i == tokens.lastIndex)
-        val wordDur = if (isLast) {
-            (lineEndMs - currentStart).coerceAtLeast(100L)
-        } else {
-            val propDur = (lineDuration * charCounts[i]) / totalChars
-            propDur.coerceAtLeast(100L)
-        }
-
-        val endMs = if (isLast) {
-            maxOf(lineEndMs, currentStart + 100L)
-        } else {
-            minOf(currentStart + wordDur, lineEndMs)
-        }
-
-        words.add(LyricWord(startMs = currentStart, endMs = endMs, text = tokens[i]))
-        currentStart = endMs
-    }
-    return words
-}
 
 /**
  * Parse plain LRC timestamp string lines "[mm:ss.xx] text" into a List<LyricLine>.
@@ -117,8 +84,7 @@ fun parseLrcLines(lrcContent: String): List<LyricLine> {
         val totalMs = minutes * 60_000L + seconds * 1000L + ms
         val text = lyricText.trim()
         if (text.isNotBlank()) {
-            val words = estimateWordsForLine(text, totalMs, totalMs + 3000L)
-            result.add(LyricLine(timeMs = totalMs, endMs = totalMs + 3000L, text = text, words = words))
+            result.add(LyricLine(timeMs = totalMs, endMs = totalMs + 3000L, text = text, words = emptyList(), isLineTimed = true))
         }
     }
     return result.sortedBy { it.timeMs }

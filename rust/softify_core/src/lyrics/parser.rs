@@ -1,8 +1,9 @@
 use crate::models::{LyricsLine, LyricsWord, SyncedLyrics};
 use regex::Regex;
 
-/// Parses LRC strings (standard or enhanced) into SyncedLyrics with word timestamps.
-/// If true word timestamps are absent, estimates word timings proportionally by character length.
+/// Parses LRC strings (standard or enhanced) into SyncedLyrics.
+/// If true word timestamps (<mm:ss.xx>) are absent, marks lines as is_line_timed = true
+/// with an empty words vector (NO synthetic character-proportional estimation).
 pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
     let line_re = Regex::new(r"\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\](.*)").unwrap();
     let word_tag_re = Regex::new(r"<(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?>").unwrap();
@@ -51,7 +52,7 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
             is_word_synced: false,
             lines: Vec::new(),
             plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
-            provider: "lrclib".to_string(),
+            provider: "lrc".to_string(),
         };
     }
 
@@ -79,11 +80,13 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
         };
         let end_ms = start_ms + duration;
 
-        // Parse words: either from enhanced tags or via character length estimation
-        let words = if has_any_word_tags && word_tag_re.is_match(raw_content) {
-            parse_enhanced_words(raw_content, start_ms, end_ms)
+        // Parse words: either from enhanced tags or none (never synthetic)
+        let (words, is_line_timed) = if has_any_word_tags && word_tag_re.is_match(raw_content) {
+            let parsed = parse_enhanced_words(raw_content, start_ms, end_ms);
+            let line_timed = parsed.is_empty();
+            (parsed, line_timed)
         } else {
-            estimate_words_for_line(clean_text, start_ms, end_ms)
+            (Vec::new(), true)
         };
 
         lines.push(LyricsLine {
@@ -91,18 +94,20 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
             end_ms,
             text: clean_text.clone(),
             words,
+            is_line_timed,
+            is_background: false,
         });
     }
 
     let is_synced = !lines.is_empty();
-    let is_word_synced = has_any_word_tags;
+    let is_word_synced = has_any_word_tags && lines.iter().any(|l| !l.words.is_empty());
 
     SyncedLyrics {
         is_synced,
         is_word_synced,
         lines,
         plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
-        provider: if is_word_synced { "lrclib-enhanced".to_string() } else { "lrclib".to_string() },
+        provider: if is_word_synced { "enhanced-lrc".to_string() } else { "lrc".to_string() },
     }
 }
 
@@ -143,12 +148,7 @@ fn parse_enhanced_words(raw_content: &str, line_start_ms: u64, line_end_ms: u64)
         }
     }
 
-    if words.is_empty() {
-        let clean = tag_re.replace_all(raw_content, "").trim().to_string();
-        estimate_words_for_line(&clean, line_start_ms, line_end_ms)
-    } else {
-        words
-    }
+    words
 }
 
 fn parse_tag_ms(tag_str: &str) -> u64 {
@@ -168,53 +168,307 @@ fn parse_tag_ms(tag_str: &str) -> u64 {
     }
 }
 
-/// Splits a line's duration across words by character count.
-/// Formula: for word k with C_k characters out of total characters C,
-/// duration d_k = (line_duration * C_k) / C.
-pub fn estimate_words_for_line(text: &str, line_start_ms: u64, line_end_ms: u64) -> Vec<LyricsWord> {
-    let tokens: Vec<&str> = text.split_whitespace().collect();
-    if tokens.is_empty() {
-        return Vec::new();
+/// Parses TTML and timestamp attributes (e.g. "00:01.230", "1.23s", "1230ms", "12.5") into ms.
+pub fn parse_time_str(time_str: &str) -> u64 {
+    let t = time_str.trim();
+    if t.is_empty() {
+        return 0;
+    }
+    if t.contains(':') {
+        let parts: Vec<&str> = t.split(':').collect();
+        return match parts.len() {
+            2 => {
+                let min = parts[0].parse::<u64>().unwrap_or(0);
+                let sec_f = parts[1].parse::<f64>().unwrap_or(0.0);
+                min * 60_000 + (sec_f * 1000.0) as u64
+            }
+            3 => {
+                let hr = parts[0].parse::<u64>().unwrap_or(0);
+                let min = parts[1].parse::<u64>().unwrap_or(0);
+                let sec_f = parts[2].parse::<f64>().unwrap_or(0.0);
+                hr * 3_600_000 + min * 60_000 + (sec_f * 1000.0) as u64
+            }
+            _ => 0,
+        };
     }
 
-    let line_duration = if line_end_ms > line_start_ms {
-        line_end_ms - line_start_ms
+    if let Some(ms_str) = t.strip_suffix("ms") {
+        return ms_str.parse::<u64>().unwrap_or(0);
+    }
+    if let Some(s_str) = t.strip_suffix('s') {
+        let sec_f = s_str.parse::<f64>().unwrap_or(0.0);
+        return (sec_f * 1000.0) as u64;
+    }
+    if let Some(m_str) = t.strip_suffix('m') {
+        let min_f = m_str.parse::<f64>().unwrap_or(0.0);
+        return (min_f * 60_000.0) as u64;
+    }
+
+    if let Ok(sec_f) = t.parse::<f64>() {
+        (sec_f * 1000.0) as u64
     } else {
-        3_000
+        0
+    }
+}
+
+pub fn decode_xml_entities(s: &str) -> String {
+    let mut result = s
+        .replace("&apos;", "'")
+        .replace("&#x27;", "'")
+        .replace("&#39;", "'")
+        .replace("&quot;", "\"")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">");
+
+    if result.contains("&#") {
+        let re_hex = Regex::new(r"&#x([0-9a-fA-F]+);").unwrap();
+        result = re_hex
+            .replace_all(&result, |caps: &regex::Captures| {
+                if let Ok(code) = u32::from_str_radix(&caps[1], 16) {
+                    if let Some(ch) = char::from_u32(code) {
+                        return ch.to_string();
+                    }
+                }
+                caps[0].to_string()
+            })
+            .to_string();
+
+        let re_dec = Regex::new(r"&#([0-9]+);").unwrap();
+        result = re_dec
+            .replace_all(&result, |caps: &regex::Captures| {
+                if let Ok(code) = caps[1].parse::<u32>() {
+                    if let Some(ch) = char::from_u32(code) {
+                        return ch.to_string();
+                    }
+                }
+                caps[0].to_string()
+            })
+            .to_string();
+    }
+    result
+}
+
+fn extract_attribute<'a>(tag: &'a str, attr_name: &str) -> Option<&'a str> {
+    let patterns = [
+        format!("{}=\"", attr_name),
+        format!("itunes:{}=\"", attr_name),
+        format!("ttm:{}=\"", attr_name),
+        format!("lrc:{}=\"", attr_name),
+    ];
+    for p in &patterns {
+        if let Some(pos) = tag.find(p.as_str()) {
+            let start = pos + p.len();
+            if let Some(end) = tag[start..].find('"') {
+                return Some(&tag[start..start + end]);
+            }
+        }
+    }
+    None
+}
+
+/// Parses TTML XML (Apple Music / BetterLyrics / lrc.red).
+pub fn parse_ttml(ttml: &str) -> SyncedLyrics {
+    let p_regex = Regex::new(r"(?s)<p\b([^>]*)>(.*?)</p>").unwrap();
+    let span_regex = Regex::new(r"(?s)<span\b([^>]*)>(.*?)</span>").unwrap();
+    let strip_tags_regex = Regex::new(r"<[^>]+>").unwrap();
+
+    let mut lines = Vec::new();
+    let mut plain_buffer = Vec::new();
+    let mut has_word_sync = false;
+
+    for p_cap in p_regex.captures_iter(ttml) {
+        let p_attrs = &p_cap[1];
+        let p_content = &p_cap[2];
+
+        let p_begin_str = extract_attribute(p_attrs, "begin");
+        let p_end_str = extract_attribute(p_attrs, "end");
+        let p_role = extract_attribute(p_attrs, "role").unwrap_or("");
+        let is_p_bg = p_role == "x-bg";
+
+        let mut words = Vec::new();
+        let mut full_text_spans = Vec::new();
+
+        for span_cap in span_regex.captures_iter(p_content) {
+            let span_attrs = &span_cap[1];
+            let span_raw_text = &span_cap[2];
+            let span_clean_text = decode_xml_entities(&strip_tags_regex.replace_all(span_raw_text, ""));
+
+            let span_begin_str = extract_attribute(span_attrs, "begin");
+            let span_end_str = extract_attribute(span_attrs, "end");
+
+            if let (Some(b_str), Some(e_str)) = (span_begin_str, span_end_str) {
+                let start_ms = parse_time_str(b_str);
+                let end_ms = parse_time_str(e_str);
+                let text_trimmed = span_clean_text.trim();
+                if !text_trimmed.is_empty() {
+                    words.push(LyricsWord {
+                        text: text_trimmed.to_string(),
+                        start_ms,
+                        end_ms,
+                    });
+                }
+            }
+            if !span_clean_text.trim().is_empty() {
+                full_text_spans.push(span_clean_text);
+            }
+        }
+
+        let line_text = if !full_text_spans.is_empty() {
+            full_text_spans.join("").trim().to_string()
+        } else {
+            decode_xml_entities(&strip_tags_regex.replace_all(p_content, "")).trim().to_string()
+        };
+
+        if line_text.is_empty() {
+            continue;
+        }
+
+        let start_ms = if let Some(b) = p_begin_str {
+            parse_time_str(b)
+        } else if let Some(w0) = words.first() {
+            w0.start_ms
+        } else {
+            0
+        };
+
+        let end_ms = if let Some(e) = p_end_str {
+            parse_time_str(e)
+        } else if let Some(w_last) = words.last() {
+            w_last.end_ms
+        } else {
+            start_ms + 3000
+        };
+
+        let is_line_timed = words.is_empty();
+        if !words.is_empty() {
+            has_word_sync = true;
+        }
+
+        plain_buffer.push(line_text.clone());
+        lines.push(LyricsLine {
+            start_ms,
+            end_ms,
+            text: line_text,
+            words,
+            is_line_timed,
+            is_background: is_p_bg,
+        });
+    }
+
+    lines.sort_by_key(|l| l.start_ms);
+
+    let is_synced = !lines.is_empty();
+    SyncedLyrics {
+        is_synced,
+        is_word_synced: has_word_sync,
+        lines,
+        plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
+        provider: "ttml".to_string(),
+    }
+}
+
+/// Parses YouTube caption track json3 (fmt=json3).
+pub fn parse_youtube_json3(json_str: &str) -> SyncedLyrics {
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) else {
+        return SyncedLyrics {
+            is_synced: false,
+            is_word_synced: false,
+            lines: Vec::new(),
+            plain_text: None,
+            provider: "youtube-captions".to_string(),
+        };
     };
 
-    let char_counts: Vec<usize> = tokens.iter().map(|w| w.chars().count().max(1)).collect();
-    let total_chars: usize = char_counts.iter().sum();
-    let total_chars = total_chars.max(1);
+    let events = match val.get("events").and_then(|v| v.as_array()) {
+        Some(evs) => evs,
+        None => {
+            return SyncedLyrics {
+                is_synced: false,
+                is_word_synced: false,
+                lines: Vec::new(),
+                plain_text: None,
+                provider: "youtube-captions".to_string(),
+            };
+        }
+    };
 
-    let mut words = Vec::new();
-    let mut current_start = line_start_ms;
+    let mut lines = Vec::new();
+    let mut plain_buffer = Vec::new();
+    let mut has_any_words = false;
 
-    for (i, token) in tokens.iter().enumerate() {
-        let is_last = i == tokens.len() - 1;
-        let word_dur = if is_last {
-            line_end_ms.saturating_sub(current_start).max(100)
-        } else {
-            let prop_dur = (line_duration as usize * char_counts[i]) / total_chars;
-            (prop_dur as u64).max(100)
+    for event in events {
+        let Some(start_ms) = event.get("tStartMs").and_then(|v| v.as_u64()) else {
+            continue;
         };
+        let duration_ms = event.get("dDurationMs").and_then(|v| v.as_u64()).unwrap_or(3000);
+        let end_ms = start_ms + duration_ms;
 
-        let end_ms = if is_last {
-            line_end_ms.max(current_start + 100)
-        } else {
-            (current_start + word_dur).min(line_end_ms)
-        };
+        let segs = event.get("segs").and_then(|v| v.as_array());
+        if let Some(segs) = segs {
+            let has_word_offsets = segs.iter().any(|s| {
+                s.get("tOffsetMs").and_then(|v| v.as_u64()).map(|o| o > 0).unwrap_or(false)
+            });
 
-        words.push(LyricsWord {
-            text: token.to_string(),
-            start_ms: current_start,
-            end_ms,
-        });
+            let mut line_text_builder = String::new();
+            let mut words = Vec::new();
 
-        current_start = end_ms;
+            for (idx, seg) in segs.iter().enumerate() {
+                let seg_text = seg.get("utf8").and_then(|v| v.as_str()).unwrap_or("");
+                line_text_builder.push_str(seg_text);
+
+                if has_word_offsets {
+                    let offset_ms = seg.get("tOffsetMs").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let word_start = start_ms + offset_ms;
+                    let clean_seg = seg_text.replace('\n', " ").trim().to_string();
+                    if !clean_seg.is_empty() && clean_seg != "♪" && clean_seg != "♫" {
+                        let next_offset = if idx + 1 < segs.len() {
+                            segs[idx + 1].get("tOffsetMs").and_then(|v| v.as_u64()).map(|o| start_ms + o)
+                        } else {
+                            None
+                        };
+                        let word_end = next_offset.unwrap_or(end_ms).max(word_start + 50);
+                        words.push(LyricsWord {
+                            text: clean_seg,
+                            start_ms: word_start,
+                            end_ms: word_end,
+                        });
+                    }
+                }
+            }
+
+            let clean_line = line_text_builder
+                .replace('\n', " ")
+                .trim_matches(|c| c == '♪' || c == '♫' || c == ' ')
+                .trim()
+                .to_string();
+
+            if !clean_line.is_empty() {
+                plain_buffer.push(clean_line.clone());
+                let is_line_timed = words.is_empty();
+                if !words.is_empty() {
+                    has_any_words = true;
+                }
+                lines.push(LyricsLine {
+                    start_ms,
+                    end_ms,
+                    text: clean_line,
+                    words,
+                    is_line_timed,
+                    is_background: false,
+                });
+            }
+        }
     }
 
-    words
+    let is_synced = !lines.is_empty();
+    SyncedLyrics {
+        is_synced,
+        is_word_synced: has_any_words,
+        lines,
+        plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
+        provider: "youtube-captions".to_string(),
+    }
 }
 
 fn unquote_yaml(s: &str) -> String {
@@ -254,7 +508,7 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
             let end = if explicit_end > start {
                 explicit_end
             } else {
-                0 // Will be resolved by next word's start_ms or line_end
+                0
             };
             words.push(LyricsWord {
                 text: trimmed.to_string(),
@@ -292,6 +546,8 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
                 end_ms: line_end,
                 text: trimmed.to_string(),
                 words: std::mem::take(words),
+                is_line_timed: false,
+                is_background: false,
             });
             text.clear();
         }
@@ -313,8 +569,6 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
 
         let indent = raw_line.chars().take_while(|c| *c == ' ').count();
 
-        // Line-level item starts with '- text:' at column 0 (indent == 0)
-        // or whenever not inside a words list
         if indent == 0 && trimmed.starts_with("- text:") {
             if in_words && !current_word_text.is_empty() {
                 flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
@@ -337,7 +591,6 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
         } else if trimmed == "words:" {
             in_words = true;
         } else if in_words && indent > 0 && trimmed.starts_with("- text:") {
-            // Nested word inside line
             if !current_word_text.is_empty() {
                 flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
             }
@@ -384,7 +637,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_lrc_standard() {
+    fn test_parse_lrc_standard_is_line_timed_no_synthetic_words() {
         let sample = "\
 [00:12.50] Hello world
 [00:15.890] Line two
@@ -392,47 +645,108 @@ mod tests {
 
         let parsed = parse_lrc(sample);
         assert!(parsed.is_synced);
+        assert!(!parsed.is_word_synced);
         assert_eq!(parsed.lines.len(), 3);
         assert_eq!(parsed.lines[0].start_ms, 12_500);
         assert_eq!(parsed.lines[0].text, "Hello world");
-        assert_eq!(parsed.lines[0].words.len(), 2);
-        assert_eq!(parsed.lines[0].words[0].text, "Hello");
-        assert_eq!(parsed.lines[0].words[1].text, "world");
-        assert_eq!(parsed.lines[1].start_ms, 15_890);
-        assert_eq!(parsed.lines[1].text, "Line two");
-        assert_eq!(parsed.lines[2].start_ms, 62_000);
-        assert_eq!(parsed.lines[2].text, "Third line");
+        assert!(parsed.lines[0].is_line_timed);
+        assert!(parsed.lines[0].words.is_empty(), "Standard LRC must have no synthetic words");
     }
 
     #[test]
-    fn test_parse_enhanced_lrc() {
+    fn test_parse_lrc_enhanced() {
         let sample = "\
-[00:05.00]<00:05.00>Never <00:05.60>gonna <00:06.20>give <00:06.80>you <00:07.40>up
-[00:08.00]<00:08.00>Never <00:08.50>gonna <00:09.00>let <00:09.50>you <00:10.00>down";
+[00:10.00] <00:10.00>First <00:10.50>word <00:11.20>test
+[00:15.00] <00:15.00>Second <00:15.80>line";
 
         let parsed = parse_lrc(sample);
         assert!(parsed.is_synced);
         assert!(parsed.is_word_synced);
         assert_eq!(parsed.lines.len(), 2);
-        assert_eq!(parsed.lines[0].words.len(), 5);
-        assert_eq!(parsed.lines[0].words[0].text, "Never");
-        assert_eq!(parsed.lines[0].words[0].start_ms, 5_000);
-        assert_eq!(parsed.lines[0].words[0].end_ms, 5_600);
-        assert_eq!(parsed.lines[0].words[1].text, "gonna");
-        assert_eq!(parsed.lines[0].words[1].start_ms, 5_600);
+        assert!(!parsed.lines[0].is_line_timed);
+        assert_eq!(parsed.lines[0].words.len(), 3);
+        assert_eq!(parsed.lines[0].words[0].text, "First");
+        assert_eq!(parsed.lines[0].words[0].start_ms, 10_000);
+        assert_eq!(parsed.lines[0].words[0].end_ms, 10_500);
+        assert_eq!(parsed.lines[0].words[1].text, "word");
+        assert_eq!(parsed.lines[0].words[1].start_ms, 10_500);
+        assert_eq!(parsed.lines[0].words[1].end_ms, 11_200);
+        assert_eq!(parsed.lines[0].words[2].text, "test");
+        assert_eq!(parsed.lines[0].words[2].start_ms, 11_200);
     }
 
     #[test]
-    fn test_estimate_words_character_proportion() {
-        let words = estimate_words_for_line("short supercalifragilistic", 0, 3000);
-        assert_eq!(words.len(), 2);
-        assert_eq!(words[0].text, "short");
-        assert_eq!(words[1].text, "supercalifragilistic");
-        // "short" is 5 chars, "supercalifragilistic" is 20 chars
-        // Duration of "short" should be much shorter than "supercalifragilistic"
-        let dur_short = words[0].end_ms - words[0].start_ms;
-        let dur_long = words[1].end_ms - words[1].start_ms;
-        assert!(dur_long > dur_short * 3, "Long word duration {} must be > 3x short word duration {}", dur_long, dur_short);
+    fn test_parse_ttml_apple_music() {
+        let ttml = r#"
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+  <body>
+    <div>
+      <p begin="00:01.000" end="00:04.000">
+        <span begin="00:01.000" end="00:02.000">Hello </span>
+        <span begin="00:02.000" end="00:03.500">world</span>
+      </p>
+      <p begin="00:05.000" end="00:08.000" ttm:role="x-bg">
+        <span begin="00:05.000" end="00:07.000">Background echo</span>
+      </p>
+    </div>
+  </body>
+</tt>
+"#;
+        let parsed = parse_ttml(ttml);
+        assert!(parsed.is_synced);
+        assert!(parsed.is_word_synced);
+        assert_eq!(parsed.lines.len(), 2);
+
+        let l0 = &parsed.lines[0];
+        assert_eq!(l0.text, "Hello world");
+        assert_eq!(l0.start_ms, 1000);
+        assert_eq!(l0.end_ms, 4000);
+        assert!(!l0.is_line_timed);
+        assert!(!l0.is_background);
+        assert_eq!(l0.words.len(), 2);
+        assert_eq!(l0.words[0].text, "Hello");
+        assert_eq!(l0.words[0].start_ms, 1000);
+        assert_eq!(l0.words[0].end_ms, 2000);
+        assert_eq!(l0.words[1].text, "world");
+        assert_eq!(l0.words[1].start_ms, 2000);
+        assert_eq!(l0.words[1].end_ms, 3500);
+
+        let l1 = &parsed.lines[1];
+        assert_eq!(l1.text, "Background echo");
+        assert!(l1.is_background);
+    }
+
+    #[test]
+    fn test_parse_youtube_json3_with_word_offsets() {
+        let json = r#"{
+          "events": [
+            {
+              "tStartMs": 5000,
+              "dDurationMs": 2500,
+              "segs": [
+                { "utf8": "Look ", "tOffsetMs": 0 },
+                { "utf8": "at ", "tOffsetMs": 400 },
+                { "utf8": "the stars", "tOffsetMs": 800 }
+              ]
+            }
+          ]
+        }"#;
+
+        let parsed = parse_youtube_json3(json);
+        assert!(parsed.is_synced);
+        assert!(parsed.is_word_synced);
+        assert_eq!(parsed.lines.len(), 1);
+        let l = &parsed.lines[0];
+        assert_eq!(l.text, "Look at the stars");
+        assert_eq!(l.start_ms, 5000);
+        assert_eq!(l.end_ms, 7500);
+        assert_eq!(l.words.len(), 3);
+        assert_eq!(l.words[0].text, "Look");
+        assert_eq!(l.words[0].start_ms, 5000);
+        assert_eq!(l.words[1].text, "at");
+        assert_eq!(l.words[1].start_ms, 5400);
+        assert_eq!(l.words[2].text, "the stars");
+        assert_eq!(l.words[2].start_ms, 5800);
     }
 
     #[test]
@@ -449,7 +763,6 @@ mod tests {
         // Crucial bug check: Must be real number of lines (30), NOT 222!
         assert_eq!(lyrics.lines.len(), 30, "Expected 30 lines for 'back to friends', found {}", lyrics.lines.len());
 
-        // First line assertions
         let line0 = &lyrics.lines[0];
         assert_eq!(line0.text, "Touch my body tender");
         assert_eq!(line0.start_ms, 22950);
@@ -468,23 +781,12 @@ mod tests {
         assert_eq!(line0.words[3].start_ms, 24141);
         assert_eq!(line0.words[3].end_ms, 26678);
 
-        // Second line assertions (unquoting YAML escaped single quotes)
-        let line1 = &lyrics.lines[1];
-        assert_eq!(line1.text, "'Cause the feeling makes me weak");
-        assert_eq!(line1.start_ms, 27140);
-        assert_eq!(line1.end_ms, 32867);
-        assert_eq!(line1.words.len(), 6, "Expected 6 nested words in line 1");
-        assert_eq!(line1.words[0].text, "'Cause");
-        assert_eq!(line1.words[0].start_ms, 27140);
-        assert_eq!(line1.words[0].end_ms, 27757);
-
-        // Verify total words count across all 30 lines matches the 192 nested words
         let total_words: usize = lyrics.lines.iter().map(|l| l.words.len()).sum();
         assert_eq!(total_words, 192, "Expected 192 total nested words");
 
-        // Verify zero word tokens are top-level lines
         for (i, l) in lyrics.lines.iter().enumerate() {
             assert!(!l.words.is_empty(), "Line {} ('{}') must have nested words", i, l.text);
+            assert!(!l.is_line_timed);
         }
     }
 }

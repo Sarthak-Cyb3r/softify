@@ -1791,7 +1791,9 @@ data class LyricsLine (
     var `startMs`: kotlin.ULong, 
     var `endMs`: kotlin.ULong, 
     var `text`: kotlin.String, 
-    var `words`: List<LyricsWord>
+    var `words`: List<LyricsWord>, 
+    var `isLineTimed`: kotlin.Boolean, 
+    var `isBackground`: kotlin.Boolean
 ) {
     
     companion object
@@ -1807,6 +1809,8 @@ public object FfiConverterTypeLyricsLine: FfiConverterRustBuffer<LyricsLine> {
             FfiConverterULong.read(buf),
             FfiConverterString.read(buf),
             FfiConverterSequenceTypeLyricsWord.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
         )
     }
 
@@ -1814,7 +1818,9 @@ public object FfiConverterTypeLyricsLine: FfiConverterRustBuffer<LyricsLine> {
             FfiConverterULong.allocationSize(value.`startMs`) +
             FfiConverterULong.allocationSize(value.`endMs`) +
             FfiConverterString.allocationSize(value.`text`) +
-            FfiConverterSequenceTypeLyricsWord.allocationSize(value.`words`)
+            FfiConverterSequenceTypeLyricsWord.allocationSize(value.`words`) +
+            FfiConverterBoolean.allocationSize(value.`isLineTimed`) +
+            FfiConverterBoolean.allocationSize(value.`isBackground`)
     )
 
     override fun write(value: LyricsLine, buf: ByteBuffer) {
@@ -1822,6 +1828,8 @@ public object FfiConverterTypeLyricsLine: FfiConverterRustBuffer<LyricsLine> {
             FfiConverterULong.write(value.`endMs`, buf)
             FfiConverterString.write(value.`text`, buf)
             FfiConverterSequenceTypeLyricsWord.write(value.`words`, buf)
+            FfiConverterBoolean.write(value.`isLineTimed`, buf)
+            FfiConverterBoolean.write(value.`isBackground`, buf)
     }
 }
 

@@ -183,22 +183,20 @@ fun MetrolistNowPlaying(
                         val rawLines = lyrics?.lines ?: emptyList()
                         if (rawLines.isNotEmpty()) {
                             rawLines.map { l ->
-                                val words = if (l.words.isNotEmpty()) {
-                                    l.words.map { w ->
-                                        LyricWord(
-                                            startMs = w.startMs.toLong(),
-                                            endMs = w.endMs.toLong(),
-                                            text = w.text
-                                        )
-                                    }
-                                } else {
-                                    estimateWordsForLine(l.text, l.startMs.toLong(), l.endMs.toLong())
+                                val words = l.words.map { w ->
+                                    LyricWord(
+                                        startMs = w.startMs.toLong(),
+                                        endMs = w.endMs.toLong(),
+                                        text = w.text
+                                    )
                                 }
                                 LyricLine(
                                     timeMs = l.startMs.toLong(),
                                     endMs = l.endMs.toLong(),
                                     text = l.text,
-                                    words = words
+                                    words = words,
+                                    isLineTimed = l.isLineTimed,
+                                    isBackground = l.isBackground
                                 )
                             }
                         } else if (!lyrics?.plainText.isNullOrBlank() && !isInstrumental) {
@@ -209,7 +207,9 @@ fun MetrolistNowPlaying(
                                     timeMs = t,
                                     endMs = t + 3000L,
                                     text = trimmed,
-                                    words = estimateWordsForLine(trimmed, t, t + 3000L)
+                                    words = emptyList(),
+                                    isLineTimed = true,
+                                    isBackground = false
                                 )
                             }
                         } else {

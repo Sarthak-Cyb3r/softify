@@ -24,28 +24,7 @@ import kotlin.test.assertTrue
 class LyricsViewTest {
 
     @Test
-    fun testEstimateWordsForLine() {
-        val line = "Never gonna give you up"
-        val words = estimateWordsForLine(line, 5000L, 8000L)
-        assertEquals(5, words.size)
-        assertEquals("Never", words[0].text)
-        assertEquals("gonna", words[1].text)
-        assertEquals("give", words[2].text)
-        assertEquals("you", words[3].text)
-        assertEquals("up", words[4].text)
-
-        assertTrue(words[0].startMs >= 5000L)
-        assertTrue(words[4].endMs <= 8000L)
-
-        // Monotonic progression
-        for (i in 0 until words.size - 1) {
-            assertTrue(words[i].endMs <= words[i + 1].startMs || words[i].endMs == words[i + 1].startMs)
-            assertTrue(words[i].endMs > words[i].startMs)
-        }
-    }
-
-    @Test
-    fun testParseLrcLinesWithWordEstimation() {
+    fun testParseLrcLinesStandardNoSyntheticWords() {
         val lrc = """
             [00:05.00] Never gonna give you up
             [00:08.50] Never gonna let you down
@@ -56,11 +35,13 @@ class LyricsViewTest {
         assertEquals(3, parsed.size)
         assertEquals(5000L, parsed[0].timeMs)
         assertEquals("Never gonna give you up", parsed[0].text)
-        assertEquals(5, parsed[0].words.size)
+        assertTrue(parsed[0].isLineTimed)
+        assertTrue(parsed[0].words.isEmpty(), "Standard LRC must have no synthetic words")
 
         assertEquals(8500L, parsed[1].timeMs)
         assertEquals("Never gonna let you down", parsed[1].text)
-        assertEquals(5, parsed[1].words.size)
+        assertTrue(parsed[1].isLineTimed)
+        assertTrue(parsed[1].words.isEmpty(), "Standard LRC must have no synthetic words")
 
         assertEquals(12000L, parsed[2].timeMs)
         assertEquals("[Instrumental]", parsed[2].text)
