@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use crate::db::repository::DatabaseRepository;
-use crate::models::{Shelf, SoftifyError, Track};
 use super::diversity::DiversityController;
 use super::taste::TasteProfileEngine;
+use crate::db::repository::DatabaseRepository;
+use crate::models::{Shelf, SoftifyError, Track};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 pub struct ShelfEngine {
     db: Arc<DatabaseRepository>,
@@ -17,7 +17,11 @@ impl ShelfEngine {
         taste: Arc<TasteProfileEngine>,
         diversity: Arc<DiversityController>,
     ) -> Self {
-        Self { db, taste, diversity }
+        Self {
+            db,
+            taste,
+            diversity,
+        }
     }
 
     pub fn load_shelves(&self) -> Result<Vec<Shelf>, SoftifyError> {
@@ -61,7 +65,9 @@ impl ShelfEngine {
                 continue;
             }
             *track_counts.entry(h.track.id.clone()).or_insert(0) += 1;
-            let current_latest = latest_played.entry(h.track.id.clone()).or_insert(h.played_at);
+            let current_latest = latest_played
+                .entry(h.track.id.clone())
+                .or_insert(h.played_at);
             if h.played_at > *current_latest {
                 *current_latest = h.played_at;
             }
@@ -77,11 +83,15 @@ impl ShelfEngine {
         candidates.sort_by(|a, b| {
             let count_a = *track_counts.get(&a.id).unwrap_or(&1) as f64;
             let count_b = *track_counts.get(&b.id).unwrap_or(&1) as f64;
-            let recency_a = 1.0 / (1.0 + (now_ms - *latest_played.get(&a.id).unwrap_or(&0)) as f64 / 86400000.0);
-            let recency_b = 1.0 / (1.0 + (now_ms - *latest_played.get(&b.id).unwrap_or(&0)) as f64 / 86400000.0);
+            let recency_a = 1.0
+                / (1.0 + (now_ms - *latest_played.get(&a.id).unwrap_or(&0)) as f64 / 86400000.0);
+            let recency_b = 1.0
+                / (1.0 + (now_ms - *latest_played.get(&b.id).unwrap_or(&0)) as f64 / 86400000.0);
             let score_a = count_a * 2.0 + recency_a;
             let score_b = count_b * 2.0 + recency_b;
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         let mut tracks: Vec<Track> = candidates.into_iter().take(limit).collect();
@@ -89,7 +99,8 @@ impl ShelfEngine {
         // Fallback: If history is empty, populate from latest tracks in library
         if tracks.is_empty() {
             let all_tracks = self.db.get_all_tracks(limit as u32)?;
-            tracks = all_tracks.into_iter()
+            tracks = all_tracks
+                .into_iter()
                 .filter(|t| !snoozed_set.contains(&t.artist.trim().to_lowercase()))
                 .collect();
         }
@@ -109,7 +120,8 @@ impl ShelfEngine {
         let snoozed_set: HashSet<String> = snoozed.iter().map(|s| s.to_lowercase()).collect();
 
         let mut candidates = Vec::new();
-        let artist_names: Vec<String> = top_artists.iter()
+        let artist_names: Vec<String> = top_artists
+            .iter()
             .map(|a| a.entity_id.clone())
             .filter(|a| !snoozed_set.contains(&a.to_lowercase()))
             .collect();
@@ -125,7 +137,9 @@ impl ShelfEngine {
         if candidates.len() < limit {
             let fallback_tracks = self.db.get_all_tracks(limit as u32)?;
             for t in fallback_tracks {
-                if !snoozed_set.contains(&t.artist.trim().to_lowercase()) && !candidates.iter().any(|c| c.id == t.id) {
+                if !snoozed_set.contains(&t.artist.trim().to_lowercase())
+                    && !candidates.iter().any(|c| c.id == t.id)
+                {
                     candidates.push(t);
                 }
             }
@@ -150,7 +164,8 @@ impl ShelfEngine {
 
         // Get unplayed or least played tracks
         let candidates = self.db.get_unplayed_tracks(limit as u32 * 2)?;
-        let filtered: Vec<Track> = candidates.into_iter()
+        let filtered: Vec<Track> = candidates
+            .into_iter()
             .filter(|t| !snoozed_set.contains(&t.artist.trim().to_lowercase()))
             .collect();
 

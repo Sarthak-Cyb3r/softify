@@ -53,6 +53,9 @@ mod tests {
     fn test_normalizer() {
         assert_eq!(normalize_search_text("Café del Mar"), "cafe del mar");
         assert_eq!(normalize_search_text("Beyoncé - Halo!"), "beyonce halo");
-        assert_eq!(normalize_search_text("Kesariya (Brahmāstra)"), "kesariya brahmastra");
+        assert_eq!(
+            normalize_search_text("Kesariya (Brahmāstra)"),
+            "kesariya brahmastra"
+        );
     }
 }

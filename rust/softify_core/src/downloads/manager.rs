@@ -1,12 +1,12 @@
+use super::tagger::{M4aAtomTagger, M4aMetadata};
+use crate::db::repository::DatabaseRepository;
+use crate::models::{DownloadItem, DownloadProgressCallback, QualityPreset, SoftifyError, Track};
+use crate::resolvers::hybrid::HybridStreamResolver;
+use reqwest::Client;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use reqwest::Client;
-use crate::models::{DownloadItem, DownloadProgressCallback, QualityPreset, SoftifyError, Track};
-use crate::resolvers::hybrid::HybridStreamResolver;
-use crate::db::repository::DatabaseRepository;
-use super::tagger::{M4aAtomTagger, M4aMetadata};
 
 pub struct DownloadManager {
     client: Client,
@@ -45,8 +45,22 @@ impl DownloadManager {
         let stream = self.resolver.resolve(track, preset).await?;
 
         // 2. Prepare filename
-        let sanitized_title: String = track.title.chars().map(|c| if c.is_alphanumeric() || c == ' ' { c } else { '_' }).collect();
-        let file_name = format!("{}_{}.m4a", track.id, sanitized_title.trim().replace(' ', "_"));
+        let sanitized_title: String = track
+            .title
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == ' ' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        let file_name = format!(
+            "{}_{}.m4a",
+            track.id,
+            sanitized_title.trim().replace(' ', "_")
+        );
         let file_path = dir.join(&file_name);
 
         if let Some(cb) = callback {
@@ -80,7 +94,12 @@ impl DownloadManager {
             downloaded += chunk.len() as u64;
 
             if let Some(cb) = callback {
-                cb.on_progress(track.id.clone(), downloaded, total_size, "downloading".to_string());
+                cb.on_progress(
+                    track.id.clone(),
+                    downloaded,
+                    total_size,
+                    "downloading".to_string(),
+                );
             }
         }
 
@@ -110,7 +129,9 @@ impl DownloadManager {
             eprintln!("[DownloadManager] Warning: M4A tagging notice: {e}");
         }
 
-        let final_size = std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(downloaded);
+        let final_size = std::fs::metadata(&file_path)
+            .map(|m| m.len())
+            .unwrap_or(downloaded);
 
         let item = DownloadItem {
             track_id: track.id.clone(),
@@ -120,7 +141,10 @@ impl DownloadManager {
             bytes_downloaded: final_size,
             status: "completed".to_string(),
             bitrate_kbps: stream.bitrate_kbps,
-            created_at: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
         };
 
         // 6. Record in DB
@@ -137,7 +161,12 @@ impl DownloadManager {
         }
 
         if let Some(cb) = callback {
-            cb.on_progress(track.id.clone(), final_size, final_size, "completed".to_string());
+            cb.on_progress(
+                track.id.clone(),
+                final_size,
+                final_size,
+                "completed".to_string(),
+            );
         }
 
         Ok(item)

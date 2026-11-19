@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 
 static DEFAULT_CONFIG_STR: &str = include_str!("../resources/default_config.json");
 
@@ -45,7 +45,6 @@ impl Default for ConfigManager {
 }
 
 impl ConfigManager {
-
     pub fn get_config(&self) -> AppConfig {
         self.config.read().map(|c| c.clone()).unwrap_or_default()
     }
@@ -64,7 +63,10 @@ impl ConfigManager {
 
     pub fn get_endpoint(&self, key: &str, fallback: &str) -> String {
         let cfg = self.get_config();
-        cfg.endpoints.get(key).cloned().unwrap_or_else(|| fallback.to_string())
+        cfg.endpoints
+            .get(key)
+            .cloned()
+            .unwrap_or_else(|| fallback.to_string())
     }
 }
 
@@ -85,7 +87,8 @@ mod tests {
     async fn test_remote_config_fails_fallback_to_bundled_default() {
         let mgr = ConfigManager::new();
         // Point to an invalid unreachable address
-        mgr.fetch_remote_config("http://127.0.0.1:1/invalid_non_existent").await;
+        mgr.fetch_remote_config("http://127.0.0.1:1/invalid_non_existent")
+            .await;
         let cfg = mgr.get_config();
         // Should retain bundled default
         assert!(!cfg.fallback_piped_instances.is_empty());

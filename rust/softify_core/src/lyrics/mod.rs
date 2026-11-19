@@ -1,12 +1,12 @@
-pub mod parser;
-pub mod lrclib;
 pub mod betterlyrics;
-pub mod lrcred;
-pub mod unison;
-pub mod paxsenix;
-pub mod youtube_captions;
-pub mod kugou;
 pub mod engine;
+pub mod kugou;
+pub mod lrclib;
+pub mod lrcred;
+pub mod parser;
+pub mod paxsenix;
+pub mod unison;
+pub mod youtube_captions;
 
 #[cfg(test)]
 mod tests {
@@ -55,7 +55,8 @@ mod tests {
             .await;
 
         let db = DatabaseRepository::in_memory().unwrap();
-        let lrclib = LrclibClient::with_client_and_base_url(reqwest::Client::new(), mock_server.uri());
+        let lrclib =
+            LrclibClient::with_client_and_base_url(reqwest::Client::new(), mock_server.uri());
         let engine = LyricsEngine::with_lrclib(Some(db.clone()), lrclib);
 
         let track = dummy_track("k1");
@@ -104,7 +105,8 @@ mod tests {
             .await;
 
         let db = DatabaseRepository::in_memory().unwrap();
-        let lrclib = LrclibClient::with_client_and_base_url(reqwest::Client::new(), mock_server.uri());
+        let lrclib =
+            LrclibClient::with_client_and_base_url(reqwest::Client::new(), mock_server.uri());
         let engine = LyricsEngine::with_lrclib(Some(db.clone()), lrclib);
 
         let mut track = dummy_track("p1");
@@ -114,7 +116,10 @@ mod tests {
 
         let lyrics = engine.get_lyrics(&track).await.unwrap();
         assert!(!lyrics.is_synced, "Must fallback to unsynced/plain");
-        assert_eq!(lyrics.plain_text.as_deref(), Some("Line one plain\nLine two plain"));
+        assert_eq!(
+            lyrics.plain_text.as_deref(),
+            Some("Line one plain\nLine two plain")
+        );
     }
 
     #[tokio::test]

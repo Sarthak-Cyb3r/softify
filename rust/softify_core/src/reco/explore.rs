@@ -1,8 +1,8 @@
-use std::sync::Arc;
-use std::time::Duration;
 use crate::config::ConfigManager;
 use crate::db::repository::DatabaseRepository;
 use crate::models::{Shelf, SoftifyError, Track};
+use std::sync::Arc;
+use std::time::Duration;
 
 pub static EXPLORE_FIXTURE_STR: &str = include_str!("../../resources/explore_charts_fixture.json");
 
@@ -26,9 +26,14 @@ impl HomeExploreEngine {
         Self { repo, client }
     }
 
-    pub async fn get_explore_shelves(&self, config_mgr: &ConfigManager) -> Result<Vec<Shelf>, SoftifyError> {
+    pub async fn get_explore_shelves(
+        &self,
+        config_mgr: &ConfigManager,
+    ) -> Result<Vec<Shelf>, SoftifyError> {
         let cfg = config_mgr.get_config();
-        let endpoint = cfg.endpoints.get("youtube_browse")
+        let endpoint = cfg
+            .endpoints
+            .get("youtube_browse")
             .map(|s| s.as_str())
             .unwrap_or("https://music.youtube.com/youtubei/v1/browse");
 
@@ -90,24 +95,31 @@ impl HomeExploreEngine {
             for (idx, section) in sections.iter().enumerate() {
                 let shelf_renderer = section.pointer("/musicCarouselShelfRenderer");
                 if let Some(carousel) = shelf_renderer {
-                    let title = carousel.pointer("/header/musicCarouselShelfBasicHeaderRenderer/title/runs/0/text")
+                    let title = carousel
+                        .pointer("/header/musicCarouselShelfBasicHeaderRenderer/title/runs/0/text")
                         .and_then(|v| v.as_str())
                         .unwrap_or("Charts");
-                    let subtitle = carousel.pointer("/header/musicCarouselShelfBasicHeaderRenderer/strapline/runs/0/text")
+                    let subtitle = carousel
+                        .pointer(
+                            "/header/musicCarouselShelfBasicHeaderRenderer/strapline/runs/0/text",
+                        )
                         .and_then(|v| v.as_str())
                         .unwrap_or("Popular tracks");
 
                     let mut tracks = Vec::new();
                     if let Some(items) = carousel.pointer("/contents").and_then(|v| v.as_array()) {
                         for item in items {
-                            let two_row = item.pointer("/musicTwoRowItemRenderer")
+                            let two_row = item
+                                .pointer("/musicTwoRowItemRenderer")
                                 .or_else(|| item.pointer("/musicResponsiveListItemRenderer"));
                             if let Some(row) = two_row {
-                                let video_id = row.pointer("/navigationEndpoint/watchEndpoint/videoId")
+                                let video_id = row
+                                    .pointer("/navigationEndpoint/watchEndpoint/videoId")
                                     .and_then(|v| v.as_str());
-                                let track_title = row.pointer("/title/runs/0/text")
-                                    .and_then(|v| v.as_str());
-                                let track_artist = row.pointer("/subtitle/runs/0/text")
+                                let track_title =
+                                    row.pointer("/title/runs/0/text").and_then(|v| v.as_str());
+                                let track_artist = row
+                                    .pointer("/subtitle/runs/0/text")
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("Various Artists");
                                 let cover_url = row.pointer("/thumbnailRenderer/musicThumbnailRenderer/thumbnail/thumbnails/0/url")
@@ -154,14 +166,19 @@ mod tests {
 
     #[test]
     fn test_parse_recorded_explore_fixture() {
-        let shelves = parse_explore_shelves_json(EXPLORE_FIXTURE_STR).expect("Fixture must parse cleanly");
+        let shelves =
+            parse_explore_shelves_json(EXPLORE_FIXTURE_STR).expect("Fixture must parse cleanly");
         assert_eq!(shelves.len(), 3, "Fixture contains 3 shelves");
         assert_eq!(shelves[0].id, "explore_trending");
         assert_eq!(shelves[1].id, "explore_top_charts");
         assert_eq!(shelves[2].id, "explore_new_releases");
 
         for shelf in &shelves {
-            assert!(!shelf.tracks.is_empty(), "Shelf {} must not be empty", shelf.title);
+            assert!(
+                !shelf.tracks.is_empty(),
+                "Shelf {} must not be empty",
+                shelf.title
+            );
             for track in &shelf.tracks {
                 assert!(!track.title.is_empty());
                 assert!(!track.artist.is_empty());

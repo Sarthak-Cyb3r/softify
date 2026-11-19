@@ -1,5 +1,5 @@
-use crate::models::SearchIntent;
 use super::normalizer::normalize_search_text;
+use crate::models::SearchIntent;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueryIntentAnalysis {

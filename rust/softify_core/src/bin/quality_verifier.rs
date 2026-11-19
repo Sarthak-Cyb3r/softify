@@ -1,7 +1,7 @@
-use std::time::Instant;
 use softify_core::models::{QualityPreset, Track};
 use softify_core::resolvers::hybrid::HybridStreamResolver;
 use softify_core::resolvers::saavn::{SaavnMatchResult, SaavnStreamResolver};
+use std::time::Instant;
 
 struct BenchmarkTrack {
     category: &'static str,
@@ -17,51 +17,234 @@ async fn main() {
     println!("Mode: LIVE NETWORK VERIFICATION (Real JioSaavn CDN & YouTube Innertube)\n");
 
     let args: Vec<String> = std::env::args().collect();
-    let disable_saavn = args.iter().any(|a| a == "--no-saavn" || a == "--disable-saavn" || a == "--force-youtube");
-    let count: usize = args.iter()
+    let disable_saavn = args
+        .iter()
+        .any(|a| a == "--no-saavn" || a == "--disable-saavn" || a == "--force-youtube");
+    let count: usize = args
+        .iter()
         .find_map(|s| s.parse::<usize>().ok())
         .unwrap_or(30);
 
     if disable_saavn {
-        println!(">>> Flag enabled: --no-saavn (Forcing YouTube fallback path for all tracks) <<<\n");
+        println!(
+            ">>> Flag enabled: --no-saavn (Forcing YouTube fallback path for all tracks) <<<\n"
+        );
     }
 
     let catalog: Vec<BenchmarkTrack> = vec![
         // 1-10: Popular Global & Bollywood
-        BenchmarkTrack { category: "Popular", title: "Tum Hi Ho", artist: "Arijit Singh", album: Some("Aashiqui 2"), duration_ms: 262_000 },
-        BenchmarkTrack { category: "Popular", title: "Kesariya", artist: "Arijit Singh", album: Some("Brahmāstra"), duration_ms: 268_000 },
-        BenchmarkTrack { category: "Popular", title: "Blinding Lights", artist: "The Weeknd", album: Some("After Hours"), duration_ms: 200_000 },
-        BenchmarkTrack { category: "Popular", title: "Shape of You", artist: "Ed Sheeran", album: Some("Divide"), duration_ms: 233_000 },
-        BenchmarkTrack { category: "Popular", title: "Starboy", artist: "The Weeknd", album: Some("Starboy"), duration_ms: 230_000 },
-        BenchmarkTrack { category: "Popular", title: "Apna Bana Le", artist: "Arijit Singh", album: Some("Bhediya"), duration_ms: 261_000 },
-        BenchmarkTrack { category: "Popular", title: "Levitating", artist: "Dua Lipa", album: Some("Future Nostalgia"), duration_ms: 203_000 },
-        BenchmarkTrack { category: "Popular", title: "Chaleya", artist: "Arijit Singh", album: Some("Jawan"), duration_ms: 200_000 },
-        BenchmarkTrack { category: "Popular", title: "Flowers", artist: "Miley Cyrus", album: Some("Endless Summer Vacation"), duration_ms: 200_000 },
-        BenchmarkTrack { category: "Popular", title: "Raataan Lambiyan", artist: "Jubin Nautiyal", album: Some("Shershaah"), duration_ms: 230_000 },
-
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Tum Hi Ho",
+            artist: "Arijit Singh",
+            album: Some("Aashiqui 2"),
+            duration_ms: 262_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Kesariya",
+            artist: "Arijit Singh",
+            album: Some("Brahmāstra"),
+            duration_ms: 268_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Blinding Lights",
+            artist: "The Weeknd",
+            album: Some("After Hours"),
+            duration_ms: 200_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Shape of You",
+            artist: "Ed Sheeran",
+            album: Some("Divide"),
+            duration_ms: 233_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Starboy",
+            artist: "The Weeknd",
+            album: Some("Starboy"),
+            duration_ms: 230_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Apna Bana Le",
+            artist: "Arijit Singh",
+            album: Some("Bhediya"),
+            duration_ms: 261_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Levitating",
+            artist: "Dua Lipa",
+            album: Some("Future Nostalgia"),
+            duration_ms: 203_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Chaleya",
+            artist: "Arijit Singh",
+            album: Some("Jawan"),
+            duration_ms: 200_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Flowers",
+            artist: "Miley Cyrus",
+            album: Some("Endless Summer Vacation"),
+            duration_ms: 200_000,
+        },
+        BenchmarkTrack {
+            category: "Popular",
+            title: "Raataan Lambiyan",
+            artist: "Jubin Nautiyal",
+            album: Some("Shershaah"),
+            duration_ms: 230_000,
+        },
         // 11-20: Older & Regional (Hindi Retro, Punjabi, Tamil, Telugu)
-        BenchmarkTrack { category: "Retro/Regional", title: "Lag Ja Gale", artist: "Lata Mangeshkar", album: Some("Woh Kaun Thi"), duration_ms: 258_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Pal Pal Dil Ke Paas", artist: "Kishore Kumar", album: Some("Blackmail"), duration_ms: 329_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Roop Tera Mastana", artist: "Kishore Kumar", album: Some("Aradhana"), duration_ms: 225_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Brown Munde", artist: "AP Dhillon", album: None, duration_ms: 267_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "295", artist: "Sidhu Moose Wala", album: Some("Moosetape"), duration_ms: 270_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Lover", artist: "Diljit Dosanjh", album: Some("MoonChild Era"), duration_ms: 191_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Why This Kolaveri Di", artist: "Dhanush", album: Some("3"), duration_ms: 245_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Arabic Kuthu", artist: "Anirudh Ravichander", album: Some("Beast"), duration_ms: 280_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Samajavaragamana", artist: "Sid Sriram", album: Some("Ala Vaikunthapurramuloo"), duration_ms: 214_000 },
-        BenchmarkTrack { category: "Retro/Regional", title: "Rowdy Baby", artist: "Dhanush", album: Some("Maari 2"), duration_ms: 284_000 },
-
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Lag Ja Gale",
+            artist: "Lata Mangeshkar",
+            album: Some("Woh Kaun Thi"),
+            duration_ms: 258_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Pal Pal Dil Ke Paas",
+            artist: "Kishore Kumar",
+            album: Some("Blackmail"),
+            duration_ms: 329_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Roop Tera Mastana",
+            artist: "Kishore Kumar",
+            album: Some("Aradhana"),
+            duration_ms: 225_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Brown Munde",
+            artist: "AP Dhillon",
+            album: None,
+            duration_ms: 267_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "295",
+            artist: "Sidhu Moose Wala",
+            album: Some("Moosetape"),
+            duration_ms: 270_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Lover",
+            artist: "Diljit Dosanjh",
+            album: Some("MoonChild Era"),
+            duration_ms: 191_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Why This Kolaveri Di",
+            artist: "Dhanush",
+            album: Some("3"),
+            duration_ms: 245_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Arabic Kuthu",
+            artist: "Anirudh Ravichander",
+            album: Some("Beast"),
+            duration_ms: 280_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Samajavaragamana",
+            artist: "Sid Sriram",
+            album: Some("Ala Vaikunthapurramuloo"),
+            duration_ms: 214_000,
+        },
+        BenchmarkTrack {
+            category: "Retro/Regional",
+            title: "Rowdy Baby",
+            artist: "Dhanush",
+            album: Some("Maari 2"),
+            duration_ms: 284_000,
+        },
         // 21-30: Obscure & Independent
-        BenchmarkTrack { category: "Indie/Obscure", title: "Kasoor", artist: "Prateek Kuhad", album: None, duration_ms: 197_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Cold/mess", artist: "Prateek Kuhad", album: None, duration_ms: 275_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Alag Aasmaan", artist: "Anuv Jain", album: None, duration_ms: 212_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Baarishein", artist: "Anuv Jain", album: None, duration_ms: 207_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Roz Roz", artist: "The Yellow Diary", album: None, duration_ms: 236_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Choojhn De", artist: "When Chai Met Toast", album: None, duration_ms: 220_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Khoj", artist: "When Chai Met Toast", album: None, duration_ms: 245_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Liggi", artist: "Ritviz", album: None, duration_ms: 181_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Sage", artist: "Ritviz", album: None, duration_ms: 184_000 },
-        BenchmarkTrack { category: "Indie/Obscure", title: "Udaan", artist: "Amit Trivedi", album: Some("Udaan"), duration_ms: 274_000 },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Kasoor",
+            artist: "Prateek Kuhad",
+            album: None,
+            duration_ms: 197_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Cold/mess",
+            artist: "Prateek Kuhad",
+            album: None,
+            duration_ms: 275_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Alag Aasmaan",
+            artist: "Anuv Jain",
+            album: None,
+            duration_ms: 212_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Baarishein",
+            artist: "Anuv Jain",
+            album: None,
+            duration_ms: 207_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Roz Roz",
+            artist: "The Yellow Diary",
+            album: None,
+            duration_ms: 236_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Choojhn De",
+            artist: "When Chai Met Toast",
+            album: None,
+            duration_ms: 220_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Khoj",
+            artist: "When Chai Met Toast",
+            album: None,
+            duration_ms: 245_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Liggi",
+            artist: "Ritviz",
+            album: None,
+            duration_ms: 181_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Sage",
+            artist: "Ritviz",
+            album: None,
+            duration_ms: 184_000,
+        },
+        BenchmarkTrack {
+            category: "Indie/Obscure",
+            title: "Udaan",
+            artist: "Amit Trivedi",
+            album: Some("Udaan"),
+            duration_ms: 274_000,
+        },
     ];
 
     let resolver = HybridStreamResolver::new();
@@ -114,13 +297,21 @@ async fn main() {
                     );
                 }
                 Err(e) => {
-                    println!("[SAAVN REJECTION] Track {:02} '{}': Search error: {}", i + 1, track.title, e);
+                    println!(
+                        "[SAAVN REJECTION] Track {:02} '{}': Search error: {}",
+                        i + 1,
+                        track.title,
+                        e
+                    );
                 }
             }
         }
 
         let t0 = Instant::now();
-        match resolver.resolve_with_options(&track, QualityPreset::High, disable_saavn).await {
+        match resolver
+            .resolve_with_options(&track, QualityPreset::High, disable_saavn)
+            .await
+        {
             Ok(stream) => {
                 let is_youtube = !stream.provider.contains("jiosaavn");
                 let mut req_ttfa = http_client.get(&stream.url).header("Range", "bytes=0-1");
@@ -138,7 +329,9 @@ async fn main() {
                 };
 
                 // Playable probe (1 MB bounded range with real body bytes read)
-                let mut req_1mb = http_client.get(&stream.url).header("Range", "bytes=0-1048575");
+                let mut req_1mb = http_client
+                    .get(&stream.url)
+                    .header("Range", "bytes=0-1048575");
                 for h in &stream.headers {
                     req_1mb = req_1mb.header(&h.name, &h.value);
                 }
@@ -151,9 +344,7 @@ async fn main() {
                                 Ok(b) if b.len() > 100_000 => {
                                     (format!("YES ({:.2}MB)", b.len() as f64 / 1_048_576.0), true)
                                 }
-                                Ok(b) => {
-                                    (format!("PARTIAL ({}B)", b.len()), false)
-                                }
+                                Ok(b) => (format!("PARTIAL ({}B)", b.len()), false),
                                 Err(e) => (format!("ERR ({})", e), false),
                             }
                         } else {
@@ -165,12 +356,21 @@ async fn main() {
 
                 let verified = if is_youtube {
                     // For YouTube, verified strictly requires 1 MB playable probe with body bytes read
-                    if bytes_read_ok { "YES" } else { "NO" }
+                    if bytes_read_ok {
+                        "YES"
+                    } else {
+                        "NO"
+                    }
                 } else {
-                    if ttfa_ok { "YES" } else { "NO" }
+                    if ttfa_ok {
+                        "YES"
+                    } else {
+                        "NO"
+                    }
                 };
 
-                let matched_requested = if stream.bitrate_kbps >= 320 && stream.is_requested_quality {
+                let matched_requested = if stream.bitrate_kbps >= 320 && stream.is_requested_quality
+                {
                     "YES"
                 } else {
                     "NO"
@@ -222,6 +422,9 @@ async fn main() {
     let success_rate = (success_count as f64 / total as f64) * 100.0;
     println!("\n=== Summary ===");
     println!("Total tracks resolved: {}/{}", success_count, total);
-    println!("Studio Master (320 kbps) achieved: {}/{}", studio_master_320_count, total);
+    println!(
+        "Studio Master (320 kbps) achieved: {}/{}",
+        studio_master_320_count, total
+    );
     println!("Success rate: {:.1}%\n", success_rate);
 }

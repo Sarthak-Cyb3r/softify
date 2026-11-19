@@ -3,8 +3,8 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::SyncedLyrics;
 use super::parser::parse_ttml;
+use crate::models::SyncedLyrics;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -46,7 +46,9 @@ impl LrcredClient {
             return None;
         }
 
-        let resp = self.client.get(&self.base_url)
+        let resp = self
+            .client
+            .get(&self.base_url)
             .query(&[("q", &query)])
             .send()
             .await
@@ -61,7 +63,8 @@ impl LrcredClient {
         let results = json.get("results")?.as_array()?;
 
         // Prioritize word-synced entries
-        let match_entry = results.iter()
+        let match_entry = results
+            .iter()
             .find(|r| r.get("timing_type").and_then(|v| v.as_str()) == Some("word"))
             .or_else(|| results.first())?;
 
@@ -72,10 +75,7 @@ impl LrcredClient {
             lyrics_url.to_string()
         };
 
-        let ttml_resp = self.client.get(&full_lyrics_url)
-            .send()
-            .await
-            .ok()?;
+        let ttml_resp = self.client.get(&full_lyrics_url).send().await.ok()?;
 
         if !ttml_resp.status().is_success() {
             return None;

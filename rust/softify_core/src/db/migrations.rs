@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use crate::models::SoftifyError;
+use rusqlite::Connection;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
     conn.execute_batch(
@@ -189,41 +189,51 @@ mod tests {
         ).unwrap();
 
         // Verify FTS5 index populated via trigger
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"arij\"*'",
-            [],
-            |r| r.get(0),
-        ).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"arij\"*'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 1);
 
         // Update track
         conn.execute(
             "UPDATE tracks SET title = 'Tum Hi Ho', album = 'Aashiqui 2' WHERE id = 't1'",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Old title should not match, new title should match
-        let count_old: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"kesariya\"*'",
-            [],
-            |r| r.get(0),
-        ).unwrap();
+        let count_old: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"kesariya\"*'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count_old, 0);
 
-        let count_new: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"tum\"*'",
-            [],
-            |r| r.get(0),
-        ).unwrap();
+        let count_new: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"tum\"*'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count_new, 1);
 
         // Delete track
-        conn.execute("DELETE FROM tracks WHERE id = 't1'", []).unwrap();
-        let count_deleted: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"tum\"*'",
-            [],
-            |r| r.get(0),
-        ).unwrap();
+        conn.execute("DELETE FROM tracks WHERE id = 't1'", [])
+            .unwrap();
+        let count_deleted: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tracks_fts WHERE tracks_fts MATCH '\"tum\"*'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count_deleted, 0);
     }
 }

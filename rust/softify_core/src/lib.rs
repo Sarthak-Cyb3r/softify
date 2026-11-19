@@ -1,32 +1,32 @@
-pub mod models;
-pub mod resolvers;
-pub mod db;
-pub mod search;
 pub mod config;
-pub mod lyrics;
+pub mod db;
 pub mod downloads;
 pub mod importer;
-pub mod scanner;
+pub mod lyrics;
+pub mod models;
 pub mod reco;
+pub mod resolvers;
+pub mod scanner;
+pub mod search;
 
-use std::sync::{Arc, OnceLock};
-use models::{
-    DownloadItem, DownloadProgressCallback, ImportPlaylistResult,
-    Playlist, PlayHistory, ProviderHealth, QualityPreset, RadioResult, ScanProgressCallback,
-    ScanResult, SearchResult, Shelf, SoftifyError, StreamInfo, SyncedLyrics, Track,
-};
-use resolvers::hybrid::HybridStreamResolver;
-use resolvers::youtube::YoutubeStreamResolver;
-use db::repository::DatabaseRepository;
-use search::engine::SearchEngine;
 use config::ConfigManager;
-use lyrics::engine::LyricsEngine;
+use db::repository::DatabaseRepository;
 use downloads::manager::DownloadManager;
 use importer::spotify::SpotifyImporter;
-use scanner::local::LocalAudioScanner;
-use reco::taste::TasteProfileEngine;
+use lyrics::engine::LyricsEngine;
+use models::{
+    DownloadItem, DownloadProgressCallback, ImportPlaylistResult, PlayHistory, Playlist,
+    ProviderHealth, QualityPreset, RadioResult, ScanProgressCallback, ScanResult, SearchResult,
+    Shelf, SoftifyError, StreamInfo, SyncedLyrics, Track,
+};
 use reco::diversity::DiversityController;
 use reco::shelves::ShelfEngine;
+use reco::taste::TasteProfileEngine;
+use resolvers::hybrid::HybridStreamResolver;
+use resolvers::youtube::YoutubeStreamResolver;
+use scanner::local::LocalAudioScanner;
+use search::engine::SearchEngine;
+use std::sync::{Arc, OnceLock};
 
 uniffi::setup_scaffolding!();
 
@@ -36,7 +36,9 @@ static DB_REPO: OnceLock<Arc<DatabaseRepository>> = OnceLock::new();
 static CONFIG_MGR: OnceLock<ConfigManager> = OnceLock::new();
 
 fn get_hybrid_resolver() -> Arc<HybridStreamResolver> {
-    HYBRID_RESOLVER.get_or_init(|| Arc::new(HybridStreamResolver::new())).clone()
+    HYBRID_RESOLVER
+        .get_or_init(|| Arc::new(HybridStreamResolver::new()))
+        .clone()
 }
 
 fn get_youtube_resolver() -> &'static YoutubeStreamResolver {
@@ -44,9 +46,12 @@ fn get_youtube_resolver() -> &'static YoutubeStreamResolver {
 }
 
 fn get_db_repo() -> Result<Arc<DatabaseRepository>, SoftifyError> {
-    DB_REPO.get().cloned().ok_or_else(|| SoftifyError::Database {
-        reason: "Database not initialized. Call init_database first.".to_string(),
-    })
+    DB_REPO
+        .get()
+        .cloned()
+        .ok_or_else(|| SoftifyError::Database {
+            reason: "Database not initialized. Call init_database first.".to_string(),
+        })
 }
 
 fn get_config_mgr() -> &'static ConfigManager {
@@ -66,7 +71,9 @@ pub fn init_database(db_path: String) -> Result<(), SoftifyError> {
 /// Fetches remote configuration with 3s timeout or falls back to bundled defaults
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn refresh_remote_config(url: Option<String>) {
-    let target = url.as_deref().unwrap_or("https://raw.githubusercontent.com/softify-app/softify-config/main/config.json");
+    let target = url
+        .as_deref()
+        .unwrap_or("https://raw.githubusercontent.com/softify-app/softify-config/main/config.json");
     get_config_mgr().fetch_remote_config(target).await;
 }
 
@@ -99,7 +106,7 @@ pub fn search_library(query: String, limit: u32) -> Result<Vec<Track>, SoftifyEr
 pub async fn search_combined(query: String, limit: u32) -> Result<SearchResult, SoftifyError> {
     let repo = get_db_repo()?;
     let engine = SearchEngine::new((*repo).clone());
-    
+
     let online_tracks = if !query.trim().is_empty() {
         let resolver = get_youtube_resolver();
         resolver.search(&query).await.unwrap_or_default()
@@ -114,7 +121,10 @@ pub async fn search_combined(query: String, limit: u32) -> Result<SearchResult, 
 /// Performs HTTP HEAD/Range probe quality verification and sanity checks byte rate.
 /// Unresolved imported tracks are resolved and matched on demand.
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn resolve_stream(mut track: Track, preset: QualityPreset) -> Result<StreamInfo, SoftifyError> {
+pub async fn resolve_stream(
+    mut track: Track,
+    preset: QualityPreset,
+) -> Result<StreamInfo, SoftifyError> {
     let repo_opt = get_db_repo().ok();
 
     // On-demand resolution check for unresolved Spotify tracks
@@ -123,8 +133,11 @@ pub async fn resolve_stream(mut track: Track, preset: QualityPreset) -> Result<S
         let sp_id = track.source_id.trim_start_matches("spotify:").to_string();
         sp_id_opt = Some(sp_id.clone());
         if let Some(repo) = &repo_opt {
-            let cached = repo.get_spotify_match(&sp_id).ok().flatten()
-                .or_else(|| repo.get_spotify_match_by_title_artist(&track.title, &track.artist).ok().flatten());
+            let cached = repo.get_spotify_match(&sp_id).ok().flatten().or_else(|| {
+                repo.get_spotify_match_by_title_artist(&track.title, &track.artist)
+                    .ok()
+                    .flatten()
+            });
             if let Some((vid, cover)) = cached {
                 track.source_id = format!("ytm_{vid}");
                 if track.cover_url.is_none() {
@@ -154,7 +167,8 @@ pub async fn resolve_stream(mut track: Track, preset: QualityPreset) -> Result<S
                     sp_id_opt.as_deref(),
                     &title,
                     &artist,
-                ).await;
+                )
+                .await;
             });
         } else {
             let _ = repo.insert_or_update_track(&track);
@@ -182,7 +196,9 @@ pub async fn download_track(
 ) -> Result<DownloadItem, SoftifyError> {
     let db_opt = get_db_repo().ok().map(|r| (*r).clone());
     let manager = DownloadManager::new(get_hybrid_resolver(), db_opt);
-    manager.download_track(&track, preset, &target_dir, Some(&*callback)).await
+    manager
+        .download_track(&track, preset, &target_dir, Some(&*callback))
+        .await
 }
 
 /// Lists all completed downloads
@@ -224,7 +240,10 @@ pub fn get_liked_tracks() -> Result<Vec<Track>, SoftifyError> {
 
 /// Creates a new user playlist
 #[uniffi::export]
-pub fn create_playlist(name: String, description: Option<String>) -> Result<Playlist, SoftifyError> {
+pub fn create_playlist(
+    name: String,
+    description: Option<String>,
+) -> Result<Playlist, SoftifyError> {
     let repo = get_db_repo()?;
     repo.create_playlist(&name, description.as_deref())
 }
@@ -297,9 +316,14 @@ pub async fn home_explore() -> Result<Vec<Shelf>, SoftifyError> {
 /// Builds dynamic YouTube Music radio queue for a given seed track or continuation token.
 /// Re-ranks candidate tracks using local SQLite play history and dedupes against the last 10 played.
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn get_radio_tracks(seed_track_id: String, continuation: Option<String>) -> Result<RadioResult, SoftifyError> {
+pub async fn get_radio_tracks(
+    seed_track_id: String,
+    continuation: Option<String>,
+) -> Result<RadioResult, SoftifyError> {
     let resolver = get_youtube_resolver();
-    let radio_raw = resolver.get_radio(&seed_track_id, continuation.as_deref()).await?;
+    let radio_raw = resolver
+        .get_radio(&seed_track_id, continuation.as_deref())
+        .await?;
 
     let history = if let Ok(repo) = get_db_repo() {
         repo.get_history(50).unwrap_or_default()
@@ -326,7 +350,9 @@ pub async fn get_quick_picks(limit: u32) -> Result<Vec<Track>, SoftifyError> {
 
     let fallback_tracks = if let Ok(repo) = get_db_repo() {
         let engine = reco::explore::HomeExploreEngine::new(repo);
-        engine.get_explore_shelves(get_config_mgr()).await
+        engine
+            .get_explore_shelves(get_config_mgr())
+            .await
             .unwrap_or_default()
             .into_iter()
             .flat_map(|s| s.tracks)
@@ -335,7 +361,11 @@ pub async fn get_quick_picks(limit: u32) -> Result<Vec<Track>, SoftifyError> {
         Vec::new()
     };
 
-    Ok(reco::ranker::build_quick_picks(&history, &fallback_tracks, limit as usize))
+    Ok(reco::ranker::build_quick_picks(
+        &history,
+        &fallback_tracks,
+        limit as usize,
+    ))
 }
 
 /// Deletes a playlist
@@ -396,7 +426,9 @@ pub fn clear_history() -> Result<(), SoftifyError> {
 
 /// Imports a public Spotify playlist, album, or track without OAuth or API key
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn import_spotify_playlist(url_or_id: String) -> Result<ImportPlaylistResult, SoftifyError> {
+pub async fn import_spotify_playlist(
+    url_or_id: String,
+) -> Result<ImportPlaylistResult, SoftifyError> {
     let repo = get_db_repo()?;
     let importer = SpotifyImporter::new(get_hybrid_resolver(), repo);
     importer.import_playlist(&url_or_id).await
@@ -492,7 +524,8 @@ pub fn is_learning_paused() -> Result<bool, SoftifyError> {
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn get_artist_tracks(artist: String, limit: u32) -> Result<Vec<Track>, SoftifyError> {
     let mut local = if let Ok(repo) = get_db_repo() {
-        repo.get_tracks_by_artist(&artist, limit).unwrap_or_default()
+        repo.get_tracks_by_artist(&artist, limit)
+            .unwrap_or_default()
     } else {
         Vec::new()
     };
@@ -519,7 +552,11 @@ pub async fn get_artist_tracks(artist: String, limit: u32) -> Result<Vec<Track>,
 
 /// Retrieves tracks by album from local library with online fallback/augmentation
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn get_album_tracks(album: String, artist: String, limit: u32) -> Result<Vec<Track>, SoftifyError> {
+pub async fn get_album_tracks(
+    album: String,
+    artist: String,
+    limit: u32,
+) -> Result<Vec<Track>, SoftifyError> {
     let mut local = if let Ok(repo) = get_db_repo() {
         repo.get_tracks_by_album(&album, limit).unwrap_or_default()
     } else {

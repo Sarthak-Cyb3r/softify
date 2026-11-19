@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
-use rusqlite::{params, Connection};
-use crate::models::{Playlist, PlayHistory, SoftifyError, Track};
 use super::migrations::run_migrations;
+use crate::models::{PlayHistory, Playlist, SoftifyError, Track};
+use rusqlite::{params, Connection};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct DatabaseRepository {
@@ -28,7 +28,9 @@ impl DatabaseRepository {
     }
 
     pub fn init_tables(&self) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         run_migrations(&conn)?;
         Ok(())
     }
@@ -38,7 +40,9 @@ impl DatabaseRepository {
     }
 
     pub fn insert_or_update_track(&self, track: &Track) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -72,7 +76,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_track_by_id(&self, id: &str) -> Result<Option<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
              FROM tracks WHERE id = ?1"
@@ -98,16 +104,30 @@ impl DatabaseRepository {
     }
 
     pub fn toggle_like(&self, track_id: &str) -> Result<bool, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let current_state: Option<i64> = conn.query_row(
-            "SELECT is_liked FROM tracks WHERE id = ?1",
-            params![track_id],
-            |r| r.get(0),
-        ).optional()?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let current_state: Option<i64> = conn
+            .query_row(
+                "SELECT is_liked FROM tracks WHERE id = ?1",
+                params![track_id],
+                |r| r.get(0),
+            )
+            .optional()?;
 
         let new_state = match current_state {
-            Some(s) => if s == 0 { 1 } else { 0 },
-            None => return Err(SoftifyError::NotFound { reason: format!("Track {} not in database", track_id) }),
+            Some(s) => {
+                if s == 0 {
+                    1
+                } else {
+                    0
+                }
+            }
+            None => {
+                return Err(SoftifyError::NotFound {
+                    reason: format!("Track {} not in database", track_id),
+                })
+            }
         };
 
         conn.execute(
@@ -119,7 +139,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_liked_tracks(&self) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
              FROM tracks WHERE is_liked = 1 ORDER BY created_at DESC"
@@ -147,10 +169,25 @@ impl DatabaseRepository {
         Ok(tracks)
     }
 
-    pub fn create_playlist(&self, name: &str, description: Option<&str>) -> Result<Playlist, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let id = format!("pl_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    pub fn create_playlist(
+        &self,
+        name: &str,
+        description: Option<&str>,
+    ) -> Result<Playlist, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let id = format!(
+            "pl_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
 
         conn.execute(
             "INSERT INTO playlists (id, name, description, is_imported, source_url, created_at)
@@ -171,13 +208,17 @@ impl DatabaseRepository {
     }
 
     pub fn delete_playlist(&self, playlist_id: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute("DELETE FROM playlists WHERE id = ?1", params![playlist_id])?;
         Ok(())
     }
 
     pub fn get_playlists(&self) -> Result<Vec<Playlist>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT p.id, p.name, p.description, p.is_imported, p.source_url, p.created_at,
                     COUNT(pt.position) as track_count,
@@ -209,14 +250,20 @@ impl DatabaseRepository {
     }
 
     pub fn add_to_playlist(&self, playlist_id: &str, track_id: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        
-        let track_info: (String, String) = conn.query_row(
-            "SELECT title, artist FROM tracks WHERE id = ?1",
-            params![track_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        ).optional()?
-        .ok_or_else(|| SoftifyError::NotFound { reason: format!("Track {} not found", track_id) })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+
+        let track_info: (String, String) = conn
+            .query_row(
+                "SELECT title, artist FROM tracks WHERE id = ?1",
+                params![track_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?
+            .ok_or_else(|| SoftifyError::NotFound {
+                reason: format!("Track {} not found", track_id),
+            })?;
 
         let next_pos: i64 = conn.query_row(
             "SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_tracks WHERE playlist_id = ?1",
@@ -233,8 +280,14 @@ impl DatabaseRepository {
         Ok(())
     }
 
-    pub fn remove_from_playlist(&self, playlist_id: &str, track_id: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn remove_from_playlist(
+        &self,
+        playlist_id: &str,
+        track_id: &str,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2",
             params![playlist_id, track_id],
@@ -243,7 +296,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_playlist_tracks(&self, playlist_id: &str) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms,
                     COALESCE(t.cover_url, sm.cover_url, CASE WHEN t.source_id LIKE 'ytm_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 5) || '/hqdefault.jpg' ELSE NULL END) as cover_url,
@@ -277,8 +332,14 @@ impl DatabaseRepository {
         Ok(tracks)
     }
 
-    pub fn record_play_history(&self, track_id: &str, completed_ratio: f64) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn record_play_history(
+        &self,
+        track_id: &str,
+        completed_ratio: f64,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
 
         // Incognito check: if learning is paused, do not record listening history
         let is_paused: Result<String, rusqlite::Error> = conn.query_row(
@@ -306,7 +367,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_history(&self, limit: u32) -> Result<Vec<PlayHistory>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT ph.id, ph.played_at, ph.completed_ratio,
                     t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url,
@@ -314,7 +377,7 @@ impl DatabaseRepository {
              FROM play_histories ph
              JOIN tracks t ON ph.track_id = t.id
              ORDER BY ph.played_at DESC
-             LIMIT ?1"
+             LIMIT ?1",
         )?;
 
         let rows = stmt.query_map(params![limit], |row| {
@@ -345,14 +408,22 @@ impl DatabaseRepository {
     }
 
     pub fn clear_history(&self) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute("DELETE FROM play_histories", [])?;
         Ok(())
     }
 
     /// Full-Text Search in local tracks using FTS5 virtual table
-    pub fn search_local_tracks_fts(&self, fts_query: &str, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn search_local_tracks_fts(
+        &self,
+        fts_query: &str,
+        limit: u32,
+    ) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url,
                     t.match_confidence, t.is_liked, t.is_unavailable
@@ -360,7 +431,7 @@ impl DatabaseRepository {
              JOIN tracks t ON fts.track_id = t.id
              WHERE tracks_fts MATCH ?1
              ORDER BY rank
-             LIMIT ?2"
+             LIMIT ?2",
         )?;
 
         let rows = stmt.query_map(params![fts_query, limit], |row| {
@@ -386,10 +457,15 @@ impl DatabaseRepository {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn get_cached_lyrics(&self, track_id: &str) -> Result<Option<(Option<String>, Option<String>, bool)>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_cached_lyrics(
+        &self,
+        track_id: &str,
+    ) -> Result<Option<(Option<String>, Option<String>, bool)>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
-            "SELECT synced_lrc, plain_text, is_not_found FROM cached_lyrics WHERE track_id = ?1"
+            "SELECT synced_lrc, plain_text, is_not_found FROM cached_lyrics WHERE track_id = ?1",
         )?;
 
         let mut rows = stmt.query(params![track_id])?;
@@ -401,7 +477,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_cached_lyrics_timestamp(&self, track_id: &str) -> Result<i64, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare("SELECT cached_at FROM cached_lyrics WHERE track_id = ?1")?;
         let mut rows = stmt.query(params![track_id])?;
         if let Some(row) = rows.next()? {
@@ -418,7 +496,9 @@ impl DatabaseRepository {
         plain_text: Option<&str>,
         is_not_found: bool,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -432,7 +512,13 @@ impl DatabaseRepository {
                 plain_text = excluded.plain_text,
                 is_not_found = excluded.is_not_found,
                 cached_at = excluded.cached_at",
-            params![track_id, synced_lrc, plain_text, if is_not_found { 1 } else { 0 }, now],
+            params![
+                track_id,
+                synced_lrc,
+                plain_text,
+                if is_not_found { 1 } else { 0 },
+                now
+            ],
         )?;
 
         Ok(())
@@ -449,7 +535,9 @@ impl DatabaseRepository {
         status: &str,
         bitrate_kbps: u32,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -481,7 +569,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_downloads(&self) -> Result<Vec<crate::models::DownloadItem>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at
              FROM downloads
@@ -509,13 +599,20 @@ impl DatabaseRepository {
     }
 
     pub fn delete_download(&self, track_id: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        conn.execute("DELETE FROM downloads WHERE track_id = ?1", params![track_id])?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        conn.execute(
+            "DELETE FROM downloads WHERE track_id = ?1",
+            params![track_id],
+        )?;
         Ok(())
     }
 
     pub fn create_imported_playlist(&self, playlist: &Playlist) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "INSERT INTO playlists (id, name, description, is_imported, source_url, created_at)
              VALUES (?1, ?2, ?3, 1, ?4, ?5)
@@ -543,7 +640,9 @@ impl DatabaseRepository {
         original_artist: &str,
         match_status: &str,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "INSERT INTO playlist_tracks (playlist_id, position, track_id, original_title, original_artist, match_status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -557,9 +656,15 @@ impl DatabaseRepository {
         Ok(())
     }
 
-    pub fn get_spotify_match(&self, spotify_id: &str) -> Result<Option<(String, Option<String>)>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let mut stmt = conn.prepare("SELECT video_id, cover_url FROM spotify_matches WHERE spotify_id = ?1")?;
+    pub fn get_spotify_match(
+        &self,
+        spotify_id: &str,
+    ) -> Result<Option<(String, Option<String>)>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let mut stmt =
+            conn.prepare("SELECT video_id, cover_url FROM spotify_matches WHERE spotify_id = ?1")?;
         let mut rows = stmt.query(params![spotify_id])?;
         if let Some(row) = rows.next()? {
             let vid: String = row.get(0)?;
@@ -570,8 +675,14 @@ impl DatabaseRepository {
         }
     }
 
-    pub fn get_spotify_match_by_title_artist(&self, title: &str, artist: &str) -> Result<Option<(String, Option<String>)>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_spotify_match_by_title_artist(
+        &self,
+        title: &str,
+        artist: &str,
+    ) -> Result<Option<(String, Option<String>)>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare("SELECT video_id, cover_url FROM spotify_matches WHERE title = ?1 AND artist = ?2 LIMIT 1")?;
         let mut rows = stmt.query(params![title, artist])?;
         if let Some(row) = rows.next()? {
@@ -591,8 +702,13 @@ impl DatabaseRepository {
         artist: &str,
         cover_url: Option<&str>,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
         conn.execute(
             "INSERT INTO spotify_matches (spotify_id, video_id, title, artist, cover_url, matched_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -612,7 +728,9 @@ impl DatabaseRepository {
         cover_url: Option<&str>,
         match_status: &str,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let ytm_source_id = format!("ytm_{video_id}");
         conn.execute(
             "UPDATE tracks 
@@ -637,7 +755,9 @@ impl DatabaseRepository {
         track_id: &str,
         match_status: &str,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "UPDATE playlist_tracks SET match_status = ?1 WHERE playlist_id = ?2 AND track_id = ?3",
             params![match_status, playlist_id, track_id],
@@ -646,13 +766,15 @@ impl DatabaseRepository {
     }
 
     pub fn get_playlist_match_counts(&self, playlist_id: &str) -> Result<(u32, u32), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT 
                 COALESCE(SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END), 0),
                 COUNT(*)
              FROM playlist_tracks
-             WHERE playlist_id = ?1"
+             WHERE playlist_id = ?1",
         )?;
         let row = stmt.query_row(params![playlist_id], |r| {
             let matched: i64 = r.get(0)?;
@@ -666,13 +788,17 @@ impl DatabaseRepository {
         self.get_history(limit)
     }
 
-    pub fn get_play_sessions_history(&self) -> Result<Vec<crate::reco::cooccurrence::PlaySessionItem>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_play_sessions_history(
+        &self,
+    ) -> Result<Vec<crate::reco::cooccurrence::PlaySessionItem>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT ph.track_id, ph.played_at, t.duration_ms
              FROM play_histories ph
              JOIN tracks t ON ph.track_id = t.id
-             ORDER BY ph.played_at ASC"
+             ORDER BY ph.played_at ASC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -702,7 +828,9 @@ impl DatabaseRepository {
         fast_half_life_ms: f64,
         slow_half_life_ms: f64,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let existing: Option<(i64, f64, f64, i64)> = conn.query_row(
             "SELECT id, fast_weight, slow_weight, updated_at FROM taste_profiles WHERE entity_type = ?1 AND entity_id = ?2",
             params![entity_type, entity_id],
@@ -749,10 +877,12 @@ impl DatabaseRepository {
         entity_type: &str,
         entity_id: &str,
     ) -> Result<Option<crate::models::TasteProfileEntity>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, entity_type, entity_id, fast_weight, slow_weight, updated_at
-             FROM taste_profiles WHERE entity_type = ?1 AND entity_id = ?2"
+             FROM taste_profiles WHERE entity_type = ?1 AND entity_id = ?2",
         )?;
 
         let mut rows = stmt.query(params![entity_type, entity_id])?;
@@ -782,10 +912,12 @@ impl DatabaseRepository {
         fast_half_life_ms: f64,
         slow_half_life_ms: f64,
     ) -> Result<Vec<crate::models::TasteProfileEntity>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, entity_type, entity_id, fast_weight, slow_weight, updated_at
-             FROM taste_profiles WHERE entity_type = ?1"
+             FROM taste_profiles WHERE entity_type = ?1",
         )?;
 
         let rows = stmt.query_map(params![entity_type], |row| {
@@ -817,7 +949,11 @@ impl DatabaseRepository {
             entities.push(r?);
         }
 
-        entities.sort_by(|a, b| b.blended_affinity.partial_cmp(&a.blended_affinity).unwrap_or(std::cmp::Ordering::Equal));
+        entities.sort_by(|a, b| {
+            b.blended_affinity
+                .partial_cmp(&a.blended_affinity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         entities.truncate(limit as usize);
         Ok(entities)
     }
@@ -828,10 +964,18 @@ impl DatabaseRepository {
         fast_half_life_ms: f64,
         slow_half_life_ms: f64,
     ) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let mut stmt = conn.prepare("SELECT id, fast_weight, slow_weight, updated_at FROM taste_profiles")?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let mut stmt =
+            conn.prepare("SELECT id, fast_weight, slow_weight, updated_at FROM taste_profiles")?;
         let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?, row.get::<_, f64>(2)?, row.get::<_, i64>(3)?))
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
         })?;
 
         let mut updates = Vec::new();
@@ -860,7 +1004,9 @@ impl DatabaseRepository {
         scores: &[crate::reco::cooccurrence::CooccurrencePairScore],
         now_ms: i64,
     ) -> Result<(), SoftifyError> {
-        let mut conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let mut conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let tx = conn.transaction()?;
 
         for s in scores {
@@ -878,19 +1024,33 @@ impl DatabaseRepository {
         Ok(())
     }
 
-    pub fn get_cooccurrence_score(&self, track_a: &str, track_b: &str) -> Result<f64, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let score: Option<f64> = conn.query_row(
-            "SELECT score FROM cooccurrences WHERE track_a = ?1 AND track_b = ?2",
-            params![track_a, track_b],
-            |r| r.get(0),
-        ).optional()?;
+    pub fn get_cooccurrence_score(
+        &self,
+        track_a: &str,
+        track_b: &str,
+    ) -> Result<f64, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let score: Option<f64> = conn
+            .query_row(
+                "SELECT score FROM cooccurrences WHERE track_a = ?1 AND track_b = ?2",
+                params![track_a, track_b],
+                |r| r.get(0),
+            )
+            .optional()?;
 
         Ok(score.unwrap_or(0.0))
     }
 
-    pub fn set_artist_snooze(&self, artist_id: &str, snoozed_until: i64) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn set_artist_snooze(
+        &self,
+        artist_id: &str,
+        snoozed_until: i64,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "INSERT INTO artist_snoozes (artist_id, snoozed_until)
              VALUES (?1, ?2)
@@ -901,12 +1061,16 @@ impl DatabaseRepository {
     }
 
     pub fn is_artist_snoozed(&self, artist_id: &str, now_ms: i64) -> Result<bool, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let until: Option<i64> = conn.query_row(
-            "SELECT snoozed_until FROM artist_snoozes WHERE artist_id = ?1",
-            params![artist_id.trim().to_lowercase()],
-            |r| r.get(0),
-        ).optional()?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let until: Option<i64> = conn
+            .query_row(
+                "SELECT snoozed_until FROM artist_snoozes WHERE artist_id = ?1",
+                params![artist_id.trim().to_lowercase()],
+                |r| r.get(0),
+            )
+            .optional()?;
 
         match until {
             Some(u) => Ok(u > now_ms),
@@ -915,8 +1079,11 @@ impl DatabaseRepository {
     }
 
     pub fn get_snoozed_artists(&self, now_ms: i64) -> Result<Vec<String>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let mut stmt = conn.prepare("SELECT artist_id FROM artist_snoozes WHERE snoozed_until > ?1")?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let mut stmt =
+            conn.prepare("SELECT artist_id FROM artist_snoozes WHERE snoozed_until > ?1")?;
         let rows = stmt.query_map(params![now_ms], |r| r.get(0))?;
 
         let mut artists = Vec::new();
@@ -927,7 +1094,9 @@ impl DatabaseRepository {
     }
 
     pub fn remove_artist_snooze(&self, artist_id: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "DELETE FROM artist_snoozes WHERE artist_id = ?1",
             params![artist_id.trim().to_lowercase()],
@@ -936,7 +1105,9 @@ impl DatabaseRepository {
     }
 
     pub fn set_setting(&self, key: &str, value: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -946,17 +1117,23 @@ impl DatabaseRepository {
     }
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let val: Option<String> = conn.query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            params![key],
-            |r| r.get(0),
-        ).optional()?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let val: Option<String> = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![key],
+                |r| r.get(0),
+            )
+            .optional()?;
         Ok(val)
     }
 
     pub fn get_all_tracks(&self, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
              FROM tracks ORDER BY created_at DESC LIMIT ?1"
@@ -984,8 +1161,14 @@ impl DatabaseRepository {
         Ok(tracks)
     }
 
-    pub fn get_tracks_by_artist(&self, artist: &str, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_tracks_by_artist(
+        &self,
+        artist: &str,
+        limit: u32,
+    ) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
              FROM tracks WHERE LOWER(artist) = LOWER(?1) ORDER BY created_at DESC LIMIT ?2"
@@ -1014,7 +1197,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_tracks_by_album(&self, album: &str, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
              FROM tracks WHERE LOWER(album) = LOWER(?1) ORDER BY created_at DESC LIMIT ?2"
@@ -1043,14 +1228,16 @@ impl DatabaseRepository {
     }
 
     pub fn get_unplayed_tracks(&self, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let mut stmt = conn.prepare(
             "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url,
                     t.match_confidence, t.is_liked, t.is_unavailable
              FROM tracks t
              LEFT JOIN play_histories ph ON t.id = ph.track_id
              WHERE ph.id IS NULL
-             ORDER BY t.created_at DESC LIMIT ?1"
+             ORDER BY t.created_at DESC LIMIT ?1",
         )?;
 
         let rows = stmt.query_map(params![limit], |row| {
@@ -1082,7 +1269,9 @@ impl DatabaseRepository {
         if trimmed.is_empty() {
             return Ok(());
         }
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
 
         // Incognito check: if learning is paused, do not record recent searches
         let is_paused: Result<String, rusqlite::Error> = conn.query_row(
@@ -1111,10 +1300,11 @@ impl DatabaseRepository {
     }
 
     pub fn get_recent_searches(&self, limit: u32) -> Result<Vec<String>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        let mut stmt = conn.prepare(
-            "SELECT query FROM recent_searches ORDER BY searched_at DESC LIMIT ?1"
-        )?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let mut stmt =
+            conn.prepare("SELECT query FROM recent_searches ORDER BY searched_at DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit as i64], |row| row.get(0))?;
         let mut results = Vec::new();
         for r in rows {
@@ -1124,13 +1314,20 @@ impl DatabaseRepository {
     }
 
     pub fn delete_recent_search(&self, query: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
-        conn.execute("DELETE FROM recent_searches WHERE query = ?1", params![query.trim()])?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        conn.execute(
+            "DELETE FROM recent_searches WHERE query = ?1",
+            params![query.trim()],
+        )?;
         Ok(())
     }
 
     pub fn clear_recent_searches(&self) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         conn.execute("DELETE FROM recent_searches", [])?;
         Ok(())
     }
@@ -1140,8 +1337,14 @@ impl DatabaseRepository {
     /// On Repeat Smart Playlist:
     /// Returns tracks played >= 1 time in the past 14 days (now_ms - 14 * 86_400_000),
     /// ordered by play count descending, with ties broken by most recent play time.
-    pub fn get_on_repeat_tracks(&self, now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_on_repeat_tracks(
+        &self,
+        now_ms: u64,
+        limit: u32,
+    ) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now_sec = (now_ms / 1000) as i64;
         let cutoff_sec = now_sec - (14 * 86_400);
 
@@ -1181,8 +1384,14 @@ impl DatabaseRepository {
     /// Most Played Smart Playlist:
     /// Returns tracks played in the past 30 days (now_ms - 30 * 86_400_000),
     /// ordered by total play count descending, with ties broken by most recent play time.
-    pub fn get_most_played_tracks(&self, now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_most_played_tracks(
+        &self,
+        now_ms: u64,
+        limit: u32,
+    ) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now_sec = (now_ms / 1000) as i64;
         let cutoff_sec = now_sec - (30 * 86_400);
 
@@ -1222,8 +1431,14 @@ impl DatabaseRepository {
     /// Forgotten Favorites Smart Playlist:
     /// Returns liked tracks (`is_liked = 1`) that have not been played in the past 60 days
     /// (or have never been played at all), ordered by creation date descending.
-    pub fn get_forgotten_favorites_tracks(&self, now_ms: u64, limit: u32) -> Result<Vec<Track>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+    pub fn get_forgotten_favorites_tracks(
+        &self,
+        now_ms: u64,
+        limit: u32,
+    ) -> Result<Vec<Track>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now_sec = (now_ms / 1000) as i64;
         let cutoff_sec = now_sec - (60 * 86_400);
 
@@ -1265,7 +1480,9 @@ impl DatabaseRepository {
     // --- Playlist Rename ---
 
     pub fn rename_playlist(&self, playlist_id: &str, new_name: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let rows_affected = conn.execute(
             "UPDATE playlists SET name = ?1 WHERE id = ?2",
             params![new_name.trim(), playlist_id],
@@ -1281,7 +1498,9 @@ impl DatabaseRepository {
     // --- Home Explore Cache ---
 
     pub fn cache_home_explore(&self, json_payload: &str) -> Result<(), SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
@@ -1297,7 +1516,9 @@ impl DatabaseRepository {
     }
 
     pub fn get_cached_home_explore(&self) -> Result<Option<String>, SoftifyError> {
-        let conn = self.conn.lock().map_err(|e| SoftifyError::Database { reason: e.to_string() })?;
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
         let res: Result<String, rusqlite::Error> = conn.query_row(
             "SELECT json_payload FROM home_explore_cache WHERE id = 'primary_explore'",
             [],

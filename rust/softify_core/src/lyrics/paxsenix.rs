@@ -3,8 +3,8 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::SyncedLyrics;
 use super::parser::parse_ttml;
+use crate::models::SyncedLyrics;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -36,7 +36,9 @@ impl PaxsenixClient {
     }
 
     pub async fn fetch_lyrics_by_id(&self, apple_music_id: &str) -> Option<SyncedLyrics> {
-        let resp = self.client.get(&self.base_url)
+        let resp = self
+            .client
+            .get(&self.base_url)
             .query(&[("id", apple_music_id)])
             .header("User-Agent", "Softify/1.0")
             .send()

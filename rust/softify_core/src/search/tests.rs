@@ -77,7 +77,9 @@ fn test_playlist_and_history_lifecycle() {
     assert!(liked_after.is_empty());
 
     // 2. Playlists
-    let pl = repo.create_playlist("Bollywood Chill", Some("Best songs")).unwrap();
+    let pl = repo
+        .create_playlist("Bollywood Chill", Some("Best songs"))
+        .unwrap();
     assert_eq!(pl.name, "Bollywood Chill");
 
     repo.add_to_playlist(&pl.id, "t1").unwrap();
@@ -120,11 +122,13 @@ fn test_search_results_processing_and_deduplication() {
     let online_duplicate = sample_track("local_1", "Flowers", "Miley Cyrus", None);
     let online_new = sample_track("yt_99", "Angels Like You", "Miley Cyrus", None);
 
-    let res = engine.process_search_results(
-        "songs by Miley Cyrus",
-        vec![online_duplicate, online_new],
-        10,
-    ).unwrap();
+    let res = engine
+        .process_search_results(
+            "songs by Miley Cyrus",
+            vec![online_duplicate, online_new],
+            10,
+        )
+        .unwrap();
 
     assert_eq!(res.intent, SearchIntent::Artist);
     assert_eq!(res.detected_entity.as_deref(), Some("miley cyrus"));

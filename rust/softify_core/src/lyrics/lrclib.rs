@@ -1,7 +1,7 @@
-use std::time::Duration;
+use crate::models::SoftifyError;
 use reqwest::Client;
 use serde::Deserialize;
-use crate::models::SoftifyError;
+use std::time::Duration;
 
 const USER_AGENT: &str = "Softify/4.0 (https://github.com/Sarthak-Cyb3r/softify)";
 
@@ -42,7 +42,6 @@ impl Default for LrclibClient {
 }
 
 impl LrclibClient {
-
     #[cfg(test)]
     pub fn with_client_and_base_url(client: Client, base_url: String) -> Self {
         Self { client, base_url }
@@ -73,7 +72,12 @@ impl LrclibClient {
         artist: &str,
         duration_sec: Option<&str>,
     ) -> Result<Option<LrclibResponse>, SoftifyError> {
-        let mut url = format!("{}/get?track_name={}&artist_name={}", self.base_url, urlencoding(title), urlencoding(artist));
+        let mut url = format!(
+            "{}/get?track_name={}&artist_name={}",
+            self.base_url,
+            urlencoding(title),
+            urlencoding(artist)
+        );
         if let Some(dur) = duration_sec {
             url.push_str(&format!("&duration={}", dur));
         }
@@ -81,7 +85,11 @@ impl LrclibClient {
         let mut req = self.client.get(&url).header("User-Agent", USER_AGENT);
         let mut resp = match req.send().await {
             Ok(r) => r,
-            Err(e) => return Err(SoftifyError::Network { reason: e.to_string() }),
+            Err(e) => {
+                return Err(SoftifyError::Network {
+                    reason: e.to_string(),
+                })
+            }
         };
 
         if resp.status().as_u16() == 503 {
@@ -94,7 +102,9 @@ impl LrclibClient {
         }
 
         if resp.status().is_success() {
-            let data: LrclibResponse = resp.json().await.map_err(|e| SoftifyError::Network { reason: e.to_string() })?;
+            let data: LrclibResponse = resp.json().await.map_err(|e| SoftifyError::Network {
+                reason: e.to_string(),
+            })?;
             Ok(Some(data))
         } else {
             Ok(None)

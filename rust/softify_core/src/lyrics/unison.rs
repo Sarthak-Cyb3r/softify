@@ -3,8 +3,8 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::SyncedLyrics;
 use super::parser::{parse_lrc, parse_ttml};
+use crate::models::SyncedLyrics;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -41,7 +41,9 @@ impl UnisonClient {
         artist: &str,
         _duration_ms: Option<u64>,
     ) -> Option<SyncedLyrics> {
-        let resp = self.client.get(&self.base_url)
+        let resp = self
+            .client
+            .get(&self.base_url)
             .query(&[("song", title), ("artist", artist)])
             .header("Accept", "application/json")
             .send()
@@ -60,7 +62,11 @@ impl UnisonClient {
 
         let data = json.get("data")?;
         let lyrics_str = data.get("lyrics")?.as_str()?;
-        let format_str = data.get("format").and_then(|v| v.as_str()).unwrap_or("ttml").to_lowercase();
+        let format_str = data
+            .get("format")
+            .and_then(|v| v.as_str())
+            .unwrap_or("ttml")
+            .to_lowercase();
 
         let mut lyrics = match format_str.as_str() {
             "lrc" => parse_lrc(lyrics_str),

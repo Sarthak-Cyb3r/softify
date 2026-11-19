@@ -1,5 +1,5 @@
-pub mod tagger;
 pub mod manager;
+pub mod tagger;
 
 #[cfg(test)]
 mod tests {
@@ -34,7 +34,16 @@ mod tests {
         let manager = DownloadManager::new(resolver, Some(db.clone()));
 
         // Test DB download records directly
-        db.record_download("t1", "/downloads/t1.m4a", "m4a", 10_000_000, 10_000_000, "completed", 320).unwrap();
+        db.record_download(
+            "t1",
+            "/downloads/t1.m4a",
+            "m4a",
+            10_000_000,
+            10_000_000,
+            "completed",
+            320,
+        )
+        .unwrap();
 
         let downloads = manager.get_downloads().unwrap();
         assert_eq!(downloads.len(), 1);

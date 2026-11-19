@@ -1,9 +1,9 @@
-use std::collections::HashSet;
 use base64::Engine;
-use cipher::{BlockDecrypt, KeyInit, generic_array::GenericArray};
+use cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
 use des::Des;
 use regex::Regex;
 use serde_json::Value;
+use std::collections::HashSet;
 
 use crate::models::{HeaderPair, QualityPreset, SoftifyError, StreamInfo, Track};
 
@@ -62,11 +62,14 @@ impl SaavnStreamResolver {
 
     /// Decrypt Saavn encrypted media url using DES-ECB with key '38346591'
     pub fn decrypt_media_url(encrypted: &str) -> Result<String, SoftifyError> {
-        let cipher = Des::new_from_slice(SAAVN_DES_KEY)
-            .map_err(|e| SoftifyError::Decryption { reason: e.to_string() })?;
+        let cipher = Des::new_from_slice(SAAVN_DES_KEY).map_err(|e| SoftifyError::Decryption {
+            reason: e.to_string(),
+        })?;
         let mut bytes = base64::engine::general_purpose::STANDARD
             .decode(encrypted)
-            .map_err(|e| SoftifyError::Decryption { reason: format!("Base64 decode failed: {e}") })?;
+            .map_err(|e| SoftifyError::Decryption {
+                reason: format!("Base64 decode failed: {e}"),
+            })?;
 
         if bytes.len() % 8 != 0 {
             return Err(SoftifyError::Decryption {
@@ -83,10 +86,17 @@ impl SaavnStreamResolver {
         let cleaned = if let Some(idx) = raw.find(".mp4") {
             raw[..idx + 4].to_string()
         } else {
-            raw.chars().filter(|c| c.is_ascii_graphic() || *c == ' ').collect::<String>().trim().to_string()
+            raw.chars()
+                .filter(|c| c.is_ascii_graphic() || *c == ' ')
+                .collect::<String>()
+                .trim()
+                .to_string()
         };
 
-        let https_url = if cleaned.starts_with("http://") && !cleaned.contains("127.0.0.1") && !cleaned.contains("localhost") {
+        let https_url = if cleaned.starts_with("http://")
+            && !cleaned.contains("127.0.0.1")
+            && !cleaned.contains("localhost")
+        {
             cleaned.replacen("http://", "https://", 1)
         } else {
             cleaned
@@ -104,12 +114,16 @@ impl SaavnStreamResolver {
 
     /// Probes a stream URL with a 1-byte range request or HEAD, returning (total_bytes, http_status)
     pub async fn probe_url(&self, url: &str) -> Result<(u64, u16), SoftifyError> {
-        let res = self.client.get(url)
+        let res = self
+            .client
+            .get(url)
             .header("User-Agent", USER_AGENT)
             .header("Range", "bytes=0-0")
             .send()
             .await
-            .map_err(|e| SoftifyError::Network { reason: e.to_string() })?;
+            .map_err(|e| SoftifyError::Network {
+                reason: e.to_string(),
+            })?;
 
         let status = res.status().as_u16();
         if status != 200 && status != 206 {
@@ -117,7 +131,11 @@ impl SaavnStreamResolver {
         }
 
         let mut total_bytes: u64 = 0;
-        if let Some(cr) = res.headers().get("content-range").and_then(|h| h.to_str().ok()) {
+        if let Some(cr) = res
+            .headers()
+            .get("content-range")
+            .and_then(|h| h.to_str().ok())
+        {
             // format: bytes 0-0/1234567
             if let Some(slash_idx) = cr.rfind('/') {
                 if let Ok(len) = cr[slash_idx + 1..].trim().parse::<u64>() {
@@ -126,7 +144,11 @@ impl SaavnStreamResolver {
             }
         }
         if total_bytes == 0 {
-            if let Some(cl) = res.headers().get("content-length").and_then(|h| h.to_str().ok()) {
+            if let Some(cl) = res
+                .headers()
+                .get("content-length")
+                .and_then(|h| h.to_str().ok())
+            {
                 if let Ok(len) = cl.trim().parse::<u64>() {
                     total_bytes = len;
                 }
@@ -160,11 +182,19 @@ impl SaavnStreamResolver {
         preset: QualityPreset,
     ) -> Result<StreamInfo, SoftifyError> {
         let song_pid = if track.source_id.starts_with("saavn_") {
-            track.source_id.trim_start_matches("saavn_").trim().to_string()
+            track
+                .source_id
+                .trim_start_matches("saavn_")
+                .trim()
+                .to_string()
         } else {
-            self.find_best_matching_pid(track).await?
+            self.find_best_matching_pid(track)
+                .await?
                 .ok_or_else(|| SoftifyError::NotFound {
-                    reason: format!("No matching Saavn track found for '{}' by '{}'", track.title, track.artist),
+                    reason: format!(
+                        "No matching Saavn track found for '{}' by '{}'",
+                        track.title, track.artist
+                    ),
                 })?
         };
 
@@ -173,11 +203,15 @@ impl SaavnStreamResolver {
             self.base_url, song_pid
         );
 
-        let res = self.client.get(&details_url)
+        let res = self
+            .client
+            .get(&details_url)
             .header("User-Agent", USER_AGENT)
             .send()
             .await
-            .map_err(|e| SoftifyError::Network { reason: e.to_string() })?;
+            .map_err(|e| SoftifyError::Network {
+                reason: e.to_string(),
+            })?;
 
         if !res.status().is_success() {
             return Err(SoftifyError::Network {
@@ -185,19 +219,22 @@ impl SaavnStreamResolver {
             });
         }
 
-        let json: Value = res.json().await
-            .map_err(|e| SoftifyError::Network { reason: format!("Failed to parse Saavn details JSON: {e}") })?;
+        let json: Value = res.json().await.map_err(|e| SoftifyError::Network {
+            reason: format!("Failed to parse Saavn details JSON: {e}"),
+        })?;
 
         let song_data = if let Some(arr) = json.get("songs").and_then(|v| v.as_array()) {
             arr.first().cloned()
         } else {
             json.get(&song_pid).cloned()
-        }.ok_or_else(|| SoftifyError::NotFound {
+        }
+        .ok_or_else(|| SoftifyError::NotFound {
             reason: format!("Song data not found in response for pid {song_pid}"),
         })?;
 
         let more_info = song_data.get("more_info").unwrap_or(&song_data);
-        let encrypted_url = more_info.get("encrypted_media_url")
+        let encrypted_url = more_info
+            .get("encrypted_media_url")
             .or_else(|| song_data.get("encrypted_media_url"))
             .and_then(|v| v.as_str())
             .ok_or_else(|| SoftifyError::NotFound {
@@ -217,7 +254,9 @@ impl SaavnStreamResolver {
         for candidate_bitrate in ladder {
             let candidate_url = Self::rewrite_bitrate_url(&base_mp4_url, candidate_bitrate);
             if let Ok((total_bytes, status)) = self.probe_url(&candidate_url).await {
-                if (status == 200 || status == 206) && Self::is_bitrate_sane(total_bytes, duration_sec, candidate_bitrate) {
+                if (status == 200 || status == 206)
+                    && Self::is_bitrate_sane(total_bytes, duration_sec, candidate_bitrate)
+                {
                     let is_requested = candidate_bitrate == requested_bitrate;
                     let expires_at = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
@@ -248,7 +287,10 @@ impl SaavnStreamResolver {
 
     /// Finds best matching pid from JioSaavn searching, applying exact Flutter anti-mashup,
     /// exact Duration Guard, and artist verification.
-    pub async fn find_best_matching_pid(&self, track: &Track) -> Result<Option<String>, SoftifyError> {
+    pub async fn find_best_matching_pid(
+        &self,
+        track: &Track,
+    ) -> Result<Option<String>, SoftifyError> {
         let res = self.match_track_detailed(track).await?;
         match res {
             SaavnMatchResult::Matched(m) => Ok(Some(m.pid)),
@@ -257,10 +299,15 @@ impl SaavnStreamResolver {
     }
 
     /// Evaluates all candidate tracks from JioSaavn and returns detailed match or rejection information.
-    pub async fn match_track_detailed(&self, track: &Track) -> Result<SaavnMatchResult, SoftifyError> {
+    pub async fn match_track_detailed(
+        &self,
+        track: &Track,
+    ) -> Result<SaavnMatchResult, SoftifyError> {
         let clean_title = normalize(&track.title);
         let clean_artist = normalize(&track.artist);
-        let primary_artist = track.artist.split([',', '&', '/'])
+        let primary_artist = track
+            .artist
+            .split([',', '&', '/'])
             .next()
             .unwrap_or("")
             .trim()
@@ -291,7 +338,13 @@ impl SaavnStreamResolver {
                 self.base_url, encoded_q
             );
 
-            if let Ok(res) = self.client.get(&search_url).header("User-Agent", USER_AGENT).send().await {
+            if let Ok(res) = self
+                .client
+                .get(&search_url)
+                .header("User-Agent", USER_AGENT)
+                .send()
+                .await
+            {
                 if res.status().is_success() {
                     if let Ok(json) = res.json::<Value>().await {
                         if let Some(results) = json.get("results").and_then(|v| v.as_array()) {
@@ -326,11 +379,29 @@ impl SaavnStreamResolver {
             };
 
             let more_info = r.get("more_info").cloned().unwrap_or(Value::Null);
-            let raw_cand_title = r.get("title").or_else(|| r.get("song")).and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
-            let cand_subtitle = r.get("subtitle").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
-            let raw_cand_album = more_info.get("album").or_else(|| r.get("subtitle")).and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
+            let raw_cand_title = r
+                .get("title")
+                .or_else(|| r.get("song"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_lowercase();
+            let cand_subtitle = r
+                .get("subtitle")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_lowercase();
+            let raw_cand_album = more_info
+                .get("album")
+                .or_else(|| r.get("subtitle"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_lowercase();
             let cand_title = normalize(&raw_cand_title);
-            let cand_language = r.get("language").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
+            let cand_language = r
+                .get("language")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_lowercase();
 
             // Extract candidate artists across primary_artists, featured_artists, artists, singers, music, subtitle
             let mut cand_singers_vec = Vec::new();
@@ -342,7 +413,10 @@ impl SaavnStreamResolver {
                         }
                     }
                 }
-                if let Some(fa) = artist_map.get("featured_artists").and_then(|v| v.as_array()) {
+                if let Some(fa) = artist_map
+                    .get("featured_artists")
+                    .and_then(|v| v.as_array())
+                {
                     for a in fa {
                         if let Some(name) = a.get("name").and_then(|v| v.as_str()) {
                             cand_singers_vec.push(name);
@@ -377,28 +451,62 @@ impl SaavnStreamResolver {
                 cand_singers_vec.push(music);
             }
             let cand_singers = normalize(&cand_singers_vec.join(" "));
-            let display_artists = if cand_singers_vec.is_empty() { "Unknown".to_string() } else { cand_singers_vec.join(", ") };
+            let display_artists = if cand_singers_vec.is_empty() {
+                "Unknown".to_string()
+            } else {
+                cand_singers_vec.join(", ")
+            };
 
             // 0. Hard Disqualification: Unwanted Remixes, DJ cuts, Covers, Lofi, Slowed, Acoustic, Karaoke
             let target_title_lower = track.title.to_lowercase();
             let target_album_lower = track.album.as_deref().unwrap_or("").to_lowercase();
 
             const UNWANTED_KEYWORDS: &[&str] = &[
-                "remix", "re-mix", "mix", "mashup", "mash-up", "dj ", "dj-", "club",
-                "lofi", "lo-fi", "slowed", "reverb", "sped up", "speed up", "speedup",
-                "acoustic", "unplugged", "cover", "instrumental", "karaoke",
-                "tribute", "rework", "flip", "recreated", "recreation", "rendition",
-                "8d audio", "bass boosted", "reprise",
+                "remix",
+                "re-mix",
+                "mix",
+                "mashup",
+                "mash-up",
+                "dj ",
+                "dj-",
+                "club",
+                "lofi",
+                "lo-fi",
+                "slowed",
+                "reverb",
+                "sped up",
+                "speed up",
+                "speedup",
+                "acoustic",
+                "unplugged",
+                "cover",
+                "instrumental",
+                "karaoke",
+                "tribute",
+                "rework",
+                "flip",
+                "recreated",
+                "recreation",
+                "rendition",
+                "8d audio",
+                "bass boosted",
+                "reprise",
             ];
 
             let mut is_disqualified = false;
             let mut disqualified_kw = "";
             for &kw in UNWANTED_KEYWORDS {
                 if !target_title_lower.contains(kw) && !target_album_lower.contains(kw) {
-                    if kw == "mix" && (raw_cand_title.contains("original mix") || cand_subtitle.contains("original mix")) {
+                    if kw == "mix"
+                        && (raw_cand_title.contains("original mix")
+                            || cand_subtitle.contains("original mix"))
+                    {
                         continue;
                     }
-                    if raw_cand_title.contains(kw) || cand_subtitle.contains(kw) || raw_cand_album.contains(kw) {
+                    if raw_cand_title.contains(kw)
+                        || cand_subtitle.contains(kw)
+                        || raw_cand_album.contains(kw)
+                    {
                         is_disqualified = true;
                         disqualified_kw = kw;
                         break;
@@ -419,9 +527,34 @@ impl SaavnStreamResolver {
 
             // 1. Hard Disqualification: Unrelated artist cover / mismatch
             const ARTIST_STOP_WORDS: &[&str] = &[
-                "the", "and", "feat", "ft", "featuring", "with", "presents", "prod", "by",
-                "music", "band", "records", "official", "original", "soundtrack", "all",
-                "star", "stars", "dj", "vj", "mr", "ms", "mrs", "dr", "to", "in", "on", "of",
+                "the",
+                "and",
+                "feat",
+                "ft",
+                "featuring",
+                "with",
+                "presents",
+                "prod",
+                "by",
+                "music",
+                "band",
+                "records",
+                "official",
+                "original",
+                "soundtrack",
+                "all",
+                "star",
+                "stars",
+                "dj",
+                "vj",
+                "mr",
+                "ms",
+                "mrs",
+                "dr",
+                "to",
+                "in",
+                "on",
+                "of",
             ];
 
             let clean_primary = normalize(&primary_artist);
@@ -462,7 +595,8 @@ impl SaavnStreamResolver {
             }
 
             // 2. Exact Duration Guard: Ported from Flutter Dart code verbatim
-            let cand_dur_sec: i64 = more_info.get("duration")
+            let cand_dur_sec: i64 = more_info
+                .get("duration")
                 .and_then(|v| {
                     if let Some(s) = v.as_str() {
                         s.parse::<i64>().ok()
@@ -477,13 +611,18 @@ impl SaavnStreamResolver {
                 if cand_dur_sec <= 0 {
                     let target_album = normalize(track.album.as_deref().unwrap_or(""));
                     let cand_album = normalize(&raw_cand_album);
-                    if target_album.is_empty() || cand_album.is_empty() || !cand_album.contains(&target_album) {
+                    if target_album.is_empty()
+                        || cand_album.is_empty()
+                        || !cand_album.contains(&target_album)
+                    {
                         if best_rejection.is_none() {
                             best_rejection = Some(SaavnRejectionDetails {
                                 candidate_title: raw_cand_title,
                                 candidate_artists: display_artists,
                                 score: 0.0,
-                                reason: "duration guard: candidate duration unknown and album mismatch".to_string(),
+                                reason:
+                                    "duration guard: candidate duration unknown and album mismatch"
+                                        .to_string(),
                             });
                         }
                         continue;
@@ -509,20 +648,30 @@ impl SaavnStreamResolver {
             let cand_simple = phonetic_simplify(&cand_title);
 
             let mut title_matched = false;
-            if cand_title == clean_title || (!cand_simple.is_empty() && cand_simple == clean_simple) {
+            if cand_title == clean_title || (!cand_simple.is_empty() && cand_simple == clean_simple)
+            {
                 score += 70.0;
                 title_matched = true;
-            } else if cand_title.contains(&clean_title) && (clean_title.len() >= 4 || clean_title.len() == cand_title.len()) {
+            } else if cand_title.contains(&clean_title)
+                && (clean_title.len() >= 4 || clean_title.len() == cand_title.len())
+            {
                 score += 50.0;
                 title_matched = true;
-            } else if clean_title.contains(&cand_title) && cand_title.len() >= 4 && (cand_title.len() as f64 / clean_title.len() as f64 >= 0.65) {
+            } else if clean_title.contains(&cand_title)
+                && cand_title.len() >= 4
+                && (cand_title.len() as f64 / clean_title.len() as f64 >= 0.65)
+            {
                 score += 45.0;
                 title_matched = true;
-            } else if !cand_simple.is_empty() && !clean_simple.is_empty() && (cand_simple.contains(&clean_simple) || clean_simple.contains(&cand_simple))
-                && clean_simple.len() >= 4 && cand_simple.len() >= 4 {
-                    score += 40.0;
-                    title_matched = true;
-                }
+            } else if !cand_simple.is_empty()
+                && !clean_simple.is_empty()
+                && (cand_simple.contains(&clean_simple) || clean_simple.contains(&cand_simple))
+                && clean_simple.len() >= 4
+                && cand_simple.len() >= 4
+            {
+                score += 40.0;
+                title_matched = true;
+            }
 
             if !title_matched {
                 if best_rejection.is_none() {
@@ -537,12 +686,28 @@ impl SaavnStreamResolver {
             }
 
             // Language preservation
-            const REGIONAL_LANGS: &[&str] = &["telugu", "tamil", "bhojpuri", "kannada", "malayalam", "marathi", "bengali"];
-            let target_lower = format!("{} {}", track.title.to_lowercase(), track.artist.to_lowercase());
-            if REGIONAL_LANGS.contains(&cand_language.as_str()) && !target_lower.contains(&cand_language) {
+            const REGIONAL_LANGS: &[&str] = &[
+                "telugu",
+                "tamil",
+                "bhojpuri",
+                "kannada",
+                "malayalam",
+                "marathi",
+                "bengali",
+            ];
+            let target_lower = format!(
+                "{} {}",
+                track.title.to_lowercase(),
+                track.artist.to_lowercase()
+            );
+            if REGIONAL_LANGS.contains(&cand_language.as_str())
+                && !target_lower.contains(&cand_language)
+            {
                 score -= 40.0;
             }
-            if (cand_language == "hindi" || cand_language == "english" || cand_language == "punjabi")
+            if (cand_language == "hindi"
+                || cand_language == "english"
+                || cand_language == "punjabi")
                 && (target_lower.contains(&cand_language) || clean_artist.is_empty())
             {
                 score += 10.0;
@@ -553,7 +718,10 @@ impl SaavnStreamResolver {
                 if cand_singers.contains(&clean_primary) || cand_singers.contains(&clean_artist) {
                     score += 40.0;
                 } else if !primary_words.is_empty() {
-                    let matched = primary_words.iter().filter(|w| cand_singers.contains(**w)).count();
+                    let matched = primary_words
+                        .iter()
+                        .filter(|w| cand_singers.contains(**w))
+                        .count();
                     score += 40.0 * (matched as f64 / primary_words.len() as f64);
                 }
             }
@@ -561,10 +729,14 @@ impl SaavnStreamResolver {
             // Album bonus
             let target_album = normalize(track.album.as_deref().unwrap_or(""));
             let cand_album = normalize(&raw_cand_album);
-            if !target_album.is_empty() && !cand_album.is_empty()
-                && (cand_album == target_album || cand_album.contains(&target_album) || target_album.contains(&cand_album)) {
-                    score += 40.0;
-                }
+            if !target_album.is_empty()
+                && !cand_album.is_empty()
+                && (cand_album == target_album
+                    || cand_album.contains(&target_album)
+                    || target_album.contains(&cand_album))
+            {
+                score += 40.0;
+            }
 
             // Duration proximity
             let diff_sec = if track.duration_ms > 0 && cand_dur_sec > 0 {
@@ -583,7 +755,12 @@ impl SaavnStreamResolver {
                 0
             };
 
-            if score < 80.0 && best_rejection.as_ref().map(|b| b.score < score).unwrap_or(true) {
+            if score < 80.0
+                && best_rejection
+                    .as_ref()
+                    .map(|b| b.score < score)
+                    .unwrap_or(true)
+            {
                 best_rejection = Some(SaavnRejectionDetails {
                     candidate_title: raw_cand_title.clone(),
                     candidate_artists: display_artists.clone(),
@@ -620,11 +797,20 @@ impl Default for SaavnStreamResolver {
 }
 
 pub fn normalize(s: &str) -> String {
-    let s_clean: String = s.chars()
-        .map(|c| if ['\u{00A0}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}', '\u{2007}', '\u{2008}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{202F}', '\u{205F}', '\u{3000}'].contains(&c) {
-            ' '
-        } else {
-            c
+    let s_clean: String = s
+        .chars()
+        .map(|c| {
+            if [
+                '\u{00A0}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}',
+                '\u{2006}', '\u{2007}', '\u{2008}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{202F}',
+                '\u{205F}', '\u{3000}',
+            ]
+            .contains(&c)
+            {
+                ' '
+            } else {
+                c
+            }
         })
         .collect();
     let lower = s_clean.to_lowercase();

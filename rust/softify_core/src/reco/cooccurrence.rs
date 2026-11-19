@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use crate::db::repository::DatabaseRepository;
 use crate::models::SoftifyError;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CooccurrencePairScore {
@@ -143,7 +143,11 @@ impl CooccurrenceGraphBuilder {
         Ok(count)
     }
 
-    pub fn get_cooccurrence_score(&self, track_a: &str, track_b: &str) -> Result<f64, SoftifyError> {
+    pub fn get_cooccurrence_score(
+        &self,
+        track_a: &str,
+        track_b: &str,
+    ) -> Result<f64, SoftifyError> {
         self.db.get_cooccurrence_score(track_a, track_b)
     }
 }
@@ -155,13 +159,33 @@ mod tests {
     #[test]
     fn test_group_plays_into_sentences() {
         let plays = vec![
-            PlaySessionItem { track_id: "t1".into(), played_at_ms: 1000, duration_ms: 10000 },
-            PlaySessionItem { track_id: "t2".into(), played_at_ms: 12000, duration_ms: 10000 },
+            PlaySessionItem {
+                track_id: "t1".into(),
+                played_at_ms: 1000,
+                duration_ms: 10000,
+            },
+            PlaySessionItem {
+                track_id: "t2".into(),
+                played_at_ms: 12000,
+                duration_ms: 10000,
+            },
             // Gap = 30000 - 22000 = 8000 <= 60000 -> same sentence
-            PlaySessionItem { track_id: "t3".into(), played_at_ms: 30000, duration_ms: 10000 },
+            PlaySessionItem {
+                track_id: "t3".into(),
+                played_at_ms: 30000,
+                duration_ms: 10000,
+            },
             // Gap = 150000 - 40000 = 110000 > 60000 -> new sentence
-            PlaySessionItem { track_id: "t4".into(), played_at_ms: 150000, duration_ms: 10000 },
-            PlaySessionItem { track_id: "t5".into(), played_at_ms: 155000, duration_ms: 10000 },
+            PlaySessionItem {
+                track_id: "t4".into(),
+                played_at_ms: 150000,
+                duration_ms: 10000,
+            },
+            PlaySessionItem {
+                track_id: "t5".into(),
+                played_at_ms: 155000,
+                duration_ms: 10000,
+            },
         ];
 
         let sentences = CooccurrenceGraphBuilder::group_plays_into_sentences(&plays, 60000);

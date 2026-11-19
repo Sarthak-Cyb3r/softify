@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::db::repository::DatabaseRepository;
 use crate::models::{SoftifyError, TasteProfileEntity, Track};
+use std::sync::Arc;
 
 /// Dart:
 /// static const double fastHalfLifeHours = 4.0;
@@ -107,7 +107,13 @@ impl TasteProfileEngine {
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
 
-        self.db.get_top_taste_entities("artist", limit, now_ms, FAST_HALF_LIFE_MS, SLOW_HALF_LIFE_MS)
+        self.db.get_top_taste_entities(
+            "artist",
+            limit,
+            now_ms,
+            FAST_HALF_LIFE_MS,
+            SLOW_HALF_LIFE_MS,
+        )
     }
 
     pub fn apply_decay(&self) -> Result<(), SoftifyError> {
@@ -116,7 +122,8 @@ impl TasteProfileEngine {
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
 
-        self.db.decay_all_taste_profiles(now_ms, FAST_HALF_LIFE_MS, SLOW_HALF_LIFE_MS)
+        self.db
+            .decay_all_taste_profiles(now_ms, FAST_HALF_LIFE_MS, SLOW_HALF_LIFE_MS)
     }
 }
 

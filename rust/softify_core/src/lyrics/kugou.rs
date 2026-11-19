@@ -3,8 +3,8 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::SyncedLyrics;
 use super::parser::parse_lrc;
+use crate::models::SyncedLyrics;
 use base64::Engine;
 use std::time::Duration;
 
@@ -48,7 +48,9 @@ impl KuGouClient {
         }
 
         let search_url = format!("{}/search", self.base_url);
-        let resp = self.client.get(&search_url)
+        let resp = self
+            .client
+            .get(&search_url)
             .query(&[
                 ("ver", "1"),
                 ("man", "yes"),
@@ -72,7 +74,9 @@ impl KuGouClient {
 
         let download_url = format!("{}/download", self.base_url);
         let id_str = id.to_string();
-        let dl_resp = self.client.get(&download_url)
+        let dl_resp = self
+            .client
+            .get(&download_url)
             .query(&[
                 ("fmt", "lrc"),
                 ("charset", "utf8"),
@@ -91,7 +95,9 @@ impl KuGouClient {
 
         let dl_body: serde_json::Value = dl_resp.json().await.ok()?;
         let b64_content = dl_body.get("content")?.as_str()?;
-        let lrc_bytes = base64::engine::general_purpose::STANDARD.decode(b64_content).ok()?;
+        let lrc_bytes = base64::engine::general_purpose::STANDARD
+            .decode(b64_content)
+            .ok()?;
         let lrc_text = String::from_utf8(lrc_bytes).ok()?;
 
         let mut lyrics = parse_lrc(&lrc_text);

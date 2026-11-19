@@ -1,5 +1,5 @@
 use base64::Engine;
-use cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
+use cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
 use des::Des;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -27,7 +27,10 @@ fn test_des_decryption_roundtrip() {
     let original = "http://aac.saavn.cdn.jio.com/123/sample_song_320.mp4";
     let encrypted = encrypt_test_url(original);
     let decrypted = SaavnStreamResolver::decrypt_media_url(&encrypted).unwrap();
-    assert_eq!(decrypted, "https://aac.saavn.cdn.jio.com/123/sample_song_320.mp4");
+    assert_eq!(
+        decrypted,
+        "https://aac.saavn.cdn.jio.com/123/sample_song_320.mp4"
+    );
 }
 
 #[test]
@@ -38,8 +41,9 @@ fn test_real_recorded_encrypted_media_url_decryption() {
         .as_str()
         .expect("encrypted_media_url string");
 
-    let decrypted = SaavnStreamResolver::decrypt_media_url(encrypted).expect("DES decryption of real fixture");
-    
+    let decrypted =
+        SaavnStreamResolver::decrypt_media_url(encrypted).expect("DES decryption of real fixture");
+
     // Assert real JioSaavn CDN structure
     assert!(decrypted.starts_with("https://") || decrypted.starts_with("http://"));
     assert!(decrypted.contains("saavncdn.com") || decrypted.contains("saavn.cdn"));
@@ -67,18 +71,40 @@ fn test_url_rewrite_presets() {
 fn test_bitrate_sanity_check() {
     let duration_sec = 200;
     // 320 kbps -> 40 KB/s -> ~8,000,000 bytes
-    assert!(SaavnStreamResolver::is_bitrate_sane(8_000_000, duration_sec, 320));
+    assert!(SaavnStreamResolver::is_bitrate_sane(
+        8_000_000,
+        duration_sec,
+        320
+    ));
     // 4,000,000 bytes for 200s is ~20 KB/s, which is 160 kbps, not 320 kbps
-    assert!(!SaavnStreamResolver::is_bitrate_sane(4_000_000, duration_sec, 320));
-    assert!(SaavnStreamResolver::is_bitrate_sane(4_000_000, duration_sec, 160));
+    assert!(!SaavnStreamResolver::is_bitrate_sane(
+        4_000_000,
+        duration_sec,
+        320
+    ));
+    assert!(SaavnStreamResolver::is_bitrate_sane(
+        4_000_000,
+        duration_sec,
+        160
+    ));
     // 2,400,000 bytes for 200s is ~12 KB/s, which is 96 kbps
-    assert!(SaavnStreamResolver::is_bitrate_sane(2_400_000, duration_sec, 96));
+    assert!(SaavnStreamResolver::is_bitrate_sane(
+        2_400_000,
+        duration_sec,
+        96
+    ));
 }
 
 #[test]
 fn test_normalization_and_phonetic_simplify() {
-    assert_eq!(normalize("Tum Hi Ho (Official Video) [Aashiqui 2]"), "tum hi ho");
-    assert_eq!(normalize("Adele - Rolling In The Deep"), "adele rolling in the deep");
+    assert_eq!(
+        normalize("Tum Hi Ho (Official Video) [Aashiqui 2]"),
+        "tum hi ho"
+    );
+    assert_eq!(
+        normalize("Adele - Rolling In The Deep"),
+        "adele rolling in the deep"
+    );
     assert_eq!(phonetic_simplify("Saaiyaan"), "saiyan");
 }
 
@@ -316,7 +342,11 @@ async fn test_youtube_fallback_honest_bitrate_marking() {
         .mount(&server)
         .await;
 
-    let yt = YoutubeStreamResolver::with_client_and_urls(reqwest::Client::new(), player_url, music_search_url);
+    let yt = YoutubeStreamResolver::with_client_and_urls(
+        reqwest::Client::new(),
+        player_url,
+        music_search_url,
+    );
     let track = Track {
         id: "yt_dQw4w9WgXcQ".to_string(),
         source_id: "dQw4w9WgXcQ".to_string(),
@@ -394,7 +424,8 @@ async fn test_band_name_and_featured_artist_matching_regression() {
         .mount(&server)
         .await;
 
-    let resolver = SaavnStreamResolver::with_client_and_base_url(reqwest::Client::new(), server.uri());
+    let resolver =
+        SaavnStreamResolver::with_client_and_base_url(reqwest::Client::new(), server.uri());
     let track = Track {
         id: "t_khoj".to_string(),
         source_id: "src_khoj".to_string(),
@@ -417,7 +448,10 @@ async fn test_band_name_and_featured_artist_matching_regression() {
             assert!(m.score >= 80.0, "Score was {}", m.score);
         }
         SaavnMatchResult::Rejected(rej) => {
-            panic!("Expected match for band When Chai Met Toast, but got rejected: {:?}", rej);
+            panic!(
+                "Expected match for band When Chai Met Toast, but got rejected: {:?}",
+                rej
+            );
         }
     }
 }

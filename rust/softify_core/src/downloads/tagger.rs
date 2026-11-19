@@ -20,9 +20,13 @@ impl M4aAtomTagger {
     }
 
     pub fn write_metadata(file_path: &Path, metadata: &M4aMetadata) -> Result<(), SoftifyError> {
-        let bytes = fs::read(file_path).map_err(|e| SoftifyError::Download { reason: format!("Read failed: {e}") })?;
+        let bytes = fs::read(file_path).map_err(|e| SoftifyError::Download {
+            reason: format!("Read failed: {e}"),
+        })?;
         if !Self::is_valid_iso_mp4(&bytes) {
-            return Err(SoftifyError::Download { reason: "File is not a valid ISO MP4 / M4A".to_string() });
+            return Err(SoftifyError::Download {
+                reason: "File is not a valid ISO MP4 / M4A".to_string(),
+            });
         }
 
         let mut ilst_payload = Vec::new();
@@ -54,8 +58,12 @@ impl M4aAtomTagger {
 
         // Atomic write via temp file
         let temp_path = file_path.with_extension("m4a.tmp");
-        fs::write(&temp_path, &updated_bytes).map_err(|e| SoftifyError::Download { reason: format!("Temp write failed: {e}") })?;
-        fs::rename(&temp_path, file_path).map_err(|e| SoftifyError::Download { reason: format!("Rename failed: {e}") })?;
+        fs::write(&temp_path, &updated_bytes).map_err(|e| SoftifyError::Download {
+            reason: format!("Temp write failed: {e}"),
+        })?;
+        fs::rename(&temp_path, file_path).map_err(|e| SoftifyError::Download {
+            reason: format!("Rename failed: {e}"),
+        })?;
 
         Ok(())
     }
@@ -74,11 +82,12 @@ impl M4aAtomTagger {
     }
 
     fn build_cover_atom(image_bytes: &[u8]) -> Vec<u8> {
-        let type_code: u32 = if image_bytes.len() >= 8 && image_bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
-            14 // PNG
-        } else {
-            13 // JPEG
-        };
+        let type_code: u32 =
+            if image_bytes.len() >= 8 && image_bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+                14 // PNG
+            } else {
+                13 // JPEG
+            };
 
         let mut data_payload = Vec::with_capacity(8 + image_bytes.len());
         data_payload.extend_from_slice(&type_code.to_be_bytes());
@@ -105,7 +114,8 @@ impl M4aAtomTagger {
         let mut mdat_offset = None;
 
         while offset + 8 <= original.len() {
-            let size = u32::from_be_bytes(original[offset..offset + 4].try_into().unwrap()) as usize;
+            let size =
+                u32::from_be_bytes(original[offset..offset + 4].try_into().unwrap()) as usize;
             let box_type = &original[offset + 4..offset + 8];
 
             if box_type == b"moov" {
@@ -121,8 +131,12 @@ impl M4aAtomTagger {
             offset += size;
         }
 
-        let moov_off = moov_offset.ok_or_else(|| SoftifyError::Download { reason: "Missing moov atom in MP4".to_string() })?;
-        let moov_sz = moov_size.ok_or_else(|| SoftifyError::Download { reason: "Invalid moov size".to_string() })?;
+        let moov_off = moov_offset.ok_or_else(|| SoftifyError::Download {
+            reason: "Missing moov atom in MP4".to_string(),
+        })?;
+        let moov_sz = moov_size.ok_or_else(|| SoftifyError::Download {
+            reason: "Invalid moov size".to_string(),
+        })?;
 
         let moov_data_start = moov_off + 8;
         let moov_data_end = moov_off + moov_sz;
@@ -132,7 +146,9 @@ impl M4aAtomTagger {
         let mut existing_udta = None;
 
         while sub_offset + 8 <= moov_data_end {
-            let sub_size = u32::from_be_bytes(original[sub_offset..sub_offset + 4].try_into().unwrap()) as usize;
+            let sub_size =
+                u32::from_be_bytes(original[sub_offset..sub_offset + 4].try_into().unwrap())
+                    as usize;
             if sub_size < 8 || sub_offset + sub_size > moov_data_end {
                 break;
             }
@@ -166,7 +182,12 @@ impl M4aAtomTagger {
         // We must shift all sample chunk offsets (stco 32-bit & co64 64-bit) by added_bytes!
         if let Some(mdat_off) = mdat_offset {
             if moov_off < mdat_off {
-                Self::shift_chunk_offsets(&mut result, moov_off + 8, moov_off + new_moov_size as usize, added_bytes as u32);
+                Self::shift_chunk_offsets(
+                    &mut result,
+                    moov_off + 8,
+                    moov_off + new_moov_size as usize,
+                    added_bytes as u32,
+                );
             }
         }
 
@@ -182,24 +203,34 @@ impl M4aAtomTagger {
             }
             let box_type = &bytes[offset + 4..offset + 8];
 
-            if box_type == b"trak" || box_type == b"mdia" || box_type == b"minf" || box_type == b"stbl" {
+            if box_type == b"trak"
+                || box_type == b"mdia"
+                || box_type == b"minf"
+                || box_type == b"stbl"
+            {
                 Self::shift_chunk_offsets(bytes, offset + 8, offset + size, added_bytes);
             } else if box_type == b"stco" && offset + 16 <= bytes.len() {
-                let count = u32::from_be_bytes(bytes[offset + 12..offset + 16].try_into().unwrap()) as usize;
+                let count = u32::from_be_bytes(bytes[offset + 12..offset + 16].try_into().unwrap())
+                    as usize;
                 for i in 0..count {
                     let entry_pos = offset + 16 + (i * 4);
                     if entry_pos + 4 <= bytes.len() {
-                        let old_val = u32::from_be_bytes(bytes[entry_pos..entry_pos + 4].try_into().unwrap());
-                        bytes[entry_pos..entry_pos + 4].copy_from_slice(&(old_val + added_bytes).to_be_bytes());
+                        let old_val =
+                            u32::from_be_bytes(bytes[entry_pos..entry_pos + 4].try_into().unwrap());
+                        bytes[entry_pos..entry_pos + 4]
+                            .copy_from_slice(&(old_val + added_bytes).to_be_bytes());
                     }
                 }
             } else if box_type == b"co64" && offset + 16 <= bytes.len() {
-                let count = u32::from_be_bytes(bytes[offset + 12..offset + 16].try_into().unwrap()) as usize;
+                let count = u32::from_be_bytes(bytes[offset + 12..offset + 16].try_into().unwrap())
+                    as usize;
                 for i in 0..count {
                     let entry_pos = offset + 16 + (i * 8);
                     if entry_pos + 8 <= bytes.len() {
-                        let old_val = u64::from_be_bytes(bytes[entry_pos..entry_pos + 8].try_into().unwrap());
-                        bytes[entry_pos..entry_pos + 8].copy_from_slice(&(old_val + added_bytes as u64).to_be_bytes());
+                        let old_val =
+                            u64::from_be_bytes(bytes[entry_pos..entry_pos + 8].try_into().unwrap());
+                        bytes[entry_pos..entry_pos + 8]
+                            .copy_from_slice(&(old_val + added_bytes as u64).to_be_bytes());
                     }
                 }
             }
@@ -320,13 +351,29 @@ mod tests {
         assert!(added_bytes > 0);
 
         // Find updated stco offset in updated bytes
-        let stco_pos = updated.windows(4).position(|w| w == b"stco").expect("found stco");
-        let new_stco_val = u32::from_be_bytes(updated[stco_pos + 12..stco_pos + 16].try_into().unwrap());
-        assert_eq!(new_stco_val, 100 + added_bytes as u32, "stco offset must be shifted by exact added_bytes");
+        let stco_pos = updated
+            .windows(4)
+            .position(|w| w == b"stco")
+            .expect("found stco");
+        let new_stco_val =
+            u32::from_be_bytes(updated[stco_pos + 12..stco_pos + 16].try_into().unwrap());
+        assert_eq!(
+            new_stco_val,
+            100 + added_bytes as u32,
+            "stco offset must be shifted by exact added_bytes"
+        );
 
         // Find updated co64 offset in updated bytes
-        let co64_pos = updated.windows(4).position(|w| w == b"co64").expect("found co64");
-        let new_co64_val = u64::from_be_bytes(updated[co64_pos + 12..co64_pos + 20].try_into().unwrap());
-        assert_eq!(new_co64_val, 1000 + added_bytes as u64, "co64 offset must be shifted by exact added_bytes");
+        let co64_pos = updated
+            .windows(4)
+            .position(|w| w == b"co64")
+            .expect("found co64");
+        let new_co64_val =
+            u64::from_be_bytes(updated[co64_pos + 12..co64_pos + 20].try_into().unwrap());
+        assert_eq!(
+            new_co64_val,
+            1000 + added_bytes as u64,
+            "co64 offset must be shifted by exact added_bytes"
+        );
     }
 }

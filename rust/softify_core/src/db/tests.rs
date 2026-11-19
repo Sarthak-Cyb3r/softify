@@ -26,7 +26,10 @@ fn test_recent_searches_lifecycle() {
 
     let recent = repo.get_recent_searches(10).unwrap();
     assert_eq!(recent.len(), 2);
-    assert_eq!(recent[0], "Arijit Singh", "Most recently updated search must be first");
+    assert_eq!(
+        recent[0], "Arijit Singh",
+        "Most recently updated search must be first"
+    );
     assert_eq!(recent[1], "Karan Aujla");
 
     repo.delete_recent_search("Karan Aujla").unwrap();
@@ -136,16 +139,33 @@ fn test_smart_playlists_rules_and_edge_cases() {
     // Rule: played within 14 days. t1 (3 plays), t2 (3 plays). t3 (20 days ago) is excluded!
     // Tie-break: t1 last played 5 days ago > t2 last played 6 days ago -> t1 first.
     let on_repeat = repo.get_on_repeat_tracks(now_ms, 10).unwrap();
-    assert_eq!(on_repeat.len(), 2, "Only tracks within 14 days qualify for On Repeat");
-    assert_eq!(on_repeat[0].id, "t1", "t1 wins tie-break due to more recent play time");
+    assert_eq!(
+        on_repeat.len(),
+        2,
+        "Only tracks within 14 days qualify for On Repeat"
+    );
+    assert_eq!(
+        on_repeat[0].id, "t1",
+        "t1 wins tie-break due to more recent play time"
+    );
     assert_eq!(on_repeat[1].id, "t2");
 
     // --- 2. Test Most Played (Past 30 Days) ---
     // Rule: played within 30 days. t3 (5 plays), t1 (3 plays), t2 (3 plays). t4 (75 days ago) is excluded!
     let most_played = repo.get_most_played_tracks(now_ms, 10).unwrap();
-    assert_eq!(most_played.len(), 3, "Only tracks within 30 days qualify for Most Played");
-    assert_eq!(most_played[0].id, "t3", "t3 has highest play count (5 plays)");
-    assert_eq!(most_played[1].id, "t1", "t1 has 3 plays, more recent than t2");
+    assert_eq!(
+        most_played.len(),
+        3,
+        "Only tracks within 30 days qualify for Most Played"
+    );
+    assert_eq!(
+        most_played[0].id, "t3",
+        "t3 has highest play count (5 plays)"
+    );
+    assert_eq!(
+        most_played[1].id, "t1",
+        "t1 has 3 plays, more recent than t2"
+    );
     assert_eq!(most_played[2].id, "t2");
 
     // --- 3. Test Forgotten Favorites (Liked, Not Played in 60+ Days) ---
@@ -158,17 +178,34 @@ fn test_smart_playlists_rules_and_edge_cases() {
     let forgotten = repo.get_forgotten_favorites_tracks(now_ms, 10).unwrap();
     let forgotten_ids: Vec<String> = forgotten.into_iter().map(|t| t.id).collect();
     assert_eq!(forgotten_ids.len(), 2);
-    assert!(forgotten_ids.contains(&"t4".to_string()), "t4 (played 75 days ago) must be included");
-    assert!(forgotten_ids.contains(&"t5".to_string()), "t5 (liked, never played) must be included");
-    assert!(!forgotten_ids.contains(&"t1".to_string()), "t1 (played 5 days ago) must be excluded");
-    assert!(!forgotten_ids.contains(&"t3".to_string()), "t3 (played 20 days ago) must be excluded");
-    assert!(!forgotten_ids.contains(&"t6".to_string()), "t6 (not liked) must be excluded");
+    assert!(
+        forgotten_ids.contains(&"t4".to_string()),
+        "t4 (played 75 days ago) must be included"
+    );
+    assert!(
+        forgotten_ids.contains(&"t5".to_string()),
+        "t5 (liked, never played) must be included"
+    );
+    assert!(
+        !forgotten_ids.contains(&"t1".to_string()),
+        "t1 (played 5 days ago) must be excluded"
+    );
+    assert!(
+        !forgotten_ids.contains(&"t3".to_string()),
+        "t3 (played 20 days ago) must be excluded"
+    );
+    assert!(
+        !forgotten_ids.contains(&"t6".to_string()),
+        "t6 (not liked) must be excluded"
+    );
 }
 
 #[test]
 fn test_playlist_rename() {
     let repo = DatabaseRepository::in_memory().unwrap();
-    let pl = repo.create_playlist("Old Name", Some("Description")).unwrap();
+    let pl = repo
+        .create_playlist("Old Name", Some("Description"))
+        .unwrap();
     assert_eq!(pl.name, "Old Name");
 
     repo.rename_playlist(&pl.id, "New Brand Name").unwrap();

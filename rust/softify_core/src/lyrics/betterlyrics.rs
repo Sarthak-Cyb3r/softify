@@ -3,8 +3,8 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::SyncedLyrics;
 use super::parser::parse_ttml;
+use crate::models::SyncedLyrics;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -44,8 +44,7 @@ impl BetterLyricsClient {
         let duration_sec = duration_ms.map(|d| d / 1000).unwrap_or(0);
         let url = format!("{}/getLyrics", self.base_url);
 
-        let mut req = self.client.get(&url)
-            .query(&[("s", title), ("a", artist)]);
+        let mut req = self.client.get(&url).query(&[("s", title), ("a", artist)]);
 
         let dur_str = duration_sec.to_string();
         if duration_sec > 0 {

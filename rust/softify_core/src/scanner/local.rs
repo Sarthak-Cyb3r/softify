@@ -1,10 +1,10 @@
+use lofty::prelude::*;
+use lofty::probe::Probe;
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use lofty::prelude::*;
-use lofty::probe::Probe;
-use rayon::prelude::*;
 use walkdir::WalkDir;
 
 use crate::db::repository::DatabaseRepository;
@@ -12,16 +12,36 @@ use crate::models::{ScanProgressCallback, ScanResult, SoftifyError, Track};
 
 pub const MIN_FILE_SIZE_BYTES: u64 = 300 * 1024; // 300 KB
 
-pub const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "mp3", "m4a", "flac", "wav", "ogg", "aac",
-];
+pub const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "m4a", "flac", "wav", "ogg", "aac"];
 
 pub const EXCLUDED_FOLDERS: &[&str] = &[
-    "node_modules", "build", "dist", "out", "target", "vendor",
-    "bin", "obj", "src", "assets", "public", "temp", "tmp", "cache",
-    "Android", ".Trash", "WhatsApp", "WhatsApp Audio", "Voice Notes",
-    "Ringtones", "Notifications", "Alarms", "Call Recordings",
-    ".venv", ".git", ".idea", ".vscode",
+    "node_modules",
+    "build",
+    "dist",
+    "out",
+    "target",
+    "vendor",
+    "bin",
+    "obj",
+    "src",
+    "assets",
+    "public",
+    "temp",
+    "tmp",
+    "cache",
+    "Android",
+    ".Trash",
+    "WhatsApp",
+    "WhatsApp Audio",
+    "Voice Notes",
+    "Ringtones",
+    "Notifications",
+    "Alarms",
+    "Call Recordings",
+    ".venv",
+    ".git",
+    ".idea",
+    ".vscode",
 ];
 
 pub struct LocalAudioScanner {
@@ -98,15 +118,22 @@ impl LocalAudioScanner {
         let hash_bytes = hasher.finalize();
         let hex_64 = format!(
             "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-            hash_bytes[0], hash_bytes[1], hash_bytes[2], hash_bytes[3],
-            hash_bytes[4], hash_bytes[5], hash_bytes[6], hash_bytes[7]
+            hash_bytes[0],
+            hash_bytes[1],
+            hash_bytes[2],
+            hash_bytes[3],
+            hash_bytes[4],
+            hash_bytes[5],
+            hash_bytes[6],
+            hash_bytes[7]
         );
         format!("local_{}", hex_64)
     }
 
     pub fn parse_audio_metadata(path: &Path) -> Option<Track> {
         let path_str = path.to_string_lossy().to_string();
-        let file_stem = path.file_stem()
+        let file_stem = path
+            .file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "Unknown Title".to_string());
 
@@ -119,7 +146,10 @@ impl LocalAudioScanner {
             let properties = tagged_file.properties();
             duration_ms = properties.duration().as_millis() as u64;
 
-            if let Some(tag) = tagged_file.primary_tag().or_else(|| tagged_file.first_tag()) {
+            if let Some(tag) = tagged_file
+                .primary_tag()
+                .or_else(|| tagged_file.first_tag())
+            {
                 if let Some(t) = tag.title() {
                     let trimmed = t.trim();
                     if !trimmed.is_empty() {
@@ -172,7 +202,8 @@ impl LocalAudioScanner {
                 continue;
             }
 
-            let is_downloads = path.file_name()
+            let is_downloads = path
+                .file_name()
                 .map(|n| {
                     let lower = n.to_string_lossy().to_lowercase();
                     lower == "download" || lower == "downloads"
@@ -225,9 +256,9 @@ impl LocalAudioScanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs::File;
     use std::io::Write;
+    use tempfile::tempdir;
 
     #[test]
     fn test_excluded_folders_and_nomedia() {

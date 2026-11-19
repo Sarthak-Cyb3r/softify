@@ -146,7 +146,13 @@ pub struct DownloadItem {
 
 #[uniffi::export(callback_interface)]
 pub trait DownloadProgressCallback: Send + Sync {
-    fn on_progress(&self, track_id: String, bytes_downloaded: u64, total_bytes: u64, status: String);
+    fn on_progress(
+        &self,
+        track_id: String,
+        bytes_downloaded: u64,
+        total_bytes: u64,
+        status: String,
+    );
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -228,12 +234,16 @@ pub enum SoftifyError {
 
 impl From<reqwest::Error> for SoftifyError {
     fn from(err: reqwest::Error) -> Self {
-        SoftifyError::Network { reason: err.to_string() }
+        SoftifyError::Network {
+            reason: err.to_string(),
+        }
     }
 }
 
 impl From<rusqlite::Error> for SoftifyError {
     fn from(err: rusqlite::Error) -> Self {
-        SoftifyError::Database { reason: err.to_string() }
+        SoftifyError::Database {
+            reason: err.to_string(),
+        }
     }
 }

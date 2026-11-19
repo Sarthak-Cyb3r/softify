@@ -3,16 +3,16 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::{SoftifyError, SyncedLyrics, Track};
-use crate::db::repository::DatabaseRepository;
 use super::betterlyrics::BetterLyricsClient;
-use super::lrcred::LrcredClient;
-use super::unison::UnisonClient;
-use super::paxsenix::PaxsenixClient;
-use super::youtube_captions::YouTubeCaptionsClient;
-use super::lrclib::LrclibClient;
 use super::kugou::KuGouClient;
+use super::lrclib::LrclibClient;
+use super::lrcred::LrcredClient;
 use super::parser::{parse_lrc, parse_lrclib_lyricsfile, parse_ttml};
+use super::paxsenix::PaxsenixClient;
+use super::unison::UnisonClient;
+use super::youtube_captions::YouTubeCaptionsClient;
+use crate::db::repository::DatabaseRepository;
+use crate::models::{SoftifyError, SyncedLyrics, Track};
 
 const NEGATIVE_CACHE_TTL_SECS: i64 = 7 * 86400; // 7 days
 
@@ -117,7 +117,9 @@ impl LyricsEngine {
 
         // 1. Check local DB cache with 7-day TTL check
         if let Some(ref repo) = self.db {
-            if let Ok(Some((cached_synced, cached_plain, is_not_found))) = repo.get_cached_lyrics(&track.id) {
+            if let Ok(Some((cached_synced, cached_plain, is_not_found))) =
+                repo.get_cached_lyrics(&track.id)
+            {
                 if is_not_found {
                     // Check if negative cache has expired (7-day TTL)
                     let cached_at = repo.get_cached_lyrics_timestamp(&track.id).unwrap_or(0);
@@ -168,7 +170,11 @@ impl LyricsEngine {
 
         // Provider 1: BetterLyrics (TTML word-synced)
         if self.config.enable_betterlyrics {
-            if let Some(lyrics) = self.betterlyrics.fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms)).await {
+            if let Some(lyrics) = self
+                .betterlyrics
+                .fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms))
+                .await
+            {
                 if lyrics.is_word_synced && !lyrics.lines.is_empty() {
                     self.cache_lyrics(&track.id, &lyrics);
                     return Ok(lyrics);
@@ -180,7 +186,11 @@ impl LyricsEngine {
 
         // Provider 2: lrc.red (TTML word-synced)
         if self.config.enable_lrcred {
-            if let Some(lyrics) = self.lrcred.fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms)).await {
+            if let Some(lyrics) = self
+                .lrcred
+                .fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms))
+                .await
+            {
                 if lyrics.is_word_synced && !lyrics.lines.is_empty() {
                     self.cache_lyrics(&track.id, &lyrics);
                     return Ok(lyrics);
@@ -192,7 +202,11 @@ impl LyricsEngine {
 
         // Provider 3: Unison (TTML/LRC word-synced)
         if self.config.enable_unison {
-            if let Some(lyrics) = self.unison.fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms)).await {
+            if let Some(lyrics) = self
+                .unison
+                .fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms))
+                .await
+            {
                 if lyrics.is_word_synced && !lyrics.lines.is_empty() {
                     self.cache_lyrics(&track.id, &lyrics);
                     return Ok(lyrics);
@@ -216,7 +230,11 @@ impl LyricsEngine {
 
         // Provider 5: YouTube Captions (json3 word-offsets)
         if self.config.enable_youtube_captions && track.source_id.len() == 11 {
-            if let Some(lyrics) = self.youtube_captions.fetch_by_video_id(&track.source_id).await {
+            if let Some(lyrics) = self
+                .youtube_captions
+                .fetch_by_video_id(&track.source_id)
+                .await
+            {
                 if lyrics.is_word_synced && !lyrics.lines.is_empty() {
                     self.cache_lyrics(&track.id, &lyrics);
                     return Ok(lyrics);
@@ -228,7 +246,11 @@ impl LyricsEngine {
 
         // Provider 6: LRCLIB (lyricsfile word-synced / synced LRC)
         if self.config.enable_lrclib {
-            if let Ok(Some(data)) = self.lrclib.fetch_lyrics(&track.title, &track.artist, track.duration_ms).await {
+            if let Ok(Some(data)) = self
+                .lrclib
+                .fetch_lyrics(&track.title, &track.artist, track.duration_ms)
+                .await
+            {
                 if data.instrumental.unwrap_or(false) {
                     if let Some(ref repo) = self.db {
                         let _ = repo.save_cached_lyrics(&track.id, None, None, true);
@@ -246,7 +268,12 @@ impl LyricsEngine {
                     if let Some(ref lf) = data.lyricsfile {
                         if let Some(parsed) = parse_lrclib_lyricsfile(lf) {
                             if let Some(ref repo) = self.db {
-                                let _ = repo.save_cached_lyrics(&track.id, Some(lf), data.plain_lyrics.as_deref(), false);
+                                let _ = repo.save_cached_lyrics(
+                                    &track.id,
+                                    Some(lf),
+                                    data.plain_lyrics.as_deref(),
+                                    false,
+                                );
                             }
                             return Ok(parsed);
                         }
@@ -259,7 +286,12 @@ impl LyricsEngine {
                         parsed.plain_text = Some(plain.clone());
                     }
                     if let Some(ref repo) = self.db {
-                        let _ = repo.save_cached_lyrics(&track.id, Some(lrc), data.plain_lyrics.as_deref(), false);
+                        let _ = repo.save_cached_lyrics(
+                            &track.id,
+                            Some(lrc),
+                            data.plain_lyrics.as_deref(),
+                            false,
+                        );
                     }
                     if parsed.is_word_synced {
                         return Ok(parsed);
@@ -284,7 +316,11 @@ impl LyricsEngine {
 
         // Provider 7: KuGou (line-synced fallback)
         if self.config.enable_kugou && best_line_synced.is_none() {
-            if let Some(lyrics) = self.kugou.fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms)).await {
+            if let Some(lyrics) = self
+                .kugou
+                .fetch_lyrics(&track.title, &track.artist, Some(track.duration_ms))
+                .await
+            {
                 if lyrics.is_synced {
                     best_line_synced = Some(lyrics);
                 }
@@ -314,17 +350,27 @@ impl LyricsEngine {
     fn cache_lyrics(&self, track_id: &str, lyrics: &SyncedLyrics) {
         if let Some(ref repo) = self.db {
             let synced_text = if !lyrics.lines.is_empty() {
-                let serialized_lines = lyrics.lines.iter().map(|l| {
-                    let min = l.start_ms / 60_000;
-                    let sec = (l.start_ms % 60_000) / 1000;
-                    let ms = (l.start_ms % 1000) / 10;
-                    format!("[{:02}:{:02}.{:02}] {}", min, sec, ms, l.text)
-                }).collect::<Vec<_>>().join("\n");
+                let serialized_lines = lyrics
+                    .lines
+                    .iter()
+                    .map(|l| {
+                        let min = l.start_ms / 60_000;
+                        let sec = (l.start_ms % 60_000) / 1000;
+                        let ms = (l.start_ms % 1000) / 10;
+                        format!("[{:02}:{:02}.{:02}] {}", min, sec, ms, l.text)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 Some(serialized_lines)
             } else {
                 None
             };
-            let _ = repo.save_cached_lyrics(track_id, synced_text.as_deref(), lyrics.plain_text.as_deref(), false);
+            let _ = repo.save_cached_lyrics(
+                track_id,
+                synced_text.as_deref(),
+                lyrics.plain_text.as_deref(),
+                false,
+            );
         }
     }
 }

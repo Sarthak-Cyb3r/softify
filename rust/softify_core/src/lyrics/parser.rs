@@ -36,7 +36,11 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
             }
 
             // Clean line text for plain text buffer and display
-            let clean_text = word_tag_re.replace_all(raw_content, "").trim().to_string();
+            let clean_text = word_tag_re
+                .replace_all(raw_content, "")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
             if !clean_text.is_empty() {
                 plain_buffer.push(clean_text.clone());
                 raw_lines.push((start_ms, raw_content.to_string(), clean_text));
@@ -51,7 +55,11 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
             is_synced: false,
             is_word_synced: false,
             lines: Vec::new(),
-            plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
+            plain_text: if !plain_buffer.is_empty() {
+                Some(plain_buffer.join("\n"))
+            } else {
+                None
+            },
             provider: "lrc".to_string(),
         };
     }
@@ -89,10 +97,20 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
             (Vec::new(), true)
         };
 
+        let line_text = if !words.is_empty() {
+            words
+                .iter()
+                .map(|w| w.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        } else {
+            clean_text.clone()
+        };
+
         lines.push(LyricsLine {
             start_ms,
             end_ms,
-            text: clean_text.clone(),
+            text: line_text,
             words,
             is_line_timed,
             is_background: false,
@@ -106,13 +124,25 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
         is_synced,
         is_word_synced,
         lines,
-        plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
-        provider: if is_word_synced { "enhanced-lrc".to_string() } else { "lrc".to_string() },
+        plain_text: if !plain_buffer.is_empty() {
+            Some(plain_buffer.join("\n"))
+        } else {
+            None
+        },
+        provider: if is_word_synced {
+            "enhanced-lrc".to_string()
+        } else {
+            "lrc".to_string()
+        },
     }
 }
 
 /// Parses words with enhanced LRC tags: `<mm:ss.xx> word <mm:ss.xx> word`
-fn parse_enhanced_words(raw_content: &str, line_start_ms: u64, line_end_ms: u64) -> Vec<LyricsWord> {
+fn parse_enhanced_words(
+    raw_content: &str,
+    line_start_ms: u64,
+    line_end_ms: u64,
+) -> Vec<LyricsWord> {
     let tag_re = Regex::new(r"<(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?>").unwrap();
     let mut words = Vec::new();
 
@@ -286,38 +316,106 @@ pub fn parse_ttml(ttml: &str) -> SyncedLyrics {
         let p_role = extract_attribute(p_attrs, "role").unwrap_or("");
         let is_p_bg = p_role == "x-bg";
 
-        let mut words = Vec::new();
-        let mut full_text_spans = Vec::new();
+        struct RawSpan {
+            start: usize,
+            end: usize,
+            clean_text: String,
+            start_ms: u64,
+            end_ms: u64,
+        }
 
+        let mut raw_spans = Vec::new();
         for span_cap in span_regex.captures_iter(p_content) {
+            let m = span_cap.get(0).unwrap();
             let span_attrs = &span_cap[1];
             let span_raw_text = &span_cap[2];
-            let span_clean_text = decode_xml_entities(&strip_tags_regex.replace_all(span_raw_text, ""));
+            let span_clean_text =
+                decode_xml_entities(&strip_tags_regex.replace_all(span_raw_text, ""));
 
             let span_begin_str = extract_attribute(span_attrs, "begin");
             let span_end_str = extract_attribute(span_attrs, "end");
 
-            if let (Some(b_str), Some(e_str)) = (span_begin_str, span_end_str) {
-                let start_ms = parse_time_str(b_str);
-                let end_ms = parse_time_str(e_str);
-                let text_trimmed = span_clean_text.trim();
-                if !text_trimmed.is_empty() {
-                    words.push(LyricsWord {
-                        text: text_trimmed.to_string(),
-                        start_ms,
-                        end_ms,
-                    });
-                }
-            }
-            if !span_clean_text.trim().is_empty() {
-                full_text_spans.push(span_clean_text);
-            }
+            let start_ms = span_begin_str.map(parse_time_str).unwrap_or(0);
+            let end_ms = span_end_str.map(parse_time_str).unwrap_or(start_ms + 100);
+
+            raw_spans.push(RawSpan {
+                start: m.start(),
+                end: m.end(),
+                clean_text: span_clean_text,
+                start_ms,
+                end_ms,
+            });
         }
 
-        let line_text = if !full_text_spans.is_empty() {
-            full_text_spans.join("").trim().to_string()
+        let words = if !raw_spans.is_empty() {
+            let mut grouped_words = Vec::new();
+            let mut cur_word_text = String::new();
+            let mut cur_word_start = 0u64;
+            let mut cur_word_end = 0u64;
+
+            for (i, span) in raw_spans.iter().enumerate() {
+                let has_space_before = if i == 0 {
+                    false
+                } else {
+                    let prev_span = &raw_spans[i - 1];
+                    let inter_text = &p_content[prev_span.end..span.start];
+                    inter_text.chars().any(|c| c.is_whitespace())
+                        || prev_span.clean_text.ends_with(|c: char| c.is_whitespace())
+                        || span.clean_text.starts_with(|c: char| c.is_whitespace())
+                };
+
+                let trimmed = span.clean_text.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+
+                if has_space_before && !cur_word_text.is_empty() {
+                    grouped_words.push(LyricsWord {
+                        text: cur_word_text.clone(),
+                        start_ms: cur_word_start,
+                        end_ms: cur_word_end,
+                    });
+                    cur_word_text = trimmed.to_string();
+                    cur_word_start = span.start_ms;
+                    cur_word_end = span.end_ms;
+                } else {
+                    if cur_word_text.is_empty() {
+                        cur_word_text = trimmed.to_string();
+                        cur_word_start = span.start_ms;
+                        cur_word_end = span.end_ms;
+                    } else {
+                        // Spans without whitespace between them are syllables of the same word!
+                        cur_word_text.push_str(trimmed);
+                        cur_word_end = cur_word_end.max(span.end_ms);
+                    }
+                }
+            }
+
+            if !cur_word_text.is_empty() {
+                grouped_words.push(LyricsWord {
+                    text: cur_word_text,
+                    start_ms: cur_word_start,
+                    end_ms: cur_word_end,
+                });
+            }
+
+            grouped_words
         } else {
-            decode_xml_entities(&strip_tags_regex.replace_all(p_content, "")).trim().to_string()
+            Vec::new()
+        };
+
+        // Assemble line text: each line's text equals the words joined by spaces (or raw text if plain)
+        let line_text = if !words.is_empty() {
+            words
+                .iter()
+                .map(|w| w.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        } else {
+            decode_xml_entities(&strip_tags_regex.replace_all(p_content, ""))
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
         };
 
         if line_text.is_empty() {
@@ -363,7 +461,11 @@ pub fn parse_ttml(ttml: &str) -> SyncedLyrics {
         is_synced,
         is_word_synced: has_word_sync,
         lines,
-        plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
+        plain_text: if !plain_buffer.is_empty() {
+            Some(plain_buffer.join("\n"))
+        } else {
+            None
+        },
         provider: "ttml".to_string(),
     }
 }
@@ -401,13 +503,19 @@ pub fn parse_youtube_json3(json_str: &str) -> SyncedLyrics {
         let Some(start_ms) = event.get("tStartMs").and_then(|v| v.as_u64()) else {
             continue;
         };
-        let duration_ms = event.get("dDurationMs").and_then(|v| v.as_u64()).unwrap_or(3000);
+        let duration_ms = event
+            .get("dDurationMs")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(3000);
         let end_ms = start_ms + duration_ms;
 
         let segs = event.get("segs").and_then(|v| v.as_array());
         if let Some(segs) = segs {
             let has_word_offsets = segs.iter().any(|s| {
-                s.get("tOffsetMs").and_then(|v| v.as_u64()).map(|o| o > 0).unwrap_or(false)
+                s.get("tOffsetMs")
+                    .and_then(|v| v.as_u64())
+                    .map(|o| o > 0)
+                    .unwrap_or(false)
             });
 
             let mut line_text_builder = String::new();
@@ -423,7 +531,10 @@ pub fn parse_youtube_json3(json_str: &str) -> SyncedLyrics {
                     let clean_seg = seg_text.replace('\n', " ").trim().to_string();
                     if !clean_seg.is_empty() && clean_seg != "♪" && clean_seg != "♫" {
                         let next_offset = if idx + 1 < segs.len() {
-                            segs[idx + 1].get("tOffsetMs").and_then(|v| v.as_u64()).map(|o| start_ms + o)
+                            segs[idx + 1]
+                                .get("tOffsetMs")
+                                .and_then(|v| v.as_u64())
+                                .map(|o| start_ms + o)
                         } else {
                             None
                         };
@@ -466,7 +577,11 @@ pub fn parse_youtube_json3(json_str: &str) -> SyncedLyrics {
         is_synced,
         is_word_synced: has_any_words,
         lines,
-        plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
+        plain_text: if !plain_buffer.is_empty() {
+            Some(plain_buffer.join("\n"))
+        } else {
+            None
+        },
         provider: "youtube-captions".to_string(),
     }
 }
@@ -502,22 +617,23 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
     let mut current_word_start: u64 = 0;
     let mut current_word_end: u64 = 0;
 
-    let flush_word = |words: &mut Vec<LyricsWord>, text: &mut String, start: u64, explicit_end: u64| {
-        let trimmed = text.trim();
-        if !trimmed.is_empty() {
-            let end = if explicit_end > start {
-                explicit_end
-            } else {
-                0
-            };
-            words.push(LyricsWord {
-                text: trimmed.to_string(),
-                start_ms: start,
-                end_ms: end,
-            });
-            text.clear();
-        }
-    };
+    let flush_word =
+        |words: &mut Vec<LyricsWord>, text: &mut String, start: u64, explicit_end: u64| {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                let end = if explicit_end > start {
+                    explicit_end
+                } else {
+                    0
+                };
+                words.push(LyricsWord {
+                    text: trimmed.to_string(),
+                    start_ms: start,
+                    end_ms: end,
+                });
+                text.clear();
+            }
+        };
 
     let flush_line = |lines: &mut Vec<LyricsLine>,
                       plain: &mut Vec<String>,
@@ -541,10 +657,20 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
                 }
             }
 
+            let final_text = if !words.is_empty() {
+                words
+                    .iter()
+                    .map(|w| w.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            } else {
+                trimmed.to_string()
+            };
+
             lines.push(LyricsLine {
                 start_ms: start,
                 end_ms: line_end,
-                text: trimmed.to_string(),
+                text: final_text,
                 words: std::mem::take(words),
                 is_line_timed: false,
                 is_background: false,
@@ -571,9 +697,21 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
 
         if indent == 0 && trimmed.starts_with("- text:") {
             if in_words && !current_word_text.is_empty() {
-                flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
+                flush_word(
+                    &mut current_words,
+                    &mut current_word_text,
+                    current_word_start,
+                    current_word_end,
+                );
             }
-            flush_line(&mut lines, &mut plain_buffer, &mut current_line_text, current_line_start, current_line_end, &mut current_words);
+            flush_line(
+                &mut lines,
+                &mut plain_buffer,
+                &mut current_line_text,
+                current_line_start,
+                current_line_end,
+                &mut current_words,
+            );
             in_words = false;
             let val = trimmed.trim_start_matches("- text:").trim();
             current_line_text = unquote_yaml(val);
@@ -592,7 +730,12 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
             in_words = true;
         } else if in_words && indent > 0 && trimmed.starts_with("- text:") {
             if !current_word_text.is_empty() {
-                flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
+                flush_word(
+                    &mut current_words,
+                    &mut current_word_text,
+                    current_word_start,
+                    current_word_end,
+                );
             }
             let val = trimmed.trim_start_matches("- text:").trim();
             current_word_text = unquote_yaml(val);
@@ -615,9 +758,21 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
     }
 
     if in_words && !current_word_text.is_empty() {
-        flush_word(&mut current_words, &mut current_word_text, current_word_start, current_word_end);
+        flush_word(
+            &mut current_words,
+            &mut current_word_text,
+            current_word_start,
+            current_word_end,
+        );
     }
-    flush_line(&mut lines, &mut plain_buffer, &mut current_line_text, current_line_start, current_line_end, &mut current_words);
+    flush_line(
+        &mut lines,
+        &mut plain_buffer,
+        &mut current_line_text,
+        current_line_start,
+        current_line_end,
+        &mut current_words,
+    );
 
     if lines.is_empty() {
         return None;
@@ -627,7 +782,11 @@ pub fn parse_lrclib_lyricsfile(lyricsfile_str: &str) -> Option<SyncedLyrics> {
         is_synced: true,
         is_word_synced: true,
         lines,
-        plain_text: if !plain_buffer.is_empty() { Some(plain_buffer.join("\n")) } else { None },
+        plain_text: if !plain_buffer.is_empty() {
+            Some(plain_buffer.join("\n"))
+        } else {
+            None
+        },
         provider: "lrclib-enhanced".to_string(),
     })
 }
@@ -650,7 +809,10 @@ mod tests {
         assert_eq!(parsed.lines[0].start_ms, 12_500);
         assert_eq!(parsed.lines[0].text, "Hello world");
         assert!(parsed.lines[0].is_line_timed);
-        assert!(parsed.lines[0].words.is_empty(), "Standard LRC must have no synthetic words");
+        assert!(
+            parsed.lines[0].words.is_empty(),
+            "Standard LRC must have no synthetic words"
+        );
     }
 
     #[test]
@@ -751,17 +913,29 @@ mod tests {
 
     #[test]
     fn test_parse_real_sombr_back_to_friends_lyricsfile() {
-        let fixture_path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/lrclib_back_to_friends.json");
-        let fixture_data = std::fs::read_to_string(fixture_path).expect("Failed to read lrclib fixture");
-        let parsed_json: serde_json::Value = serde_json::from_str(&fixture_data).expect("Failed to parse fixture JSON");
-        let lyricsfile_str = parsed_json["lyricsfile"].as_str().expect("Fixture missing lyricsfile");
+        let fixture_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/lrclib_back_to_friends.json"
+        );
+        let fixture_data =
+            std::fs::read_to_string(fixture_path).expect("Failed to read lrclib fixture");
+        let parsed_json: serde_json::Value =
+            serde_json::from_str(&fixture_data).expect("Failed to parse fixture JSON");
+        let lyricsfile_str = parsed_json["lyricsfile"]
+            .as_str()
+            .expect("Fixture missing lyricsfile");
 
         let lyrics = parse_lrclib_lyricsfile(lyricsfile_str).expect("Failed to parse lyricsfile");
         assert!(lyrics.is_synced);
         assert!(lyrics.is_word_synced);
 
         // Crucial bug check: Must be real number of lines (30), NOT 222!
-        assert_eq!(lyrics.lines.len(), 30, "Expected 30 lines for 'back to friends', found {}", lyrics.lines.len());
+        assert_eq!(
+            lyrics.lines.len(),
+            30,
+            "Expected 30 lines for 'back to friends', found {}",
+            lyrics.lines.len()
+        );
 
         let line0 = &lyrics.lines[0];
         assert_eq!(line0.text, "Touch my body tender");
@@ -785,8 +959,203 @@ mod tests {
         assert_eq!(total_words, 192, "Expected 192 total nested words");
 
         for (i, l) in lyrics.lines.iter().enumerate() {
-            assert!(!l.words.is_empty(), "Line {} ('{}') must have nested words", i, l.text);
+            assert!(
+                !l.words.is_empty(),
+                "Line {} ('{}') must have nested words",
+                i,
+                l.text
+            );
             assert!(!l.is_line_timed);
+            let joined = l
+                .words
+                .iter()
+                .map(|w| w.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert_eq!(l.text, joined, "Line text must equal words joined by space");
+            assert!(l.text.contains(' '), "Multi-word line must contain spaces");
+        }
+    }
+
+    #[test]
+    fn test_parse_real_betterlyrics_sombr_ttml() {
+        let fixture_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/betterlyrics_back_to_friends.json"
+        );
+        let fixture_data = std::fs::read_to_string(fixture_path)
+            .expect("Failed to read BetterLyrics sombr fixture");
+        let parsed_json: serde_json::Value =
+            serde_json::from_str(&fixture_data).expect("Failed to parse fixture JSON");
+        let ttml_str = parsed_json["ttml"]
+            .as_str()
+            .expect("Fixture missing ttml field");
+
+        let lyrics = parse_ttml(ttml_str);
+        assert!(lyrics.is_synced);
+        assert!(lyrics.is_word_synced);
+        assert_eq!(
+            lyrics.lines.len(),
+            31,
+            "Expected 31 lines for sombr BetterLyrics"
+        );
+
+        // Verify line 0: spaces preserved, no token fusion
+        let line0 = &lyrics.lines[0];
+        assert_eq!(line0.text, "Touch my body tender");
+        assert_ne!(
+            line0.text, "Touchmybodytender",
+            "Token fusion bug must not occur"
+        );
+        assert_eq!(line0.words.len(), 4);
+        assert_eq!(line0.words[0].text, "Touch");
+        assert_eq!(line0.words[1].text, "my");
+        assert_eq!(line0.words[2].text, "body");
+        assert_eq!(line0.words[3].text, "tender");
+
+        let joined0 = line0
+            .words
+            .iter()
+            .map(|w| w.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(line0.text, joined0);
+
+        for (idx, line) in lyrics.lines.iter().enumerate() {
+            if line.words.len() > 1 {
+                assert!(
+                    line.text.contains(' '),
+                    "Line {} ('{}') must contain spaces",
+                    idx,
+                    line.text
+                );
+                let joined = line
+                    .words
+                    .iter()
+                    .map(|w| w.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                assert_eq!(
+                    line.text, joined,
+                    "Line text must equal words joined by spaces"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_real_betterlyrics_espresso_ttml_syllable_merging() {
+        let fixture_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/betterlyrics_espresso.json"
+        );
+        let fixture_data = std::fs::read_to_string(fixture_path)
+            .expect("Failed to read BetterLyrics espresso fixture");
+        let parsed_json: serde_json::Value =
+            serde_json::from_str(&fixture_data).expect("Failed to parse fixture JSON");
+        let ttml_str = parsed_json["ttml"]
+            .as_str()
+            .expect("Fixture missing ttml field");
+
+        let lyrics = parse_ttml(ttml_str);
+        assert!(lyrics.is_synced);
+        assert!(lyrics.is_word_synced);
+        assert_eq!(
+            lyrics.lines.len(),
+            58,
+            "Expected 58 lines for Espresso BetterLyrics"
+        );
+
+        // Line 0: "Now he's thinkin' 'bout me every night, oh"
+        let line0 = &lyrics.lines[0];
+        assert_eq!(line0.text, "Now he's thinkin' 'bout me every night, oh");
+        assert!(
+            !line0.text.contains("Nowhe'sthinkin'"),
+            "Token fusion must be prevented"
+        );
+
+        // Line 3: Syllable merging of 'es', 'press', 'o' into single word 'espresso'
+        let line3 = &lyrics.lines[3];
+        assert_eq!(line3.text, "That's that me espresso");
+        assert_eq!(
+            line3.words.len(),
+            4,
+            "Line 3 must have 4 words (syllables merged)"
+        );
+        assert_eq!(line3.words[0].text, "That's");
+        assert_eq!(line3.words[1].text, "that");
+        assert_eq!(line3.words[2].text, "me");
+        assert_eq!(line3.words[3].text, "espresso");
+        assert_eq!(line3.words[3].start_ms, 17785);
+        assert_eq!(line3.words[3].end_ms, 19090);
+
+        let joined3 = line3
+            .words
+            .iter()
+            .map(|w| w.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(line3.text, joined3);
+
+        for (idx, line) in lyrics.lines.iter().enumerate() {
+            if line.words.len() > 1 {
+                assert!(
+                    line.text.contains(' '),
+                    "Line {} ('{}') must contain spaces",
+                    idx,
+                    line.text
+                );
+                let joined = line
+                    .words
+                    .iter()
+                    .map(|w| w.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                assert_eq!(
+                    line.text, joined,
+                    "Line text must equal words joined by spaces"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_real_lrclib_espresso_lyricsfile() {
+        let fixture_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/lrclib_espresso.json"
+        );
+        let fixture_data =
+            std::fs::read_to_string(fixture_path).expect("Failed to read lrclib espresso fixture");
+        let parsed_json: serde_json::Value =
+            serde_json::from_str(&fixture_data).expect("Failed to parse fixture JSON");
+        let lyricsfile_str = parsed_json["lyricsfile"]
+            .as_str()
+            .expect("Fixture missing lyricsfile");
+
+        let lyrics = parse_lrclib_lyricsfile(lyricsfile_str).expect("Failed to parse lyricsfile");
+        assert!(lyrics.is_synced);
+        assert!(lyrics.is_word_synced);
+
+        for (idx, line) in lyrics.lines.iter().enumerate() {
+            if line.words.len() > 1 {
+                assert!(
+                    line.text.contains(' '),
+                    "Line {} ('{}') must contain spaces",
+                    idx,
+                    line.text
+                );
+                let joined = line
+                    .words
+                    .iter()
+                    .map(|w| w.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                assert_eq!(
+                    line.text, joined,
+                    "Line text must equal words joined by spaces"
+                );
+            }
         }
     }
 }

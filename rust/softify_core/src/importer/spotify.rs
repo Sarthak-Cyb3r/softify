@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use crate::db::repository::DatabaseRepository;
+use crate::models::{ImportPlaylistResult, ImportedTrackMatch, Playlist, SoftifyError, Track};
+use crate::resolvers::hybrid::HybridStreamResolver;
 use regex::Regex;
 use serde_json::Value;
-use crate::models::{ImportPlaylistResult, ImportedTrackMatch, Playlist, SoftifyError, Track};
-use crate::db::repository::DatabaseRepository;
-use crate::resolvers::hybrid::HybridStreamResolver;
+use std::sync::Arc;
 
 pub const DEFAULT_USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -52,7 +52,11 @@ impl SpotifyImporter {
             .user_agent(DEFAULT_USER_AGENT)
             .build()
             .unwrap_or_default();
-        Self { client, resolver, db }
+        Self {
+            client,
+            resolver,
+            db,
+        }
     }
 
     pub fn with_client(
@@ -60,7 +64,11 @@ impl SpotifyImporter {
         resolver: Arc<HybridStreamResolver>,
         db: Arc<DatabaseRepository>,
     ) -> Self {
-        Self { client, resolver, db }
+        Self {
+            client,
+            resolver,
+            db,
+        }
     }
 
     pub fn parse_spotify_entity(input: &str) -> Option<SpotifyEntityRef> {
@@ -83,7 +91,8 @@ impl SpotifyImporter {
         }
 
         // 2. Open Spotify web URL
-        let url_re = Regex::new(r"open\.spotify\.com/(?:.+/)?(playlist|album|track)/([a-zA-Z0-9]+)").ok()?;
+        let url_re =
+            Regex::new(r"open\.spotify\.com/(?:.+/)?(playlist|album|track)/([a-zA-Z0-9]+)").ok()?;
         if let Some(caps) = url_re.captures(clean) {
             let t_str = caps.get(1)?.as_str();
             let id = caps.get(2)?.as_str().to_string();
@@ -107,18 +116,28 @@ impl SpotifyImporter {
         None
     }
 
-    pub async fn fetch_playlist_metadata(&self, entity: &SpotifyEntityRef) -> Result<RawSpotifyPlaylist, SoftifyError> {
+    pub async fn fetch_playlist_metadata(
+        &self,
+        entity: &SpotifyEntityRef,
+    ) -> Result<RawSpotifyPlaylist, SoftifyError> {
         let endpoint_type = match entity.entity_type {
             SpotifyEntityType::Playlist => "playlist",
             SpotifyEntityType::Album => "album",
             SpotifyEntityType::Track => "track",
         };
-        let url = format!("https://open.spotify.com/embed/{}/{}", endpoint_type, entity.id);
+        let url = format!(
+            "https://open.spotify.com/embed/{}/{}",
+            endpoint_type, entity.id
+        );
 
-        let response = self.client.get(&url)
+        let response = self
+            .client
+            .get(&url)
             .send()
             .await
-            .map_err(|e| SoftifyError::Import { reason: format!("Failed to request Spotify embed: {}", e) })?;
+            .map_err(|e| SoftifyError::Import {
+                reason: format!("Failed to request Spotify embed: {}", e),
+            })?;
 
         if !response.status().is_success() {
             return Err(SoftifyError::Import {
@@ -126,38 +145,50 @@ impl SpotifyImporter {
             });
         }
 
-        let body = response.text().await
-            .map_err(|e| SoftifyError::Import { reason: format!("Failed to read embed response: {}", e) })?;
+        let body = response.text().await.map_err(|e| SoftifyError::Import {
+            reason: format!("Failed to read embed response: {}", e),
+        })?;
 
         Self::parse_embed_html(&entity.id, &body)
     }
 
     pub fn parse_embed_html(id: &str, html: &str) -> Result<RawSpotifyPlaylist, SoftifyError> {
-        let re = Regex::new(r#"<script id="__NEXT_DATA__" type="application/json">([^<]+)</script>"#)
-            .map_err(|e| SoftifyError::Import { reason: e.to_string() })?;
+        let re =
+            Regex::new(r#"<script id="__NEXT_DATA__" type="application/json">([^<]+)</script>"#)
+                .map_err(|e| SoftifyError::Import {
+                    reason: e.to_string(),
+                })?;
 
         let caps = re.captures(html).ok_or_else(|| SoftifyError::Import {
             reason: "Could not find __NEXT_DATA__ script in Spotify embed HTML".to_string(),
         })?;
 
         let json_str = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-        let parsed: Value = serde_json::from_str(json_str)
-            .map_err(|e| SoftifyError::Import { reason: format!("Invalid JSON in Spotify embed: {}", e) })?;
+        let parsed: Value = serde_json::from_str(json_str).map_err(|e| SoftifyError::Import {
+            reason: format!("Invalid JSON in Spotify embed: {}", e),
+        })?;
 
-        let entity = parsed.pointer("/props/pageProps/state/data/entity")
+        let entity = parsed
+            .pointer("/props/pageProps/state/data/entity")
             .ok_or_else(|| SoftifyError::Import {
-                reason: "Missing /props/pageProps/state/data/entity in Spotify embed data".to_string(),
+                reason: "Missing /props/pageProps/state/data/entity in Spotify embed data"
+                    .to_string(),
             })?;
 
-        let title = entity.get("name")
+        let title = entity
+            .get("name")
             .or_else(|| entity.get("title"))
             .and_then(|v| v.as_str())
             .unwrap_or("Imported Spotify Playlist")
             .to_string();
 
-        let description = entity.get("subtitle").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let description = entity
+            .get("subtitle")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
-        let cover_url = entity.pointer("/coverArt/sources/0/url")
+        let cover_url = entity
+            .pointer("/coverArt/sources/0/url")
             .or_else(|| entity.pointer("/visualIdentity/image/0/url"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
@@ -165,15 +196,25 @@ impl SpotifyImporter {
         let mut tracks = Vec::new();
         if let Some(track_list) = entity.get("trackList").and_then(|v| v.as_array()) {
             for t in track_list {
-                let track_title = t.get("title").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
-                let artist = t.get("subtitle").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+                let track_title = t
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                let artist = t
+                    .get("subtitle")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
                 let duration_ms = t.get("duration").and_then(|v| v.as_u64()).unwrap_or(0);
-                let album = t.pointer("/albumOfTrack/name")
+                let album = t
+                    .pointer("/albumOfTrack/name")
                     .or_else(|| t.pointer("/album/name"))
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
 
-                let spotify_id = t.get("uri")
+                let spotify_id = t
+                    .get("uri")
                     .and_then(|v| v.as_str())
                     .and_then(|u| {
                         if u.starts_with("spotify:track:") {
@@ -183,11 +224,15 @@ impl SpotifyImporter {
                         }
                     })
                     .or_else(|| {
-                        t.get("id").or_else(|| t.get("uid")).and_then(|v| v.as_str()).map(|s| s.to_string())
+                        t.get("id")
+                            .or_else(|| t.get("uid"))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
                     });
 
                 // Bug 2 fix: only use track's own cover art; remove fallback to playlist coverArt
-                let t_cover = t.pointer("/albumOfTrack/coverArt/sources/0/url")
+                let t_cover = t
+                    .pointer("/albumOfTrack/coverArt/sources/0/url")
                     .or_else(|| t.pointer("/coverArt/sources/0/url"))
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
@@ -226,8 +271,11 @@ impl SpotifyImporter {
             db.get_spotify_match(sp_id).ok().flatten()
         } else {
             None
-        }.or_else(|| {
-            db.get_spotify_match_by_title_artist(title, artist).ok().flatten()
+        }
+        .or_else(|| {
+            db.get_spotify_match_by_title_artist(title, artist)
+                .ok()
+                .flatten()
         });
 
         if let Some((video_id, cover_url)) = cached {
@@ -245,13 +293,28 @@ impl SpotifyImporter {
         match yt.search(&query).await {
             Ok(results) if !results.is_empty() => {
                 let best = &results[0];
-                let video_id = best.source_id.trim_start_matches("ytm_").trim_start_matches("yt_");
+                let video_id = best
+                    .source_id
+                    .trim_start_matches("ytm_")
+                    .trim_start_matches("yt_");
                 let cover_url = best.cover_url.clone();
 
                 if let Some(sp_id) = spotify_id {
-                    let _ = db.insert_spotify_match(sp_id, video_id, title, artist, cover_url.as_deref());
+                    let _ = db.insert_spotify_match(
+                        sp_id,
+                        video_id,
+                        title,
+                        artist,
+                        cover_url.as_deref(),
+                    );
                 }
-                let _ = db.insert_spotify_match(&format!("ta_{}_{}", title, artist), video_id, title, artist, cover_url.as_deref());
+                let _ = db.insert_spotify_match(
+                    &format!("ta_{}_{}", title, artist),
+                    video_id,
+                    title,
+                    artist,
+                    cover_url.as_deref(),
+                );
 
                 let _ = db.update_imported_track_match(
                     track_id,
@@ -300,21 +363,41 @@ impl SpotifyImporter {
 
         for (pos, raw_t) in raw.tracks.iter().enumerate() {
             let track_id = format!("sp_tr_{}_{}", raw.id, pos);
-            let sp_source_id = raw_t.spotify_id.as_ref()
+            let sp_source_id = raw_t
+                .spotify_id
+                .as_ref()
                 .map(|id| format!("spotify:{id}"))
                 .unwrap_or_else(|| format!("spotify:{}_{}_{}", raw.id, pos, raw_t.title));
 
             // Check if already cached in DB
-            let cached = raw_t.spotify_id.as_deref()
+            let cached = raw_t
+                .spotify_id
+                .as_deref()
                 .and_then(|id| self.db.get_spotify_match(id).ok().flatten())
-                .or_else(|| self.db.get_spotify_match_by_title_artist(&raw_t.title, &raw_t.artist).ok().flatten());
+                .or_else(|| {
+                    self.db
+                        .get_spotify_match_by_title_artist(&raw_t.title, &raw_t.artist)
+                        .ok()
+                        .flatten()
+                });
 
-            let (source_id, cover_url, match_status, confidence) = if let Some((vid, cached_cover)) = cached {
-                initial_matched += 1;
-                (format!("ytm_{vid}"), cached_cover.or_else(|| raw_t.cover_url.clone()), "matched".to_string(), Some(1.0))
-            } else {
-                (sp_source_id, raw_t.cover_url.clone(), "unresolved".to_string(), None)
-            };
+            let (source_id, cover_url, match_status, confidence) =
+                if let Some((vid, cached_cover)) = cached {
+                    initial_matched += 1;
+                    (
+                        format!("ytm_{vid}"),
+                        cached_cover.or_else(|| raw_t.cover_url.clone()),
+                        "matched".to_string(),
+                        Some(1.0),
+                    )
+                } else {
+                    (
+                        sp_source_id,
+                        raw_t.cover_url.clone(),
+                        "unresolved".to_string(),
+                        None,
+                    )
+                };
 
             let track = Track {
                 id: track_id.clone(),
@@ -380,7 +463,8 @@ impl SpotifyImporter {
                         raw_t.spotify_id.as_deref(),
                         &raw_t.title,
                         &raw_t.artist,
-                    ).await;
+                    )
+                    .await;
                 });
             }
 
@@ -481,14 +565,18 @@ mod tests {
         </html>
         "#;
 
-        let res = SpotifyImporter::parse_embed_html("test_pl", sample_html).expect("parsed embed html");
+        let res =
+            SpotifyImporter::parse_embed_html("test_pl", sample_html).expect("parsed embed html");
         assert_eq!(res.title, "Today's Top Hits");
         assert_eq!(res.tracks.len(), 2);
         assert_eq!(res.tracks[0].title, "Seven (feat. Latto)");
         assert_eq!(res.tracks[0].artist, "Jung Kook, Latto");
         assert_eq!(res.tracks[0].duration_ms, 184400);
         assert_eq!(res.tracks[0].spotify_id.as_deref(), Some("12345"));
-        assert_eq!(res.tracks[0].cover_url.as_deref(), Some("https://i.scdn.co/image/track1"));
+        assert_eq!(
+            res.tracks[0].cover_url.as_deref(),
+            Some("https://i.scdn.co/image/track1")
+        );
         assert_eq!(res.tracks[1].title, "Paint The Town Red");
         assert_eq!(res.tracks[1].spotify_id.as_deref(), Some("67890"));
     }
@@ -521,7 +609,8 @@ mod tests {
         }
         </script>
         "#;
-        let res = SpotifyImporter::parse_embed_html("no_cover_test", no_track_cover_html).expect("parse");
+        let res =
+            SpotifyImporter::parse_embed_html("no_cover_test", no_track_cover_html).expect("parse");
         assert_eq!(res.tracks.len(), 1);
         assert_eq!(res.tracks[0].spotify_id.as_deref(), Some("abc123"));
         // Track must NOT inherit playlist cover (must be None)

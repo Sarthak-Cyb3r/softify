@@ -1,7 +1,7 @@
-use crate::models::{SearchResult, SoftifyError, Track};
-use crate::db::repository::DatabaseRepository;
-use super::normalizer::normalize_search_text;
 use super::intent::analyze_query_intent;
+use super::normalizer::normalize_search_text;
+use crate::db::repository::DatabaseRepository;
+use crate::models::{SearchResult, SoftifyError, Track};
 
 pub struct SearchEngine {
     db: DatabaseRepository,
@@ -49,8 +49,10 @@ impl SearchEngine {
         let local_tracks = self.search_library(&intent_info.clean_query, limit)?;
 
         // Deduplicate online tracks against local tracks
-        let local_ids: std::collections::HashSet<String> = local_tracks.iter().map(|t| t.id.clone()).collect();
-        let local_source_ids: std::collections::HashSet<String> = local_tracks.iter().map(|t| t.source_id.clone()).collect();
+        let local_ids: std::collections::HashSet<String> =
+            local_tracks.iter().map(|t| t.id.clone()).collect();
+        let local_source_ids: std::collections::HashSet<String> =
+            local_tracks.iter().map(|t| t.source_id.clone()).collect();
 
         let filtered_online: Vec<Track> = online_tracks
             .into_iter()
@@ -73,7 +75,10 @@ mod tests {
 
     #[test]
     fn test_fts5_query_builder() {
-        assert_eq!(SearchEngine::build_fts5_query("Arijit Singh"), "\"arijit\"* \"singh\"*");
+        assert_eq!(
+            SearchEngine::build_fts5_query("Arijit Singh"),
+            "\"arijit\"* \"singh\"*"
+        );
         assert_eq!(SearchEngine::build_fts5_query("Kesariya"), "\"kesariya\"*");
         assert_eq!(SearchEngine::build_fts5_query("   "), "");
     }

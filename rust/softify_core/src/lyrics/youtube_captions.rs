@@ -3,8 +3,8 @@
  * Adapted for Softify-experimental
  */
 
-use crate::models::SyncedLyrics;
 use super::parser::parse_youtube_json3;
+use crate::models::SyncedLyrics;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -68,7 +68,9 @@ impl YouTubeCaptionsClient {
             "videoId": video_id
         });
 
-        let resp = self.client.post(player_url)
+        let resp = self
+            .client
+            .post(player_url)
             .json(&payload)
             .send()
             .await
@@ -79,13 +81,20 @@ impl YouTubeCaptionsClient {
         }
 
         let body: serde_json::Value = resp.json().await.ok()?;
-        let tracks = body.get("captions")?
+        let tracks = body
+            .get("captions")?
             .get("playerCaptionsTracklistRenderer")?
             .get("captionTracks")?
             .as_array()?;
 
-        let track = tracks.iter()
-            .find(|t| t.get("vssId").and_then(|v| v.as_str()).map(|s| s.contains(".en")).unwrap_or(false))
+        let track = tracks
+            .iter()
+            .find(|t| {
+                t.get("vssId")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.contains(".en"))
+                    .unwrap_or(false)
+            })
             .or_else(|| tracks.first())?;
 
         let base_url = track.get("baseUrl")?.as_str()?;

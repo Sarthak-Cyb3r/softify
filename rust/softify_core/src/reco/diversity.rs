@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use crate::db::repository::DatabaseRepository;
 use crate::models::{SoftifyError, Track};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 pub const DEFAULT_SNOOZE_DURATION_MS: u64 = 30 * 86400 * 1000; // 30 days
 
@@ -17,11 +17,7 @@ impl DiversityController {
     /// Maximal Marginal Relevance (MMR) Diversification
     /// Dart:
     /// List<Track> applyMmr(List<Track> ranked, {int maxPerArtist = 2, double lambda = 0.7})
-    pub fn apply_mmr(
-        ranked: &[Track],
-        max_per_artist: usize,
-        lambda: f64,
-    ) -> Vec<Track> {
+    pub fn apply_mmr(ranked: &[Track], max_per_artist: usize, lambda: f64) -> Vec<Track> {
         if ranked.is_empty() {
             return Vec::new();
         }
@@ -137,7 +133,8 @@ impl DiversityController {
     }
 
     pub fn set_learning_paused(&self, paused: bool) -> Result<(), SoftifyError> {
-        self.db.set_setting("learning_paused", if paused { "true" } else { "false" })
+        self.db
+            .set_setting("learning_paused", if paused { "true" } else { "false" })
     }
 
     pub fn is_learning_paused(&self) -> Result<bool, SoftifyError> {
@@ -195,7 +192,9 @@ mod tests {
         let snoozed_before = controller.get_snoozed_artists().unwrap();
         assert!(snoozed_before.is_empty());
 
-        controller.snooze_artist("Bad Artist", DEFAULT_SNOOZE_DURATION_MS).unwrap();
+        controller
+            .snooze_artist("Bad Artist", DEFAULT_SNOOZE_DURATION_MS)
+            .unwrap();
 
         let snoozed_after = controller.get_snoozed_artists().unwrap();
         assert_eq!(snoozed_after.len(), 1);

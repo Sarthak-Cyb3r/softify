@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use crate::models::{PlayHistory, Track};
+use std::collections::{HashMap, HashSet};
 
 /// Dart:
 /// static const Map<String, double> defaultWeights = {
@@ -83,7 +83,11 @@ impl LogisticRegressionRanker {
             candidate.score = self.compute_score(&candidate.features);
         }
 
-        candidates.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        candidates.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
     }
 
     pub fn train_on_device_step(
@@ -106,12 +110,14 @@ impl LogisticRegressionRanker {
         // Update feature weights
         for (key, val) in features {
             let current = *self.weights.get(key).unwrap_or(&0.0);
-            self.weights.insert(key.clone(), current - (learning_rate * error * val));
+            self.weights
+                .insert(key.clone(), current - (learning_rate * error * val));
         }
 
         // Update bias
         let current_bias = *self.weights.get("bias").unwrap_or(&0.0);
-        self.weights.insert("bias".to_string(), current_bias - (learning_rate * error));
+        self.weights
+            .insert("bias".to_string(), current_bias - (learning_rate * error));
     }
 }
 
@@ -148,7 +154,10 @@ pub fn rerank_radio_tracks(
             if recent_ids.contains(&t.id) {
                 return false;
             }
-            let key = (t.title.trim().to_lowercase(), t.artist.trim().to_lowercase());
+            let key = (
+                t.title.trim().to_lowercase(),
+                t.artist.trim().to_lowercase(),
+            );
             !recent_titles_artists.contains(&key)
         })
         .collect();
@@ -166,7 +175,9 @@ pub fn rerank_radio_tracks(
     for entry in history {
         let artist_key = entry.track.artist.trim().to_lowercase();
         if entry.completed_ratio >= 0.7 {
-            *track_completed_plays.entry(entry.track.id.clone()).or_insert(0) += 1;
+            *track_completed_plays
+                .entry(entry.track.id.clone())
+                .or_insert(0) += 1;
             *artist_completed_plays.entry(artist_key).or_insert(0) += 1;
         } else if entry.completed_ratio < 0.3 {
             *track_skips.entry(entry.track.id.clone()).or_insert(0) += 1;
@@ -187,13 +198,15 @@ pub fn rerank_radio_tracks(
 
             let play_bonus = (play_count as f64 * 1.5).min(6.0);
             let skip_penalty = (skip_count as f64 * 2.0).min(6.0);
-            let artist_affinity = (art_plays as f64 * 0.8 - art_skips as f64 * 1.0).clamp(-5.0, 5.0);
+            let artist_affinity =
+                (art_plays as f64 * 0.8 - art_skips as f64 * 1.0).clamp(-5.0, 5.0);
             let liked_bonus = if track.is_liked { 2.5 } else { 0.0 };
 
             // Gentle position prior: 5.0 down to 0.0
             let position_prior = 5.0 * (1.0 - (original_idx as f64 / total_candidates));
 
-            let final_score = position_prior + play_bonus + artist_affinity + liked_bonus - skip_penalty;
+            let final_score =
+                position_prior + play_bonus + artist_affinity + liked_bonus - skip_penalty;
             (final_score, track)
         })
         .collect();
@@ -223,9 +236,9 @@ pub fn build_quick_picks(
             *track_skips.entry(entry.track.id.clone()).or_insert(0) += 1;
         }
 
-        let record = track_map.entry(entry.track.id.clone()).or_insert_with(|| {
-            (entry.track.clone(), 0.0, entry.played_at)
-        });
+        let record = track_map
+            .entry(entry.track.id.clone())
+            .or_insert_with(|| (entry.track.clone(), 0.0, entry.played_at));
         if entry.played_at > record.2 {
             record.2 = entry.played_at;
         }
@@ -315,8 +328,18 @@ mod tests {
         let t4 = dummy_track("t4", "Song 4", "Artist D", false);
 
         let history = vec![
-            PlayHistory { id: 1, track: t1.clone(), played_at: 200, completed_ratio: 0.9 },
-            PlayHistory { id: 2, track: t2.clone(), played_at: 100, completed_ratio: 0.8 },
+            PlayHistory {
+                id: 1,
+                track: t1.clone(),
+                played_at: 200,
+                completed_ratio: 0.9,
+            },
+            PlayHistory {
+                id: 2,
+                track: t2.clone(),
+                played_at: 100,
+                completed_ratio: 0.8,
+            },
         ];
 
         let candidates = vec![t1, t2, t3.clone(), t4.clone()];
@@ -334,10 +357,30 @@ mod tests {
         let t_skipped = dummy_track("skipped", "Skipped Track", "Skipped Artist", false);
 
         let history = vec![
-            PlayHistory { id: 1, track: dummy_track("x1", "Hit 1", "Favorite Artist", false), played_at: 100, completed_ratio: 1.0 },
-            PlayHistory { id: 2, track: dummy_track("x2", "Hit 2", "Favorite Artist", false), played_at: 90, completed_ratio: 1.0 },
-            PlayHistory { id: 3, track: dummy_track("s1", "Skip 1", "Skipped Artist", false), played_at: 80, completed_ratio: 0.1 },
-            PlayHistory { id: 4, track: dummy_track("s2", "Skip 2", "Skipped Artist", false), played_at: 70, completed_ratio: 0.1 },
+            PlayHistory {
+                id: 1,
+                track: dummy_track("x1", "Hit 1", "Favorite Artist", false),
+                played_at: 100,
+                completed_ratio: 1.0,
+            },
+            PlayHistory {
+                id: 2,
+                track: dummy_track("x2", "Hit 2", "Favorite Artist", false),
+                played_at: 90,
+                completed_ratio: 1.0,
+            },
+            PlayHistory {
+                id: 3,
+                track: dummy_track("s1", "Skip 1", "Skipped Artist", false),
+                played_at: 80,
+                completed_ratio: 0.1,
+            },
+            PlayHistory {
+                id: 4,
+                track: dummy_track("s2", "Skip 2", "Skipped Artist", false),
+                played_at: 70,
+                completed_ratio: 0.1,
+            },
         ];
 
         // Put t_skipped first in candidates to verify re-ranking overcomes position
@@ -345,8 +388,14 @@ mod tests {
         let reranked = rerank_radio_tracks(candidates, &history, 0);
 
         assert_eq!(reranked.len(), 2);
-        assert_eq!(reranked[0].id, "loved", "t_loved must rank first due to artist affinity and like bonus");
-        assert_eq!(reranked[1].id, "skipped", "t_skipped must be penalized for skips");
+        assert_eq!(
+            reranked[0].id, "loved",
+            "t_loved must rank first due to artist affinity and like bonus"
+        );
+        assert_eq!(
+            reranked[1].id, "skipped",
+            "t_skipped must be penalized for skips"
+        );
     }
 
     #[test]
@@ -357,15 +406,42 @@ mod tests {
         let t4 = dummy_track("b1", "Track 4", "Other Artist", false);
 
         let history = vec![
-            PlayHistory { id: 1, track: t1.clone(), played_at: 100, completed_ratio: 1.0 },
-            PlayHistory { id: 2, track: t2.clone(), played_at: 90, completed_ratio: 1.0 },
-            PlayHistory { id: 3, track: t3.clone(), played_at: 80, completed_ratio: 1.0 },
-            PlayHistory { id: 4, track: t4.clone(), played_at: 70, completed_ratio: 1.0 },
+            PlayHistory {
+                id: 1,
+                track: t1.clone(),
+                played_at: 100,
+                completed_ratio: 1.0,
+            },
+            PlayHistory {
+                id: 2,
+                track: t2.clone(),
+                played_at: 90,
+                completed_ratio: 1.0,
+            },
+            PlayHistory {
+                id: 3,
+                track: t3.clone(),
+                played_at: 80,
+                completed_ratio: 1.0,
+            },
+            PlayHistory {
+                id: 4,
+                track: t4.clone(),
+                played_at: 70,
+                completed_ratio: 1.0,
+            },
         ];
 
         let picks = build_quick_picks(&history, &[], 5);
-        let popular_artist_count = picks.iter().filter(|t| t.artist == "Popular Artist").count();
-        assert!(popular_artist_count <= 2, "Must enforce <= 2 tracks per artist for diversity, got {}", popular_artist_count);
+        let popular_artist_count = picks
+            .iter()
+            .filter(|t| t.artist == "Popular Artist")
+            .count();
+        assert!(
+            popular_artist_count <= 2,
+            "Must enforce <= 2 tracks per artist for diversity, got {}",
+            popular_artist_count
+        );
         assert_eq!(picks.len(), 3); // 2 from Popular Artist + 1 from Other Artist
     }
 
@@ -384,6 +460,11 @@ mod tests {
         let penalized = ranker.compute_score(&penalized_features);
 
         // Score must drop by more than 50%
-        assert!(penalized < unpenalized * 0.5, "penalized {} must be < 50% of {}", penalized, unpenalized);
+        assert!(
+            penalized < unpenalized * 0.5,
+            "penalized {} must be < 50% of {}",
+            penalized,
+            unpenalized
+        );
     }
 }
