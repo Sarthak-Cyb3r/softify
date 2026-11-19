@@ -33,46 +33,118 @@ import kotlinx.coroutines.launch
 expect fun getCacheDirectory(context: PlatformContext): Path
 
 /**
- * Thumbnail size targets:
- * - THUMBNAIL: ~120-200px (180px) for list rows, search results, library, and home shelves.
- * - FULL: 544px for Now Playing screen and MiniPlayer.
+ * Discrete sizing buckets matching Google CDN and YouTube image server targets:
+ * - THUMBNAIL (256px): List rows, search results, library (<=256)
+ * - SHELF (544px): Home shelves, grid cards (257-544)
+ * - FULL (1200px): Now Playing screen, MiniPlayer (545-1200)
+ * - MAX (2400px): Fullscreen artwork, tablet (>1200)
  */
-enum class CoverSize {
-    THUMBNAIL,
-    FULL
+enum class CoverSize(val targetPx: Int) {
+    THUMBNAIL(256),
+    SHELF(544),
+    FULL(1200),
+    MAX(2400);
+
+    companion object {
+        fun fromPx(px: Int): CoverSize = when {
+            px <= 256 -> THUMBNAIL
+            px <= 544 -> SHELF
+            px <= 1200 -> FULL
+            else -> MAX
+        }
+    }
+}
+
+private val GoogleArtworkSizeSuffix = Regex("=(?:s(\\d+)|w(\\d+)(?:-[^-?#=]+)*-h\\d+)([^?#]*)")
+private val YouTubeVideoArtworkPath =
+    Regex("(/vi(?:_webp)?/[^/?#]+/)(mqdefault|hqdefault|sddefault|hq720|maxresdefault)(\\.(?:jpg|webp))(?=[?#]|$)")
+
+/**
+ * Transforms artwork URL into discrete bucketed resolution:
+ * - Google CDN: rewrites `=w...-h...` or `=s...` into discrete buckets (256, 544, 1200, 2400)
+ * - YouTube: `mqdefault.jpg` (<=320px) vs `maxresdefault.jpg` (>320px, crisp without letterbox bars)
+ * - Saavn CDN: preserved untouched to avoid 404s
+ */
+fun bucketedArtworkUrl(url: String, resolvedSizePx: Int): String {
+    val host = url
+        .substringAfter("://", missingDelimiterValue = "")
+        .substringBefore('/')
+        .substringBefore(':')
+        .lowercase()
+
+    val isGoogleArtworkHost = host.endsWith(".googleusercontent.com") || host.endsWith(".ggpht.com")
+    val isYouTubeArtworkHost = host == "i.ytimg.com" || host.endsWith(".ytimg.com")
+
+    if (!isGoogleArtworkHost && !isYouTubeArtworkHost) return url
+
+    val bucketPx = when {
+        resolvedSizePx <= 256 -> 256
+        resolvedSizePx <= 544 -> 544
+        resolvedSizePx <= 1200 -> 1200
+        else -> 2400
+    }
+
+    // YouTube CDN
+    val sourcePath = url.substringBefore('#').substringBefore('?')
+    val videoPath = YouTubeVideoArtworkPath.find(sourcePath).takeIf { isYouTubeArtworkHost }
+    if (videoPath != null) {
+        val fragment = url.substringAfter('#', missingDelimiterValue = "")
+        val source = sourcePath + fragment.takeIf { it.isNotEmpty() }?.let { "#$it" }.orEmpty()
+        return if (bucketPx > 320) {
+            source.replaceRange(videoPath.range, "${videoPath.groupValues[1]}maxresdefault${videoPath.groupValues[3]}")
+        } else {
+            source.replaceRange(videoPath.range, "${videoPath.groupValues[1]}mqdefault${videoPath.groupValues[3]}")
+        }
+    }
+
+    // Google CDN
+    if (GoogleArtworkSizeSuffix.containsMatchIn(url)) {
+        return url.replace(GoogleArtworkSizeSuffix) { match ->
+            val suffix = match.groupValues[3]
+            val wasWidthHeight = match.groupValues[2].isNotEmpty()
+            val size = if (wasWidthHeight || "s" in suffix.split('-')) "w$bucketPx-h$bucketPx" else "s$bucketPx"
+            "=$size$suffix"
+        }
+    }
+
+    if (!isGoogleArtworkHost) return url
+    val suffixIndex = url.indexOfAny(charArrayOf('?', '#')).takeIf { it >= 0 } ?: url.length
+    return url.substring(0, suffixIndex) + "=s$bucketPx" + url.substring(suffixIndex)
 }
 
 /**
- * Converts cover URL into size-appropriate thumbnail URL.
- * - Google / YouTube Music CDN: rewrites `=w...` or `=s...`
- * - YouTube: `mqdefault.jpg` (small) vs `hqdefault.jpg` (full)
- * - Saavn CDN and other hosts: preserved untouched without breaking rewrites
+ * YouTube 404 fallback chain: if maxresdefault 404s, fall back to mqdefault (320x180 bar-free).
+ */
+fun videoArtworkFallbackUrl(url: String): String? {
+    val host = url
+        .substringAfter("://", missingDelimiterValue = "")
+        .substringBefore('/')
+        .substringBefore(':')
+        .lowercase()
+    if (host != "i.ytimg.com" && !host.endsWith(".ytimg.com")) return null
+    val path = YouTubeVideoArtworkPath.find(url.substringBefore('#').substringBefore('?')) ?: return null
+    if (path.groupValues[2] != "maxresdefault") return null
+    return url.replaceRange(path.range, "${path.groupValues[1]}mqdefault${path.groupValues[3]}")
+}
+
+/**
+ * Returns candidate URLs for cross-size cache lookup ordered by preference.
+ */
+fun artworkCacheCandidates(url: String, resolvedSizePx: Int): List<String> {
+    val requested = bucketedArtworkUrl(url, resolvedSizePx)
+    val buckets = listOf(256, 544, 1200, 2400)
+    val remaining = buckets.filter { it != resolvedSizePx }
+        .sortedBy { if (it > resolvedSizePx) it - resolvedSizePx else (resolvedSizePx - it) * 2 }
+        .map { bucketedArtworkUrl(url, it) }
+    return (listOf(requested) + remaining).distinct()
+}
+
+/**
+ * Converts cover URL into size-appropriate thumbnail URL using discrete resolution buckets.
  */
 fun formatCoverUrl(url: String?, size: CoverSize): String? {
     if (url.isNullOrBlank()) return null
-    return when (size) {
-        CoverSize.THUMBNAIL -> {
-            if (url.contains("=w") || url.contains("=s") || url.contains("googleusercontent.com") || url.contains("ggpht.com")) {
-                url.replace(Regex("=w\\d+-h\\d+[^?&]*"), "=w180-h180-l90-rj")
-                    .replace(Regex("=s\\d+[^?&]*"), "=s180-c-k-c0x00ffffff-no-rj")
-            } else if (url.contains("i.ytimg.com")) {
-                url.replace("hqdefault.jpg", "mqdefault.jpg")
-            } else {
-                // Host-specific: preserve Saavn and other hosts without breaking rewrites
-                url
-            }
-        }
-        CoverSize.FULL -> {
-            if (url.contains("=w") || url.contains("=s") || url.contains("googleusercontent.com") || url.contains("ggpht.com")) {
-                url.replace(Regex("=w\\d+-h\\d+[^?&]*"), "=w544-h544-l90-rj")
-                    .replace(Regex("=s\\d+[^?&]*"), "=s544-c-k-c0x00ffffff-no-rj")
-            } else if (url.contains("i.ytimg.com")) {
-                url.replace("mqdefault.jpg", "hqdefault.jpg")
-            } else {
-                url
-            }
-        }
-    }
+    return bucketedArtworkUrl(url, size.targetPx)
 }
 
 /**
@@ -148,12 +220,41 @@ class CoverArtEventListener : EventListener() {
 }
 
 /**
+ * Transparent Coil interceptor implementing the YouTube 404 fallback chain:
+ * If maxresdefault.jpg fails (HTTP 404), seamlessly falls back to mqdefault.jpg.
+ */
+class VideoArtworkFallbackInterceptor : coil3.intercept.Interceptor {
+    override suspend fun intercept(chain: coil3.intercept.Interceptor.Chain): coil3.request.ImageResult {
+        val result = chain.proceed()
+        if (result is coil3.request.ErrorResult) {
+            val url = chain.request.data as? String
+            if (url != null) {
+                val fallback = videoArtworkFallbackUrl(url)
+                if (fallback != null && fallback != url && !CoverArtLoader.isNegativeCached(fallback)) {
+                    val fallbackRequest = chain.request.newBuilder()
+                        .data(fallback)
+                        .memoryCacheKey(fallback)
+                        .diskCacheKey(fallback)
+                        .build()
+                    val fallbackResult = chain.withRequest(fallbackRequest).proceed()
+                    if (fallbackResult is coil3.request.SuccessResult) {
+                        return fallbackResult
+                    }
+                }
+            }
+        }
+        return result
+    }
+}
+
+/**
  * Singleton CoverArtLoader configuring Coil with:
  * - 25% RAM memory cache
  * - 250 MB disk cache
  * - Shared OkHttpClient with HTTP/2 and 64 max concurrent / 24 per host dispatcher
  * - Negative caching for HTTP 404 URLs
  * - Background prefetching prioritizing visible UI requests
+ * - Cross-size cache candidate lookup across discrete resolution buckets (256, 544, 1200, 2400)
  */
 object CoverArtLoader {
     private var loaderInstance: ImageLoader? = null
@@ -171,6 +272,43 @@ object CoverArtLoader {
         if (url.isNullOrBlank()) return
         negativeCache[url] = System.currentTimeMillis()
         PlaybackLogger.log("SoftifyCoverArt", "Recorded negative cache (HTTP 404): $url")
+    }
+
+    /**
+     * Cross-size cache candidate lookup:
+     * Checks if a different resolution bucket (e.g. 1200px or 256px) for the same track
+     * is already present in Coil's memory or disk cache.
+     */
+    fun findCachedCandidate(url: String?, resolvedSizePx: Int): String? {
+        if (url.isNullOrBlank()) return null
+        val loader = loaderInstance ?: return null
+        val candidates = artworkCacheCandidates(url, resolvedSizePx)
+
+        // 1. Memory cache check
+        val memCache = loader.memoryCache
+        if (memCache != null) {
+            for (candidate in candidates) {
+                if (memCache[MemoryCache.Key(candidate)] != null) {
+                    return candidate
+                }
+            }
+        }
+
+        // 2. Disk cache check
+        val diskCache = loader.diskCache
+        if (diskCache != null) {
+            for (candidate in candidates) {
+                try {
+                    val snapshot = diskCache.openSnapshot(candidate)
+                    if (snapshot != null) {
+                        snapshot.close()
+                        return candidate
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
+
+        return null
     }
 
     // High throughput OkHttp dispatcher: 64 concurrent requests, 24 per host
@@ -226,6 +364,7 @@ object CoverArtLoader {
                     .build()
             }
             .components {
+                add(VideoArtworkFallbackInterceptor())
                 add(
                     OkHttpNetworkFetcherFactory(
                         callFactory = { sharedOkHttpClient }

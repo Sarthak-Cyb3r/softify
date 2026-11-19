@@ -98,25 +98,31 @@ class MainActivity : ComponentActivity() {
             PlaybackLogger.log("SoftifyCoverArt", "CoverArtLoader init error: ${e.message}")
         }
 
-        // Initialize JankStats frame latency tracking (debug builds)
-        try {
-            val jankListener = JankStats.OnFrameListener { frameData ->
-                if (frameData.isJank) {
-                    val durationMs = frameData.frameDurationUiNanos / 1_000_000L
-                    viewModel.jankFramesCount++
-                    viewModel.maxFrameDurationMs = maxOf(viewModel.maxFrameDurationMs, durationMs)
-                    PlaybackLogger.log("SoftifyPlayback", "[JANK] Dropped frame: took ${durationMs}ms (deadline 16.6ms)")
+        // Initialize JankStats frame latency tracking (debug builds) after window decorView is attached
+        window.decorView.post {
+            try {
+                if (window.peekDecorView() != null) {
+                    val jankListener = JankStats.OnFrameListener { frameData ->
+                        if (frameData.isJank) {
+                            val durationMs = frameData.frameDurationUiNanos / 1_000_000L
+                            viewModel.jankFramesCount++
+                            viewModel.maxFrameDurationMs = maxOf(viewModel.maxFrameDurationMs, durationMs)
+                            PlaybackLogger.log("SoftifyPlayback", "[JANK] Dropped frame: took ${durationMs}ms (deadline 16.6ms)")
+                        }
+                        viewModel.jankTotalFrames++
+                        if (viewModel.jankTotalFrames > 0) {
+                            viewModel.jankPercentage = (viewModel.jankFramesCount.toFloat() / viewModel.jankTotalFrames.toFloat()) * 100f
+                        }
+                    }
+                    val jankStats = JankStats.createAndTrack(window, jankListener)
+                    jankStats.isTrackingEnabled = true
+                    PlaybackLogger.log("SoftifyPlayback", "JankStats performance tracking initialized")
+                } else {
+                    PlaybackLogger.log("SoftifyPlayback", "JankStats deferred: window.peekDecorView() was null")
                 }
-                viewModel.jankTotalFrames++
-                if (viewModel.jankTotalFrames > 0) {
-                    viewModel.jankPercentage = (viewModel.jankFramesCount.toFloat() / viewModel.jankTotalFrames.toFloat()) * 100f
-                }
+            } catch (e: Throwable) {
+                PlaybackLogger.log("SoftifyPlayback", "JankStats init failed: ${e.message}")
             }
-            val jankStats = JankStats.createAndTrack(window, jankListener)
-            jankStats.isTrackingEnabled = true
-            PlaybackLogger.log("SoftifyPlayback", "JankStats performance tracking initialized")
-        } catch (e: Throwable) {
-            PlaybackLogger.log("SoftifyPlayback", "JankStats init failed: ${e.message}")
         }
 
         // Connect ViewModel sharing callback (Android Share Sheet)

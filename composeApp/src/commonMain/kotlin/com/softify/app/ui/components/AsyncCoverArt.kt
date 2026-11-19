@@ -33,10 +33,13 @@ fun AsyncCoverArt(
     backgroundColor: Color = Color(0xFF242424) // Solid tonal placeholder
 ) {
     val context = LocalPlatformContext.current
-    val initialFormatted = remember(url, size) { formatCoverUrl(url, size) }
-    var activeUrl by remember(initialFormatted) { mutableStateOf(initialFormatted) }
-    val isNegCached = remember(activeUrl) { CoverArtLoader.isNegativeCached(activeUrl) }
     val imageLoader = remember(context) { CoverArtLoader.getImageLoader(context) }
+
+    val initialFormatted = remember(url, size) { formatCoverUrl(url, size) }
+    // Cross-size cache candidate lookup: check if a 1200px or 256px image is ALREADY cached
+    val cachedCandidate = remember(url, size) { CoverArtLoader.findCachedCandidate(url, size.targetPx) }
+    var activeUrl by remember(initialFormatted, cachedCandidate) { mutableStateOf(cachedCandidate ?: initialFormatted) }
+    val isNegCached = remember(activeUrl) { CoverArtLoader.isNegativeCached(activeUrl) }
 
     Box(
         modifier = modifier
@@ -62,8 +65,12 @@ fun AsyncCoverArt(
                 onError = {
                     val failedUrl = activeUrl
                     CoverArtLoader.recordNegativeCache(failedUrl)
-                    // If formatted URL failed and is different from original raw URL, fall back to raw URL
-                    if (failedUrl != url && !url.isNullOrBlank() && !CoverArtLoader.isNegativeCached(url)) {
+                    // YouTube 404 fallback chain: maxresdefault -> mqdefault -> raw URL
+                    val ytFallback = if (failedUrl != null) videoArtworkFallbackUrl(failedUrl) else null
+                    if (ytFallback != null && ytFallback != failedUrl && !CoverArtLoader.isNegativeCached(ytFallback)) {
+                        PlaybackLogger.log("SoftifyCoverArt", "YouTube 404 fallback: maxresdefault -> mqdefault: $ytFallback")
+                        activeUrl = ytFallback
+                    } else if (failedUrl != url && !url.isNullOrBlank() && !CoverArtLoader.isNegativeCached(url)) {
                         PlaybackLogger.log("SoftifyCoverArt", "Falling back from formatted art URL to raw URL: $url")
                         activeUrl = url
                     } else {
