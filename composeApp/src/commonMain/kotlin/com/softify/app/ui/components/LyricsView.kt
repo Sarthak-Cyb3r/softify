@@ -15,17 +15,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softify.app.util.PlaybackLogger
@@ -285,7 +287,8 @@ fun LyricsView(
                     }
                     .padding(vertical = 4.dp)
             ) {
-                if (line.text.trim() == "[Instrumental]" || line.text.isBlank()) {
+                val lineDisplayText = if (line.text.isNotBlank()) line.text else line.words.joinToString(" ") { it.text }
+                if (lineDisplayText.trim() == "[Instrumental]" || lineDisplayText.isBlank()) {
                     InstrumentalIndicator()
                 } else if (isActive) {
                     ActiveLyricLine(
@@ -295,7 +298,7 @@ fun LyricsView(
                     )
                 } else {
                     Text(
-                        text = line.text,
+                        text = lineDisplayText,
                         style = LyricTextStyle.copy(
                             color = MaterialTheme.colorScheme.onSurface
                         ),
@@ -467,10 +470,26 @@ fun buildActiveLyricClipPath(
 }
 
 /**
+ * Pre-measured word segment with exact sub-layout and paragraph offset.
+ * Pre-computed once when layout settles to achieve ZERO per-frame allocations.
+ */
+data class MeasuredWordPart(
+    val word: LyricWord,
+    val text: String,
+    val topLeft: Offset,
+    val width: Float,
+    val height: Float,
+    val subLayout: TextLayoutResult,
+    val partIndex: Int,
+    val totalParts: Int
+)
+
+/**
  * Active lyric line rendering word-by-word timing in the draw phase.
- * Renders each line as ONE single Text using an AnnotatedString so the text engine
- * wraps it as a paragraph. Lit words and fill sweep are drawn via TextLayoutResult
- * bounding boxes, driven by the frame clock strictly in the draw phase.
+ * Renders each line as ONE single paragraph layout using TextMeasurer so the text engine
+ * wraps it as a paragraph. Lit words and fill sweep are drawn via a 4-stop Brush.linearGradient
+ * (0f to lit, 0.1f to lit, 0.9f to unlit, 1.0f to unlit) driven by the frame clock strictly in
+ * the draw phase, with zero per-frame Path/clipPath allocations.
  * Tap-to-seek maps tap offset to word timestamp via getOffsetForPosition.
  */
 @Composable
@@ -482,75 +501,184 @@ fun ActiveLyricLine(
 ) {
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val aheadColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
 
-    // Build single paragraph string and character ranges for each word
-    val (annotatedText, wordRanges) = remember(line.words, line.text) {
-        if (line.words.isNotEmpty()) {
-            val fullString = line.words.joinToString(" ") { it.text }
-            val ranges = mutableListOf<WordCharRange>()
-            var curr = 0
-            for (w in line.words) {
-                val start = curr
-                val end = start + w.text.length
-                ranges.add(WordCharRange(w, start, end))
-                curr = end + 1 // space separator
-            }
-            AnnotatedString(fullString) to ranges
+    // 1. Build canonical paragraph string and character ranges for each word
+    val fullString = remember(line.words, line.text) {
+        if (line.text.isNotBlank()) line.text else line.words.joinToString(" ") { it.text }
+    }
+
+    val wordRanges = remember(fullString, line.words) {
+        if (line.words.isEmpty()) {
+            emptyList<WordCharRange>()
         } else {
-            AnnotatedString(line.text) to emptyList<WordCharRange>()
+            val ranges = mutableListOf<WordCharRange>()
+            var searchIdx = 0
+            for (w in line.words) {
+                val wordTrimmed = w.text.trim()
+                if (wordTrimmed.isEmpty()) continue
+                val found = fullString.indexOf(wordTrimmed, searchIdx)
+                if (found >= 0) {
+                    val start = found
+                    val end = found + wordTrimmed.length
+                    ranges.add(WordCharRange(w, start, end))
+                    searchIdx = end
+                } else {
+                    val start = searchIdx.coerceAtMost(fullString.length)
+                    val end = (start + wordTrimmed.length).coerceAtMost(fullString.length)
+                    ranges.add(WordCharRange(w, start, end))
+                    searchIdx = end
+                }
+            }
+            ranges
         }
     }
 
-    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val widthPx = constraints.maxWidth
+        if (widthPx <= 0) return@BoxWithConstraints
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .pointerInput(line, wordRanges) {
-                detectTapGestures { tapOffset ->
-                    val layout = textLayoutResult ?: return@detectTapGestures
-                    val charOffset = layout.getOffsetForPosition(tapOffset)
-                    val matchedWord = wordRanges.find { charOffset in it.startChar..it.endChar }?.word
-                    if (matchedWord != null) {
-                        onSeekTo(matchedWord.startMs)
+        // 2. Pre-measure full paragraph layout (determines line breaks and wrapping)
+        val fullLayout = remember(fullString, widthPx) {
+            textMeasurer.measure(
+                text = AnnotatedString(fullString),
+                style = LyricTextStyle,
+                softWrap = true,
+                constraints = Constraints(minWidth = widthPx, maxWidth = widthPx)
+            )
+        }
+
+        // 3. Pre-measure per-line word bounding boxes and sub-layouts once when layout settles (zero per-frame allocations)
+        val measuredWordParts = remember(fullLayout, wordRanges) {
+            val parts = mutableListOf<MeasuredWordPart>()
+            val fullLen = fullString.length
+            for (range in wordRanges) {
+                val w = range.word
+                val startChar = range.startChar.coerceIn(0, fullLen)
+                val endChar = range.endChar.coerceIn(0, fullLen)
+                if (startChar >= endChar) continue
+
+                val startLine = fullLayout.getLineForOffset(startChar)
+                val lastChar = (endChar - 1).coerceAtLeast(startChar)
+                val endLine = fullLayout.getLineForOffset(lastChar)
+                val totalParts = endLine - startLine + 1
+
+                for (l in startLine..endLine) {
+                    val lStart = maxOf(startChar, fullLayout.getLineStart(l))
+                    val lEnd = minOf(endChar, fullLayout.getLineEnd(l))
+                    if (lStart >= lEnd) continue
+
+                    val partText = fullString.substring(lStart, lEnd)
+                    val subLayout = textMeasurer.measure(
+                        text = AnnotatedString(partText),
+                        style = LyricTextStyle
+                    )
+
+                    val left = fullLayout.getHorizontalPosition(lStart, true)
+                    val right = fullLayout.getHorizontalPosition(lEnd, false)
+                    val minX = minOf(left, right)
+                    val maxX = maxOf(left, right)
+                    val top = fullLayout.getLineTop(l)
+                    val bottom = fullLayout.getLineBottom(l)
+
+                    parts.add(
+                        MeasuredWordPart(
+                            word = w,
+                            text = partText,
+                            topLeft = Offset(minX, top),
+                            width = (maxX - minX).coerceAtLeast(1f),
+                            height = (bottom - top).coerceAtLeast(1f),
+                            subLayout = subLayout,
+                            partIndex = l - startLine,
+                            totalParts = totalParts
+                        )
+                    )
+                }
+            }
+            parts
+        }
+
+        val layoutHeightDp = with(density) { fullLayout.size.height.toDp() }
+
+        // Cached solid brushes
+        val litBrush = remember(onSurfaceColor) { SolidColor(onSurfaceColor) }
+        val unlitBrush = remember(aheadColor) { SolidColor(aheadColor) }
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(layoutHeightDp)
+                .pointerInput(line, wordRanges, fullLayout) {
+                    detectTapGestures { tapOffset ->
+                        val charOffset = fullLayout.getOffsetForPosition(tapOffset)
+                        val matchedWord = wordRanges.find { charOffset in it.startChar..it.endChar }?.word
+                        if (matchedWord != null) {
+                            onSeekTo(matchedWord.startMs)
+                        } else {
+                            onSeekTo(line.timeMs)
+                        }
+                    }
+                }
+        ) {
+            val currentMs = positionProvider() // Read ONLY in draw phase!
+
+            if (line.isLineTimed || measuredWordParts.isEmpty()) {
+                // Line-timed lyrics: highlight whole line with lit color immediately when active
+                drawText(textLayoutResult = fullLayout, brush = litBrush)
+            } else {
+                // Word-timed lyrics: hardware-accelerated 4-stop horizontal gradient sweep per word
+                for (part in measuredWordParts) {
+                    val word = part.word
+                    if (currentMs < word.startMs) {
+                        // Future word: unlit / dimmed
+                        drawText(
+                            textLayoutResult = part.subLayout,
+                            topLeft = part.topLeft,
+                            brush = unlitBrush
+                        )
+                    } else if (currentMs >= word.endMs) {
+                        // Fully sung word: lit
+                        drawText(
+                            textLayoutResult = part.subLayout,
+                            topLeft = part.topLeft,
+                            brush = litBrush
+                        )
                     } else {
-                        onSeekTo(line.timeMs)
+                        // Actively sung word: 4-stop gradient wipe across word bounds
+                        val duration = (word.endMs - word.startMs).coerceAtLeast(1L).toFloat()
+                        val elapsed = (currentMs - word.startMs).toFloat()
+                        val totalProgress = (elapsed / duration).coerceIn(0f, 1f)
+                        val partProgress = if (part.totalParts > 1) {
+                            ((totalProgress * part.totalParts) - part.partIndex).coerceIn(0f, 1f)
+                        } else {
+                            totalProgress
+                        }
+
+                        val wiperX = part.width * partProgress
+                        val gradientWidth = 24.dp.toPx().coerceAtMost(part.width * 0.4f).coerceAtLeast(4f)
+                        val halfGrad = gradientWidth / 2f
+                        val bandStart = wiperX - halfGrad
+                        val bandEnd = wiperX + halfGrad
+
+                        val brush = Brush.linearGradient(
+                            0.0f to onSurfaceColor,
+                            0.1f to onSurfaceColor,
+                            0.9f to aheadColor,
+                            1.0f to aheadColor,
+                            start = Offset(bandStart, 0f),
+                            end = Offset(bandEnd, 0f)
+                        )
+
+                        drawText(
+                            textLayoutResult = part.subLayout,
+                            topLeft = part.topLeft,
+                            brush = brush
+                        )
                     }
                 }
             }
-    ) {
-        // Layer 1: Base Dim Text (captures platform text layout result)
-        Text(
-            text = annotatedText,
-            style = LyricTextStyle.copy(color = aheadColor),
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth(),
-            onTextLayout = { textLayoutResult = it }
-        )
-
-        // Layer 2: Lit Text, clipped strictly in draw phase via TextLayoutResult bounding boxes
-        Text(
-            text = annotatedText,
-            style = LyricTextStyle.copy(color = onSurfaceColor),
-            textAlign = TextAlign.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-                .drawWithContent {
-                    val layout = textLayoutResult ?: return@drawWithContent
-                    val currentMs = positionProvider() // Read ONLY in draw phase!
-
-                    val clipPath = buildActiveLyricClipPath(
-                        layout = layout,
-                        wordRanges = wordRanges,
-                        currentMs = currentMs,
-                        line = line
-                    )
-
-                    clipPath(clipPath) {
-                        this@drawWithContent.drawContent()
-                    }
-                }
-        )
+        }
     }
 }
 
@@ -565,36 +693,51 @@ fun ActiveLyricLine(
 ) {
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val aheadColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
 
-    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val widthPx = constraints.maxWidth
+        if (widthPx <= 0) return@BoxWithConstraints
 
-    Box(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = text,
-            style = LyricTextStyle.copy(color = aheadColor),
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth(),
-            onTextLayout = { textLayoutResult = it }
-        )
+        val layout = remember(text, widthPx) {
+            textMeasurer.measure(
+                text = AnnotatedString(text),
+                style = LyricTextStyle,
+                softWrap = true,
+                constraints = Constraints(minWidth = widthPx, maxWidth = widthPx)
+            )
+        }
 
-        Text(
-            text = text,
-            style = LyricTextStyle.copy(color = onSurfaceColor),
-            textAlign = TextAlign.Start,
+        val layoutHeightDp = with(density) { layout.size.height.toDp() }
+
+        Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .drawWithContent {
-                    val p = progress.coerceIn(0f, 1f)
-                    val w = size.width.coerceAtLeast(1f)
-                    val h = size.height.coerceAtLeast(1f)
-                    val path = Path().apply {
-                        addRect(Rect(0f, 0f, w * p, h))
-                    }
-                    clipPath(path) {
-                        this@drawWithContent.drawContent()
-                    }
-                }
-        )
+                .height(layoutHeightDp)
+        ) {
+            val p = progress.coerceIn(0f, 1f)
+            val w = layout.size.width.toFloat()
+            val wiperX = w * p
+            val gradientWidth = 24.dp.toPx().coerceAtMost(w * 0.2f).coerceAtLeast(6f)
+            val halfGrad = gradientWidth / 2f
+            val bandStart = wiperX - halfGrad
+            val bandEnd = wiperX + halfGrad
+
+            val brush = Brush.linearGradient(
+                0.0f to onSurfaceColor,
+                0.1f to onSurfaceColor,
+                0.9f to aheadColor,
+                1.0f to aheadColor,
+                start = Offset(bandStart, 0f),
+                end = Offset(bandEnd, 0f)
+            )
+
+            drawText(
+                textLayoutResult = layout,
+                brush = brush
+            )
+        }
     }
 }
 
