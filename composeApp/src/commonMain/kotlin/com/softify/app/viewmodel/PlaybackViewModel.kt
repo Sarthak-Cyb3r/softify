@@ -171,6 +171,13 @@ class PlaybackViewModel(
     private val _showLyricsInPlayer = MutableStateFlow(false)
     val showLyricsInPlayer: StateFlow<Boolean> = _showLyricsInPlayer.asStateFlow()
 
+    private val _showLyricsDebugOverlay = MutableStateFlow(false)
+    val showLyricsDebugOverlay: StateFlow<Boolean> = _showLyricsDebugOverlay.asStateFlow()
+
+    fun toggleLyricsDebugOverlay() {
+        _showLyricsDebugOverlay.value = !_showLyricsDebugOverlay.value
+    }
+
     // High Precision Time Tracking
     private val _currentPositionMs = MutableStateFlow(0L)
     val currentPositionMs: StateFlow<Long> = _currentPositionMs.asStateFlow()

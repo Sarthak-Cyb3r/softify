@@ -45,6 +45,7 @@ fun MetrolistNowPlaying(
     val lyrics by viewModel.lyrics.collectAsState()
     val isLyricsLoading by viewModel.isLyricsLoading.collectAsState()
     val showLyricsInPlayer by viewModel.showLyricsInPlayer.collectAsState()
+    val showLyricsDebugOverlay by viewModel.showLyricsDebugOverlay.collectAsState()
 
     if (track == null) return
 
@@ -243,6 +244,8 @@ fun MetrolistNowPlaying(
                             positionProvider = { lyricsClock.longValue },
                             isSynced = lyrics?.isSynced ?: false,
                             isWordSynced = lyrics?.isWordSynced ?: false,
+                            providerName = lyrics?.provider ?: "",
+                            showDebugOverlay = showLyricsDebugOverlay,
                             onSeekTo = { seekMs -> viewModel.seekTo(seekMs) },
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(top = 160.dp, bottom = 180.dp, start = 24.dp, end = 24.dp)

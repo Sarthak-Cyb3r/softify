@@ -29,6 +29,7 @@ fun SettingsScreen(
     val qualityPreset by viewModel.qualityPreset.collectAsState()
     val uiStyle by viewModel.uiStyle.collectAsState()
     val isIncognito by viewModel.isIncognito.collectAsState()
+    val showLyricsDebugOverlay by viewModel.showLyricsDebugOverlay.collectAsState()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
 
@@ -264,6 +265,32 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Gallery", fontSize = 12.sp)
                         }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Lyrics Debug Overlay",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Show provider, line count, timing mode, and clock FPS",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = showLyricsDebugOverlay,
+                            onCheckedChange = { viewModel.toggleLyricsDebugOverlay() }
+                        )
                     }
                 }
             }
