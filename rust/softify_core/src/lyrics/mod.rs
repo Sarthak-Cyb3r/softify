@@ -120,15 +120,17 @@ mod tests {
     #[tokio::test]
     async fn test_negative_caching_and_kill_switches() {
         let db = DatabaseRepository::in_memory().unwrap();
-        let mut config = LyricsProvidersConfig::default();
         // Disable all remote providers to test negative caching behavior
-        config.enable_betterlyrics = false;
-        config.enable_lrcred = false;
-        config.enable_unison = false;
-        config.enable_paxsenix = false;
-        config.enable_youtube_captions = false;
-        config.enable_lrclib = false;
-        config.enable_kugou = false;
+        let config = LyricsProvidersConfig {
+            enable_betterlyrics: false,
+            enable_lrcred: false,
+            enable_unison: false,
+            enable_paxsenix: false,
+            enable_youtube_captions: false,
+            enable_lrclib: false,
+            enable_kugou: false,
+            ..Default::default()
+        };
 
         let engine = LyricsEngine::with_config(Some(db.clone()), config);
         let track = dummy_track("neg1");

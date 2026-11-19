@@ -86,14 +86,16 @@ impl LyricsEngine {
 
     #[cfg(test)]
     pub fn with_lrclib(db: Option<DatabaseRepository>, lrclib: LrclibClient) -> Self {
-        let mut config = LyricsProvidersConfig::default();
-        config.enable_betterlyrics = false;
-        config.enable_lrcred = false;
-        config.enable_unison = false;
-        config.enable_paxsenix = false;
-        config.enable_youtube_captions = false;
-        config.enable_kugou = false;
-        config.enable_lrclib = true;
+        let config = LyricsProvidersConfig {
+            enable_betterlyrics: false,
+            enable_lrcred: false,
+            enable_unison: false,
+            enable_paxsenix: false,
+            enable_youtube_captions: false,
+            enable_kugou: false,
+            enable_lrclib: true,
+            ..Default::default()
+        };
         Self {
             db,
             config,

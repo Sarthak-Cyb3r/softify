@@ -8,6 +8,7 @@ use crate::models::{QualityPreset, Track};
 use crate::resolvers::saavn::{normalize, phonetic_simplify, SaavnStreamResolver};
 use crate::resolvers::youtube::YoutubeStreamResolver;
 
+#[allow(clippy::manual_is_multiple_of, clippy::chunks_exact_to_as_chunks)]
 fn encrypt_test_url(url: &str) -> String {
     let cipher = Des::new_from_slice(b"38346591").unwrap();
     let mut bytes = url.as_bytes().to_vec();
