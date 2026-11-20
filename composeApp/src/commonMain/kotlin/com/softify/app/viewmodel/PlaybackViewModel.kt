@@ -846,34 +846,43 @@ class PlaybackViewModel(
             _lyrics.value = null
             loadLyricsForActiveTrack()
 
-            try {
-                val stream = queueManager.resolveTrackStream(track, _qualityPreset.value)
-                _activeStream.value = stream
-
-                val host = runCatching { java.net.URI(stream.url).host ?: "unknown" }.getOrDefault("unknown")
-                PlaybackLogger.log(
-                    "SoftifyPlayback",
-                    "Resolve end: provider=${stream.provider}, bitrate=${stream.bitrateKbps}kbps, codec=${stream.codec}, host=$host"
-                )
-
-                val handler = onStreamReadyForPlayback
-                if (handler != null) {
-                    handler.invoke(track, stream)
-                } else {
-                    val errMsg = "Playback service not connected or handler missing"
-                    PlaybackLogger.log("SoftifyPlayback", "ERROR: $errMsg")
-                    showSnackbar(errMsg)
-                }
-
-                // Pre-resolve next track in background
-                queueManager.preResolveNext(_qualityPreset.value)
-                refreshLibrary()
+            val stream = try {
+                queueManager.resolveTrackStream(track, _qualityPreset.value)
             } catch (e: Exception) {
                 val errMsg = "Rust resolver error for '${track.title}': ${e.message}"
                 PlaybackLogger.log("SoftifyPlayback", errMsg)
                 showSnackbar("Resolve failed: ${e.message ?: "Unknown error"}")
                 _isPlaying.value = false
+                return@launch
             }
+
+            _activeStream.value = stream
+
+            val host = runCatching { java.net.URI(stream.url).host ?: "unknown" }.getOrDefault("unknown")
+            PlaybackLogger.log(
+                "SoftifyPlayback",
+                "Resolve end: provider=${stream.provider}, bitrate=${stream.bitrateKbps}kbps, codec=${stream.codec}, host=$host"
+            )
+
+            val handler = onStreamReadyForPlayback
+            if (handler != null) {
+                try {
+                    handler.invoke(track, stream)
+                } catch (e: Exception) {
+                    val errMsg = "Playback invocation error for '${track.title}': ${e.message}"
+                    PlaybackLogger.log("SoftifyPlayback", errMsg)
+                    showSnackbar("Playback error: ${e.message ?: "Unknown error"}")
+                    _isPlaying.value = false
+                }
+            } else {
+                val errMsg = "Playback service not connected or handler missing"
+                PlaybackLogger.log("SoftifyPlayback", "ERROR: $errMsg")
+                showSnackbar(errMsg)
+            }
+
+            // Pre-resolve next track in background
+            queueManager.preResolveNext(_qualityPreset.value)
+            refreshLibrary()
         }
     }
 

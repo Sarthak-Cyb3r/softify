@@ -197,49 +197,53 @@ class MainActivity : ComponentActivity() {
 
         // Connect ViewModel toggle play/pause
         viewModel.onTogglePlayPauseRequested = {
-            val controller = mediaController
-            if (controller != null) {
-                if (controller.isPlaying) controller.pause() else controller.play()
-            } else {
-                PlaybackService.instance?.let { s ->
-                    if (s.player.isPlaying) s.player.pause() else s.player.play()
+            runOnUiThread {
+                val controller = mediaController
+                if (controller != null) {
+                    if (controller.isPlaying) controller.pause() else controller.play()
+                } else {
+                    PlaybackService.instance?.let { s ->
+                        if (s.player.isPlaying) s.player.pause() else s.player.play()
+                    }
                 }
             }
         }
 
         // Connect ViewModel stream resolution to playback service
         viewModel.onStreamReadyForPlayback = { track, streamInfo ->
-            val service = PlaybackService.instance
-            if (service != null) {
-                PlaybackLogger.log("SoftifyPlayback", "Calling PlaybackService.instance.playStream directly for '${track.title}'")
-                service.playStream(track, streamInfo, 0L)
-            } else {
-                PlaybackLogger.log("SoftifyPlayback", "PlaybackService instance null; starting service via Intent for '${track.title}'")
-                val intent = Intent(this, PlaybackService::class.java).apply {
-                    action = PlaybackService.ACTION_PLAY_STREAM
-                    putExtra(PlaybackService.EXTRA_TRACK_ID, track.id)
-                    putExtra(PlaybackService.EXTRA_TRACK_TITLE, track.title)
-                    putExtra(PlaybackService.EXTRA_TRACK_ARTIST, track.artist)
-                    putExtra(PlaybackService.EXTRA_STREAM_URL, streamInfo.url)
-                    putExtra(PlaybackService.EXTRA_STREAM_BITRATE, streamInfo.bitrateKbps.toInt())
-                    putExtra(PlaybackService.EXTRA_STREAM_CODEC, streamInfo.codec)
-                    putExtra(PlaybackService.EXTRA_STREAM_PROVIDER, streamInfo.provider)
-                    val headerNames = ArrayList(streamInfo.headers.map { it.name })
-                    val headerValues = ArrayList(streamInfo.headers.map { it.value })
-                    putStringArrayListExtra(PlaybackService.EXTRA_HEADER_NAMES, headerNames)
-                    putStringArrayListExtra(PlaybackService.EXTRA_HEADER_VALUES, headerValues)
-                }
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
+            runOnUiThread {
+                val service = PlaybackService.instance
+                if (service != null) {
+                    PlaybackLogger.log("SoftifyPlayback", "Calling PlaybackService.instance.playStream directly for '${track.title}'")
+                    service.playStream(track, streamInfo, 0L)
+                } else {
+                    PlaybackLogger.log("SoftifyPlayback", "PlaybackService instance null; starting service via Intent for '${track.title}'")
+                    val intent = Intent(this, PlaybackService::class.java).apply {
+                        action = PlaybackService.ACTION_PLAY_STREAM
+                        putExtra(PlaybackService.EXTRA_TRACK_ID, track.id)
+                        putExtra(PlaybackService.EXTRA_TRACK_TITLE, track.title)
+                        putExtra(PlaybackService.EXTRA_TRACK_ARTIST, track.artist)
+                        putExtra(PlaybackService.EXTRA_STREAM_URL, streamInfo.url)
+                        putExtra(PlaybackService.EXTRA_STREAM_BITRATE, streamInfo.bitrateKbps.toInt())
+                        putExtra(PlaybackService.EXTRA_STREAM_CODEC, streamInfo.codec)
+                        putExtra(PlaybackService.EXTRA_STREAM_PROVIDER, streamInfo.provider)
+                        val headerNames = ArrayList(streamInfo.headers.map { it.name })
+                        val headerValues = ArrayList(streamInfo.headers.map { it.value })
+                        putStringArrayListExtra(PlaybackService.EXTRA_HEADER_NAMES, headerNames)
+                        putStringArrayListExtra(PlaybackService.EXTRA_HEADER_VALUES, headerValues)
                     }
-                    PlaybackLogger.log("SoftifyPlayback", "startForegroundService called successfully for '${track.title}'")
-                } catch (e: Exception) {
-                    val errMsg = "startService failed: ${e.javaClass.simpleName} - ${e.message}"
-                    PlaybackLogger.log("SoftifyPlayback", errMsg)
-                    viewModel.showSnackbar(errMsg)
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        PlaybackLogger.log("SoftifyPlayback", "startForegroundService called successfully for '${track.title}'")
+                    } catch (e: Exception) {
+                        val errMsg = "startService failed: ${e.javaClass.simpleName} - ${e.message}"
+                        PlaybackLogger.log("SoftifyPlayback", errMsg)
+                        viewModel.showSnackbar(errMsg)
+                    }
                 }
             }
         }
@@ -288,7 +292,9 @@ class MainActivity : ComponentActivity() {
         }, ContextCompat.getMainExecutor(this))
 
         viewModel.onSeekToRequested = { posMs ->
-            mediaController?.seekTo(posMs)
+            runOnUiThread {
+                mediaController?.seekTo(posMs)
+            }
         }
 
         setContent {

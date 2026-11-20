@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.media3.common.AudioAttributes
@@ -303,6 +305,12 @@ class PlaybackService : MediaSessionService() {
     }
 
     fun playStream(track: Track, streamInfo: StreamInfo, startPositionMs: Long = 0L, targetSessionId: Long? = null) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post {
+                playStream(track, streamInfo, startPositionMs, targetSessionId)
+            }
+            return
+        }
         val sessionId = targetSessionId ?: retryManager.startNewSession(track.id)
         currentSessionId = sessionId
         currentTrack = track
@@ -361,6 +369,12 @@ class PlaybackService : MediaSessionService() {
     }
 
     fun playDirectTestUrl(url: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post {
+                playDirectTestUrl(url)
+            }
+            return
+        }
         retryManager.onUserPauseOrStop()
         PlaybackLogger.log("SoftifyPlayback", "playDirectTestUrl: url=$url")
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
