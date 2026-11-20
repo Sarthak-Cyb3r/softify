@@ -47,6 +47,22 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private val openDocumentTreeLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    viewModel.setDownloadLocation(uri.toString())
+                    PlaybackLogger.log("SoftifyDownload", "SAF folder selected and persisted: $uri")
+                } catch (e: Exception) {
+                    PlaybackLogger.log("SoftifyDownload", "takePersistableUriPermission notice: ${e.message}")
+                }
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -84,6 +100,15 @@ class MainActivity : ComponentActivity() {
             initDatabase(dbPath)
             DatabaseGate.markReady()
             PlaybackLogger.log("SoftifyPlayback", "Database initialized at: $dbPath")
+
+            viewModel.onPickDownloadFolderRequested = {
+                openDocumentTreeLauncher.launch(null)
+            }
+            viewModel.initStorageProvider(
+                com.softify.app.storage.AndroidStorageProvider(this) {
+                    try { uniffi.softify_core.getSetting("download_storage_uri") } catch (e: Exception) { null }
+                }
+            )
         } catch (e: Exception) {
             val errMsg = "Database init failed: ${e.message}"
             PlaybackLogger.log("SoftifyPlayback", errMsg)

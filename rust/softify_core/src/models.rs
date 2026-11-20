@@ -142,6 +142,7 @@ pub struct DownloadItem {
     pub status: String,
     pub bitrate_kbps: u32,
     pub created_at: i64,
+    pub last_error: Option<String>,
 }
 
 #[uniffi::export(callback_interface)]

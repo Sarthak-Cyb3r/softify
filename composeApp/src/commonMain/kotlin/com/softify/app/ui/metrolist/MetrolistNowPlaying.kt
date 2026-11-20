@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.download.DownloadStatus
 import com.softify.app.util.PlaybackLogger
 import com.softify.app.playback.RepeatMode
 import com.softify.app.ui.components.*
@@ -436,6 +437,42 @@ fun MetrolistNowPlaying(
                     tint = if (currentTrack.isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
+            }
+
+            val tasksMap by viewModel.downloadQueueManager.tasks.collectAsState()
+            val currentDownload = tasksMap[currentTrack.id]
+            val isDownloaded = currentDownload?.status == DownloadStatus.COMPLETED
+            val isDownloading = currentDownload?.status == DownloadStatus.DOWNLOADING
+
+            IconButton(
+                onClick = {
+                    if (isDownloaded) {
+                        viewModel.downloadQueueManager.deleteCompleted(currentTrack.id)
+                        viewModel.showSnackbar("Deleted download for '${currentTrack.title}'")
+                    } else if (isDownloading) {
+                        viewModel.downloadQueueManager.pause(currentTrack.id)
+                    } else {
+                        viewModel.downloadQueueManager.enqueue(currentTrack)
+                        viewModel.showSnackbar("Downloading '${currentTrack.title}'")
+                    }
+                },
+                modifier = Modifier.size(48.dp)
+            ) {
+                if (isDownloading) {
+                    CircularProgressIndicator(
+                        progress = { currentDownload?.progress ?: 0f },
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (isDownloaded) Icons.Filled.DownloadDone else Icons.Filled.Download,
+                        contentDescription = if (isDownloaded) "Downloaded" else "Download",
+                        tint = if (isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             Surface(

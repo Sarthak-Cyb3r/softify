@@ -35,6 +35,10 @@ fun TrackItemRow(
     onRemoveFromPlaylist: (() -> Unit)? = null,
     onOpenArtist: ((String) -> Unit)? = null,
     onOpenAlbum: ((String) -> Unit)? = null,
+    downloadProgress: Float? = null,
+    isDownloaded: Boolean = false,
+    onDownload: (() -> Unit)? = null,
+    onDeleteDownload: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -101,6 +105,26 @@ fun TrackItemRow(
         }
 
         Spacer(modifier = Modifier.width(8.dp))
+
+        // Download status indicator (vector icons only)
+        if (downloadProgress != null) {
+            CircularProgressIndicator(
+                progress = { downloadProgress },
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+        } else if (isDownloaded) {
+            Icon(
+                imageVector = Icons.Filled.DownloadDone,
+                contentDescription = "Downloaded",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+        }
 
         // Duration text (if durationMs > 0)
         if (track.durationMs > 0u) {
@@ -180,6 +204,30 @@ fun TrackItemRow(
                         onAddToPlaylist()
                     }
                 )
+
+                if (isDownloaded) {
+                    DropdownMenuItem(
+                        text = { Text("Delete download") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.DeleteOutline, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onDeleteDownload?.invoke()
+                        }
+                    )
+                } else if (onDownload != null) {
+                    DropdownMenuItem(
+                        text = { Text("Download") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onDownload()
+                        }
+                    )
+                }
 
                 DropdownMenuItem(
                     text = { Text(if (track.isLiked) "Unlike" else "Like") },

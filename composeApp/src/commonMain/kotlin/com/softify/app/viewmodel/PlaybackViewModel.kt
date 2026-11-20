@@ -1,9 +1,13 @@
 package com.softify.app.viewmodel
 
 import com.softify.app.data.DatabaseGate
+import com.softify.app.download.DownloadQueueManager
+import com.softify.app.download.ResumableDownloader
 import com.softify.app.playback.QueueManager
 import com.softify.app.playback.QueueState
 import com.softify.app.playback.RepeatMode
+import com.softify.app.storage.DirectoryStorageProvider
+import com.softify.app.storage.StorageProvider
 import com.softify.app.util.PlaybackLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +34,7 @@ enum class NavigationTab {
 }
 
 class PlaybackViewModel(
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) {
     // System Diagnostics properties
     var appVersion: String = "4.3.0-experimental"
@@ -60,6 +64,69 @@ class PlaybackViewModel(
     // Queue Manager (Single Source of Truth)
     val queueManager = QueueManager(scope = scope)
     val queueState: StateFlow<QueueState> = queueManager.queueState
+
+    var onPickDownloadFolderRequested: (() -> Unit)? = null
+
+    var storageProvider: StorageProvider = DirectoryStorageProvider(
+        rootDirectory = java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp", "softify_downloads")
+    )
+        private set
+
+    private var resumableDownloader = ResumableDownloader(
+        storageProvider = storageProvider,
+        streamResolver = { trk, qp, fr -> queueManager.resolveTrackStream(trk, qp, fr) }
+    )
+
+    var downloadQueueManager = DownloadQueueManager(storageProvider, resumableDownloader, scope)
+        private set
+
+    fun initStorageProvider(provider: StorageProvider) {
+        storageProvider = provider
+        resumableDownloader = ResumableDownloader(
+            storageProvider = provider,
+            streamResolver = { trk, qp, fr -> queueManager.resolveTrackStream(trk, qp, fr) }
+        )
+        downloadQueueManager = DownloadQueueManager(provider, resumableDownloader, scope)
+        wireDownloadResolver()
+    }
+
+    fun setDownloadLocation(uriString: String) {
+        try {
+            setSetting("download_storage_uri", uriString)
+            downloadQueueManager.reconcile()
+            showSnackbar("Download folder updated")
+        } catch (e: Exception) {
+            PlaybackLogger.log("SoftifyDownload", "setDownloadLocation error: ${e.message}")
+        }
+    }
+
+    private fun wireDownloadResolver() {
+        queueManager.localDownloadResolver = { track ->
+            val download = runCatching { getDownload(track.id) }.getOrNull()
+            if (download != null && download.status.equals("completed", ignoreCase = true)) {
+                val filename = download.relativePath.substringAfterLast('/')
+                if (storageProvider.exists(filename)) {
+                    val uri = storageProvider.getFileUri(filename)
+                    StreamInfo(
+                        url = uri,
+                        container = download.containerFormat,
+                        bitrateKbps = download.bitrateKbps,
+                        codec = download.containerFormat,
+                        provider = "offline",
+                        isRequestedQuality = true,
+                        headers = emptyList(),
+                        expiresAt = null
+                    )
+                } else {
+                    PlaybackLogger.log("SoftifyPlayback", "Local download file missing for '${track.title}', marking repair")
+                    runCatching { markDownloadRepair(track.id, "Local file missing from storage") }
+                    null
+                }
+            } else {
+                null
+            }
+        }
+    }
 
     private val _currentTab = MutableStateFlow(NavigationTab.HOME)
     val currentTab: StateFlow<NavigationTab> = _currentTab.asStateFlow()
@@ -186,6 +253,7 @@ class PlaybackViewModel(
     val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
 
     init {
+        wireDownloadResolver()
         queueManager.onNeedContinuation = { seedId, token ->
             fetchRadioContinuation(seedId, token)
         }

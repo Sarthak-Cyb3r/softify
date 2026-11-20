@@ -104,6 +104,8 @@ class QueueManager(
 
     var onNeedContinuation: ((seedId: String, token: String?) -> Unit)? = null
 
+    var localDownloadResolver: (suspend (Track) -> StreamInfo?)? = null
+
     fun setQueue(tracks: List<Track>, startIndex: Int = 0) {
         isRadioMode = false
         radioSeedId = null
@@ -354,6 +356,17 @@ class QueueManager(
         preset: QualityPreset,
         forceRefresh: Boolean = false
     ): StreamInfo {
+        if (!forceRefresh) {
+            val local = runCatching { localDownloadResolver?.invoke(track) }.getOrNull()
+            if (local != null) {
+                PlaybackLogger.log(
+                    "SoftifyPlayback",
+                    "QueueManager: Using local download for '${track.title}' (codec=${local.codec}, bitrate=${local.bitrateKbps}k)"
+                )
+                return local
+            }
+        }
+
         val nowMs = timeProvider()
         val cached = cachedStreams[track.id]
         if (!forceRefresh && cached != null && !cached.isExpired(nowMs)) {

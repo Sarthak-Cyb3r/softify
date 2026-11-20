@@ -145,6 +145,7 @@ impl DownloadManager {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as i64,
+            last_error: None,
         };
 
         // 6. Record in DB
@@ -157,6 +158,7 @@ impl DownloadManager {
                 item.bytes_downloaded,
                 &item.status,
                 item.bitrate_kbps,
+                None,
             );
         }
 

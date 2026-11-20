@@ -59,7 +59,8 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
             bytes_downloaded INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL,
             bitrate_kbps INTEGER NOT NULL DEFAULT 0,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            last_error TEXT
         );
 
         -- 6. Cached Lyrics Table
@@ -168,6 +169,16 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SoftifyError> {
         END;
         "
     )?;
+
+    // Ensure last_error column exists on downloads for existing databases
+    let mut stmt = conn.prepare("PRAGMA table_info(downloads)")?;
+    let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+    let has_last_error = columns
+        .filter_map(Result::ok)
+        .any(|col| col == "last_error");
+    if !has_last_error {
+        let _ = conn.execute("ALTER TABLE downloads ADD COLUMN last_error TEXT;", []);
+    }
 
     Ok(())
 }

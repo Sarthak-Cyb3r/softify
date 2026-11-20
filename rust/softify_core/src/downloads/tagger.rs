@@ -1,12 +1,98 @@
 use crate::models::SoftifyError;
+use lofty::prelude::*;
 use std::fs;
 use std::path::Path;
+
+pub struct AudioMetadata<'a> {
+    pub title: &'a str,
+    pub artist: &'a str,
+    pub album: Option<&'a str>,
+    pub year: Option<u32>,
+    pub cover_art_bytes: Option<&'a [u8]>,
+    pub cover_mime_type: Option<&'a str>,
+}
 
 pub struct M4aMetadata<'a> {
     pub title: &'a str,
     pub artist: &'a str,
     pub album: Option<&'a str>,
     pub cover_art_bytes: Option<&'a [u8]>,
+}
+
+pub fn write_tags(file_path: &Path, meta: &AudioMetadata) -> Result<(), SoftifyError> {
+    let bytes = fs::read(file_path).map_err(|e| SoftifyError::Download {
+        reason: format!("Read failed for tagging: {e}"),
+    })?;
+
+    if M4aAtomTagger::is_valid_iso_mp4(&bytes) {
+        let m4a_meta = M4aMetadata {
+            title: meta.title,
+            artist: meta.artist,
+            album: meta.album,
+            cover_art_bytes: meta.cover_art_bytes,
+        };
+        M4aAtomTagger::write_metadata(file_path, &m4a_meta)?;
+        return Ok(());
+    }
+
+    let mut tagged_file = lofty::probe::Probe::open(file_path)
+        .map_err(|e| SoftifyError::Download {
+            reason: format!("Lofty probe open failed: {e}"),
+        })?
+        .guess_file_type()
+        .map_err(|e| SoftifyError::Download {
+            reason: format!("Lofty guess file type failed: {e}"),
+        })?
+        .read()
+        .map_err(|e| SoftifyError::Download {
+            reason: format!("Lofty probe read failed: {e}"),
+        })?;
+
+    let tag = match tagged_file.primary_tag_mut() {
+        Some(t) => t,
+        None => {
+            if let Some(t) = tagged_file.first_tag_mut() {
+                t
+            } else {
+                let tag_type = tagged_file.primary_tag_type();
+                tagged_file.insert_tag(lofty::tag::Tag::new(tag_type));
+                tagged_file.primary_tag_mut().unwrap()
+            }
+        }
+    };
+
+    tag.set_title(meta.title.to_string());
+    tag.set_artist(meta.artist.to_string());
+    if let Some(album) = meta.album {
+        if !album.is_empty() {
+            tag.set_album(album.to_string());
+        }
+    }
+    if let Some(year) = meta.year {
+        tag.set_year(year);
+    }
+    if let Some(cover_bytes) = meta.cover_art_bytes {
+        if !cover_bytes.is_empty() {
+            let mime = match meta.cover_mime_type {
+                Some("image/png") => lofty::picture::MimeType::Png,
+                _ => lofty::picture::MimeType::Jpeg,
+            };
+            let pic = lofty::picture::Picture::new_unchecked(
+                lofty::picture::PictureType::CoverFront,
+                Some(mime),
+                None,
+                cover_bytes.to_vec(),
+            );
+            tag.push_picture(pic);
+        }
+    }
+
+    tag.save_to_path(file_path, lofty::config::WriteOptions::default())
+        .map_err(|e| SoftifyError::Download {
+            reason: format!("Lofty tag save failed: {e}"),
+        })?;
+
+    Ok(())
 }
 
 pub struct M4aAtomTagger;
@@ -30,11 +116,18 @@ impl M4aAtomTagger {
         }
 
         let mut ilst_payload = Vec::new();
-        ilst_payload.extend_from_slice(&Self::build_text_atom("©nam", metadata.title));
-        ilst_payload.extend_from_slice(&Self::build_text_atom("©ART", metadata.artist));
+        ilst_payload.extend_from_slice(&Self::build_text_atom(
+            &[0xA9, b'n', b'a', b'm'],
+            metadata.title,
+        ));
+        ilst_payload.extend_from_slice(&Self::build_text_atom(
+            &[0xA9, b'A', b'R', b'T'],
+            metadata.artist,
+        ));
         if let Some(alb) = metadata.album {
             if !alb.is_empty() {
-                ilst_payload.extend_from_slice(&Self::build_text_atom("©alb", alb));
+                ilst_payload
+                    .extend_from_slice(&Self::build_text_atom(&[0xA9, b'a', b'l', b'b'], alb));
             }
         }
         if let Some(covr) = metadata.cover_art_bytes {
@@ -68,7 +161,7 @@ impl M4aAtomTagger {
         Ok(())
     }
 
-    fn build_text_atom(name: &str, text: &str) -> Vec<u8> {
+    fn build_text_atom(fourcc: &[u8; 4], text: &str) -> Vec<u8> {
         let text_bytes = text.as_bytes();
         let mut data_payload = Vec::with_capacity(8 + text_bytes.len());
         // Type 1: UTF-8 text without BOM
@@ -78,7 +171,7 @@ impl M4aAtomTagger {
         data_payload.extend_from_slice(text_bytes);
 
         let data_box = Self::build_box(b"data", &data_payload);
-        Self::build_box(name.as_bytes(), &data_box)
+        Self::build_box(fourcc, &data_box)
     }
 
     fn build_cover_atom(image_bytes: &[u8]) -> Vec<u8> {
@@ -375,5 +468,39 @@ mod tests {
             1000 + added_bytes as u64,
             "co64 offset must be shifted by exact added_bytes"
         );
+    }
+
+    #[test]
+    fn test_write_audio_metadata_roundtrip() {
+        let mp4 = create_minimal_mp4();
+        let temp_file = tempfile::Builder::new().suffix(".m4a").tempfile().unwrap();
+        fs::write(temp_file.path(), &mp4).unwrap();
+
+        let cover_art = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]; // JPEG header
+        let meta = AudioMetadata {
+            title: "Roundtrip Song",
+            artist: "Roundtrip Artist",
+            album: Some("Roundtrip Album"),
+            year: Some(2024),
+            cover_art_bytes: Some(&cover_art),
+            cover_mime_type: Some("image/jpeg"),
+        };
+
+        write_tags(temp_file.path(), &meta).expect("write_tags succeeded");
+
+        let tagged = lofty::probe::Probe::open(temp_file.path())
+            .expect("probe open")
+            .options(lofty::config::ParseOptions::new().read_properties(false))
+            .read()
+            .expect("probe read");
+        let tag = tagged
+            .primary_tag()
+            .or_else(|| tagged.first_tag())
+            .expect("found tag");
+        assert_eq!(tag.title().as_deref(), Some("Roundtrip Song"));
+        assert_eq!(tag.artist().as_deref(), Some("Roundtrip Artist"));
+        assert_eq!(tag.album().as_deref(), Some("Roundtrip Album"));
+        assert_eq!(tag.pictures().len(), 1);
+        assert_eq!(tag.pictures()[0].data(), &cover_art[..]);
     }
 }

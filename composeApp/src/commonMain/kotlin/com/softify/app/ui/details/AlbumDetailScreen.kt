@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.download.DownloadStatus
 import com.softify.app.ui.components.AsyncCoverArt
 import com.softify.app.ui.components.TrackItemRow
 import com.softify.app.ui.theme.SquircleShape
@@ -176,6 +177,26 @@ fun AlbumDetailScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Shuffle", fontSize = 13.sp)
                             }
+
+                            FilledTonalButton(
+                                onClick = {
+                                    if (tracks.isNotEmpty()) {
+                                        viewModel.downloadQueueManager.enqueueAll(tracks)
+                                        viewModel.showSnackbar("Downloading ${tracks.size} tracks")
+                                    }
+                                },
+                                enabled = tracks.isNotEmpty(),
+                                shape = SquircleShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Download,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Download all", fontSize = 13.sp)
+                            }
                         }
                     }
                 }
@@ -208,11 +229,15 @@ fun AlbumDetailScreen(
                 )
             }
         } else {
+            val tasksMap by viewModel.downloadQueueManager.tasks.collectAsState()
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 itemsIndexed(tracks) { index, track ->
+                    val dlTask = tasksMap[track.id]
+                    val isDl = dlTask?.status == DownloadStatus.COMPLETED
+                    val dlProg = if (dlTask?.status == DownloadStatus.DOWNLOADING) dlTask.progress else null
                     TrackItemRow(
                         track = track,
                         isActive = activeTrack?.id == track.id,
@@ -222,7 +247,17 @@ fun AlbumDetailScreen(
                         onPlayNext = { viewModel.playNext(track) },
                         onAddToQueue = { viewModel.addToQueue(track) },
                         onToggleLike = { viewModel.toggleLikeTrack(track) },
-                        onOpenArtist = { onOpenArtist(track.artist) }
+                        onOpenArtist = { onOpenArtist(track.artist) },
+                        downloadProgress = dlProg,
+                        isDownloaded = isDl,
+                        onDownload = {
+                            viewModel.downloadQueueManager.enqueue(track)
+                            viewModel.showSnackbar("Downloading '${track.title}'")
+                        },
+                        onDeleteDownload = {
+                            viewModel.downloadQueueManager.deleteCompleted(track.id)
+                            viewModel.showSnackbar("Deleted download for '${track.title}'")
+                        }
                     )
                 }
             }

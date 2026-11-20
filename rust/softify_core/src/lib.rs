@@ -201,6 +201,20 @@ pub async fn download_track(
         .await
 }
 
+/// Retrieves a setting value by key
+#[uniffi::export]
+pub fn get_setting(key: String) -> Result<Option<String>, SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.get_setting(&key)
+}
+
+/// Stores a setting key-value pair
+#[uniffi::export]
+pub fn set_setting(key: String, value: String) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.set_setting(&key, &value)
+}
+
 /// Lists all completed downloads
 #[uniffi::export]
 pub fn get_downloads() -> Result<Vec<DownloadItem>, SoftifyError> {
@@ -209,12 +223,104 @@ pub fn get_downloads() -> Result<Vec<DownloadItem>, SoftifyError> {
     manager.get_downloads()
 }
 
+/// Retrieves a single download item by track_id
+#[uniffi::export]
+pub fn get_download(track_id: String) -> Result<Option<DownloadItem>, SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.get_download(&track_id)
+}
+
+/// Records or updates download state in database
+#[uniffi::export]
+#[allow(clippy::too_many_arguments)]
+pub fn record_download_state(
+    track_id: String,
+    relative_path: String,
+    container_format: String,
+    file_size_bytes: u64,
+    bytes_downloaded: u64,
+    status: String,
+    bitrate_kbps: u32,
+    last_error: Option<String>,
+) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.record_download(
+        &track_id,
+        &relative_path,
+        &container_format,
+        file_size_bytes,
+        bytes_downloaded,
+        &status,
+        bitrate_kbps,
+        last_error.as_deref(),
+    )
+}
+
+/// Updates download status and optional error message
+#[uniffi::export]
+pub fn update_download_status(
+    track_id: String,
+    status: String,
+    last_error: Option<String>,
+) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.update_download_status(&track_id, &status, last_error.as_deref())
+}
+
+/// Updates download progress in bytes
+#[uniffi::export]
+pub fn update_download_progress(
+    track_id: String,
+    bytes_downloaded: u64,
+    file_size_bytes: u64,
+    status: String,
+) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.update_download_progress(&track_id, bytes_downloaded, file_size_bytes, &status)
+}
+
+/// Marks download as failed / needing repair
+#[uniffi::export]
+pub fn mark_download_repair(track_id: String, error: String) -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.mark_download_repair(&track_id, &error)
+}
+
 /// Deletes a download from disk and database
 #[uniffi::export]
 pub fn delete_download(track_id: String) -> Result<(), SoftifyError> {
     let repo = get_db_repo()?;
     let manager = DownloadManager::new(get_hybrid_resolver(), Some((*repo).clone()));
     manager.delete_download(&track_id)
+}
+
+/// Deletes all downloads from database
+#[uniffi::export]
+pub fn delete_all_downloads() -> Result<(), SoftifyError> {
+    let repo = get_db_repo()?;
+    repo.delete_all_downloads()
+}
+
+/// Tags an audio file (M4A or Opus) with title, artist, album, year and cover art
+#[uniffi::export]
+pub fn tag_audio_file(
+    file_path: String,
+    title: String,
+    artist: String,
+    album: Option<String>,
+    year: Option<u32>,
+    cover_bytes: Option<Vec<u8>>,
+) -> Result<(), SoftifyError> {
+    let path = std::path::Path::new(&file_path);
+    let meta = downloads::tagger::AudioMetadata {
+        title: &title,
+        artist: &artist,
+        album: album.as_deref(),
+        year,
+        cover_art_bytes: cover_bytes.as_deref(),
+        cover_mime_type: Some("image/jpeg"),
+    };
+    downloads::tagger::write_tags(path, &meta)
 }
 
 /// Persists or updates a track in the local database

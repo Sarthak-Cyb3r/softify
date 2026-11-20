@@ -42,6 +42,7 @@ mod tests {
             10_000_000,
             "completed",
             320,
+            None,
         )
         .unwrap();
 

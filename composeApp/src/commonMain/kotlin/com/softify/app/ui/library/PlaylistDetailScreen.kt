@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.download.DownloadStatus
 import com.softify.app.ui.components.AddToPlaylistBottomSheet
 import com.softify.app.ui.components.TrackItemRow
 import com.softify.app.ui.theme.SquircleShape
@@ -169,6 +170,25 @@ fun PlaylistDetailScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Shuffle")
                         }
+
+                        FilledTonalButton(
+                            onClick = {
+                                if (tracks.isNotEmpty()) {
+                                    viewModel.downloadQueueManager.enqueueAll(tracks)
+                                    viewModel.showSnackbar("Downloading ${tracks.size} tracks")
+                                }
+                            },
+                            enabled = tracks.isNotEmpty(),
+                            shape = SquircleShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Download all")
+                        }
                     }
                 }
             }
@@ -206,11 +226,15 @@ fun PlaylistDetailScreen(
             }
 
             else -> {
+                val tasksMap by viewModel.downloadQueueManager.tasks.collectAsState()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     itemsIndexed(tracks) { index, track ->
+                        val dlTask = tasksMap[track.id]
+                        val isDl = dlTask?.status == DownloadStatus.COMPLETED
+                        val dlProg = if (dlTask?.status == DownloadStatus.DOWNLOADING) dlTask.progress else null
                         TrackItemRow(
                             track = track,
                             isActive = activeTrack?.id == track.id,
@@ -224,6 +248,16 @@ fun PlaylistDetailScreen(
                             onToggleLike = { viewModel.toggleLikeTrack(track) },
                             onOpenArtist = { onOpenArtist(track.artist) },
                             onOpenAlbum = { albumName -> onOpenAlbum(albumName, track.artist) },
+                            downloadProgress = dlProg,
+                            isDownloaded = isDl,
+                            onDownload = {
+                                viewModel.downloadQueueManager.enqueue(track)
+                                viewModel.showSnackbar("Downloading '${track.title}'")
+                            },
+                            onDeleteDownload = {
+                                viewModel.downloadQueueManager.deleteCompleted(track.id)
+                                viewModel.showSnackbar("Deleted download for '${track.title}'")
+                            },
                             onRemoveFromPlaylist = if (playlist != null) {
                                 {
                                     viewModel.removeTrackFromPlaylist(playlist.id, track.id)

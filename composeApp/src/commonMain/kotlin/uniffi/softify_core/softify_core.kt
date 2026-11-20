@@ -852,6 +852,24 @@ internal open class UniffiVTableCallbackInterfaceScanProgressCallback(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -883,6 +901,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_softify_core_fn_func_create_playlist(`name`: RustBuffer.ByValue,`description`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_delete_all_downloads(uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_delete_download(`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_delete_playlist(`playlistId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -895,6 +915,8 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_softify_core_fn_func_get_artist_tracks(`artist`: RustBuffer.ByValue,`limit`: Int,
     ): Long
+    fun uniffi_softify_core_fn_func_get_download(`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_downloads(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_forgotten_favorites_tracks(`nowMs`: Long,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
@@ -921,6 +943,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_recommendation_shelves(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_softify_core_fn_func_get_setting(`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_get_snoozed_artists(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_softify_core_fn_func_home_explore(
@@ -933,6 +957,10 @@ internal interface UniffiLib : Library {
     ): Byte
     fun uniffi_softify_core_fn_func_is_learning_paused(uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
+    fun uniffi_softify_core_fn_func_mark_download_repair(`trackId`: RustBuffer.ByValue,`error`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_softify_core_fn_func_record_download_state(`trackId`: RustBuffer.ByValue,`relativePath`: RustBuffer.ByValue,`containerFormat`: RustBuffer.ByValue,`fileSizeBytes`: Long,`bytesDownloaded`: Long,`status`: RustBuffer.ByValue,`bitrateKbps`: Int,`lastError`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_record_play(`trackId`: RustBuffer.ByValue,`completedRatio`: Double,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_record_search_query(`query`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -959,10 +987,18 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_softify_core_fn_func_set_learning_paused(`paused`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_softify_core_fn_func_set_setting(`key`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_snooze_artist(`artist`: RustBuffer.ByValue,`durationMs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_softify_core_fn_func_tag_audio_file(`filePath`: RustBuffer.ByValue,`title`: RustBuffer.ByValue,`artist`: RustBuffer.ByValue,`album`: RustBuffer.ByValue,`year`: RustBuffer.ByValue,`coverBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_softify_core_fn_func_toggle_like(`trackId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
+    fun uniffi_softify_core_fn_func_update_download_progress(`trackId`: RustBuffer.ByValue,`bytesDownloaded`: Long,`fileSizeBytes`: Long,`status`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_softify_core_fn_func_update_download_status(`trackId`: RustBuffer.ByValue,`status`: RustBuffer.ByValue,`lastError`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_softify_core_fn_func_update_taste_from_play(`track`: RustBuffer.ByValue,`isStream`: Byte,`isEarlySkip`: Byte,`isSave`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun ffi_softify_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1087,6 +1123,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_create_playlist(
     ): Short
+    fun uniffi_softify_core_checksum_func_delete_all_downloads(
+    ): Short
     fun uniffi_softify_core_checksum_func_delete_download(
     ): Short
     fun uniffi_softify_core_checksum_func_delete_playlist(
@@ -1098,6 +1136,8 @@ internal interface UniffiLib : Library {
     fun uniffi_softify_core_checksum_func_get_album_tracks(
     ): Short
     fun uniffi_softify_core_checksum_func_get_artist_tracks(
+    ): Short
+    fun uniffi_softify_core_checksum_func_get_download(
     ): Short
     fun uniffi_softify_core_checksum_func_get_downloads(
     ): Short
@@ -1125,6 +1165,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_get_recommendation_shelves(
     ): Short
+    fun uniffi_softify_core_checksum_func_get_setting(
+    ): Short
     fun uniffi_softify_core_checksum_func_get_snoozed_artists(
     ): Short
     fun uniffi_softify_core_checksum_func_home_explore(
@@ -1136,6 +1178,10 @@ internal interface UniffiLib : Library {
     fun uniffi_softify_core_checksum_func_is_artist_snoozed(
     ): Short
     fun uniffi_softify_core_checksum_func_is_learning_paused(
+    ): Short
+    fun uniffi_softify_core_checksum_func_mark_download_repair(
+    ): Short
+    fun uniffi_softify_core_checksum_func_record_download_state(
     ): Short
     fun uniffi_softify_core_checksum_func_record_play(
     ): Short
@@ -1163,9 +1209,17 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_softify_core_checksum_func_set_learning_paused(
     ): Short
+    fun uniffi_softify_core_checksum_func_set_setting(
+    ): Short
     fun uniffi_softify_core_checksum_func_snooze_artist(
     ): Short
+    fun uniffi_softify_core_checksum_func_tag_audio_file(
+    ): Short
     fun uniffi_softify_core_checksum_func_toggle_like(
+    ): Short
+    fun uniffi_softify_core_checksum_func_update_download_progress(
+    ): Short
+    fun uniffi_softify_core_checksum_func_update_download_status(
     ): Short
     fun uniffi_softify_core_checksum_func_update_taste_from_play(
     ): Short
@@ -1205,6 +1259,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_create_playlist() != 38454.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_delete_all_downloads() != 10992.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_delete_download() != 22853.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1221,6 +1278,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_artist_tracks() != 30260.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_get_download() != 17333.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_get_downloads() != 55902.toShort()) {
@@ -1262,6 +1322,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_get_recommendation_shelves() != 22745.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_get_setting() != 21229.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_get_snoozed_artists() != 13571.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1278,6 +1341,12 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_is_learning_paused() != 42746.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_mark_download_repair() != 15676.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_record_download_state() != 6419.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_record_play() != 17940.toShort()) {
@@ -1319,10 +1388,22 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_softify_core_checksum_func_set_learning_paused() != 47295.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_set_setting() != 35290.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_snooze_artist() != 32522.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_softify_core_checksum_func_tag_audio_file() != 49166.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_softify_core_checksum_func_toggle_like() != 3201.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_update_download_progress() != 46528.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_softify_core_checksum_func_update_download_status() != 11944.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_softify_core_checksum_func_update_taste_from_play() != 40216.toShort()) {
@@ -1593,6 +1674,25 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
     }
 }
 
+/**
+ * @suppress
+ */
+public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
+    override fun read(buf: ByteBuffer): ByteArray {
+        val len = buf.getInt()
+        val byteArr = ByteArray(len)
+        buf.get(byteArr)
+        return byteArr
+    }
+    override fun allocationSize(value: ByteArray): ULong {
+        return 4UL + value.size.toULong()
+    }
+    override fun write(value: ByteArray, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        buf.put(value)
+    }
+}
+
 
 
 data class DownloadItem (
@@ -1603,7 +1703,8 @@ data class DownloadItem (
     var `bytesDownloaded`: kotlin.ULong, 
     var `status`: kotlin.String, 
     var `bitrateKbps`: kotlin.UInt, 
-    var `createdAt`: kotlin.Long
+    var `createdAt`: kotlin.Long, 
+    var `lastError`: kotlin.String?
 ) {
     
     companion object
@@ -1623,6 +1724,7 @@ public object FfiConverterTypeDownloadItem: FfiConverterRustBuffer<DownloadItem>
             FfiConverterString.read(buf),
             FfiConverterUInt.read(buf),
             FfiConverterLong.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
@@ -1634,7 +1736,8 @@ public object FfiConverterTypeDownloadItem: FfiConverterRustBuffer<DownloadItem>
             FfiConverterULong.allocationSize(value.`bytesDownloaded`) +
             FfiConverterString.allocationSize(value.`status`) +
             FfiConverterUInt.allocationSize(value.`bitrateKbps`) +
-            FfiConverterLong.allocationSize(value.`createdAt`)
+            FfiConverterLong.allocationSize(value.`createdAt`) +
+            FfiConverterOptionalString.allocationSize(value.`lastError`)
     )
 
     override fun write(value: DownloadItem, buf: ByteBuffer) {
@@ -1646,6 +1749,7 @@ public object FfiConverterTypeDownloadItem: FfiConverterRustBuffer<DownloadItem>
             FfiConverterString.write(value.`status`, buf)
             FfiConverterUInt.write(value.`bitrateKbps`, buf)
             FfiConverterLong.write(value.`createdAt`, buf)
+            FfiConverterOptionalString.write(value.`lastError`, buf)
     }
 }
 
@@ -2864,6 +2968,38 @@ public object FfiConverterTypeScanProgressCallback: FfiConverterCallbackInterfac
 /**
  * @suppress
  */
+public object FfiConverterOptionalUInt: FfiConverterRustBuffer<kotlin.UInt?> {
+    override fun read(buf: ByteBuffer): kotlin.UInt? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterUInt.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.UInt?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterUInt.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.UInt?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterUInt.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalULong: FfiConverterRustBuffer<kotlin.ULong?> {
     override fun read(buf: ByteBuffer): kotlin.ULong? {
         if (buf.get().toInt() == 0) {
@@ -2950,6 +3086,70 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
         } else {
             buf.put(1)
             FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeDownloadItem: FfiConverterRustBuffer<DownloadItem?> {
+    override fun read(buf: ByteBuffer): DownloadItem? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeDownloadItem.read(buf)
+    }
+
+    override fun allocationSize(value: DownloadItem?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeDownloadItem.allocationSize(value)
+        }
+    }
+
+    override fun write(value: DownloadItem?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeDownloadItem.write(value, buf)
         }
     }
 }
@@ -3400,6 +3600,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Deletes all downloads from database
+         */
+    @Throws(SoftifyException::class) fun `deleteAllDownloads`()
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_delete_all_downloads(
+        _status)
+}
+    
+    
+
+        /**
          * Deletes a download from disk and database
          */
     @Throws(SoftifyException::class) fun `deleteDownload`(`trackId`: kotlin.String)
@@ -3488,6 +3700,19 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
         SoftifyException.ErrorHandler,
     )
     }
+
+        /**
+         * Retrieves a single download item by track_id
+         */
+    @Throws(SoftifyException::class) fun `getDownload`(`trackId`: kotlin.String): DownloadItem? {
+            return FfiConverterOptionalTypeDownloadItem.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_download(
+        FfiConverterString.lower(`trackId`),_status)
+}
+    )
+    }
+    
 
         /**
          * Lists all completed downloads
@@ -3676,6 +3901,19 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Retrieves a setting value by key
+         */
+    @Throws(SoftifyException::class) fun `getSetting`(`key`: kotlin.String): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_get_setting(
+        FfiConverterString.lower(`key`),_status)
+}
+    )
+    }
+    
+
+        /**
          * Lists all currently snoozed artists
          */
     @Throws(SoftifyException::class) fun `getSnoozedArtists`(): List<kotlin.String> {
@@ -3758,6 +3996,30 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
 }
     )
     }
+    
+
+        /**
+         * Marks download as failed / needing repair
+         */
+    @Throws(SoftifyException::class) fun `markDownloadRepair`(`trackId`: kotlin.String, `error`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_mark_download_repair(
+        FfiConverterString.lower(`trackId`),FfiConverterString.lower(`error`),_status)
+}
+    
+    
+
+        /**
+         * Records or updates download state in database
+         */
+    @Throws(SoftifyException::class) fun `recordDownloadState`(`trackId`: kotlin.String, `relativePath`: kotlin.String, `containerFormat`: kotlin.String, `fileSizeBytes`: kotlin.ULong, `bytesDownloaded`: kotlin.ULong, `status`: kotlin.String, `bitrateKbps`: kotlin.UInt, `lastError`: kotlin.String?)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_record_download_state(
+        FfiConverterString.lower(`trackId`),FfiConverterString.lower(`relativePath`),FfiConverterString.lower(`containerFormat`),FfiConverterULong.lower(`fileSizeBytes`),FfiConverterULong.lower(`bytesDownloaded`),FfiConverterString.lower(`status`),FfiConverterUInt.lower(`bitrateKbps`),FfiConverterOptionalString.lower(`lastError`),_status)
+}
+    
     
 
         /**
@@ -3945,6 +4207,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     
 
         /**
+         * Stores a setting key-value pair
+         */
+    @Throws(SoftifyException::class) fun `setSetting`(`key`: kotlin.String, `value`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_set_setting(
+        FfiConverterString.lower(`key`),FfiConverterString.lower(`value`),_status)
+}
+    
+    
+
+        /**
          * Snoozes an artist for specified duration in ms (default 30 days)
          */
     @Throws(SoftifyException::class) fun `snoozeArtist`(`artist`: kotlin.String, `durationMs`: kotlin.ULong)
@@ -3952,6 +4226,18 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
     uniffiRustCallWithError(SoftifyException) { _status ->
     UniffiLib.INSTANCE.uniffi_softify_core_fn_func_snooze_artist(
         FfiConverterString.lower(`artist`),FfiConverterULong.lower(`durationMs`),_status)
+}
+    
+    
+
+        /**
+         * Tags an audio file (M4A or Opus) with title, artist, album, year and cover art
+         */
+    @Throws(SoftifyException::class) fun `tagAudioFile`(`filePath`: kotlin.String, `title`: kotlin.String, `artist`: kotlin.String, `album`: kotlin.String?, `year`: kotlin.UInt?, `coverBytes`: kotlin.ByteArray?)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_tag_audio_file(
+        FfiConverterString.lower(`filePath`),FfiConverterString.lower(`title`),FfiConverterString.lower(`artist`),FfiConverterOptionalString.lower(`album`),FfiConverterOptionalUInt.lower(`year`),FfiConverterOptionalByteArray.lower(`coverBytes`),_status)
 }
     
     
@@ -3967,6 +4253,30 @@ public object FfiConverterSequenceTypeTrack: FfiConverterRustBuffer<List<Track>>
 }
     )
     }
+    
+
+        /**
+         * Updates download progress in bytes
+         */
+    @Throws(SoftifyException::class) fun `updateDownloadProgress`(`trackId`: kotlin.String, `bytesDownloaded`: kotlin.ULong, `fileSizeBytes`: kotlin.ULong, `status`: kotlin.String)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_update_download_progress(
+        FfiConverterString.lower(`trackId`),FfiConverterULong.lower(`bytesDownloaded`),FfiConverterULong.lower(`fileSizeBytes`),FfiConverterString.lower(`status`),_status)
+}
+    
+    
+
+        /**
+         * Updates download status and optional error message
+         */
+    @Throws(SoftifyException::class) fun `updateDownloadStatus`(`trackId`: kotlin.String, `status`: kotlin.String, `lastError`: kotlin.String?)
+        = 
+    uniffiRustCallWithError(SoftifyException) { _status ->
+    UniffiLib.INSTANCE.uniffi_softify_core_fn_func_update_download_status(
+        FfiConverterString.lower(`trackId`),FfiConverterString.lower(`status`),FfiConverterOptionalString.lower(`lastError`),_status)
+}
+    
     
 
         /**

@@ -17,8 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.download.DownloadStatus
 import com.softify.app.ui.components.AddToPlaylistBottomSheet
 import com.softify.app.ui.components.TrackItemRow
+import com.softify.app.ui.downloads.DownloadsScreen
 import com.softify.app.ui.theme.SquircleShape
 import com.softify.app.viewmodel.PlaybackViewModel
 import uniffi.softify_core.Playlist
@@ -27,6 +29,7 @@ import uniffi.softify_core.Track
 enum class LibraryFilter {
     PLAYLISTS,
     LIKED_SONGS,
+    DOWNLOADS,
     HISTORY
 }
 
@@ -198,6 +201,24 @@ fun LibraryScreen(
             }
 
             item {
+                val tasksMap by viewModel.downloadQueueManager.tasks.collectAsState()
+                val downloadedCount = tasksMap.values.count { it.status == DownloadStatus.COMPLETED }
+                FilterChip(
+                    selected = selectedFilter == LibraryFilter.DOWNLOADS,
+                    onClick = { selectedFilter = LibraryFilter.DOWNLOADS },
+                    label = {
+                        Text(
+                            text = "Downloads ($downloadedCount)",
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    shape = SquircleShape(12.dp)
+                )
+            }
+
+            item {
                 FilterChip(
                     selected = selectedFilter == LibraryFilter.HISTORY,
                     onClick = { selectedFilter = LibraryFilter.HISTORY },
@@ -299,6 +320,13 @@ fun LibraryScreen(
                         }
                     }
                 }
+            }
+
+            LibraryFilter.DOWNLOADS -> {
+                DownloadsScreen(
+                    viewModel = viewModel,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
             LibraryFilter.HISTORY -> {

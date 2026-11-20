@@ -504,6 +504,13 @@ impl DatabaseRepository {
             .unwrap()
             .as_secs() as i64;
 
+        // Ensure track exists in tracks table to satisfy foreign key constraint
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO tracks (id, source_id, title, artist, duration_ms, created_at)
+             VALUES (?1, ?1, ?1, 'Unknown', 0, ?2)",
+            params![track_id, now],
+        );
+
         conn.execute(
             "INSERT INTO cached_lyrics (track_id, synced_lrc, plain_text, is_not_found, cached_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -534,6 +541,7 @@ impl DatabaseRepository {
         bytes_downloaded: u64,
         status: &str,
         bitrate_kbps: u32,
+        last_error: Option<&str>,
     ) -> Result<(), SoftifyError> {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
             reason: e.to_string(),
@@ -543,16 +551,24 @@ impl DatabaseRepository {
             .unwrap()
             .as_secs() as i64;
 
+        // Ensure track exists in tracks table to satisfy foreign key constraint
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO tracks (id, source_id, title, artist, duration_ms, created_at)
+             VALUES (?1, ?1, ?1, 'Unknown', 0, ?2)",
+            params![track_id, now],
+        );
+
         conn.execute(
-            "INSERT INTO downloads (track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            "INSERT INTO downloads (track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at, last_error)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
              ON CONFLICT(track_id) DO UPDATE SET
                 relative_path = excluded.relative_path,
                 container_format = excluded.container_format,
                 file_size_bytes = excluded.file_size_bytes,
                 bytes_downloaded = excluded.bytes_downloaded,
                 status = excluded.status,
-                bitrate_kbps = excluded.bitrate_kbps",
+                bitrate_kbps = excluded.bitrate_kbps,
+                last_error = excluded.last_error",
             params![
                 track_id,
                 relative_path,
@@ -561,7 +577,8 @@ impl DatabaseRepository {
                 bytes_downloaded as i64,
                 status,
                 bitrate_kbps as i64,
-                now
+                now,
+                last_error
             ],
         )?;
 
@@ -573,7 +590,7 @@ impl DatabaseRepository {
             reason: e.to_string(),
         })?;
         let mut stmt = conn.prepare(
-            "SELECT track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at
+            "SELECT track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at, last_error
              FROM downloads
              ORDER BY created_at DESC"
         )?;
@@ -588,6 +605,7 @@ impl DatabaseRepository {
                 status: row.get(5)?,
                 bitrate_kbps: row.get::<_, i64>(6)? as u32,
                 created_at: row.get(7)?,
+                last_error: row.get(8)?,
             })
         })?;
 
@@ -598,6 +616,81 @@ impl DatabaseRepository {
         Ok(items)
     }
 
+    pub fn get_download(
+        &self,
+        track_id: &str,
+    ) -> Result<Option<crate::models::DownloadItem>, SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        let mut stmt = conn.prepare(
+            "SELECT track_id, relative_path, container_format, file_size_bytes, bytes_downloaded, status, bitrate_kbps, created_at, last_error
+             FROM downloads
+             WHERE track_id = ?1"
+        )?;
+
+        let mut rows = stmt.query(params![track_id])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(crate::models::DownloadItem {
+                track_id: row.get(0)?,
+                relative_path: row.get(1)?,
+                container_format: row.get(2)?,
+                file_size_bytes: row.get::<_, i64>(3)? as u64,
+                bytes_downloaded: row.get::<_, i64>(4)? as u64,
+                status: row.get(5)?,
+                bitrate_kbps: row.get::<_, i64>(6)? as u32,
+                created_at: row.get(7)?,
+                last_error: row.get(8)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn update_download_status(
+        &self,
+        track_id: &str,
+        status: &str,
+        last_error: Option<&str>,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        conn.execute(
+            "UPDATE downloads SET status = ?1, last_error = ?2 WHERE track_id = ?3",
+            params![status, last_error, track_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_download_progress(
+        &self,
+        track_id: &str,
+        bytes_downloaded: u64,
+        file_size_bytes: u64,
+        status: &str,
+    ) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        conn.execute(
+            "UPDATE downloads SET bytes_downloaded = ?1, file_size_bytes = ?2, status = ?3 WHERE track_id = ?4",
+            params![bytes_downloaded as i64, file_size_bytes as i64, status, track_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn mark_download_repair(&self, track_id: &str, error: &str) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        conn.execute(
+            "UPDATE downloads SET status = 'failed', last_error = ?1 WHERE track_id = ?2",
+            params![error, track_id],
+        )?;
+        Ok(())
+    }
+
     pub fn delete_download(&self, track_id: &str) -> Result<(), SoftifyError> {
         let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
             reason: e.to_string(),
@@ -606,6 +699,14 @@ impl DatabaseRepository {
             "DELETE FROM downloads WHERE track_id = ?1",
             params![track_id],
         )?;
+        Ok(())
+    }
+
+    pub fn delete_all_downloads(&self) -> Result<(), SoftifyError> {
+        let conn = self.conn.lock().map_err(|e| SoftifyError::Database {
+            reason: e.to_string(),
+        })?;
+        conn.execute("DELETE FROM downloads", [])?;
         Ok(())
     }
 

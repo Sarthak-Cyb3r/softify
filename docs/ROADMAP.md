@@ -44,15 +44,22 @@
   - Word-by-word lyrics: LRCLIB `hasWordSync` / enhanced LRC parsing, character-count proportional word duration estimation fallback, word highlight and sweep fill, tap word or line to seek.
   - Zero emojis across UI (`NoEmojiTest` compliant), minimal bitrate badge, squircle design system.
 
+- **M4: Offline Downloads, Storage Access Framework, & Offline Playback**
+  - Settings download storage card with SAF tree URI picker (`ACTION_OPEN_DOCUMENT_TREE`), persistable URI permissions, and default app external storage fallback.
+  - WorkManager `CoroutineWorker` (`DownloadWorker`) with foreground service notification (`dataSync`), max concurrent queue (1-3), pause/resume/cancel/retry with exponential backoff, Wi-Fi only mode.
+  - Resumable streaming directly to `.part` file with 64 KB buffer, HTTP Range (206) support, size verification, and atomic rename.
+  - Automatic stream URL re-resolution on HTTP 403 / 410.
+  - Native stream preservation (AAC/M4A up to 320 kbps, Opus up to 160 kbps, no transcoding/upscaling) and honest bitrate recording.
+  - Lossless metadata tagging (title, artist, album, year, embedded cover art) via Rust `lofty` with 0 byte APK growth.
+  - Offline lyrics caching in SQLite for offline display.
+  - Playback engine offline-first resolution with automatic missing file reconciliation and streaming fallback.
+  - Material 3 Expressive Downloads screen: live storage capacity visualizer, active queue cards, completed tracks, single & bulk deletion, health alerts for revoked permissions or storage shortage (<50 MB).
+  - Track rows & Now Playing download indicators (circular progress spinner, vector checkmark badge), "Download all" on Playlist and Album detail screens.
+  - Unhidden Downloads filter chip in Library screen.
+  - Pure logic unit tests with fakes, MockWebServer HTTP tests, and headless 360dp render verification screenshots.
+
 ## Upcoming Milestones
-- **M4: Offline Downloads & Audio Quality Suite**
-  - **M4a: Background Download Worker + Progress Notification**
-    - Android `WorkManager` background download orchestration.
-    - Resumable range chunk downloads with system progress notification.
-    - Atomic file rename and Lofty M4A/Opus metadata and cover art tagging.
-    - Offline playback resolver prioritizing downloaded local storage over remote CDN.
-    - Downloads filter chip enabled in Library screen.
-  - **M4b: ReplayGain & Loudness Normalization**
-    - EBU R128 loudness scanning and gain adjustment.
-  - **M4c: Gapless Playback & Crossfade**
-    - Seamless buffer preloading for consecutive tracks.
+- **M4b: ReplayGain & Loudness Normalization**
+  - EBU R128 loudness scanning and gain adjustment.
+- **M4c: Gapless Playback & Crossfade**
+  - Seamless buffer preloading for consecutive tracks.

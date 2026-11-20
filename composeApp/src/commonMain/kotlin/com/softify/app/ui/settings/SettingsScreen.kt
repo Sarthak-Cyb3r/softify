@@ -13,6 +13,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.storage.StorageHealth
+import com.softify.app.ui.downloads.formatBytes
 import com.softify.app.ui.theme.SquircleShape
 import com.softify.app.viewmodel.PlaybackViewModel
 import com.softify.app.viewmodel.UiStyle
@@ -217,6 +219,198 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("Clear Searches", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            // Downloads & Offline Storage Section
+            Card(
+                shape = SquircleShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Downloads & Offline Storage",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Manage storage location, network constraints, and concurrency",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val storage = viewModel.downloadQueueManager.storageProvider
+                    val usedBytes = remember { storage.getUsedSpaceBytes() }
+                    val freeBytes = remember { storage.getAvailableSpaceBytes() }
+                    val locationName = remember { storage.getStorageLocationName() }
+                    val storageHealth = remember { storage.validateStorage() }
+
+                    // Storage Readout
+                    Text(
+                        text = "Storage: ${formatBytes(usedBytes)} used • ${formatBytes(freeBytes)} free",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Location: $locationName",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = { viewModel.onPickDownloadFolderRequested?.invoke() },
+                        shape = SquircleShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Change Download Folder")
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Wi-Fi Only Switch
+                    val wifiOnly by viewModel.downloadQueueManager.wifiOnly.collectAsState()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Download over Wi-Fi only",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Pauses queue when connected to cellular data",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = wifiOnly,
+                            onCheckedChange = { viewModel.downloadQueueManager.setWifiOnly(it) }
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Max Concurrent Downloads (1-3)
+                    val maxConcurrent by viewModel.downloadQueueManager.maxConcurrent.collectAsState()
+                    Text(
+                        text = "Max Concurrent Downloads ($maxConcurrent)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (count in 1..3) {
+                            FilterChip(
+                                selected = maxConcurrent == count,
+                                onClick = { viewModel.downloadQueueManager.setMaxConcurrent(count) },
+                                label = { Text("$count download${if (count > 1) "s" else ""}") },
+                                shape = SquircleShape(12.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Download Diagnostics Switch & Panel
+                    var showDownloadDiagnostics by remember { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Download Diagnostics",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Inspect queue state, last errors, and storage URI health",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = showDownloadDiagnostics,
+                            onCheckedChange = { showDownloadDiagnostics = it }
+                        )
+                    }
+
+                    if (showDownloadDiagnostics) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = SquircleShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val tasksMap by viewModel.downloadQueueManager.tasks.collectAsState()
+                            val tasksList = tasksMap.values.toList()
+                            val errors = tasksList.filter { !it.lastError.isNullOrBlank() }
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "Storage Health: $storageHealth",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (storageHealth == StorageHealth.HEALTHY) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "Queue: ${tasksList.size} total (active: ${tasksList.count { it.status != com.softify.app.download.DownloadStatus.COMPLETED }}, completed: ${tasksList.count { it.status == com.softify.app.download.DownloadStatus.COMPLETED }})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (errors.isNotEmpty()) {
+                                    Text(
+                                        text = "Last Errors (${errors.size}):",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    for (e in errors.take(3)) {
+                                        Text(
+                                            text = "• ${e.track.title}: ${e.lastError}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Last Errors: None",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.downloadQueueManager.reconcile()
+                                        viewModel.showSnackbar("Storage reconciled with database")
+                                    },
+                                    shape = SquircleShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Reconcile Storage", fontSize = 12.sp)
+                                }
+                            }
                         }
                     }
                 }
