@@ -452,24 +452,31 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
 | Real device offline airplane mode playback | Moto G34 physical device | **not verified on device** |
 
 ### 7.3 GitHub Actions Cloud CI & Cloud APK Build
-- **Cloud Workflow**: [Build Android Debug APK (Cloud) - Run #44713094780](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44713094780)
+- **Cloud Workflow**: [Build Android Debug APK (Cloud) - Run #44729648057](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44729648057)
 - **Status**: **PASSED (Success)**
 - **Durations**:
-  - `Headless Verification & Static Analysis`: **3m 26s**
+  - `Headless Verification & Static Analysis`: **3m 1s**
     - `cargo fmt --check`: Clean (0 diffs)
     - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings)
     - `cargo test --lib`: Passed (56 passed, 0 failed)
     - `Compose desktopTest` under xvfb: Passed (54/54 passed, including all M4 download tests and NoEmojiTest)
-  - `Build Android Debug APK with Rust Core`: **4m 40s**
+  - `Build Android Debug APK with Rust Core`: **5m 15s**
     - Built arm64-v8a & x86_64 release native libraries (`libsoftify_core.so`)
     - Built debug split APKs (`composeApp-arm64-v8a-debug.apk`, `composeApp-universal-debug.apk`, `composeApp-x86_64-debug.apk`)
 - **Downloaded Cloud Artifacts** (`~/Downloads`):
   - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices):
-    - Size: **28,213,210 bytes (26.9 MB)** (Delta: +699 KB from M3d-fix/M5 APK due to WorkManager & DocumentFile AndroidX runtime dependencies)
-    - SHA256: `649ba9a0cb8994e43753238338cd0535dcad1dcd5da520b588db005fce42d26d`
+    - Size: **28,213,210 bytes (26.9 MB)**
+    - SHA256: `5fa348bd1ce9be54c3dea76683b59d6ef2e9906fbd6f8827777b6b67a56b1e48`
   - **`composeApp-universal-debug.apk`**:
     - Size: **36,125,611 bytes (34.4 MB)**
-    - SHA256: `110bbbe768f596046592e064602eab5c9025c8de8439fbbbe7a0bea45fc7ae43`
+    - SHA256: `1ba4eb5e7380fe7feeaca76dd4d2008468d26af5737be665bcb6cbf8eb0ebd93`
+
+### 7.4 Thread-Safety Patch (ExoPlayer Main Looper Affinity)
+- **Root Cause**: When track stream resolution completed in `PlaybackViewModel`, `onStreamReadyForPlayback` directly called `PlaybackService.playStream(...)` from a background coroutine (`Dispatchers.Default`). On Android, ExoPlayer strictly requires player operations (`setMediaSource`, `prepare`, `play`) to run on the main looper thread, throwing `IllegalStateException: Player is accessed on the wrong thread`.
+- **Fix**:
+  1. `PlaybackService.playStream` & `playDirectTestUrl`: Enforced main looper thread execution with `Handler(Looper.getMainLooper()).post { ... }` guard.
+  2. `MainActivity.kt`: Wrapped `onStreamReadyForPlayback`, `onTogglePlayPauseRequested`, and `onSeekToRequested` in `runOnUiThread`.
+  3. `PlaybackViewModel.kt`: Decoupled stream resolution exception handling from playback invocation exception handling.
 
 ### 7.4 Manual Testing Checklist for Moto G34 Device
 1. **SAF Folder Picker**:
