@@ -37,7 +37,7 @@ class DownloadsScreenTest {
         @BeforeClass
         @JvmStatic
         fun setUpClass() {
-            val rootDir = File(".").absoluteFile
+            val rootDir = if (File("settings.gradle.kts").exists()) File(".") else File("..")
             val debugSoDir = File(rootDir, "rust/softify_core/target/debug")
             if (debugSoDir.exists()) {
                 System.setProperty("jna.library.path", debugSoDir.absolutePath)
@@ -56,13 +56,8 @@ class DownloadsScreenTest {
     }
 
     private fun getScreensDir(): File {
-        val rootDir = File(".").absoluteFile
-        val candidate = File(rootDir, "docs/agent/screens")
-        val dir = if (candidate.exists() || File(rootDir, "settings.gradle.kts").exists()) {
-            candidate
-        } else {
-            File(rootDir.parentFile, "docs/agent/screens")
-        }
+        val rootDir = if (File("settings.gradle.kts").exists()) File(".") else File("..")
+        val dir = File(rootDir, "docs/agent/screens")
         if (!dir.exists()) dir.mkdirs()
         return dir
     }

@@ -29,7 +29,7 @@ class ResumableDownloaderMockServerTest {
         @BeforeClass
         @JvmStatic
         fun setUpClass() {
-            val rootDir = File(".").absoluteFile
+            val rootDir = if (File("settings.gradle.kts").exists()) File(".") else File("..")
             val debugSoDir = File(rootDir, "rust/softify_core/target/debug")
             if (debugSoDir.exists()) {
                 System.setProperty("jna.library.path", debugSoDir.absolutePath)

@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 class LyricsViewTest {
 
     private fun getRootDir(): File {
-        return if (File("docs/agent").exists()) File(".") else File("..")
+        return if (File("settings.gradle.kts").exists()) File(".") else File("..")
     }
 
     private fun getScreensDir(): File {

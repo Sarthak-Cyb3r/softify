@@ -69,7 +69,7 @@ class M3aDesignSystemTest {
 
     @Test
     fun testRenderAndSaveGalleryScreenshots() {
-        val rootDir = if (File("docs/agent").exists()) File(".") else File("..")
+        val rootDir = if (File("settings.gradle.kts").exists()) File(".") else File("..")
         val screenshotDir = File(rootDir, "docs/agent/screenshots")
         screenshotDir.mkdirs()
 
