@@ -404,4 +404,90 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
     - Size: **34,676,145 bytes (33.1 MB)**
     - SHA256: `1dc0e8b1d45e4a6f565ee87a542d938682374ae1d66478709e6be8ab176c920b`
 
+---
+
+## 7. M4: Offline Downloads & Storage Access Framework
+
+### 7.1 Architecture & Implementation Overview
+- **Storage & SAF Folder Picker (`StorageProvider`)**:
+  - `StorageProvider` common interface with `DirectoryStorageProvider` (Desktop/JVM tests) and `AndroidStorageProvider` (SAF tree URI via `DocumentFile` and app-specific external storage fallback).
+  - Handles permission revocation/missing tree URI gracefully (`StorageHealth.PermissionRevoked`), low storage (<50 MB alert `StorageHealth.LowSpace`), and external file deletion (reconciliation on startup and screen entry).
+  - Persists tree URI with `takePersistableUriPermission`. SAF note removed from `KNOWN_ISSUES.md`.
+- **Download Engine (Android 14/15 WorkManager)**:
+  - `DownloadWorker` extends `CoroutineWorker` declaring foreground service type `dataSync` and `FOREGROUND_SERVICE_DATA_SYNC` permission.
+  - Multi-track queue manager with configurable concurrency (1-3, default 2), Wi-Fi only mode toggle, pause, resume, cancel, and exponential backoff retry.
+  - Streaming via `ResumableDownloader` directly to `.part` file with 64 KB buffer (never buffering entire track in RAM), HTTP Range (206) resume, size verification, and atomic rename.
+  - Automatic stream URL re-resolution on HTTP 403 / 410.
+- **Format, Quality & Tagging**:
+  - Native stream preservation: AAC/M4A up to 320 kbps, Opus/WebM up to 160 kbps; strictly zero transcoding or fake upscaling.
+  - Honest bitrate badge displayed on downloaded tracks and stored in SQLite database.
+  - Lossless audio metadata tagging (`title`, `artist`, `album`, `year`, embedded 256/544 cover art) implemented in Rust core via `lofty` with 0 byte APK growth.
+  - Synced lyrics pre-cached in SQLite for offline display.
+- **Playback Engine Offline Prioritization**:
+  - `QueueManager.localDownloadResolver` checks SQLite downloads table and verified disk file before remote CDN fallback.
+  - If downloaded file is missing or corrupt on disk, falls back seamlessly to streaming and marks row for repair without crashing.
+- **Material 3 Expressive UI**:
+  - Library screen: unhidden `Downloads` filter chip navigating to `DownloadsScreen`.
+  - `DownloadsScreen`: Storage card showing free space / used space / track count, health warnings for revoked SAF permissions or low storage (<50 MB), active download queue with real-time percentage indicators, completed downloads list with minimal bitrate badges and single/bulk deletion.
+  - `TrackItemRow` & `MetrolistNowPlaying`: Minimal vector checkmark for downloaded tracks, circular progress spinner during active download, "Download track" and "Remove download" menu items.
+  - "Download all" action in `PlaylistDetailScreen` and `AlbumDetailScreen`.
+  - Settings: "Downloads & Offline Storage" card with SAF tree folder picker, Wi-Fi only switch, max concurrent downloads selector, storage usage, and debug diagnostics.
+
+### 7.2 Verification & Test Results
+| Test Item | Mechanism | Verification Status |
+|:---|:---|:---|
+| StorageProvider abstraction & fakes | Unit tests with `DirectoryStorageProvider` | **verified in CI (tests)** |
+| SQLite downloads table & migrations | Rust `cargo test --lib` (56 passed) | **verified in CI (tests)** |
+| Lofty M4A / Opus tagging & cover embed | Rust unit test `test_write_audio_metadata_roundtrip` | **verified in CI (tests)** |
+| ResumableDownloader HTTP Range resume (206) | MockWebServer unit test | **verified in CI (tests)** |
+| 403 URL re-resolution & atomic rename | MockWebServer unit test | **verified in CI (tests)** |
+| DownloadQueueManager concurrency & state machine | Kotlin unit tests with fakes | **verified in CI (tests)** |
+| Missing file reconciliation & repair state | Database + filesystem sync test | **verified in CI (tests)** |
+| Offline-first playback stream resolution | Resolver unit test | **verified in CI (tests)** |
+| Zero emojis across downloads UI & strings | `NoEmojiTest` scan | **verified in CI (tests)** |
+| Headless 360dp render of Downloads screen | Skia headless compose render (720px) | **verified in CI (tests)** |
+| Headless 360dp render of Row states | Skia headless compose render (720px) | **verified in CI (tests)** |
+| Real device SAF folder picker & WorkManager | Moto G34 physical device | **not verified on device** |
+| Real device background download notification | Moto G34 physical device | **not verified on device** |
+| Real device offline airplane mode playback | Moto G34 physical device | **not verified on device** |
+
+### 7.3 GitHub Actions Cloud CI & Cloud APK Build
+- **Cloud Workflow**: [Build Android Debug APK (Cloud) - Run #44713094780](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44713094780)
+- **Status**: **PASSED (Success)**
+- **Durations**:
+  - `Headless Verification & Static Analysis`: **3m 26s**
+    - `cargo fmt --check`: Clean (0 diffs)
+    - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings)
+    - `cargo test --lib`: Passed (56 passed, 0 failed)
+    - `Compose desktopTest` under xvfb: Passed (54/54 passed, including all M4 download tests and NoEmojiTest)
+  - `Build Android Debug APK with Rust Core`: **4m 40s**
+    - Built arm64-v8a & x86_64 release native libraries (`libsoftify_core.so`)
+    - Built debug split APKs (`composeApp-arm64-v8a-debug.apk`, `composeApp-universal-debug.apk`, `composeApp-x86_64-debug.apk`)
+- **Downloaded Cloud Artifacts** (`~/Downloads`):
+  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices):
+    - Size: **28,213,210 bytes (26.9 MB)** (Delta: +699 KB from M3d-fix/M5 APK due to WorkManager & DocumentFile AndroidX runtime dependencies)
+    - SHA256: `649ba9a0cb8994e43753238338cd0535dcad1dcd5da520b588db005fce42d26d`
+  - **`composeApp-universal-debug.apk`**:
+    - Size: **36,125,611 bytes (34.4 MB)**
+    - SHA256: `110bbbe768f596046592e064602eab5c9025c8de8439fbbbe7a0bea45fc7ae43`
+
+### 7.4 Manual Testing Checklist for Moto G34 Device
+1. **SAF Folder Picker**:
+   - Open Settings > Downloads & Offline Storage.
+   - Tap "Storage Location" -> pick a custom directory (e.g., `Music/Softify` or an SD card folder) using Android's system document tree picker.
+   - Verify URI persists across app restart.
+2. **Download Execution & Notification**:
+   - Tap "Download" on a track row or "Download all" in an album/playlist.
+   - Check notification shade for `Downloading Softify tracks` with indeterminate / progress bar.
+   - Verify circular progress indicator in track row smoothly completes and transitions to a minimal vector checkmark badge.
+3. **Offline Playback & Airplane Mode**:
+   - Enable Airplane Mode (turn off Wi-Fi and Cellular).
+   - Navigate to Library > Downloads chip -> verify all downloaded tracks appear with correct art, duration, and bitrate badge.
+   - Tap a track: verify instant local playback without buffering or network errors.
+   - Open Now Playing: verify lyrics display offline from SQLite cache.
+4. **Reconciliation & Error Recovery**:
+   - Use a file manager to delete one downloaded `.m4a` file.
+   - Reopen Downloads screen: verify track status updates to missing/repair state and prompts retry.
+
+
 
