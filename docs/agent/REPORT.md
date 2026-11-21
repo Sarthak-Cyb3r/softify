@@ -569,6 +569,26 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
 | Real device mid-stream 403 auto-recovery | Moto G34 physical device | **not verified on device** |
 | Real device Pehli Nazar Mein lyrics scroll | Moto G34 physical device | **not verified on device** |
 
+### 8.3 GitHub Actions Cloud CI & Cloud APK Build
+- **Cloud Workflow**: [Build Android Debug APK (Cloud) - Run #44912305439](https://github.com/Sarthak-Cyb3r/softify/actions/runs/44912305439)
+- **Status**: **PASSED (Success)**
+- **Durations**:
+  - `Headless Verification & Static Analysis`: **3m 29s**
+    - `cargo fmt --check`: Clean (0 diffs)
+    - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings)
+    - `cargo test --lib`: Passed (58 passed, 0 failed)
+    - `Compose desktopTest` under xvfb: Passed (57/57 passed, including prefetch throttle, resumable downloads, and NoEmojiTest)
+  - `Build Android Debug APK with Rust Core`: **6m 42s**
+    - Built arm64-v8a & x86_64 release native libraries (`libsoftify_core.so`)
+    - Built debug split APKs (`composeApp-arm64-v8a-debug.apk`, `composeApp-universal-debug.apk`, `composeApp-x86_64-debug.apk`)
+- **Downloaded Cloud Artifacts** (`~/Downloads`):
+  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices):
+    - Size: **28,217,306 bytes (27 MB)**
+    - SHA256: `b4a3f56bbd1853f009b3871bed4d222adccac11bb606d941fed4e48e2480aa7d`
+  - **`composeApp-universal-debug.apk`**:
+    - Size: **36,129,707 bytes (35 MB)**
+
+
 
 
 
