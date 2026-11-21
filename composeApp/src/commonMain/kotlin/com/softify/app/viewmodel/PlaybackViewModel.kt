@@ -729,9 +729,7 @@ class PlaybackViewModel(
                 queueManager.setRadioQueue(track, radioRes.tracks, radioRes.continuation)
                 PlaybackLogger.log("SoftifyPlayback", "Radio queue initialized with ${radioRes.tracks.size} tracks")
 
-                // Prefetch artwork for candidate radio tracks immediately
-                val radioCovers = radioRes.tracks.mapNotNull { it.coverUrl }
-                com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(radioCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+                // Prefetch artwork only for the next 5 upcoming tracks, never the whole 50
                 prefetchUpcomingQueueArt()
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Radio build failed for '${track.title}': ${e.message}")
@@ -747,9 +745,7 @@ class PlaybackViewModel(
                 queueManager.appendRadioTracks(res.tracks, res.continuation)
                 PlaybackLogger.log("SoftifyPlayback", "Radio continuation fetched: ${res.tracks.size} tracks added")
 
-                // Prefetch continuation artwork
-                val contCovers = res.tracks.mapNotNull { it.coverUrl }
-                com.softify.app.ui.components.CoverArtLoader.prefetchIfInitialized(contCovers, com.softify.app.ui.components.CoverSize.THUMBNAIL)
+                // Prefetch artwork only for the next 5 upcoming tracks
                 prefetchUpcomingQueueArt()
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "Radio continuation failed: ${e.message}")
@@ -759,6 +755,7 @@ class PlaybackViewModel(
     }
 
     private fun prefetchUpcomingQueueArt() {
+        com.softify.app.ui.components.CoverArtLoader.cancelPrefetch()
         val qState = queueManager.queueState.value
         val upcoming = if (qState.currentIndex in qState.tracks.indices) {
             qState.tracks.drop(qState.currentIndex + 1).take(5)
@@ -775,6 +772,7 @@ class PlaybackViewModel(
 
     fun playTrackInQueue(tracks: List<Track>, startIndex: Int) {
         if (tracks.isEmpty()) return
+        com.softify.app.ui.components.CoverArtLoader.cancelPrefetch()
         queueManager.setQueue(tracks, startIndex)
         val target = tracks.getOrNull(startIndex) ?: return
         executePlayTrack(target)
@@ -794,6 +792,7 @@ class PlaybackViewModel(
     }
 
     fun skipNext() {
+        com.softify.app.ui.components.CoverArtLoader.cancelPrefetch()
         val next = queueManager.skipNext()
         if (next != null) {
             executePlayTrack(next)
@@ -803,6 +802,7 @@ class PlaybackViewModel(
     }
 
     fun skipPrevious() {
+        com.softify.app.ui.components.CoverArtLoader.cancelPrefetch()
         val prev = queueManager.skipPrevious()
         if (prev != null) {
             executePlayTrack(prev)
@@ -836,6 +836,7 @@ class PlaybackViewModel(
     }
 
     private fun executePlayTrack(track: Track) {
+        com.softify.app.ui.components.CoverArtLoader.cancelPrefetch()
         PlaybackLogger.log("SoftifyPlayback", "executePlayTrack: '${track.title}' (${track.id})")
         scope.launch {
             _activeTrack.value = track
