@@ -5,31 +5,39 @@ use regex::Regex;
 /// If true word timestamps (<mm:ss.xx>) are absent, marks lines as is_line_timed = true
 /// with an empty words vector (NO synthetic character-proportional estimation).
 pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
-    let line_re = Regex::new(r"\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\](.*)").unwrap();
-    let word_tag_re = Regex::new(r"<(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?>").unwrap();
+    let tag_re = Regex::new(r"^\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]").unwrap();
+    let word_tag_re = Regex::new(r"<(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?>").unwrap();
 
     let mut raw_lines = Vec::new();
     let mut plain_buffer = Vec::new();
     let mut has_any_word_tags = false;
 
     for line in lrc_text.lines() {
-        let trimmed = line.trim();
+        let mut trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
 
-        if let Some(caps) = line_re.captures(trimmed) {
+        // Collect all leading [mm:ss.xx] timestamp tags (supports multi-tag repetitions [t1][t2] text)
+        let mut timestamps = Vec::new();
+        while let Some(caps) = tag_re.captures(trimmed) {
             let minutes: u64 = caps[1].parse().unwrap_or(0);
             let seconds: u64 = caps[2].parse().unwrap_or(0);
             let frac_str = caps.get(3).map(|m| m.as_str()).unwrap_or("0");
-            let ms: u64 = if frac_str.len() == 2 {
-                frac_str.parse::<u64>().unwrap_or(0) * 10
-            } else {
-                frac_str.parse::<u64>().unwrap_or(0)
+            let ms: u64 = match frac_str.len() {
+                1 => frac_str.parse::<u64>().unwrap_or(0) * 100,
+                2 => frac_str.parse::<u64>().unwrap_or(0) * 10,
+                _ => frac_str.parse::<u64>().unwrap_or(0),
             };
 
             let start_ms = minutes * 60_000 + seconds * 1_000 + ms;
-            let raw_content = caps[4].trim();
+            timestamps.push(start_ms);
+            let matched_len = caps.get(0).unwrap().len();
+            trimmed = trimmed[matched_len..].trim_start();
+        }
+
+        if !timestamps.is_empty() {
+            let raw_content = trimmed.trim();
 
             if word_tag_re.is_match(raw_content) {
                 has_any_word_tags = true;
@@ -41,9 +49,12 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .join(" ");
+
             if !clean_text.is_empty() {
                 plain_buffer.push(clean_text.clone());
-                raw_lines.push((start_ms, raw_content.to_string(), clean_text));
+                for start_ms in timestamps {
+                    raw_lines.push((start_ms, raw_content.to_string(), clean_text.clone()));
+                }
             }
         } else if !trimmed.starts_with('[') {
             plain_buffer.push(trimmed.to_string());
@@ -66,6 +77,37 @@ pub fn parse_lrc(lrc_text: &str) -> SyncedLyrics {
 
     // Sort by start_ms
     raw_lines.sort_by_key(|(start, _, _)| *start);
+
+    // Implausibly tight timestamps detection:
+    // Detect bursts (< 500 ms between lines across >= 3 consecutive line transitions)
+    // and reject/fall back to plain text rather than showing a broken 3-second lightshow.
+    let mut tight_consecutive = 0;
+    let mut max_tight_consecutive = 0;
+    for i in 0..raw_lines.len().saturating_sub(1) {
+        let diff = raw_lines[i + 1].0.saturating_sub(raw_lines[i].0);
+        if diff < 500 {
+            tight_consecutive += 1;
+            if tight_consecutive > max_tight_consecutive {
+                max_tight_consecutive = tight_consecutive;
+            }
+        } else {
+            tight_consecutive = 0;
+        }
+    }
+
+    if max_tight_consecutive >= 3 {
+        return SyncedLyrics {
+            is_synced: false,
+            is_word_synced: false,
+            lines: Vec::new(),
+            plain_text: if !plain_buffer.is_empty() {
+                Some(plain_buffer.join("\n"))
+            } else {
+                None
+            },
+            provider: "lrc".to_string(),
+        };
+    }
 
     let mut lines = Vec::new();
     let count = raw_lines.len();
@@ -1156,6 +1198,88 @@ mod tests {
                     "Line text must equal words joined by spaces"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn test_parse_lrc_multi_tag_and_fractional_centiseconds() {
+        let lrc = "[01:12.5][01:15.52] Baby, I love you\n[01:20.00] Next line";
+        let parsed = parse_lrc(lrc);
+        assert!(parsed.is_synced);
+        assert_eq!(parsed.lines.len(), 3);
+        // [01:12.5] -> 72500ms
+        assert_eq!(parsed.lines[0].start_ms, 72500);
+        assert_eq!(parsed.lines[0].text, "Baby, I love you");
+        // [01:15.52] -> 75520ms
+        assert_eq!(parsed.lines[1].start_ms, 75520);
+        assert_eq!(parsed.lines[1].text, "Baby, I love you");
+        // [01:20.00] -> 80000ms
+        assert_eq!(parsed.lines[2].start_ms, 80000);
+        assert_eq!(parsed.lines[2].text, "Next line");
+    }
+
+    #[test]
+    fn test_parse_lrc_rejects_tight_timestamps_burst() {
+        // Corrupt stream with 30-40ms gaps across 4 consecutive lines
+        let corrupt_lrc = "\
+[00:00.00] Intro\n\
+[01:12.52] Line 1\n\
+[01:12.55] Line 2\n\
+[01:12.58] Line 3\n\
+[01:12.61] Line 4\n\
+[02:00.00] Outro\n";
+        let parsed = parse_lrc(corrupt_lrc);
+        // Must reject synced playback to avoid broken 3-second lightshow
+        assert!(
+            !parsed.is_synced,
+            "Must reject synced status when burst < 500ms is detected"
+        );
+        assert!(
+            parsed.lines.is_empty(),
+            "Lines array must be empty on corrupt timestamp rejection"
+        );
+        assert!(
+            parsed.plain_text.is_some(),
+            "Plain text must be preserved for reading"
+        );
+        assert!(parsed.plain_text.unwrap().contains("Line 1"));
+    }
+
+    #[test]
+    fn test_parse_pehli_nazar_mein_valid_lrc() {
+        let lrc = "\
+[00:17.24] Pehli nazar mein kaisa jaadu kar diya\n\
+[00:22.90] Tera ban baitha hai mera jiya\n\
+[00:28.68] Jaane kya hoga, kya hoga, kya pata\n\
+[00:34.27] Is pal ko milke aa jee le zara\n\
+[00:39.32] Main hoon yahan, tu hai yahan\n\
+[00:44.63] Meri baahon mein aa, aa bhi ja\n\
+[00:50.62] O jaana jaan, dono jahan\n\
+[00:55.91] Meri baahon mein aa, bhool ja\n\
+[01:01.99] O jaana jaan, dono jahan\n\
+[01:07.01] Meri baahon mein aa, bhool ja\n\
+[01:12.73] Baby, I love you\n";
+
+        let parsed = parse_lrc(lrc);
+        assert!(parsed.is_synced);
+        assert_eq!(parsed.lines.len(), 11);
+
+        // Assert line timestamps are strictly increasing and spaced reasonably for human speech (> 1000ms)
+        for i in 0..parsed.lines.len() {
+            if i > 0 {
+                let prev_start = parsed.lines[i - 1].start_ms;
+                let cur_start = parsed.lines[i].start_ms;
+                assert!(
+                    cur_start > prev_start,
+                    "Timestamps must be strictly increasing: {cur_start} > {prev_start}"
+                );
+                let gap = cur_start - prev_start;
+                assert!(
+                    gap >= 1000,
+                    "Gap between lines must be >= 1000ms for human singing, got {gap}ms"
+                );
+            }
+            assert!(!parsed.lines[i].text.is_empty());
         }
     }
 }
