@@ -496,5 +496,79 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
    - Use a file manager to delete one downloaded `.m4a` file.
    - Reopen Downloads screen: verify track status updates to missing/repair state and prompts retry.
 
+---
+
+## 8. M4-Fix: Real-Device Bug Fixes (Home Covers, Prefetch, Offline SAF, Mid-Stream 403, LRC Burst)
+
+### 8.1 Root Cause Analysis & Implementations
+
+#### 1. Home Covers Not Loading (Commit `fc9fd93`)
+- **Root Cause**:
+  1. *Saavn CDN 404s*: `explore_charts_fixture.json` and legacy DB tracks contained 15 dead `c.saavncdn.com` URLs returning HTTP 404. Coil recorded these in negative cache, permanently suppressing retries for those sessions.
+  2. *Explore Browse Parser Gap*: YouTube Music browse payloads for `FEmusic_home` return `musicResponsiveListItemRenderer` in section mixes and `musicTwoRowItemRenderer` in carousels. The old parser ignored responsive list items and failed to traverse `thumbnail.musicThumbnailRenderer.thumbnail.thumbnails`.
+  3. *Un-repaired SQLite Cover URLs*: Tracks migrated or added without artwork had empty `cover_url` strings in SQLite, with no automatic fallback to `https://i.ytimg.com/vi/{id}/hqdefault.jpg`.
+- **Fix**:
+  1. Updated `explore.rs` in Rust core to parse both `musicTwoRowItemRenderer` and `musicResponsiveListItemRenderer`, extracting highest-resolution thumbnail, video ID, title, and artist.
+  2. Replaced 15 dead `c.saavncdn.com` URLs in `explore_charts_fixture.json` with stable `i.ytimg.com` URLs. Added real compact `real_home_browse_fixture.json`.
+  3. Added SQLite fallback `COALESCE(NULLIF(t.cover_url, ''), sm.cover_url, 'https://i.ytimg.com/vi/' || t.source_id || '/hqdefault.jpg')` across `repository.rs`.
+  4. Updated `HomeScreen.kt` to pass `size = CoverSize.SHELF` and `screen = ScreenType.HOME`.
+  5. Built `CoverTelemetry` live counters (ok / failed / no URL per screen + last 5 failures) into `CoverArtLoader.kt` and wired it into `DiagnosticsScreen.kt`.
+
+#### 2. Prefetch Overload & Network Contention (Commit `fdeda5b`)
+- **Root Cause**: On queue load and radio continuation, Softify previously enqueued up to 50 upcoming tracks for artwork prefetching simultaneously. This saturated OkHttp worker threads, filled the Coil image queue, and starved on-screen visible covers on Home.
+- **Fix**:
+  1. Throttled queue prefetching to only the next 5 tracks (`take(5)`).
+  2. Added `cancelPrefetch()` on track skip, queue change, or navigation away.
+  3. Enforced a 2-worker concurrency throttle (`Semaphore(2)`) in `CoverArtLoader.kt`.
+  4. Configured OkHttp dispatcher bounds (`maxRequests = 32`, `maxRequestsPerHost = 10`).
+  5. Added `CoverArtPrefetchTest.kt` unit test verifying 5-item capping and cancellation.
+
+#### 3. Offline Playback & SAF Tagging (Commit `fb40bef`)
+- **Root Cause**:
+  1. *Lofty Tagging Failure on SAF*: Rust's `lofty` library opens files via POSIX paths (`fs::OpenOptions`). Passing an Android Storage Access Framework URI (`content://com.android.externalstorage.documents/...`) caused native error `os error 2 (ENOENT)`.
+  2. *ExoPlayer SAF Incompatibility*: `PlaybackService` wrapped only `BoundedHttpDataSourceFactory` in `DefaultMediaSourceFactory`, lacking `ContentDataSource` or `FileDataSource`. ExoPlayer crashed when attempting to play downloaded tracks stored in SAF content URIs.
+- **Fix**:
+  1. Staged downloads in an app-private cache temp file (`softify_staging/`). Executed `tagAudioFile` natively while on local disk, then streamed tagged bytes into the user's `StorageProvider` SAF URI.
+  2. Configured ExoPlayer with `DefaultDataSource.Factory(this, boundedHttpFactory)` in `PlaybackService.kt`, enabling seamless playback across `content://`, `file://`, and remote HTTPS streams.
+  3. Wrapped `DownloadQueueManager` in an independent `SupervisorJob` so downloads survive UI navigation and player retries.
+  4. Added silent fallback to streaming if a downloaded local file is missing or unreadable.
+
+#### 4. Mid-Stream 403 Container Error & VisionOS Headers (Commit `b824c32`)
+- **Root Cause**:
+  1. *Swallowed Chunk Error*: `BoundedHttpDataSource` caught mid-stream network exceptions and returned `RESULT_END_OF_INPUT`. ExoPlayer's extractor interpreted premature termination as corrupt data, raising `ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED` rather than an HTTP error.
+  2. *VisionOS Header Mismatch*: Innertube requests lacked the `Origin: https://www.youtube.com` header expected by YouTube Music endpoints.
+- **Fix**:
+  1. Logged HTTP response status codes and content-types in `BoundedHttpDataSource` and rethrew `HttpDataSourceException` so ExoPlayer accurately identifies network failures.
+  2. Added automatic silent re-resolution in `PlaybackService.kt` `onPlayerError` on HTTP 403 or container parse failure, resuming playback seamlessly from `lastPlaybackPositionMs`.
+  3. Added `Origin: https://www.youtube.com` to `youtube.rs` client headers.
+
+#### 5. LRC Timestamp Parsing & Rapid Burst Rejection (Commit `5abed6c`)
+- **Root Cause**:
+  1. *Multi-tag LRC Dropped*: Lines with multiple timestamps (e.g. `[00:10.00][00:25.00] Repeated chorus`) only matched the first tag or were skipped.
+  2. *Centisecond Normalization*: Single-digit fractions (e.g. `[00:10.5]`) were parsed as 5ms instead of 500ms.
+  3. *Rapid Timestamp Burst*: Malformed synced lyrics from community providers with line intervals < 500ms across multiple lines caused rapid, unreadable scrolling.
+- **Fix**:
+  1. Supported multi-timestamp tags per line in `parser.rs`.
+  2. Normalized fractional seconds correctly (`5` -> 500ms, `50` -> 500ms).
+  3. Implemented burst detection: if 3 or more consecutive line transitions have intervals under 500ms, the timing stream is flagged corrupt and rejected, falling back gracefully to unsynced plain text.
+
+---
+
+### 8.2 Verification Matrix
+
+| Verification Target | Test Method | Result |
+| :--- | :--- | :--- |
+| Explore browse parser with responsive list items | Rust unit test `test_parse_real_home_browse_fixture` | **verified in CI (tests)** |
+| Saavn 404 URL elimination in explore charts | Rust unit test `test_parse_explore_charts_no_saavn_404` | **verified in CI (tests)** |
+| Multi-tag LRC parsing and centisecond scaling | Rust unit test `test_parse_lrc_multi_tag_and_single_digit_fraction` | **verified in CI (tests)** |
+| LRC tight timestamp burst rejection to plain text | Rust unit test `test_parse_lrc_rejects_tight_timestamp_burst` | **verified in CI (tests)** |
+| Cover art prefetch 5-track throttling & cancellation | Desktop JVM unit test `CoverArtPrefetchTest` | **verified in CI (tests)** |
+| Zero emojis across modified UI & telemetry | `NoEmojiTest` scan | **verified in CI (tests)** |
+| Real device Home screen cover loading & telemetry | Moto G34 physical device | **not verified on device** |
+| Real device offline playback via SAF URI | Moto G34 physical device | **not verified on device** |
+| Real device mid-stream 403 auto-recovery | Moto G34 physical device | **not verified on device** |
+| Real device Pehli Nazar Mein lyrics scroll | Moto G34 physical device | **not verified on device** |
+
+
 
 
