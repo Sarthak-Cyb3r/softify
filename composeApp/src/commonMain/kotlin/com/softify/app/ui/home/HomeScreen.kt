@@ -307,7 +307,10 @@ fun HomeTrackCard(
                 AsyncCoverArt(
                     url = track.coverUrl,
                     modifier = Modifier.fillMaxSize(),
-                    shape = SquircleShape(12.dp)
+                    size = com.softify.app.ui.components.CoverSize.SHELF,
+                    shape = SquircleShape(12.dp),
+                    screen = com.softify.app.ui.components.ScreenType.HOME,
+                    trackId = track.id
                 )
 
                 // Quick overflow menu button overlaid at top-end

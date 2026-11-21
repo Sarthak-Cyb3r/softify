@@ -80,8 +80,20 @@ impl DatabaseRepository {
             reason: e.to_string(),
         })?;
         let mut stmt = conn.prepare(
-            "SELECT id, source_id, title, artist, album, duration_ms, cover_url, match_confidence, is_liked, is_unavailable
-             FROM tracks WHERE id = ?1"
+            "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms,
+                    COALESCE(NULLIF(t.cover_url, ''), sm.cover_url,
+                        CASE
+                            WHEN t.id LIKE 'yt_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.id, 4) || '/mqdefault.jpg'
+                            WHEN t.source_id LIKE 'yt_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 4) || '/mqdefault.jpg'
+                            WHEN t.source_id LIKE 'ytm_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 5) || '/mqdefault.jpg'
+                            WHEN LENGTH(t.source_id) = 11 THEN 'https://i.ytimg.com/vi/' || t.source_id || '/mqdefault.jpg'
+                            ELSE NULL
+                        END
+                    ) as cover_url,
+                    t.match_confidence, t.is_liked, t.is_unavailable
+             FROM tracks t
+             LEFT JOIN spotify_matches sm ON sm.spotify_id = REPLACE(t.source_id, 'spotify:', '')
+             WHERE t.id = ?1"
         )?;
 
         let mut rows = stmt.query(params![id])?;
@@ -301,7 +313,15 @@ impl DatabaseRepository {
         })?;
         let mut stmt = conn.prepare(
             "SELECT t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms,
-                    COALESCE(t.cover_url, sm.cover_url, CASE WHEN t.source_id LIKE 'ytm_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 5) || '/hqdefault.jpg' ELSE NULL END) as cover_url,
+                    COALESCE(NULLIF(t.cover_url, ''), sm.cover_url,
+                        CASE
+                            WHEN t.id LIKE 'yt_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.id, 4) || '/mqdefault.jpg'
+                            WHEN t.source_id LIKE 'yt_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 4) || '/mqdefault.jpg'
+                            WHEN t.source_id LIKE 'ytm_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 5) || '/mqdefault.jpg'
+                            WHEN LENGTH(t.source_id) = 11 THEN 'https://i.ytimg.com/vi/' || t.source_id || '/mqdefault.jpg'
+                            ELSE NULL
+                        END
+                    ) as cover_url,
                     t.match_confidence, t.is_liked, t.is_unavailable
              FROM playlist_tracks pt
              JOIN tracks t ON pt.track_id = t.id
@@ -372,10 +392,20 @@ impl DatabaseRepository {
         })?;
         let mut stmt = conn.prepare(
             "SELECT ph.id, ph.played_at, ph.completed_ratio,
-                    t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms, t.cover_url,
+                    t.id, t.source_id, t.title, t.artist, t.album, t.duration_ms,
+                    COALESCE(NULLIF(t.cover_url, ''), sm.cover_url,
+                        CASE
+                            WHEN t.id LIKE 'yt_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.id, 4) || '/mqdefault.jpg'
+                            WHEN t.source_id LIKE 'yt_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 4) || '/mqdefault.jpg'
+                            WHEN t.source_id LIKE 'ytm_%' THEN 'https://i.ytimg.com/vi/' || SUBSTR(t.source_id, 5) || '/mqdefault.jpg'
+                            WHEN LENGTH(t.source_id) = 11 THEN 'https://i.ytimg.com/vi/' || t.source_id || '/mqdefault.jpg'
+                            ELSE NULL
+                        END
+                    ) as cover_url,
                     t.match_confidence, t.is_liked, t.is_unavailable
              FROM play_histories ph
              JOIN tracks t ON ph.track_id = t.id
+             LEFT JOIN spotify_matches sm ON sm.spotify_id = REPLACE(t.source_id, 'spotify:', '')
              ORDER BY ph.played_at DESC
              LIMIT ?1",
         )?;

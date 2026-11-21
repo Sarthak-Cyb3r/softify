@@ -24,8 +24,58 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+
+enum class ScreenType(val displayName: String) {
+    HOME("Home"),
+    SEARCH("Search"),
+    LIBRARY("Library"),
+    QUEUE("Queue"),
+    NOW_PLAYING("Now Playing"),
+    OTHER("Other")
+}
+
+data class FailedCoverRecord(
+    val url: String,
+    val host: String,
+    val httpStatus: Int?,
+    val reason: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+object CoverTelemetry {
+    val okCounters = ConcurrentHashMap<ScreenType, AtomicInteger>()
+    val failedCounters = ConcurrentHashMap<ScreenType, AtomicInteger>()
+    val noUrlCounters = ConcurrentHashMap<ScreenType, AtomicInteger>()
+    val recentFailures = java.util.concurrent.CopyOnWriteArrayList<FailedCoverRecord>()
+
+    fun recordOk(screen: ScreenType) {
+        okCounters.computeIfAbsent(screen) { AtomicInteger(0) }.incrementAndGet()
+    }
+
+    fun recordFailed(screen: ScreenType, url: String, host: String, status: Int?, reason: String) {
+        failedCounters.computeIfAbsent(screen) { AtomicInteger(0) }.incrementAndGet()
+        recentFailures.add(0, FailedCoverRecord(url, host, status, reason))
+        while (recentFailures.size > 5) {
+            recentFailures.removeAt(recentFailures.size - 1)
+        }
+    }
+
+    fun recordNoUrl(screen: ScreenType) {
+        noUrlCounters.computeIfAbsent(screen) { AtomicInteger(0) }.incrementAndGet()
+    }
+
+    fun getStats(screen: ScreenType): Triple<Int, Int, Int> {
+        val ok = okCounters[screen]?.get() ?: 0
+        val failed = failedCounters[screen]?.get() ?: 0
+        val noUrl = noUrlCounters[screen]?.get() ?: 0
+        return Triple(ok, failed, noUrl)
+    }
+}
 
 /**
  * Platform-specific cache directory for 250 MB disk cache.
@@ -311,10 +361,10 @@ object CoverArtLoader {
         return null
     }
 
-    // High throughput OkHttp dispatcher: 64 concurrent requests, 24 per host
+    // Controlled OkHttp dispatcher: 32 max concurrent requests, 10 per host to prevent starvation
     val dispatcher = Dispatcher().apply {
-        maxRequests = 64
-        maxRequestsPerHost = 24
+        maxRequests = 32
+        maxRequestsPerHost = 10
     }
 
     val sharedOkHttpClient: OkHttpClient by lazy {
@@ -375,22 +425,41 @@ object CoverArtLoader {
             .build()
     }
 
+    private var prefetchJob: Job? = null
+    private val prefetchSemaphore = Semaphore(2) // max 2 concurrent background prefetch workers
+
+    /**
+     * Cancels any pending or in-flight background prefetch requests.
+     */
+    fun cancelPrefetch() {
+        if (prefetchJob?.isActive == true) {
+            prefetchJob?.cancel()
+            PlaybackLogger.log("SoftifyCoverArt", "Prefetch cancelled: user skipped or queue changed")
+        }
+        prefetchJob = null
+    }
+
     /**
      * Prefetches cover art into disk and memory cache.
-     * Deduplicates URLs, skips negative cache and memory-cached items, and yields to visible items.
+     * Throttled to at most the NEXT 5 items.
+     * Yields to visible UI requests and runs with max 2 concurrent workers.
      */
     fun prefetch(
         context: PlatformContext,
         urls: List<String>,
         size: CoverSize = CoverSize.THUMBNAIL
     ) {
+        cancelPrefetch()
         val loader = getImageLoader(context)
-        val distinctUrls = urls.distinct().filter { !isNegativeCached(it) }
+        // Cap prefetch to at most 5 queue items, never the whole queue
+        val candidateUrls = urls.distinct().filter { !isNegativeCached(it) }.take(5)
+        if (candidateUrls.isEmpty()) return
 
-        // Yield to visible item network requests before background prefetch
-        CoroutineScope(Dispatchers.Default).launch {
-            delay(100L)
-            for (rawUrl in distinctUrls) {
+        prefetchJob = CoroutineScope(Dispatchers.Default).launch {
+            // Delay yields to immediate visible UI composition and first frame rendering
+            delay(150L)
+            for (rawUrl in candidateUrls) {
+                if (!isActive) break
                 val formatted = formatCoverUrl(rawUrl, size) ?: continue
                 if (isNegativeCached(formatted)) continue
 
@@ -398,13 +467,19 @@ object CoverArtLoader {
                 val memoryKey = MemoryCache.Key(formatted)
                 if (loader.memoryCache?.get(memoryKey) != null) continue
 
-                val request = ImageRequest.Builder(context)
-                    .data(formatted)
-                    .memoryCacheKey(formatted)
-                    .diskCacheKey(formatted)
-                    .crossfade(false)
-                    .build()
-                loader.enqueue(request)
+                prefetchSemaphore.acquire()
+                try {
+                    if (!isActive) break
+                    val request = ImageRequest.Builder(context)
+                        .data(formatted)
+                        .memoryCacheKey(formatted)
+                        .diskCacheKey(formatted)
+                        .crossfade(false)
+                        .build()
+                    loader.enqueue(request)
+                } finally {
+                    prefetchSemaphore.release()
+                }
             }
         }
     }

@@ -128,6 +128,54 @@ fun DiagnosticsScreen(
             }
         }
 
+        // Section 1.5: Cover Art Telemetry Card
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF181528)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("Cover Art Telemetry", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
+                Spacer(modifier = Modifier.height(6.dp))
+                val screens = listOf(
+                    com.softify.app.ui.components.ScreenType.HOME,
+                    com.softify.app.ui.components.ScreenType.SEARCH,
+                    com.softify.app.ui.components.ScreenType.LIBRARY,
+                    com.softify.app.ui.components.ScreenType.QUEUE
+                )
+                for (sc in screens) {
+                    val (ok, failed, noUrl) = com.softify.app.ui.components.CoverTelemetry.getStats(sc)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${sc.displayName}:", fontSize = 11.sp, color = Color.LightGray, fontWeight = FontWeight.Medium)
+                        Text(
+                            "OK: $ok | Failed: $failed | No URL: $noUrl",
+                            fontSize = 11.sp,
+                            color = if (failed > 0) Color(0xFFF87171) else Color(0xFF34D399),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                val recentFails = com.softify.app.ui.components.CoverTelemetry.recentFailures
+                if (recentFails.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Recent Failures (last 5):", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF87171))
+                    for (fail in recentFails.take(5)) {
+                        Text(
+                            "• [${fail.host}] status=${fail.httpStatus ?: "err"}: ${fail.url.take(50)}...",
+                            fontSize = 10.sp,
+                            color = Color(0xFFFCA5A5),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
         // Section 2: Test Action Buttons Card
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
