@@ -720,6 +720,10 @@ impl YoutubeStreamResolver {
                         name: "Referer".to_string(),
                         value: "https://www.youtube.com/".to_string(),
                     },
+                    HeaderPair {
+                        name: "Origin".to_string(),
+                        value: "https://www.youtube.com".to_string(),
+                    },
                 ]
             },
             expires_at,

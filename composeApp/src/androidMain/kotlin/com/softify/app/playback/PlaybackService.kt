@@ -90,7 +90,22 @@ class BoundedHttpDataSource(
                 baseDataSource.open(nextSpec)
                 bytesRemainingInChunk = nextLength
             } catch (e: Exception) {
-                return C.RESULT_END_OF_INPUT
+                var responseCode: Int? = null
+                var contentType: String? = null
+                var cause: Throwable? = e
+                while (cause != null) {
+                    if (cause is HttpDataSource.InvalidResponseCodeException) {
+                        responseCode = cause.responseCode
+                        contentType = cause.headerFields["Content-Type"]?.firstOrNull() ?: cause.headerFields["content-type"]?.firstOrNull()
+                        break
+                    }
+                    cause = cause.cause
+                }
+                PlaybackLogger.log(
+                    "SoftifyPlayback",
+                    "BoundedHttpDataSource chunk error at pos=$currentPosition: status=$responseCode, contentType=$contentType, error=${e.message}"
+                )
+                throw e
             }
         }
 
@@ -133,6 +148,7 @@ class PlaybackService : MediaSessionService() {
     private var currentTrack: Track? = null
     private var currentPreset: QualityPreset = QualityPreset.HIGH
     private var currentStreamInfo: StreamInfo? = null
+    private var lastPlaybackPositionMs: Long = 0L
 
     companion object {
         const val CHANNEL_ID = "softify_playback_channel"
@@ -202,6 +218,9 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
+                if (player.currentPosition > 0L) {
+                    lastPlaybackPositionMs = player.currentPosition
+                }
                 val stateName = when (state) {
                     Player.STATE_IDLE -> "IDLE"
                     Player.STATE_BUFFERING -> "BUFFERING"
@@ -250,6 +269,28 @@ class PlaybackService : MediaSessionService() {
                             playStream(track, freshStream, 0L, null)
                         } catch (e: Exception) {
                             PlaybackLogger.log("SoftifyPlayback", "Fallback to stream failed: ${e.message}")
+                        }
+                    }
+                    return
+                }
+
+                val isContainerOr403 = (httpStatus == 403) ||
+                    error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+                    error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+
+                if (isContainerOr403 && track != null) {
+                    val resumePos = maxOf(lastPlaybackPositionMs, player.currentPosition).coerceAtLeast(0L)
+                    PlaybackLogger.log(
+                        "SoftifyPlayback",
+                        "Mid-stream 403/container error for '${track.title}' at ${resumePos}ms; auto-refreshing expired stream URL silently"
+                    )
+                    serviceScope.launch {
+                        try {
+                            val freshStream = resolveStream(track, currentPreset)
+                            playStream(track, freshStream, resumePos, currentSessionId)
+                        } catch (e: Exception) {
+                            PlaybackLogger.log("SoftifyPlayback", "Auto-refresh stream failed: ${e.message}")
+                            retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
                         }
                     }
                     return
