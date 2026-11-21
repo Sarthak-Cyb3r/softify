@@ -13,8 +13,12 @@ import uniffi.softify_core.*
 class DownloadQueueManager(
     val storageProvider: StorageProvider,
     private val resumableDownloader: ResumableDownloader,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    externalScope: CoroutineScope? = null
 ) {
+    // Independent SupervisorJob guarantees downloads are never cancelled by navigation or player retries
+    private val scope: CoroutineScope = CoroutineScope(
+        (externalScope?.coroutineContext ?: Dispatchers.Default) + SupervisorJob()
+    )
 
     private val _tasks = MutableStateFlow<Map<String, DownloadTask>>(emptyMap())
     val tasks: StateFlow<Map<String, DownloadTask>> = _tasks.asStateFlow()
@@ -387,6 +391,12 @@ class DownloadQueueManager(
                             ))
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    val current = _tasks.value[trackId] ?: task
+                    PlaybackLogger.log("SoftifyDownload", "Download paused/cancelled for '${task.track.title}'")
+                    _tasks.value = _tasks.value + (trackId to current.copy(
+                        status = DownloadStatus.PAUSED
+                    ))
                 } catch (e: Exception) {
                     val current = _tasks.value[trackId] ?: task
                     val errMsg = e.message ?: "Unknown download error"

@@ -44,7 +44,16 @@ class ResumableDownloader(
         val finalFilename = "${track.id}_$safeTitle.$extension"
         val partFilename = "$finalFilename.part"
 
-        var existingBytes = if (storageProvider.exists(partFilename)) {
+        // Local staging file in app cache/temp guarantees POSIX path access for native Rust tagger (lofty)
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir") ?: "/tmp", "softify_staging")
+        if (!tempDir.exists()) {
+            tempDir.mkdirs()
+        }
+        val localStagingFile = java.io.File(tempDir, partFilename)
+
+        var existingBytes = if (localStagingFile.exists()) {
+            localStagingFile.length()
+        } else if (storageProvider.exists(partFilename)) {
             storageProvider.getFileSize(partFilename)
         } else {
             0L
@@ -105,7 +114,7 @@ class ResumableDownloader(
             val bodyStream: InputStream = response.body?.byteStream()
                 ?: throw IllegalStateException("Empty response body from stream")
 
-            val outStream: OutputStream = storageProvider.openOutputStream(partFilename, append = isPartial)
+            val outStream: OutputStream = java.io.FileOutputStream(localStagingFile, isPartial)
 
             try {
                 val buffer = ByteArray(65536) // 64 KB streaming buffer
@@ -133,34 +142,43 @@ class ResumableDownloader(
         }
 
         // 3. Verify size on completion
-        val actualPartSize = storageProvider.getFileSize(partFilename)
+        val actualPartSize = localStagingFile.length()
         if (totalBytes > 0L && actualPartSize < totalBytes) {
             throw IllegalStateException("Download size verification failed: expected $totalBytes bytes, got $actualPartSize bytes")
         }
 
-        // 4. Atomically rename .part to final file
-        val renamed = storageProvider.rename(partFilename, finalFilename)
-        if (!renamed) {
-            throw IllegalStateException("Failed to atomically rename $partFilename to $finalFilename")
-        }
-
-        val fileUri = storageProvider.getFileUri(finalFilename)
-
-        // 5. Embed metadata tags and cover art
+        // 4. Embed metadata tags and cover art on POSIX local file BEFORE moving to SAF/storage
         try {
             val coverBytes = fetchCoverBytes(track.coverUrl)
-            // If local file path accessible, tag via Rust core
             tagAudioFile(
-                filePath = fileUri.removePrefix("file://"),
+                filePath = localStagingFile.absolutePath,
                 title = track.title,
                 artist = track.artist,
                 album = track.album,
                 year = null,
                 coverBytes = coverBytes
             )
+            PlaybackLogger.log("SoftifyDownload", "Embedded metadata tags into '${track.title}' staging file successfully")
         } catch (e: Exception) {
             PlaybackLogger.log("SoftifyDownload", "Audio tagging notice: ${e.message}")
         }
+
+        // 5. Transfer tagged file to destination StorageProvider (supports SAF content:// and POSIX file://)
+        val finalOutStream = storageProvider.openOutputStream(finalFilename, append = false)
+        try {
+            localStagingFile.inputStream().use { input ->
+                input.copyTo(finalOutStream)
+            }
+            finalOutStream.flush()
+        } finally {
+            runCatching { finalOutStream.close() }
+        }
+        runCatching { localStagingFile.delete() }
+        if (storageProvider.exists(partFilename)) {
+            storageProvider.delete(partFilename)
+        }
+
+        val fileUri = storageProvider.getFileUri(finalFilename)
 
         // 6. Prefetch and save synced lyrics for offline use
         try {

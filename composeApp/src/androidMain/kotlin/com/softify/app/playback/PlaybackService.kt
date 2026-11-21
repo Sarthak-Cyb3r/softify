@@ -20,6 +20,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
@@ -190,7 +191,9 @@ class PlaybackService : MediaSessionService() {
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(15000)
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(BoundedHttpDataSourceFactory(httpDataSourceFactory))
+        val boundedHttpFactory = BoundedHttpDataSourceFactory(httpDataSourceFactory)
+        val defaultDataSourceFactory = DefaultDataSource.Factory(this, boundedHttpFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(defaultDataSourceFactory)
 
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, true)
@@ -235,6 +238,23 @@ class PlaybackService : MediaSessionService() {
                 PlaybackLogger.log("SoftifyPlayback", errorMsg)
 
                 val track = currentTrack
+                val streamUrl = currentStreamInfo?.url ?: ""
+                val isLocalDownload = streamUrl.startsWith("content://") || streamUrl.startsWith("file://") || currentStreamInfo?.provider == "local"
+
+                if (isLocalDownload && track != null) {
+                    PlaybackLogger.log("SoftifyPlayback", "Local download unreadable for '${track.title}' (${error.errorCodeName}): marking as needs repair and falling back to streaming silently")
+                    serviceScope.launch {
+                        try {
+                            uniffi.softify_core.markDownloadRepair(track.id, "Local playback error: ${error.errorCodeName}")
+                            val freshStream = resolveStream(track, currentPreset)
+                            playStream(track, freshStream, 0L, null)
+                        } catch (e: Exception) {
+                            PlaybackLogger.log("SoftifyPlayback", "Fallback to stream failed: ${e.message}")
+                        }
+                    }
+                    return
+                }
+
                 if (track != null) {
                     retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
                 }
@@ -346,8 +366,9 @@ class PlaybackService : MediaSessionService() {
             else -> MimeTypes.AUDIO_MP4
         }
 
-        val dataSourceFactory = BoundedHttpDataSourceFactory(httpDataSourceFactory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+        val boundedHttpFactory = BoundedHttpDataSourceFactory(httpDataSourceFactory)
+        val defaultDataSourceFactory = DefaultDataSource.Factory(this, boundedHttpFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(defaultDataSourceFactory)
         val mediaItem = MediaItem.Builder()
             .setUri(Uri.parse(streamInfo.url))
             .setMediaId(track.id)
