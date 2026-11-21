@@ -51,10 +51,24 @@ class ResumableDownloader(
         }
         val localStagingFile = java.io.File(tempDir, partFilename)
 
+        // Restore partial download from StorageProvider into local staging file if needed
+        if (storageProvider.exists(partFilename)) {
+            val storageSize = storageProvider.getFileSize(partFilename)
+            if (!localStagingFile.exists() || localStagingFile.length() < storageSize) {
+                try {
+                    storageProvider.openInputStream(partFilename).use { input ->
+                        java.io.FileOutputStream(localStagingFile, false).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (e: Exception) {
+                    PlaybackLogger.log("SoftifyDownload", "Could not restore partial file from storage: ${e.message}")
+                }
+            }
+        }
+
         var existingBytes = if (localStagingFile.exists()) {
             localStagingFile.length()
-        } else if (storageProvider.exists(partFilename)) {
-            storageProvider.getFileSize(partFilename)
         } else {
             0L
         }
@@ -122,6 +136,15 @@ class ResumableDownloader(
                 while (bodyStream.read(buffer).also { bytesRead = it } != -1) {
                     if (isPausedOrCancelled() || !coroutineContext.isActive) {
                         outStream.flush()
+                        try {
+                            storageProvider.openOutputStream(partFilename, append = false).use { out ->
+                                localStagingFile.inputStream().use { inp ->
+                                    inp.copyTo(out)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            PlaybackLogger.log("SoftifyDownload", "Could not sync partial file to storage: ${e.message}")
+                        }
                         return@withContext DownloadResult.Paused(existingBytes, totalBytes)
                     }
                     outStream.write(buffer, 0, bytesRead)
