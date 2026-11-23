@@ -3,9 +3,15 @@ package com.softify.app.viewmodel
 import com.softify.app.data.DatabaseGate
 import com.softify.app.download.DownloadQueueManager
 import com.softify.app.download.ResumableDownloader
+import com.softify.app.playback.CrossfadeScheduler
+import com.softify.app.playback.CrossfadeState
+import com.softify.app.playback.LoudnessNormalizer
+import com.softify.app.playback.LoudnessResult
+import com.softify.app.playback.LoudnessSource
 import com.softify.app.playback.QueueManager
 import com.softify.app.playback.QueueState
 import com.softify.app.playback.RepeatMode
+import com.softify.app.playback.TransitionType
 import com.softify.app.storage.DirectoryStorageProvider
 import com.softify.app.storage.StorageProvider
 import com.softify.app.util.PlaybackLogger
@@ -220,6 +226,50 @@ class PlaybackViewModel(
     var onShareText: ((String) -> Unit)? = null
     var onPlayTestUrlRequested: ((String) -> Unit)? = null
     var onProbeYouTubeRequested: (() -> Unit)? = null
+    var onNextMediaSourceReady: ((Track, StreamInfo) -> Unit)? = null
+    var onQueueInvalidated: (() -> Unit)? = null
+    var onCrossfadeConfigChanged: ((durationMs: Long, skipAlbum: Boolean) -> Unit)? = null
+    var onGaplessConfigChanged: ((enabled: Boolean) -> Unit)? = null
+    var onLoudnessConfigChanged: ((enabled: Boolean, targetLufs: Float, allowBoost: Boolean) -> Unit)? = null
+
+    // Audio & Loudness Normalization Settings (M4b)
+    private val _isLoudnessEnabled = MutableStateFlow(true)
+    val isLoudnessEnabled: StateFlow<Boolean> = _isLoudnessEnabled.asStateFlow()
+
+    private val _targetLufs = MutableStateFlow(LoudnessNormalizer.DEFAULT_TARGET_LUFS)
+    val targetLufs: StateFlow<Float> = _targetLufs.asStateFlow()
+
+    private val _allowLoudnessBoost = MutableStateFlow(false)
+    val allowLoudnessBoost: StateFlow<Boolean> = _allowLoudnessBoost.asStateFlow()
+
+    private val _activeLoudnessResult = MutableStateFlow<LoudnessResult?>(null)
+    val activeLoudnessResult: StateFlow<LoudnessResult?> = _activeLoudnessResult.asStateFlow()
+
+    // Gapless & Crossfade Settings (M4c)
+    private val _isGaplessEnabled = MutableStateFlow(true)
+    val isGaplessEnabled: StateFlow<Boolean> = _isGaplessEnabled.asStateFlow()
+
+    private val _crossfadeDurationSec = MutableStateFlow(0)
+    val crossfadeDurationSec: StateFlow<Int> = _crossfadeDurationSec.asStateFlow()
+
+    private val _skipAlbumConsecutiveCrossfade = MutableStateFlow(true)
+    val skipAlbumConsecutiveCrossfade: StateFlow<Boolean> = _skipAlbumConsecutiveCrossfade.asStateFlow()
+
+    // Crossfade & Gapless Telemetry (M4c)
+    private val _isNextTrackPrebuffered = MutableStateFlow(false)
+    val isNextTrackPrebuffered: StateFlow<Boolean> = _isNextTrackPrebuffered.asStateFlow()
+
+    private val _prebufferedTrack = MutableStateFlow<Track?>(null)
+    val prebufferedTrack: StateFlow<Track?> = _prebufferedTrack.asStateFlow()
+
+    private val _crossfadeState = MutableStateFlow(CrossfadeState.IDLE)
+    val crossfadeState: StateFlow<CrossfadeState> = _crossfadeState.asStateFlow()
+
+    private val _crossfadeProgress = MutableStateFlow(0f)
+    val crossfadeProgress: StateFlow<Float> = _crossfadeProgress.asStateFlow()
+
+    private val _lastTransitionType = MutableStateFlow(TransitionType.NONE)
+    val lastTransitionType: StateFlow<TransitionType> = _lastTransitionType.asStateFlow()
 
     // Player & Sheet Expanded States (M3c)
     private val _isNowPlayingExpanded = MutableStateFlow(false)
@@ -257,6 +307,18 @@ class PlaybackViewModel(
         queueManager.onNeedContinuation = { seedId, token ->
             fetchRadioContinuation(seedId, token)
         }
+        queueManager.onNextStreamReady = { nextTrack, streamInfo ->
+            _isNextTrackPrebuffered.value = true
+            _prebufferedTrack.value = nextTrack
+            onNextMediaSourceReady?.invoke(nextTrack, streamInfo)
+        }
+        queueManager.onQueueModified = {
+            _isNextTrackPrebuffered.value = false
+            _prebufferedTrack.value = null
+            onQueueInvalidated?.invoke()
+            queueManager.preResolveNext(_qualityPreset.value)
+        }
+        loadAudioSettings()
         refreshAll()
     }
 
@@ -430,6 +492,145 @@ class PlaybackViewModel(
             } catch (e: Exception) {
                 showSnackbar("Failed to toggle incognito: ${e.message}")
             }
+        }
+    }
+
+    fun loadAudioSettings() {
+        scope.launch(Dispatchers.Default) {
+            try {
+                withDatabase {
+                    val loudEnabled = getSetting("setting_loudness_enabled")?.toBooleanStrictOrNull() ?: true
+                    val target = getSetting("setting_target_lufs")?.toFloatOrNull() ?: LoudnessNormalizer.DEFAULT_TARGET_LUFS
+                    val allowBoost = getSetting("setting_allow_boost")?.toBooleanStrictOrNull() ?: false
+                    val gapless = getSetting("setting_gapless_enabled")?.toBooleanStrictOrNull() ?: true
+                    val crossfade = getSetting("setting_crossfade_duration")?.toIntOrNull() ?: 0
+                    val skipAlbum = getSetting("setting_skip_album_crossfade")?.toBooleanStrictOrNull() ?: true
+
+                    _isLoudnessEnabled.value = loudEnabled
+                    _targetLufs.value = target
+                    _allowLoudnessBoost.value = allowBoost
+                    _isGaplessEnabled.value = gapless
+                    _crossfadeDurationSec.value = crossfade
+                    _skipAlbumConsecutiveCrossfade.value = skipAlbum
+
+                    onLoudnessConfigChanged?.invoke(loudEnabled, target, allowBoost)
+                    onGaplessConfigChanged?.invoke(gapless)
+                    onCrossfadeConfigChanged?.invoke(crossfade * 1000L, skipAlbum)
+                }
+            } catch (e: Exception) {
+                PlaybackLogger.log("SoftifyPlayback", "loadAudioSettings error: ${e.message}")
+            }
+        }
+    }
+
+    fun toggleLoudnessEnabled() {
+        val next = !_isLoudnessEnabled.value
+        _isLoudnessEnabled.value = next
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("setting_loudness_enabled", next.toString()) } }
+        }
+        onLoudnessConfigChanged?.invoke(next, _targetLufs.value, _allowLoudnessBoost.value)
+        updateActiveTrackLoudness()
+    }
+
+    fun setTargetLufs(lufs: Float) {
+        val clamped = lufs.coerceIn(LoudnessNormalizer.MIN_TARGET_LUFS, LoudnessNormalizer.MAX_TARGET_LUFS)
+        _targetLufs.value = clamped
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("setting_target_lufs", clamped.toString()) } }
+        }
+        onLoudnessConfigChanged?.invoke(_isLoudnessEnabled.value, clamped, _allowLoudnessBoost.value)
+        updateActiveTrackLoudness()
+    }
+
+    fun toggleAllowLoudnessBoost() {
+        val next = !_allowLoudnessBoost.value
+        _allowLoudnessBoost.value = next
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("setting_allow_boost", next.toString()) } }
+        }
+        onLoudnessConfigChanged?.invoke(_isLoudnessEnabled.value, _targetLufs.value, next)
+        updateActiveTrackLoudness()
+    }
+
+    fun toggleGaplessEnabled() {
+        val next = !_isGaplessEnabled.value
+        _isGaplessEnabled.value = next
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("setting_gapless_enabled", next.toString()) } }
+        }
+        onGaplessConfigChanged?.invoke(next)
+    }
+
+    fun setCrossfadeDurationSec(sec: Int) {
+        val clamped = sec.coerceIn(0, 12)
+        _crossfadeDurationSec.value = clamped
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("setting_crossfade_duration", clamped.toString()) } }
+        }
+        onCrossfadeConfigChanged?.invoke(clamped * 1000L, _skipAlbumConsecutiveCrossfade.value)
+    }
+
+    fun toggleSkipAlbumConsecutiveCrossfade() {
+        val next = !_skipAlbumConsecutiveCrossfade.value
+        _skipAlbumConsecutiveCrossfade.value = next
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("setting_skip_album_crossfade", next.toString()) } }
+        }
+        onCrossfadeConfigChanged?.invoke(_crossfadeDurationSec.value * 1000L, next)
+    }
+
+    fun setCrossfadeTelemetry(state: CrossfadeState, progress: Float, type: TransitionType) {
+        _crossfadeState.value = state
+        _crossfadeProgress.value = progress
+        if (type != TransitionType.NONE) {
+            _lastTransitionType.value = type
+        }
+    }
+
+    fun onTrackAutoTransitioned(newTrackId: String) {
+        val qState = queueManager.queueState.value
+        val track = qState.tracks.firstOrNull { it.id == newTrackId } ?: qState.nextTrack ?: return
+        val trackIdx = qState.tracks.indexOfFirst { it.id == track.id }
+        if (trackIdx != -1) {
+            queueManager.jumpTo(trackIdx)
+        }
+        _activeTrack.value = track
+        _playbackProgress.value = 0f
+        _currentPositionMs.value = 0L
+        _durationMs.value = track.durationMs.toLong()
+        _lyrics.value = null
+        loadLyricsForActiveTrack()
+        updateActiveTrackLoudness()
+        queueManager.preResolveNext(_qualityPreset.value)
+    }
+
+    private fun updateActiveTrackLoudness() {
+        val track = _activeTrack.value ?: return
+        val stream = _activeStream.value
+        scope.launch(Dispatchers.Default) {
+            val rawLocal = runCatching { withDatabase { getSetting("loudness_${track.id}") } }.getOrNull()
+            val loudness = if (_isLoudnessEnabled.value) {
+                LoudnessNormalizer.calculateGain(
+                    track = track,
+                    streamInfo = stream,
+                    rawLocalSetting = rawLocal,
+                    targetLufs = _targetLufs.value,
+                    allowBoost = _allowLoudnessBoost.value
+                )
+            } else {
+                LoudnessResult(
+                    source = LoudnessSource.NONE,
+                    detectedLoudnessDb = null,
+                    peak = null,
+                    targetLufs = _targetLufs.value,
+                    calculatedGainDb = 0f,
+                    appliedGainDb = 0f,
+                    volumeMultiplier = 1.0f,
+                    boostDb = 0f
+                )
+            }
+            _activeLoudnessResult.value = loudness
         }
     }
 
@@ -858,6 +1059,34 @@ class PlaybackViewModel(
             }
 
             _activeStream.value = stream
+
+            // Compute track loudness normalization (M4b)
+            val rawLocal = runCatching { withDatabase { getSetting("loudness_${track.id}") } }.getOrNull()
+            val loudness = if (_isLoudnessEnabled.value) {
+                LoudnessNormalizer.calculateGain(
+                    track = track,
+                    streamInfo = stream,
+                    rawLocalSetting = rawLocal,
+                    targetLufs = _targetLufs.value,
+                    allowBoost = _allowLoudnessBoost.value
+                )
+            } else {
+                LoudnessResult(
+                    source = LoudnessSource.NONE,
+                    detectedLoudnessDb = null,
+                    peak = null,
+                    targetLufs = _targetLufs.value,
+                    calculatedGainDb = 0f,
+                    appliedGainDb = 0f,
+                    volumeMultiplier = 1.0f,
+                    boostDb = 0f
+                )
+            }
+            _activeLoudnessResult.value = loudness
+            PlaybackLogger.log(
+                "SoftifyPlayback",
+                "Loudness computed: source=${loudness.source}, detected=${loudness.detectedLoudnessDb}dB, gain=${loudness.appliedGainDb}dB, mult=${loudness.volumeMultiplier}, boost=${loudness.boostDb}dB"
+            )
 
             val host = runCatching { java.net.URI(stream.url).host ?: "unknown" }.getOrDefault("unknown")
             PlaybackLogger.log(

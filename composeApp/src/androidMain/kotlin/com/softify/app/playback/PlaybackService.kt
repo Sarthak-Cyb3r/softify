@@ -26,6 +26,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.softify.app.util.PlaybackLogger
@@ -140,8 +141,15 @@ class BoundedHttpDataSourceFactory(
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
-    lateinit var player: ExoPlayer
+    lateinit var crossfadePlayerManager: CrossfadePlayerManager
         private set
+
+    val player: ExoPlayer
+        get() = crossfadePlayerManager.activePlayer
+
+    var onTrackAutoTransitioned: ((Track) -> Unit)? = null
+    var onTelemetryUpdated: ((CrossfadeState, Float, TransitionType) -> Unit)? = null
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private lateinit var retryManager: PlaybackRetryManager
@@ -198,113 +206,103 @@ class PlaybackService : MediaSessionService() {
             }
         )
 
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .build()
-
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(15000)
-
-        val boundedHttpFactory = BoundedHttpDataSourceFactory(httpDataSourceFactory)
-        val defaultDataSourceFactory = DefaultDataSource.Factory(this, boundedHttpFactory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(defaultDataSourceFactory)
-
-        player = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, true)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build()
-
-        player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (player.currentPosition > 0L) {
-                    lastPlaybackPositionMs = player.currentPosition
+        crossfadePlayerManager = CrossfadePlayerManager(
+            context = this,
+            scope = serviceScope,
+            onMediaSessionPlayerChanged = { newPlayer ->
+                mediaSession?.setPlayer(newPlayer)
+            },
+            onTrackTransitioned = { newTrack ->
+                currentTrack = newTrack
+                val sInfo = currentStreamInfo
+                if (sInfo != null) {
+                    updateForegroundNotification(newTrack, sInfo)
                 }
-                val stateName = when (state) {
-                    Player.STATE_IDLE -> "IDLE"
-                    Player.STATE_BUFFERING -> "BUFFERING"
-                    Player.STATE_READY -> "READY"
-                    Player.STATE_ENDED -> "ENDED"
-                    else -> "UNKNOWN($state)"
-                }
-                PlaybackLogger.log("SoftifyPlayback", "Player state: $stateName (playWhenReady=${player.playWhenReady}, duration=${player.duration}ms)")
+                onTrackAutoTransitioned?.invoke(newTrack)
+            },
+            onTelemetryUpdated = { state, progress, type ->
+                onTelemetryUpdated?.invoke(state, progress, type)
             }
+        )
 
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                PlaybackLogger.log("SoftifyPlayback", "Player isPlaying changed: $isPlaying")
+        crossfadePlayerManager.onPlaybackStateChanged = { state ->
+            if (player.currentPosition > 0L) {
+                lastPlaybackPositionMs = player.currentPosition
             }
+        }
 
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                if (!playWhenReady) {
-                    PlaybackLogger.log("SoftifyPlayback", "User/System paused playback; cancelling pending retries")
-                    retryManager.onUserPauseOrStop()
+        crossfadePlayerManager.onPlayWhenReadyChanged = { playWhenReady ->
+            if (!playWhenReady) {
+                PlaybackLogger.log("SoftifyPlayback", "User/System paused playback; cancelling pending retries")
+                retryManager.onUserPauseOrStop()
+            }
+        }
+
+        crossfadePlayerManager.onPlayerError = { error ->
+            handlePlayerError(error)
+        }
+
+        mediaSession = MediaSession.Builder(this, crossfadePlayerManager.activePlayer).build()
+        PlaybackLogger.log("SoftifyPlayback", "MediaSession initialized")
+    }
+
+    private fun handlePlayerError(error: PlaybackException) {
+        var httpStatus: Int? = null
+        var cause: Throwable? = error.cause
+        while (cause != null) {
+            if (cause is HttpDataSource.InvalidResponseCodeException) {
+                httpStatus = cause.responseCode
+                break
+            }
+            cause = cause.cause
+        }
+        val httpMsg = if (httpStatus != null) " (HTTP status: $httpStatus)" else ""
+        val errorMsg = "onPlayerError: ${error.errorCodeName}$httpMsg - ${error.message}"
+        PlaybackLogger.log("SoftifyPlayback", errorMsg)
+
+        val track = currentTrack
+        val streamUrl = currentStreamInfo?.url ?: ""
+        val isLocalDownload = streamUrl.startsWith("content://") || streamUrl.startsWith("file://") || currentStreamInfo?.provider == "local"
+
+        if (isLocalDownload && track != null) {
+            PlaybackLogger.log("SoftifyPlayback", "Local download unreadable for '${track.title}' (${error.errorCodeName}): marking as needs repair and falling back to streaming silently")
+            serviceScope.launch {
+                try {
+                    uniffi.softify_core.markDownloadRepair(track.id, "Local playback error: ${error.errorCodeName}")
+                    val freshStream = resolveStream(track, currentPreset)
+                    playStream(track, freshStream, 0L, null)
+                } catch (e: Exception) {
+                    PlaybackLogger.log("SoftifyPlayback", "Fallback to stream failed: ${e.message}")
                 }
             }
+            return
+        }
 
-            override fun onPlayerError(error: PlaybackException) {
-                var httpStatus: Int? = null
-                var cause: Throwable? = error.cause
-                while (cause != null) {
-                    if (cause is HttpDataSource.InvalidResponseCodeException) {
-                        httpStatus = cause.responseCode
-                        break
-                    }
-                    cause = cause.cause
-                }
-                val httpMsg = if (httpStatus != null) " (HTTP status: $httpStatus)" else ""
-                val errorMsg = "onPlayerError: ${error.errorCodeName}$httpMsg - ${error.message}"
-                PlaybackLogger.log("SoftifyPlayback", errorMsg)
+        val isContainerOr403 = (httpStatus == 403) ||
+            error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+            error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
 
-                val track = currentTrack
-                val streamUrl = currentStreamInfo?.url ?: ""
-                val isLocalDownload = streamUrl.startsWith("content://") || streamUrl.startsWith("file://") || currentStreamInfo?.provider == "local"
-
-                if (isLocalDownload && track != null) {
-                    PlaybackLogger.log("SoftifyPlayback", "Local download unreadable for '${track.title}' (${error.errorCodeName}): marking as needs repair and falling back to streaming silently")
-                    serviceScope.launch {
-                        try {
-                            uniffi.softify_core.markDownloadRepair(track.id, "Local playback error: ${error.errorCodeName}")
-                            val freshStream = resolveStream(track, currentPreset)
-                            playStream(track, freshStream, 0L, null)
-                        } catch (e: Exception) {
-                            PlaybackLogger.log("SoftifyPlayback", "Fallback to stream failed: ${e.message}")
-                        }
-                    }
-                    return
-                }
-
-                val isContainerOr403 = (httpStatus == 403) ||
-                    error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
-                    error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
-
-                if (isContainerOr403 && track != null) {
-                    val resumePos = maxOf(lastPlaybackPositionMs, player.currentPosition).coerceAtLeast(0L)
-                    PlaybackLogger.log(
-                        "SoftifyPlayback",
-                        "Mid-stream 403/container error for '${track.title}' at ${resumePos}ms; auto-refreshing expired stream URL silently"
-                    )
-                    serviceScope.launch {
-                        try {
-                            val freshStream = resolveStream(track, currentPreset)
-                            playStream(track, freshStream, resumePos, currentSessionId)
-                        } catch (e: Exception) {
-                            PlaybackLogger.log("SoftifyPlayback", "Auto-refresh stream failed: ${e.message}")
-                            retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
-                        }
-                    }
-                    return
-                }
-
-                if (track != null) {
+        if (isContainerOr403 && track != null) {
+            val resumePos = maxOf(lastPlaybackPositionMs, player.currentPosition).coerceAtLeast(0L)
+            PlaybackLogger.log(
+                "SoftifyPlayback",
+                "Mid-stream 403/container error for '${track.title}' at ${resumePos}ms; auto-refreshing expired stream URL silently"
+            )
+            serviceScope.launch {
+                try {
+                    val freshStream = resolveStream(track, currentPreset)
+                    playStream(track, freshStream, resumePos, currentSessionId)
+                } catch (e: Exception) {
+                    PlaybackLogger.log("SoftifyPlayback", "Auto-refresh stream failed: ${e.message}")
                     retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
                 }
             }
-        })
+            return
+        }
 
-        mediaSession = MediaSession.Builder(this, player).build()
-        PlaybackLogger.log("SoftifyPlayback", "MediaSession initialized")
+        if (track != null) {
+            retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -366,21 +364,7 @@ class PlaybackService : MediaSessionService() {
         return START_NOT_STICKY
     }
 
-    fun playStream(track: Track, streamInfo: StreamInfo, startPositionMs: Long = 0L, targetSessionId: Long? = null) {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            Handler(Looper.getMainLooper()).post {
-                playStream(track, streamInfo, startPositionMs, targetSessionId)
-            }
-            return
-        }
-        val sessionId = targetSessionId ?: retryManager.startNewSession(track.id)
-        currentSessionId = sessionId
-        currentTrack = track
-        currentStreamInfo = streamInfo
-
-        val host = runCatching { Uri.parse(streamInfo.url).host ?: "unknown" }.getOrDefault("unknown")
-        PlaybackLogger.log("SoftifyPlayback", "playStream: '${track.title}' (session $sessionId), host=$host, bitrate=${streamInfo.bitrateKbps}k, codec=${streamInfo.codec}")
-
+    fun createMediaSource(streamInfo: StreamInfo, track: Track): MediaSource {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15000)
@@ -418,17 +402,90 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         PlaybackLogger.log("SoftifyPlayback", "MediaItem built: mediaId=${track.id}, mimeType=$mimeType")
+        return mediaSourceFactory.createMediaSource(mediaItem)
+    }
 
-        val mediaSource = mediaSourceFactory.createMediaSource(mediaItem)
-        player.setMediaSource(mediaSource)
-        if (startPositionMs > 0) {
-            player.seekTo(startPositionMs)
+    fun playStream(
+        track: Track,
+        streamInfo: StreamInfo,
+        startPositionMs: Long = 0L,
+        targetSessionId: Long? = null,
+        loudnessResult: LoudnessResult? = null
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post {
+                playStream(track, streamInfo, startPositionMs, targetSessionId, loudnessResult)
+            }
+            return
         }
-        player.prepare()
-        player.play()
-        PlaybackLogger.log("SoftifyPlayback", "player.prepare() & player.play() invoked")
+        val sessionId = targetSessionId ?: retryManager.startNewSession(track.id)
+        currentSessionId = sessionId
+        currentTrack = track
+        currentStreamInfo = streamInfo
+
+        val host = runCatching { Uri.parse(streamInfo.url).host ?: "unknown" }.getOrDefault("unknown")
+        PlaybackLogger.log("SoftifyPlayback", "playStream: '${track.title}' (session $sessionId), host=$host, bitrate=${streamInfo.bitrateKbps}k, codec=${streamInfo.codec}")
+
+        val mediaSource = createMediaSource(streamInfo, track)
+        if (loudnessResult != null) {
+            crossfadePlayerManager.applySmoothLoudnessMultiplier(loudnessResult.volumeMultiplier)
+            crossfadePlayerManager.applyBoost(loudnessResult.boostDb)
+        }
+        crossfadePlayerManager.playTrack(track, mediaSource, startPositionMs)
+        PlaybackLogger.log("SoftifyPlayback", "crossfadePlayerManager.playTrack invoked for '${track.title}'")
 
         updateForegroundNotification(track, streamInfo)
+    }
+
+    fun prebufferNextTrack(track: Track, streamInfo: StreamInfo, loudnessResult: LoudnessResult? = null) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post {
+                prebufferNextTrack(track, streamInfo, loudnessResult)
+            }
+            return
+        }
+        if (loudnessResult != null) {
+            crossfadePlayerManager.secondaryLoudnessMultiplier = loudnessResult.volumeMultiplier
+        }
+        val mediaSource = createMediaSource(streamInfo, track)
+        crossfadePlayerManager.prebufferNextTrack(track, mediaSource)
+    }
+
+    fun clearUpcoming() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Handler(Looper.getMainLooper()).post { clearUpcoming() }
+            return
+        }
+        crossfadePlayerManager.clearUpcoming()
+    }
+
+    fun setCrossfadeConfig(durationMs: Long, skipAlbum: Boolean) {
+        crossfadePlayerManager.scheduler.crossfadeDurationMs = durationMs
+        crossfadePlayerManager.scheduler.skipAlbumConsecutive = skipAlbum
+    }
+
+    fun setGaplessEnabled(enabled: Boolean) {
+        crossfadePlayerManager.isGaplessEnabled = enabled
+    }
+
+    fun updateActiveLoudness(loudness: LoudnessResult?) {
+        if (loudness != null) {
+            crossfadePlayerManager.applySmoothLoudnessMultiplier(loudness.volumeMultiplier)
+            crossfadePlayerManager.applyBoost(loudness.boostDb)
+        } else {
+            crossfadePlayerManager.applySmoothLoudnessMultiplier(1.0f)
+            crossfadePlayerManager.applyBoost(0f)
+        }
+    }
+
+    fun checkCrossfade() {
+        val cur = crossfadePlayerManager.activePlayer.currentPosition
+        val dur = crossfadePlayerManager.activePlayer.duration
+        crossfadePlayerManager.checkAndTriggerCrossfade(cur, dur)
+    }
+
+    fun handleManualSkip(current: Track, onComplete: () -> Unit) {
+        crossfadePlayerManager.handleManualSkip(current, onComplete)
     }
 
     fun playDirectTestUrl(url: String) {
@@ -454,13 +511,20 @@ class PlaybackService : MediaSessionService() {
 
         PlaybackLogger.log("SoftifyPlayback", "MediaItem built for direct test URL")
         val mediaSource = mediaSourceFactory.createMediaSource(mediaItem)
-        player.setMediaSource(mediaSource)
-        player.prepare()
-        player.play()
-        PlaybackLogger.log("SoftifyPlayback", "Direct test URL player.prepare() & player.play() invoked")
-
         val dummyTrack = Track(
             id = "direct_test",
+            sourceId = "direct_test",
+            title = "ExoPlayer Direct Test Stream",
+            artist = "Google Cloud Storage",
+            album = "Diagnostics Bypass",
+            durationMs = 120_000u,
+            coverUrl = null,
+            matchConfidence = null,
+            isLiked = false,
+            isUnavailable = false
+        )
+        crossfadePlayerManager.playTrack(dummyTrack, mediaSource)
+        PlaybackLogger.log("SoftifyPlayback", "Direct test URL crossfadePlayerManager.playTrack invoked")
             sourceId = "direct_test",
             title = "ExoPlayer Direct Test Stream",
             artist = "Google Cloud Storage",
@@ -532,10 +596,10 @@ class PlaybackService : MediaSessionService() {
         retryManager.onUserPauseOrStop()
         instance = null
         mediaSession?.run {
-            player.release()
             release()
             mediaSession = null
         }
+        crossfadePlayerManager.release()
         super.onDestroy()
     }
 }

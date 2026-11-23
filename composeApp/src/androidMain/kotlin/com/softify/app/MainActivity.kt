@@ -215,7 +215,7 @@ class MainActivity : ComponentActivity() {
                 val service = PlaybackService.instance
                 if (service != null) {
                     PlaybackLogger.log("SoftifyPlayback", "Calling PlaybackService.instance.playStream directly for '${track.title}'")
-                    service.playStream(track, streamInfo, 0L)
+                    service.playStream(track, streamInfo, 0L, null, viewModel.activeLoudnessResult.value)
                 } else {
                     PlaybackLogger.log("SoftifyPlayback", "PlaybackService instance null; starting service via Intent for '${track.title}'")
                     val intent = Intent(this, PlaybackService::class.java).apply {
@@ -248,6 +248,41 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Connect ViewModel pre-buffer and audio settings to playback service (M4b & M4c)
+        viewModel.onNextMediaSourceReady = { nextTrack, streamInfo ->
+            runOnUiThread {
+                PlaybackService.instance?.prebufferNextTrack(
+                    track = nextTrack,
+                    streamInfo = streamInfo,
+                    loudnessResult = viewModel.activeLoudnessResult.value
+                )
+            }
+        }
+
+        viewModel.onQueueInvalidated = {
+            runOnUiThread {
+                PlaybackService.instance?.clearUpcoming()
+            }
+        }
+
+        viewModel.onCrossfadeConfigChanged = { durMs, skipAlbum ->
+            runOnUiThread {
+                PlaybackService.instance?.setCrossfadeConfig(durMs, skipAlbum)
+            }
+        }
+
+        viewModel.onGaplessConfigChanged = { enabled ->
+            runOnUiThread {
+                PlaybackService.instance?.setGaplessEnabled(enabled)
+            }
+        }
+
+        viewModel.onLoudnessConfigChanged = { _, _, _ ->
+            runOnUiThread {
+                PlaybackService.instance?.updateActiveLoudness(viewModel.activeLoudnessResult.value)
+            }
+        }
+
         // Bind to Media3 PlaybackService
         PlaybackLogger.log("SoftifyPlayback", "Building MediaController async connection to PlaybackService...")
         val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
@@ -257,6 +292,18 @@ class MainActivity : ComponentActivity() {
                 mediaController = controllerFuture?.get()
                 viewModel.isMediaControllerConnected = true
                 PlaybackLogger.log("SoftifyPlayback", "MediaController: CONNECTED to PlaybackService")
+
+                PlaybackService.instance?.onTrackAutoTransitioned = { newTrack ->
+                    runOnUiThread {
+                        viewModel.onTrackAutoTransitioned(newTrack.id)
+                    }
+                }
+                PlaybackService.instance?.onTelemetryUpdated = { state, progress, type ->
+                    runOnUiThread {
+                        viewModel.setCrossfadeTelemetry(state, progress, type)
+                    }
+                }
+
                 mediaController?.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         val stateName = when (state) {
@@ -308,6 +355,7 @@ class MainActivity : ComponentActivity() {
             while (true) {
                 delay(250L)
                 val controller = mediaController
+                PlaybackService.instance?.checkCrossfade()
                 if (controller != null && controller.isPlaying) {
                     val duration = controller.duration
                     val position = controller.currentPosition
