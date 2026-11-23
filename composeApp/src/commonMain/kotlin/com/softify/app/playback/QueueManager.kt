@@ -106,6 +106,9 @@ class QueueManager(
 
     var localDownloadResolver: (suspend (Track) -> StreamInfo?)? = null
 
+    var onQueueModified: (() -> Unit)? = null
+    var onNextStreamReady: ((Track, StreamInfo) -> Unit)? = null
+
     fun setQueue(tracks: List<Track>, startIndex: Int = 0) {
         isRadioMode = false
         radioSeedId = null
@@ -120,6 +123,7 @@ class QueueManager(
             "SoftifyPlayback",
             "QueueManager: setQueue with ${tracks.size} tracks, startIndex=$validIndex"
         )
+        onQueueModified?.invoke()
     }
 
     fun setRadioQueue(seedTrack: Track, radioTracks: List<Track>, continuation: String?) {
@@ -138,6 +142,7 @@ class QueueManager(
             "SoftifyPlayback",
             "QueueManager: setRadioQueue with seed '${seedTrack.title}' + ${deduplicated.size} radio tracks, continuation=$continuation"
         )
+        onQueueModified?.invoke()
     }
 
     fun appendRadioTracks(newTracks: List<Track>, continuation: String?) {
@@ -155,6 +160,7 @@ class QueueManager(
             "SoftifyPlayback",
             "QueueManager: appendRadioTracks added ${filtered.size} tracks (total=${updated.size}), next continuation=$continuation"
         )
+        onQueueModified?.invoke()
     }
 
     fun checkContinuationThreshold() {
@@ -192,6 +198,7 @@ class QueueManager(
             "SoftifyPlayback",
             "QueueManager: playNext '${track.title}', inserted at index $insertIndex"
         )
+        onQueueModified?.invoke()
     }
 
     fun addToQueue(track: Track) {
@@ -208,6 +215,7 @@ class QueueManager(
             "SoftifyPlayback",
             "QueueManager: addToQueue '${track.title}', total tracks=${list.size}"
         )
+        onQueueModified?.invoke()
     }
 
     fun removeAt(index: Int) {
@@ -226,6 +234,7 @@ class QueueManager(
             currentIndex = newIndex,
             playNextTrackIds = current.playNextTrackIds - removed.id
         )
+        onQueueModified?.invoke()
     }
 
     fun move(fromIndex: Int, toIndex: Int) {
@@ -241,6 +250,7 @@ class QueueManager(
             else -> current.currentIndex
         }
         _queueState.value = current.copy(tracks = list, currentIndex = newCurrentIndex)
+        onQueueModified?.invoke()
     }
 
     fun jumpTo(index: Int): Track? {
@@ -250,6 +260,7 @@ class QueueManager(
         val track = current.tracks[index]
         PlaybackLogger.log("SoftifyPlayback", "QueueManager: jumpTo index $index: '${track.title}'")
         checkContinuationThreshold()
+        onQueueModified?.invoke()
         return track
     }
 
@@ -257,6 +268,7 @@ class QueueManager(
         _queueState.value = _queueState.value.copy(tracks = emptyList(), currentIndex = -1)
         cachedStreams.clear()
         PlaybackLogger.log("SoftifyPlayback", "QueueManager: queue cleared")
+        onQueueModified?.invoke()
     }
 
     fun toggleRepeatMode(): RepeatMode {
@@ -274,6 +286,7 @@ class QueueManager(
         val next = !_queueState.value.isShuffle
         _queueState.value = _queueState.value.copy(isShuffle = next)
         PlaybackLogger.log("SoftifyPlayback", "QueueManager: isShuffle set to $next")
+        onQueueModified?.invoke()
         return next
     }
 
@@ -396,15 +409,18 @@ class QueueManager(
         val nowMs = timeProvider()
         val cached = cachedStreams[next.id]
         if (cached != null && !cached.isExpired(nowMs)) {
+            onNextStreamReady?.invoke(next, cached.stream)
             return
         }
 
         scope.launch {
             try {
                 PlaybackLogger.log("SoftifyPlayback", "QueueManager: Pre-resolving upcoming track '${next.title}'...")
-                val stream = resolveStream(next, preset)
+                val local = runCatching { localDownloadResolver?.invoke(next) }.getOrNull()
+                val stream = local ?: resolveStream(next, preset)
                 cachedStreams[next.id] = CachedStream(stream, timeProvider())
                 PlaybackLogger.log("SoftifyPlayback", "QueueManager: Pre-resolved upcoming track '${next.title}' OK")
+                onNextStreamReady?.invoke(next, stream)
             } catch (e: Exception) {
                 PlaybackLogger.log("SoftifyPlayback", "QueueManager: Pre-resolve failed for '${next.title}': ${e.message}")
             }

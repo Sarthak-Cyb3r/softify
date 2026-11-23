@@ -193,4 +193,33 @@ class QueueManagerTest {
         manager.addToQueue(queuedTrack)
         assertFalse(manager.queueState.value.playNextTrackIds.contains("q1"))
     }
+
+    @Test
+    fun testOnQueueModifiedCallback() {
+        val testDispatcher = StandardTestDispatcher()
+        val testScope = TestScope(testDispatcher)
+        val manager = QueueManager(scope = testScope)
+
+        var modificationCount = 0
+        manager.onQueueModified = {
+            modificationCount++
+        }
+
+        val t1 = createTrack("1", "Track 1")
+        val t2 = createTrack("2", "Track 2")
+        manager.setQueue(listOf(t1, t2), startIndex = 0)
+        assertEquals(1, modificationCount)
+
+        manager.playNext(createTrack("3", "Track 3"))
+        assertEquals(2, modificationCount)
+
+        manager.move(0, 1)
+        assertEquals(3, modificationCount)
+
+        manager.removeAt(0)
+        assertEquals(4, modificationCount)
+
+        manager.clear()
+        assertEquals(5, modificationCount)
+    }
 }
