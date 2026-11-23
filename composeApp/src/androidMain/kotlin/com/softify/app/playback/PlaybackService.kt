@@ -525,16 +525,6 @@ class PlaybackService : MediaSessionService() {
         )
         crossfadePlayerManager.playTrack(dummyTrack, mediaSource)
         PlaybackLogger.log("SoftifyPlayback", "Direct test URL crossfadePlayerManager.playTrack invoked")
-            sourceId = "direct_test",
-            title = "ExoPlayer Direct Test Stream",
-            artist = "Google Cloud Storage",
-            album = "Diagnostics Bypass",
-            durationMs = 120_000u,
-            coverUrl = null,
-            matchConfidence = null,
-            isLiked = false,
-            isUnavailable = false
-        )
         val dummyStream = StreamInfo(
             url = url,
             container = "mp3",
