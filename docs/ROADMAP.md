@@ -34,14 +34,13 @@
   - Artist & Album Detail Screens: hero cover art, play/shuffle all, numbered track rows, reachable from track rows overflow and Now Playing header links.
   - Zero emojis across UI (`NoEmojiTest` compliant), minimal bitrate badge, no scalloped shapes.
 
-## Current Milestone
-- **M3d: Radio Queue, Local Recommendations, & 60 fps Word-by-Word Lyrics**
+- **M3d: Radio Queue, Local Recommendations, & 60 fps Synced Lyrics**
   - Radio queue engine: dynamically builds queue from YouTube Music `next`/radio endpoint for any tapped track (search, library, home shelves, or "Start radio").
   - Infinite playback continuation: automatically triggers next batch fetch when upcoming tracks drop below 5 tracks.
   - Local SQLite re-ranking: scores candidate tracks using completed plays (+1.5), skips (-2.0), liked bonus (+2.5), artist affinity (+0.8/-1.0), and dedupes against last 10 played tracks.
   - "Quick picks" shelf on Home: personalized recommendations respecting max 2 tracks per artist diversity invariant.
   - 60 fps lyrics performance: draw-phase-only position reading (`drawWithContent`), `derivedStateOf` active line indexing, stable LazyColumn keys, and debounced smooth auto-scroll.
-  - Word-by-word lyrics: LRCLIB `hasWordSync` / enhanced LRC parsing, character-count proportional word duration estimation fallback, word highlight and sweep fill, tap word or line to seek.
+  - Synced lyrics rendering: real-time timestamp sync, active line highlight, tap word or line to seek.
   - Zero emojis across UI (`NoEmojiTest` compliant), minimal bitrate badge, squircle design system.
 
 - **M4: Offline Downloads, Storage Access Framework, & Offline Playback**
@@ -56,10 +55,51 @@
   - Material 3 Expressive Downloads screen: live storage capacity visualizer, active queue cards, completed tracks, single & bulk deletion, health alerts for revoked permissions or storage shortage (<50 MB).
   - Track rows & Now Playing download indicators (circular progress spinner, vector checkmark badge), "Download all" on Playlist and Album detail screens.
   - Unhidden Downloads filter chip in Library screen.
-  - Pure logic unit tests with fakes, MockWebServer HTTP tests, and headless 360dp render verification screenshots.
+
+- **M4-Fix: Real-Device Bug Fixes (Home Covers, Prefetch, Offline SAF, Mid-Stream 403, LRC Burst)**
+  - Home cover art fix: YouTube Music responsive list item browse parsing, removal of dead Saavn 404 CDN URLs, and SQLite `COALESCE` with `i.ytimg.com` thumbnail fallbacks.
+  - Prefetch throttling: bounded queue prefetch to next 5 tracks, OkHttp connection bounds, and prefetch cancellation on track skip.
+  - SAF offline playback: `DefaultDataSource.Factory` wrapping in ExoPlayer for `content://` and `file://` playback, and cache staging file tagging before moving to SAF storage.
+  - Mid-stream 403 recovery: `BoundedHttpDataSource` error propagation and automatic silent stream re-resolution from `lastPlaybackPositionMs`.
+  - LRC burst rejection: multi-tag parsing, centisecond fraction normalization, and corrupt tight-burst timestamp rejection falling back cleanly to unsynced plain text.
+
+- **M5: Lyrics & Art Pipeline (from Metrolist REA Analysis)**
+  - Canonical nested lyrics data model (`LyricLine -> Vec<LyricWord>`) eliminating synthetic character-proportional word timing.
+  - Multi-provider keyless lyrics pipeline in Rust core: BetterLyrics (Apple Music TTML), lrc.red, Unison, Paxsenix, YouTube Captions (json3), KuGou, and LRCLIB with 7-day negative caching.
+  - 4-stop linear gradient shader word highlight rendering in Compose with smooth inter-word transitions.
+  - Coil 3 image pipeline with 250 MB disk cache, negative cache suppression for 404s, and bucketed cover resolution.
+
+- **M5-Fix: Real Data Parsers, Layout Measurement, & Headless Verification**
+  - Real TTML and LRCLIB response test fixtures with preserved whitespace and span word segmentation.
+  - Finite `maxWidth` TextMeasurer layout avoiding word truncation, overlapping lines, and scale layout shifts.
+  - 60 fps frame clock with debounced smooth scrolling.
+  - Fully headless cloud CI test verification.
+
+## In Progress Milestones
+- **M4b: ReplayGain & Loudness Normalization**
+  - Priority loudness extraction: ReplayGain tags in local files, YouTube player response `loudnessDb` / `perceptualLoudnessDb`, and unnormalized fallback.
+  - SQLite loudness metadata storage and migration.
+  - Configurable target level (default -14 LUFS), attenuate-only mode by default, and optional `LoudnessEnhancer` boost with peak limiting.
+  - Smooth 100-200 ms volume transitions composed with sleep timer / crossfade multipliers.
+  - Real-time loudness diagnostics in in-app Diagnostics screen.
+
+- **M4c: Gapless Playback & Dual-Player Crossfade**
+  - ExoPlayer timeline pre-buffering for gapless playback of consecutive tracks with queue-synchronous pre-resolution.
+  - Dual-player forwarding architecture (`CrossfadePlayerManager`) for equal-power crossfade (0-12s configurable slider).
+  - Album track preservation (disabling crossfade on consecutive album tracks), manual skip fade (300ms), and mid-fade pause/resume synchronization.
+  - Crossfade state machine and diagnostics telemetry.
 
 ## Upcoming Milestones
-- **M4b: ReplayGain & Loudness Normalization**
-  - EBU R128 loudness scanning and gain adjustment.
-- **M4c: Gapless Playback & Crossfade**
-  - Seamless buffer preloading for consecutive tracks.
+- **M6: Core Ergonomics & Release Hardening**
+  - Session restore across app restarts.
+  - Sleep timer with smooth volume fade-out.
+  - Search UX improvements and filter chips.
+  - Library backup and restore (JSON / OPML).
+  - In-app log viewer and diagnostics export.
+  - R8 full release build optimization with ProGuard rules.
+- **Updater & Signing Automation**
+  - In-app update checker against GitHub Releases.
+  - Production release keystore signing workflow.
+- **Remote Configuration & Backend Sync**
+  - Dynamic provider endpoints and killswitches.
+  - Optional multi-device listen together sync backend.
