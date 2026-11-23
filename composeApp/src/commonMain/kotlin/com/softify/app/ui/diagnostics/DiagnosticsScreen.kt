@@ -176,6 +176,105 @@ fun DiagnosticsScreen(
             }
         }
 
+        // Section 1.7: Audio Processing & Transition Telemetry Card (M4b & M4c)
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF181528)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("Audio Processing & Transition Telemetry", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24))
+                Spacer(modifier = Modifier.height(6.dp))
+
+                val isLoudnessOn = viewModel.isLoudnessEnabled.collectAsState().value
+                val activeLoudness = viewModel.activeLoudnessResult.collectAsState().value
+                val isGapless = viewModel.isGaplessEnabled.collectAsState().value
+                val isPrebuffered = viewModel.isNextTrackPrebuffered.collectAsState().value
+                val prebufTrack = viewModel.prebufferedTrack.collectAsState().value
+                val xfadeState = viewModel.crossfadeState.collectAsState().value
+                val xfadeProgress = viewModel.crossfadeProgress.collectAsState().value
+                val xfadeSec = viewModel.crossfadeDurationSec.collectAsState().value
+                val lastTransition = viewModel.lastTransitionType.collectAsState().value
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Loudness Normalization:", fontSize = 11.sp, color = Color.LightGray)
+                    Text(
+                        if (isLoudnessOn) "ENABLED (${viewModel.targetLufs.collectAsState().value.toInt()} LUFS)" else "DISABLED",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isLoudnessOn) Color(0xFF34D399) else Color(0xFFF87171)
+                    )
+                }
+
+                if (activeLoudness != null) {
+                    val detStr = if (activeLoudness.detectedLoudnessDb != null) "${"%.2f".format(activeLoudness.detectedLoudnessDb)} dB" else "None"
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Detected Loudness:", fontSize = 11.sp, color = Color.LightGray)
+                        Text("$detStr (${activeLoudness.source.name})", fontSize = 11.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.SemiBold)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Applied Gain / Multiplier:", fontSize = 11.sp, color = Color.LightGray)
+                        Text(
+                            "${"%.2f".format(activeLoudness.appliedGainDb)} dB (x${"%.3f".format(activeLoudness.volumeMultiplier)})",
+                            fontSize = 11.sp,
+                            color = Color(0xFFA78BFA),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (activeLoudness.boostDb > 0f) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Headroom-Limited Boost:", fontSize = 11.sp, color = Color.LightGray)
+                            Text("+${"%.2f".format(activeLoudness.boostDb)} dB", fontSize = 11.sp, color = Color(0xFF34D399), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = Color(0xFF2D2A3E))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Gapless Pipeline:", fontSize = 11.sp, color = Color.LightGray)
+                    Text(
+                        if (isGapless) "ENABLED" else "DISABLED",
+                        fontSize = 11.sp,
+                        color = if (isGapless) Color(0xFF34D399) else Color(0xFFF87171),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Next Track Pre-buffer:", fontSize = 11.sp, color = Color.LightGray)
+                    val prebufText = if (isPrebuffered && prebufTrack != null) "READY (${prebufTrack.title.take(18)}...)" else if (isPrebuffered) "READY" else "IDLE / RESOLVING"
+                    Text(
+                        prebufText,
+                        fontSize = 11.sp,
+                        color = if (isPrebuffered) Color(0xFF34D399) else Color(0xFFFBBF24),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = Color(0xFF2D2A3E))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Crossfade Engine:", fontSize = 11.sp, color = Color.LightGray)
+                    Text(
+                        if (xfadeSec > 0) "${xfadeSec}s ($xfadeState)" else "OFF ($xfadeState)",
+                        fontSize = 11.sp,
+                        color = if (xfadeState == com.softify.app.playback.CrossfadeState.CROSSFADING) Color(0xFF34D399) else Color(0xFF60A5FA),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (xfadeState == com.softify.app.playback.CrossfadeState.CROSSFADING || xfadeState == com.softify.app.playback.CrossfadeState.PAUSED_MID_FADE) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Crossfade Progress:", fontSize = 11.sp, color = Color.LightGray)
+                        Text("${(xfadeProgress * 100).toInt()}% (Equal-Power Curve)", fontSize = 11.sp, color = Color(0xFF34D399), fontWeight = FontWeight.Bold)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Last Transition Type:", fontSize = 11.sp, color = Color.LightGray)
+                    Text(lastTransition.name, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
         // Section 2: Test Action Buttons Card
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),

@@ -33,6 +33,13 @@ fun SettingsScreen(
     val isIncognito by viewModel.isIncognito.collectAsState()
     val showLyricsDebugOverlay by viewModel.showLyricsDebugOverlay.collectAsState()
 
+    val isLoudnessEnabled by viewModel.isLoudnessEnabled.collectAsState()
+    val targetLufs by viewModel.targetLufs.collectAsState()
+    val allowLoudnessBoost by viewModel.allowLoudnessBoost.collectAsState()
+    val isGaplessEnabled by viewModel.isGaplessEnabled.collectAsState()
+    val crossfadeDurationSec by viewModel.crossfadeDurationSec.collectAsState()
+    val skipAlbumConsecutiveCrossfade by viewModel.skipAlbumConsecutiveCrossfade.collectAsState()
+
     var showClearHistoryDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -219,6 +226,177 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("Clear Searches", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            // Audio Normalization & Playback Section (M4b & M4c)
+            Card(
+                shape = SquircleShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Audio & Playback",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Loudness normalization, gapless transitions, and crossfade",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 1. Loudness Normalization Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Loudness Normalization",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Match perceived loudness using ReplayGain and YouTube tags",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isLoudnessEnabled,
+                            onCheckedChange = { viewModel.toggleLoudnessEnabled() }
+                        )
+                    }
+
+                    if (isLoudnessEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // Target LUFS Slider
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Target Level", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${targetLufs.toInt()} LUFS", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Slider(
+                                value = targetLufs,
+                                onValueChange = { viewModel.setTargetLufs(it) },
+                                valueRange = -23.0f..-9.0f,
+                                steps = 13
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // Allow Boost Switch
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Allow Volume Boost",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Boost quiet tracks up to +6 dB when peak headroom allows",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = allowLoudnessBoost,
+                                onCheckedChange = { viewModel.toggleAllowLoudnessBoost() }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // 2. Gapless Playback Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Gapless Playback",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Pre-buffers upcoming tracks for zero-latency transitions",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isGaplessEnabled,
+                            onCheckedChange = { viewModel.toggleGaplessEnabled() }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 3. Crossfade Duration Slider
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Crossfade Duration", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                if (crossfadeDurationSec == 0) "Off (0s)" else "${crossfadeDurationSec}s",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Slider(
+                            value = crossfadeDurationSec.toFloat(),
+                            onValueChange = { viewModel.setCrossfadeDurationSec(it.toInt()) },
+                            valueRange = 0f..12f,
+                            steps = 11
+                        )
+                    }
+
+                    if (crossfadeDurationSec > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Skip Consecutive Album Tracks",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Maintains original gapless flow for conceptual albums",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = skipAlbumConsecutiveCrossfade,
+                                onCheckedChange = { viewModel.toggleSkipAlbumConsecutiveCrossfade() }
+                            )
                         }
                     }
                 }
