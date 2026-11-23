@@ -668,8 +668,15 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
     - `Compose desktopTest` under xvfb: Passed (62/62 passed, including `LoudnessNormalizerTest`, `CrossfadeSchedulerTest`, `NoEmojiTest`)
     - Android NDK Release compilation: arm64-v8a & x86_64
 - **Downloaded Cloud Artifacts** (`~/Downloads`):
-  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices)
-  - **`composeApp-universal-debug.apk`**
+  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices):
+    - Size: **28,290,114 bytes (28 MB)**
+    - SHA256: `534a50e321a546f9be788fb909f366ec3990059439b0659799c41faaaa6062dc`
+  - **`composeApp-universal-debug.apk`**:
+    - Size: **36,224,091 bytes (36 MB)**
+    - SHA256: `43b4f03f579d78537044ba206a9b477ad24042c43f846e037e66cb0bb1f38de9`
+  - **`composeApp-x86_64-debug.apk`**:
+    - Size: **28,932,425 bytes (29 MB)**
+    - SHA256: `a7ad1b265fc0b1fb01a5fd2d8b9bd12c6aebcf02f3b0215e011d1cf4ab5bb95e`
 
 
 
