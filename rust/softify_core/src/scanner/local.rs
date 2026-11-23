@@ -136,15 +136,15 @@ impl LocalAudioScanner {
             let mut peak = None;
             for tag in tagged_file.tags() {
                 for item in tag.items() {
-                    let key_str = item.key().as_str().to_lowercase();
-                    if key_str.contains("replaygain_track_gain") {
+                    let key_str = format!("{:?}", item.key()).to_lowercase();
+                    if key_str.contains("replaygain") && key_str.contains("gain") {
                         if let Some(text) = item.value().text() {
                             let cleaned = text.trim_end_matches("dB").trim_end_matches("db").trim();
                             if let Ok(v) = cleaned.parse::<f64>() {
                                 gain = Some(v);
                             }
                         }
-                    } else if key_str.contains("replaygain_track_peak") {
+                    } else if key_str.contains("replaygain") && key_str.contains("peak") {
                         if let Some(text) = item.value().text() {
                             let cleaned = text.trim();
                             if let Ok(v) = cleaned.parse::<f64>() {
