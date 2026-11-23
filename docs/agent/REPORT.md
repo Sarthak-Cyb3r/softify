@@ -588,6 +588,90 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
   - **`composeApp-universal-debug.apk`**:
     - Size: **36,129,707 bytes (35 MB)**
 
+---
+
+## 9. M4b & M4c: Loudness Normalization, Gapless Playback, and Equal-Power Crossfade
+
+### 9.1 Root Cause & Architectural Strategy
+
+#### 1. M4b: Loudness Normalization
+- **Metadata Ingestion**:
+  1. *Local ReplayGain Tags*: Scanned with `lofty` in `rust/softify_core/src/scanner/metadata.rs`. Reads both standard ID3/Vorbis tags and MP4 freeform atoms: `REPLAYGAIN_TRACK_GAIN` (dB) and `REPLAYGAIN_TRACK_PEAK` (linear float).
+  2. *YouTube Loudness Value*: Extracted from YouTube Music Innertube player responses in `rust/softify_core/src/resolvers/youtube.rs` under `playerConfig.audioConfig.loudnessDb`.
+  3. *Saavn Fallback*: Saavn streams lack loudness headers; safely ignored with default neutral gain (0.0 dB, 1.0x volume).
+  4. *EBU R128 Decision*: Evaluating `symphonia` + `ebur128` background scanning revealed an APK size inflation of ~3.5 MB and significant background CPU/battery drain during multi-track downloads. Given that YouTube and local tracks already carry native gain metadata, local R128 scanning was omitted.
+- **Normalization Engine (`LoudnessNormalizer.kt`)**:
+  - Target Reference Levels:
+    - YouTube baseline: -14 LUFS (`trackLufs = -14.0f + loudnessDb`). Gain adjustment: $\Delta\text{dB} = (\text{targetLufs} + 14.0f) - \text{loudnessDb}$.
+    - ReplayGain baseline: -18 LUFS. Gain adjustment: $\Delta\text{dB} = \text{trackGainDb} + (\text{targetLufs} + 18.0f)$.
+  - Configurable Target: Default -14 LUFS (adjustable from -23 to -9 LUFS).
+  - Mode Protection:
+    - Attenuate-only (default): Prevents any amplification; only cuts loud tracks ($\Delta\text{dB} \le 0$).
+    - Headroom-limited boost (optional toggle): Limits positive gain to the measured peak headroom ($-20 \log_{10}(\text{peak})$) and caps maximum boost to +6 dB to eliminate clipping.
+  - Smooth Transitions: 150 ms linear/exponential volume interpolation applied between tracks in `PlaybackService` to eliminate audio pop artifacts.
+
+#### 2. M4c-1: Gapless Playback
+- **Continuous Timeline Pre-buffering**:
+  - Integrated into `PlaybackService.kt` via ExoPlayer's native `addMediaSource`.
+  - Next track in queue is resolved and added to the player playlist ahead of time, ensuring seamless boundary decoding without buffer underruns.
+  - Queue Synchronization: Dynamically synchronizes pre-buffered media sources when the user modifies, reorders, or clears the queue.
+  - Error Isolation: If pre-buffering encounters an HTTP 403 or container parse failure, it fails silently in the background and gracefully falls back to on-demand resolution upon track transition.
+
+#### 3. M4c-2: Equal-Power Crossfade
+- **Dual-Player Forwarding Architecture (`CrossfadePlayerManager.kt`)**:
+  - Employs two coordinated ExoPlayer instances (`playerA` and `playerB`).
+  - Swaps active playback delegate on fade completion and rebinds `MediaSession.setPlayer(activePlayer)` seamlessly.
+- **Equal-Power Trigonometric Curve (`CrossfadeCurve.kt`)**:
+  - Linear volume ramping creates a noticeable -3 dB acoustic power drop at the 50% midpoint.
+  - Implemented quarter-sine equal-power scaling:
+    $$\text{outVolume} = \cos\left(\frac{\pi}{2} \cdot \alpha\right), \quad \text{inVolume} = \sin\left(\frac{\pi}{2} \cdot \alpha\right)$$
+  - Strictly preserves total acoustic energy: $\text{outVolume}^2 + \text{inVolume}^2 = 1.0$ at every step.
+- **State Machine & Controls (`CrossfadeScheduler.kt`)**:
+  - Configurable crossfade duration from 0 to 12 seconds.
+  - 50 ms tick resolution with mid-fade pause/resume volume freezing.
+  - Manual skip detection: triggers an immediate 300 ms quick fade-out before switching tracks.
+  - Consecutive Album Track Suppression: "Do not crossfade consecutive album tracks" toggle automatically suppresses crossfade when adjacent tracks belong to the same album and are in sequential order, preserving intended gapless album transitions.
+
+#### 4. Settings UI & Diagnostics Telemetry
+- **Settings Screen (`SettingsScreen.kt`)**:
+  - Added dedicated Audio section with sliders and switches for Loudness Normalization, Target LUFS, Allow Boost, Gapless Playback, Crossfade Duration, and Album Track Suppression.
+- **Diagnostics Screen (`DiagnosticsScreen.kt`)**:
+  - Added live telemetry display for audio normalization status, detected track `loudnessDb` / ReplayGain, target LUFS, applied gain (dB), volume multiplier, crossfade state, and active player instance.
+
+---
+
+### 9.2 Verification Matrix
+
+| Verification Target | Test Method | Result |
+| :--- | :--- | :--- |
+| YouTube `loudnessDb` extraction in Rust core | Rust unit test `test_parse_youtube_loudness_db` | **verified in CI (tests)** |
+| ReplayGain tag extraction via `lofty` | Rust unit test `test_metadata_scanner_replaygain` | **verified in CI (tests)** |
+| Equal-power crossfade curve energy conservation | JVM unit test `CrossfadeCurveTest` | **verified in CI (tests)** |
+| Crossfade scheduler state machine & skip fade | JVM unit test `CrossfadeSchedulerTest` | **verified in CI (tests)** |
+| Loudness calculation, headroom limit & boost capping | JVM unit test `LoudnessNormalizerTest` | **verified in CI (tests)** |
+| Zero emojis across all audio UI & settings | `NoEmojiTest` scan | **verified in CI (tests)** |
+| Continuous audio playback without gaps | Physical Moto G34 device | **not verified on device** |
+| Equal-power acoustic blending during track switch | Physical Moto G34 device | **not verified on device** |
+| Real-time loudness attenuation on loud tracks | Physical Moto G34 device | **not verified on device** |
+
+---
+
+### 9.3 GitHub Actions Cloud CI & Cloud APK Build
+- **Cloud Workflows**:
+  - [CI Engine & Test Verification - Run #45198772831](https://github.com/Sarthak-Cyb3r/softify/actions/runs/45198772831): **PASSED (Success)**
+    - Rust Core: 61 passed, 0 failed.
+    - Flutter Core Resolver & App Tests: Passed.
+  - [Build Android Debug APK (Cloud) - Run #45198772812](https://github.com/Sarthak-Cyb3r/softify/actions/runs/45198772812): **PASSED (Success)**
+    - `cargo fmt --check`: Clean (0 diffs)
+    - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings)
+    - `cargo test --all-targets`: Passed (61 passed, 0 failed)
+    - `Compose desktopTest` under xvfb: Passed (62/62 passed, including `LoudnessNormalizerTest`, `CrossfadeSchedulerTest`, `NoEmojiTest`)
+    - Android NDK Release compilation: arm64-v8a & x86_64
+- **Downloaded Cloud Artifacts** (`~/Downloads`):
+  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices)
+  - **`composeApp-universal-debug.apk`**
+
+
 
 
 
