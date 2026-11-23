@@ -698,7 +698,10 @@ impl YoutubeStreamResolver {
         let loudness_db = data
             .get("playerConfig")
             .and_then(|pc| pc.get("audioConfig"))
-            .and_then(|ac| ac.get("loudnessDb").or_else(|| ac.get("perceptualLoudnessDb")))
+            .and_then(|ac| {
+                ac.get("loudnessDb")
+                    .or_else(|| ac.get("perceptualLoudnessDb"))
+            })
             .and_then(|v| v.as_f64())
             .or_else(|| chosen.get("loudnessDb").and_then(|v| v.as_f64()));
 
