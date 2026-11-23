@@ -130,7 +130,37 @@ impl LocalAudioScanner {
         format!("local_{}", hex_64)
     }
 
-    pub fn parse_audio_metadata(path: &Path) -> Option<Track> {
+    pub fn extract_replaygain_from_file(path: &Path) -> (Option<f64>, Option<f64>) {
+        if let Ok(tagged_file) = Probe::open(path).and_then(|p| p.read()) {
+            let mut gain = None;
+            let mut peak = None;
+            for tag in tagged_file.tags() {
+                for item in tag.items() {
+                    let key_str = item.key().as_str().to_lowercase();
+                    if key_str.contains("replaygain_track_gain") {
+                        if let Some(text) = item.value().text() {
+                            let cleaned = text.trim_end_matches("dB").trim_end_matches("db").trim();
+                            if let Ok(v) = cleaned.parse::<f64>() {
+                                gain = Some(v);
+                            }
+                        }
+                    } else if key_str.contains("replaygain_track_peak") {
+                        if let Some(text) = item.value().text() {
+                            let cleaned = text.trim();
+                            if let Ok(v) = cleaned.parse::<f64>() {
+                                peak = Some(v);
+                            }
+                        }
+                    }
+                }
+            }
+            (gain, peak)
+        } else {
+            (None, None)
+        }
+    }
+
+    pub fn parse_audio_metadata(path: &Path) -> Option<(Track, Option<f64>, Option<f64>)> {
         let path_str = path.to_string_lossy().to_string();
         let file_stem = path
             .file_stem()
@@ -141,6 +171,7 @@ impl LocalAudioScanner {
         let mut artist = "Unknown Artist".to_string();
         let mut album: Option<String> = None;
         let mut duration_ms = 0u64;
+        let (rg_gain, rg_peak) = Self::extract_replaygain_from_file(path);
 
         if let Ok(tagged_file) = Probe::open(path).and_then(|p| p.read()) {
             let properties = tagged_file.properties();
@@ -174,18 +205,22 @@ impl LocalAudioScanner {
         // Generate deterministic 64-bit ID from path via SHA-256 truncation
         let track_id = Self::generate_deterministic_track_id(&path_str);
 
-        Some(Track {
-            id: track_id,
-            source_id: format!("local:{}", path_str),
-            title,
-            artist,
-            album,
-            duration_ms,
-            cover_url: None,
-            match_confidence: Some(1.0),
-            is_liked: false,
-            is_unavailable: false,
-        })
+        Some((
+            Track {
+                id: track_id,
+                source_id: format!("local:{}", path_str),
+                title,
+                artist,
+                album,
+                duration_ms,
+                cover_url: None,
+                match_confidence: Some(1.0),
+                is_liked: false,
+                is_unavailable: false,
+            },
+            rg_gain,
+            rg_peak,
+        ))
     }
 
     pub fn scan_directories(
@@ -220,19 +255,30 @@ impl LocalAudioScanner {
         let added_counter = AtomicU32::new(0);
 
         // Parse tags in parallel with Rayon
-        let parsed_tracks: Vec<(PathBuf, Track)> = all_paths
+        let parsed_tracks: Vec<(PathBuf, Track, Option<f64>, Option<f64>)> = all_paths
             .par_iter()
             .filter_map(|path| {
-                let track = Self::parse_audio_metadata(path)?;
-                Some((path.clone(), track))
+                let (track, rg_gain, rg_peak) = Self::parse_audio_metadata(path)?;
+                Some((path.clone(), track, rg_gain, rg_peak))
             })
             .collect();
 
         // Sequential DB insertion into SQLite (ensuring single lock)
-        for (path, track) in parsed_tracks {
+        for (path, track, rg_gain, rg_peak) in parsed_tracks {
             let current = scanned_counter.fetch_add(1, Ordering::SeqCst) + 1;
             if self.db.insert_or_update_track(&track).is_ok() {
                 added_counter.fetch_add(1, Ordering::SeqCst);
+                if let Some(gain) = rg_gain {
+                    let payload = serde_json::json!({
+                        "loudnessDb": gain,
+                        "peak": rg_peak,
+                        "source": "REPLAYGAIN"
+                    })
+                    .to_string();
+                    let _ = self
+                        .db
+                        .set_setting(&format!("loudness_{}", track.id), &payload);
+                }
             }
 
             if let Some(cb) = &callback {
@@ -301,5 +347,15 @@ mod tests {
         let path = "/home/user/Music/test.mp3";
         let track_id = LocalAudioScanner::generate_deterministic_track_id(path);
         assert_eq!(track_id, "local_1067fbde5059c6ec");
+    }
+
+    #[test]
+    fn test_extract_replaygain_from_file_empty() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("empty.mp3");
+        File::create(&path).unwrap();
+        let (gain, peak) = LocalAudioScanner::extract_replaygain_from_file(&path);
+        assert!(gain.is_none());
+        assert!(peak.is_none());
     }
 }

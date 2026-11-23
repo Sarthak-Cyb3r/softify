@@ -695,6 +695,46 @@ impl YoutubeStreamResolver {
             .map(|d| d.as_secs() + 4 * 3600)
             .ok();
 
+        let loudness_db = data
+            .get("playerConfig")
+            .and_then(|pc| pc.get("audioConfig"))
+            .and_then(|ac| ac.get("loudnessDb").or_else(|| ac.get("perceptualLoudnessDb")))
+            .and_then(|v| v.as_f64())
+            .or_else(|| chosen.get("loudnessDb").and_then(|v| v.as_f64()));
+
+        let mut headers = if client_name == "ANDROID" {
+            vec![HeaderPair {
+                name: "User-Agent".to_string(),
+                value: user_agent.to_string(),
+            }]
+        } else {
+            vec![
+                HeaderPair {
+                    name: "User-Agent".to_string(),
+                    value: user_agent.to_string(),
+                },
+                HeaderPair {
+                    name: "Referer".to_string(),
+                    value: "https://www.youtube.com/".to_string(),
+                },
+                HeaderPair {
+                    name: "Origin".to_string(),
+                    value: "https://www.youtube.com".to_string(),
+                },
+            ]
+        };
+
+        if let Some(ldb) = loudness_db {
+            headers.push(HeaderPair {
+                name: "X-Loudness-Db".to_string(),
+                value: format!("{:.2}", ldb),
+            });
+            headers.push(HeaderPair {
+                name: "X-Loudness-Source".to_string(),
+                value: "YOUTUBE".to_string(),
+            });
+        }
+
         Ok(StreamInfo {
             url: stream_url,
             container,
@@ -705,27 +745,7 @@ impl YoutubeStreamResolver {
                 client_name.to_lowercase()
             ),
             is_requested_quality: false, // YouTube never yields true 320 kbps studio master
-            headers: if client_name == "ANDROID" {
-                vec![HeaderPair {
-                    name: "User-Agent".to_string(),
-                    value: user_agent.to_string(),
-                }]
-            } else {
-                vec![
-                    HeaderPair {
-                        name: "User-Agent".to_string(),
-                        value: user_agent.to_string(),
-                    },
-                    HeaderPair {
-                        name: "Referer".to_string(),
-                        value: "https://www.youtube.com/".to_string(),
-                    },
-                    HeaderPair {
-                        name: "Origin".to_string(),
-                        value: "https://www.youtube.com".to_string(),
-                    },
-                ]
-            },
+            headers,
             expires_at,
         })
     }
