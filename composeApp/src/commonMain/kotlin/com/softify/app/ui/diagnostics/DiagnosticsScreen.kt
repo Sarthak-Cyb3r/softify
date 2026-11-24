@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.softify.app.playback.TransitionTrace
 import com.softify.app.util.PlaybackLogger
 import com.softify.app.viewmodel.PlaybackViewModel
 
@@ -282,7 +283,7 @@ fun DiagnosticsScreen(
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                val traces = viewModel.transitionTraces.collectAsState().value
+                val traces: List<TransitionTrace> = viewModel.transitionTraces.collectAsState().value
                 Text(
                     "Transition Traces (${traces.size}/10)",
                     fontSize = 13.sp,
@@ -294,7 +295,7 @@ fun DiagnosticsScreen(
                 if (traces.isEmpty()) {
                     Text("No transitions recorded yet", fontSize = 11.sp, color = Color.Gray)
                 } else {
-                    for (trace in traces.takeLast(10).reversed()) {
+                    for (trace: TransitionTrace in traces.takeLast(10).reversed()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

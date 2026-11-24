@@ -12,6 +12,7 @@ import com.softify.app.playback.QueueManager
 import com.softify.app.playback.QueueState
 import com.softify.app.playback.RepeatMode
 import com.softify.app.playback.TransitionType
+import com.softify.app.playback.TransitionTrace
 import com.softify.app.storage.DirectoryStorageProvider
 import com.softify.app.storage.StorageProvider
 import com.softify.app.util.PlaybackLogger
