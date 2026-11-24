@@ -271,6 +271,9 @@ class PlaybackViewModel(
     private val _lastTransitionType = MutableStateFlow(TransitionType.NONE)
     val lastTransitionType: StateFlow<TransitionType> = _lastTransitionType.asStateFlow()
 
+    private val _transitionTraces = MutableStateFlow<List<TransitionTrace>>(emptyList())
+    val transitionTraces: StateFlow<List<TransitionTrace>> = _transitionTraces.asStateFlow()
+
     // Player & Sheet Expanded States (M3c)
     private val _isNowPlayingExpanded = MutableStateFlow(false)
     val isNowPlayingExpanded: StateFlow<Boolean> = _isNowPlayingExpanded.asStateFlow()
@@ -319,6 +322,14 @@ class PlaybackViewModel(
             queueManager.preResolveNext(_qualityPreset.value)
         }
         loadAudioSettings()
+        PlaybackLogger.setTransitionTracesProvider {
+            val traces = _transitionTraces.value
+            if (traces.isEmpty()) {
+                "No transitions recorded yet"
+            } else {
+                traces.joinToString("\n") { it.formatSummary() }
+            }
+        }
         refreshAll()
     }
 
@@ -586,6 +597,14 @@ class PlaybackViewModel(
         if (type != TransitionType.NONE) {
             _lastTransitionType.value = type
         }
+    }
+
+    fun updateTransitionTraces(traces: List<TransitionTrace>) {
+        _transitionTraces.value = traces
+    }
+
+    fun requestPreResolveNextTrack(nextTrack: Track) {
+        queueManager.preResolveNext(_qualityPreset.value)
     }
 
     fun onTrackAutoTransitioned(newTrackId: String) {

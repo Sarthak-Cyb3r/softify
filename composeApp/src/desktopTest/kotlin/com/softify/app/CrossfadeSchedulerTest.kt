@@ -4,6 +4,7 @@ import com.softify.app.playback.CrossfadeCurve
 import com.softify.app.playback.CrossfadePlayerActionHandler
 import com.softify.app.playback.CrossfadeScheduler
 import com.softify.app.playback.CrossfadeState
+import com.softify.app.playback.TIME_UNSET
 import com.softify.app.playback.TransitionType
 import uniffi.softify_core.Track
 import kotlin.math.abs
@@ -14,14 +15,14 @@ import kotlin.test.assertTrue
 
 class CrossfadeSchedulerTest {
 
-    private fun createTrack(id: String, album: String? = null): Track {
+    private fun createTrack(id: String, album: String? = null, durationMs: ULong = 180_000u): Track {
         return Track(
             id = id,
             sourceId = id,
             title = "Track $id",
             artist = "Artist $id",
             album = album,
-            durationMs = 180_000u,
+            durationMs = durationMs,
             coverUrl = null,
             matchConfidence = null,
             isLiked = false,
@@ -93,6 +94,9 @@ class CrossfadeSchedulerTest {
         val track1 = createTrack("1", album = "Album A")
         val track2 = createTrack("2", album = "Album B")
 
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        scheduler.onPlayerBReady()
+
         scheduler.startCrossfade(track1, track2)
         assertEquals(CrossfadeState.CROSSFADING, scheduler.state)
         assertEquals(TransitionType.CROSSFADE, scheduler.lastTransitionType)
@@ -124,6 +128,162 @@ class CrossfadeSchedulerTest {
     }
 
     @Test
+    fun testPlayerBLateDelaysFadeUntilReady() {
+        var currentTimeMs = 10_000L
+        var secondaryStarted = false
+
+        val handler = object : CrossfadePlayerActionHandler {
+            override fun setPlayerVolumes(primaryVol: Float, secondaryVol: Float) {}
+            override fun startSecondaryPlayback(track: Track, initialVolume: Float) {
+                secondaryStarted = true
+            }
+            override fun onCrossfadeCompleted(newActiveTrack: Track) {}
+            override fun pauseBothPlayers() {}
+            override fun resumeBothPlayers() {}
+            override fun stopSecondaryPlayer() {}
+        }
+
+        val scheduler = CrossfadeScheduler(
+            crossfadeDurationMs = 5000L,
+            timeProvider = { currentTimeMs },
+            actionHandler = handler
+        )
+
+        val track1 = createTrack("1", album = "Album A", durationMs = 100_000u)
+        val track2 = createTrack("2", album = "Album B", durationMs = 120_000u)
+
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        // B is NOT ready yet
+        assertFalse(scheduler.isPlayerBReady)
+
+        // Position reaches crossfade threshold (remaining 4000ms <= 5000ms duration)
+        scheduler.onPositionUpdate(currentPosMs = 96_000L, playerDurationMs = 100_000L, fallbackDurationMs = 100_000L)
+        assertEquals(CrossfadeState.WAITING_FOR_PLAYER_B, scheduler.state)
+        assertFalse(secondaryStarted)
+
+        // Player B finishes buffering 1 second later
+        currentTimeMs += 1000L
+        scheduler.onPlayerBReady()
+
+        // Fade should now immediately trigger!
+        assertEquals(CrossfadeState.CROSSFADING, scheduler.state)
+        assertTrue(secondaryStarted)
+        assertEquals(TransitionType.CROSSFADE, scheduler.lastTransitionType)
+    }
+
+    @Test
+    fun testPlayerBTimeoutFallsBackToGapless() {
+        var currentTimeMs = 10_000L
+        var fallbackToGaplessCalled = false
+
+        val handler = object : CrossfadePlayerActionHandler {
+            override fun setPlayerVolumes(primaryVol: Float, secondaryVol: Float) {}
+            override fun startSecondaryPlayback(track: Track, initialVolume: Float) {}
+            override fun onCrossfadeCompleted(newActiveTrack: Track) {}
+            override fun pauseBothPlayers() {}
+            override fun resumeBothPlayers() {}
+            override fun stopSecondaryPlayer() {}
+            override fun fallbackToGapless(nextTrack: Track) {
+                fallbackToGaplessCalled = true
+            }
+        }
+
+        val scheduler = CrossfadeScheduler(
+            crossfadeDurationMs = 4000L,
+            timeProvider = { currentTimeMs },
+            actionHandler = handler
+        )
+
+        val track1 = createTrack("1", album = "Album A", durationMs = 60_000u)
+        val track2 = createTrack("2", album = "Album B", durationMs = 80_000u)
+
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        // Reaches fade threshold -> enters WAITING_FOR_PLAYER_B
+        scheduler.onPositionUpdate(currentPosMs = 57_000L, playerDurationMs = 60_000L, fallbackDurationMs = 60_000L)
+        assertEquals(CrossfadeState.WAITING_FOR_PLAYER_B, scheduler.state)
+
+        // Time advances to 100ms before track end, B still never became ready
+        scheduler.onPositionUpdate(currentPosMs = 59_900L, playerDurationMs = 60_000L, fallbackDurationMs = 60_000L)
+
+        // Must fallback to gapless rather than ending into dead silence
+        assertTrue(fallbackToGaplessCalled)
+        assertEquals(CrossfadeState.IDLE, scheduler.state)
+        assertEquals(TransitionType.GAPLESS, scheduler.lastTransitionType)
+    }
+
+    @Test
+    fun testUnknownDurationUsesFallbackMetadataDuration() {
+        var currentTimeMs = 10_000L
+        var fadeTriggered = false
+
+        val handler = object : CrossfadePlayerActionHandler {
+            override fun setPlayerVolumes(primaryVol: Float, secondaryVol: Float) {}
+            override fun startSecondaryPlayback(track: Track, initialVolume: Float) {
+                fadeTriggered = true
+            }
+            override fun onCrossfadeCompleted(newActiveTrack: Track) {}
+            override fun pauseBothPlayers() {}
+            override fun resumeBothPlayers() {}
+            override fun stopSecondaryPlayer() {}
+        }
+
+        val scheduler = CrossfadeScheduler(
+            crossfadeDurationMs = 5000L,
+            timeProvider = { currentTimeMs },
+            actionHandler = handler
+        )
+
+        val track1 = createTrack("1", album = "Album A", durationMs = 120_000u)
+        val track2 = createTrack("2", album = "Album B", durationMs = 150_000u)
+
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        scheduler.onPlayerBReady()
+
+        // Pass TIME_UNSET as player duration, but valid metadata fallback duration 120_000L
+        scheduler.onPositionUpdate(currentPosMs = 116_000L, playerDurationMs = TIME_UNSET, fallbackDurationMs = 120_000L)
+
+        assertTrue(fadeTriggered)
+        assertEquals(CrossfadeState.CROSSFADING, scheduler.state)
+        assertTrue(scheduler.activeTrace?.isTimeUnset == true)
+        assertEquals(120_000L, scheduler.activeTrace?.trackADurationMs)
+    }
+
+    @Test
+    fun testSeekIntoFadeWindowTriggersCrossfadeIfReady() {
+        var currentTimeMs = 10_000L
+        var secondaryStarted = false
+
+        val handler = object : CrossfadePlayerActionHandler {
+            override fun setPlayerVolumes(primaryVol: Float, secondaryVol: Float) {}
+            override fun startSecondaryPlayback(track: Track, initialVolume: Float) {
+                secondaryStarted = true
+            }
+            override fun onCrossfadeCompleted(newActiveTrack: Track) {}
+            override fun pauseBothPlayers() {}
+            override fun resumeBothPlayers() {}
+            override fun stopSecondaryPlayer() {}
+        }
+
+        val scheduler = CrossfadeScheduler(
+            crossfadeDurationMs = 6000L,
+            timeProvider = { currentTimeMs },
+            actionHandler = handler
+        )
+
+        val track1 = createTrack("1", album = "Album A", durationMs = 200_000u)
+        val track2 = createTrack("2", album = "Album B", durationMs = 200_000u)
+
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        scheduler.onPlayerBReady()
+
+        // User jumps from 50s directly to 198s (2s left on a 6s fade window)
+        scheduler.onPositionUpdate(currentPosMs = 198_000L, playerDurationMs = 200_000L, fallbackDurationMs = 200_000L)
+
+        assertTrue(secondaryStarted)
+        assertEquals(CrossfadeState.CROSSFADING, scheduler.state)
+    }
+
+    @Test
     fun testMidFadePauseAndResume() {
         var currentTimeMs = 1000L
         var pausedCalled = false
@@ -144,10 +304,13 @@ class CrossfadeSchedulerTest {
             actionHandler = handler
         )
 
-        val track1 = createTrack("1")
-        val track2 = createTrack("2")
+        val track1 = createTrack("1", album = "Album A")
+        val track2 = createTrack("2", album = "Album B")
 
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        scheduler.onPlayerBReady()
         scheduler.startCrossfade(track1, track2)
+
         currentTimeMs += 1000L // 50%
         scheduler.step()
         assertEquals(0.5f, scheduler.crossfadeProgress)
@@ -209,5 +372,81 @@ class CrossfadeSchedulerTest {
         assertEquals(1.0f, scheduler.crossfadeProgress)
         assertEquals(CrossfadeState.IDLE, scheduler.state)
         assertTrue(skipCallbackInvoked)
+    }
+
+    @Test
+    fun testQueueChangeCancelsArmedFade() {
+        val scheduler = CrossfadeScheduler(crossfadeDurationMs = 5000L)
+        val track1 = createTrack("1", album = "Album A")
+        val track2 = createTrack("2", album = "Album B")
+
+        scheduler.onNextTrackPrebuffered(track1, track2)
+        assertEquals(CrossfadeState.PREBUFFERING, scheduler.state)
+
+        scheduler.cancel("queue_modified")
+        assertEquals(CrossfadeState.IDLE, scheduler.state)
+        assertEquals(0f, scheduler.crossfadeProgress)
+        assertEquals(1, scheduler.traces.size)
+        assertEquals("queue_modified", scheduler.traces.last().notes)
+    }
+
+    @Test
+    fun testRegressionZeroSilenceBetweenTrackAEndAndTrackBStart() {
+        // Timeline simulator:
+        // Track A duration = 100,000 ms. Crossfade = 4,000 ms.
+        var timelineMs = 0L
+        var trackAEndTimelineMs = -1L
+        var trackBStartTimelineMs = -1L
+
+        val handler = object : CrossfadePlayerActionHandler {
+            override fun setPlayerVolumes(primaryVol: Float, secondaryVol: Float) {}
+            override fun startSecondaryPlayback(track: Track, initialVolume: Float) {
+                // Secondary player starts producing audio immediately
+                trackBStartTimelineMs = timelineMs
+            }
+            override fun onCrossfadeCompleted(newActiveTrack: Track) {
+                // Primary player ends on crossfade completion
+                trackAEndTimelineMs = timelineMs
+            }
+            override fun pauseBothPlayers() {}
+            override fun resumeBothPlayers() {}
+            override fun stopSecondaryPlayer() {}
+        }
+
+        val scheduler = CrossfadeScheduler(
+            crossfadeDurationMs = 4000L,
+            timeProvider = { timelineMs },
+            actionHandler = handler
+        )
+
+        val trackA = createTrack("A", album = "Album 1", durationMs = 100_000u)
+        val trackB = createTrack("B", album = "Album 2", durationMs = 100_000u)
+
+        scheduler.onNextTrackPrebuffered(trackA, trackB)
+        scheduler.onPlayerBReady()
+
+        // Advance to crossfade boundary (96,000 ms)
+        timelineMs = 96_000L
+        scheduler.onPositionUpdate(currentPosMs = 96_000L, playerDurationMs = 100_000L, fallbackDurationMs = 100_000L)
+
+        // Crossfade triggered at 96,000 ms
+        assertEquals(96_000L, trackBStartTimelineMs, "Track B must start rendering at crossfade start")
+
+        // Advance crossfade steps
+        val stepMs = 50L
+        while (timelineMs < 100_000L) {
+            timelineMs += stepMs
+            scheduler.step()
+        }
+
+        assertEquals(100_000L, trackAEndTimelineMs, "Track A must end at crossfade completion")
+
+        // Verify acoustic silence between A and B
+        // Silence occurs if trackBStartTimelineMs > trackAEndTimelineMs
+        val silenceGapMs = (trackBStartTimelineMs - trackAEndTimelineMs).coerceAtLeast(0L)
+        val overlapMs = trackAEndTimelineMs - trackBStartTimelineMs
+
+        assertEquals(0L, silenceGapMs, "Silence between Track A end and Track B start must be exactly 0 ms")
+        assertEquals(4000L, overlapMs, "Track A and Track B must overlap for the entire 4000 ms crossfade window")
     }
 }

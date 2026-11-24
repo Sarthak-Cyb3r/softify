@@ -303,6 +303,16 @@ class MainActivity : ComponentActivity() {
                         viewModel.setCrossfadeTelemetry(state, progress, type)
                     }
                 }
+                PlaybackService.instance?.onTracesUpdated = { traces ->
+                    runOnUiThread {
+                        viewModel.updateTransitionTraces(traces)
+                    }
+                }
+                PlaybackService.instance?.onRequestNextTrackPrepare = { nextTrack ->
+                    runOnUiThread {
+                        viewModel.requestPreResolveNextTrack(nextTrack)
+                    }
+                }
 
                 mediaController?.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {

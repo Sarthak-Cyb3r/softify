@@ -275,6 +275,75 @@ fun DiagnosticsScreen(
             }
         }
 
+        // Section 1.8: Transition Traces Card (Last 10)
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF181528)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                val traces = viewModel.transitionTraces.collectAsState().value
+                Text(
+                    "Transition Traces (${traces.size}/10)",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF472B6)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (traces.isEmpty()) {
+                    Text("No transitions recorded yet", fontSize = 11.sp, color = Color.Gray)
+                } else {
+                    for (trace in traces.takeLast(10).reversed()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .background(Color(0xFF100E1C), RoundedCornerShape(6.dp))
+                                .padding(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "[${trace.transitionType.name}] ${trace.fromTrackTitle.take(16)} -> ${trace.toTrackTitle.take(16)}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                val durLabel = if (trace.isTimeUnset) "TIME_UNSET (${trace.trackADurationMs}ms fallback)" else "${trace.trackADurationMs}ms"
+                                Text(durLabel, fontSize = 10.sp, color = if (trace.isTimeUnset) Color(0xFFFBBF24) else Color(0xFF9CA3AF))
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val bReadyStr = if (trace.playerBReadyMs > 0 && trace.fadeActuallyStartedMs > 0) {
+                                val diff = trace.playerBReadyMs - trace.fadeActuallyStartedMs
+                                if (diff <= 0) "B ready: ${-diff}ms before fade" else "B ready: ${diff}ms after fade"
+                            } else if (trace.playerBReadyMs > 0) {
+                                "B ready: OK"
+                            } else {
+                                "B: NOT READY"
+                            }
+                            val silenceMs = if (trace.trackAEndedMs > 0 && trace.trackBAudibleMs > 0) {
+                                (trace.trackBAudibleMs - trace.trackAEndedMs).coerceAtLeast(0L)
+                            } else 0L
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(bReadyStr, fontSize = 10.sp, color = if (trace.playerBReadyMs > 0) Color(0xFF34D399) else Color(0xFFF87171))
+                                Text("Silence: ${silenceMs}ms", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (silenceMs == 0L) Color(0xFF34D399) else Color(0xFFF87171))
+                            }
+                            if (trace.notes.isNotEmpty()) {
+                                Text("Notes: ${trace.notes}", fontSize = 9.sp, color = Color(0xFFFBBF24))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Section 2: Test Action Buttons Card
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),

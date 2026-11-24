@@ -149,6 +149,8 @@ class PlaybackService : MediaSessionService() {
 
     var onTrackAutoTransitioned: ((Track) -> Unit)? = null
     var onTelemetryUpdated: ((CrossfadeState, Float, TransitionType) -> Unit)? = null
+    var onTracesUpdated: ((List<TransitionTrace>) -> Unit)? = null
+    var onRequestNextTrackPrepare: ((Track) -> Unit)? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -225,6 +227,14 @@ class PlaybackService : MediaSessionService() {
             }
         )
 
+        crossfadePlayerManager.onTracesUpdated = { traces ->
+            onTracesUpdated?.invoke(traces)
+        }
+
+        crossfadePlayerManager.onRequestNextTrackPrepare = { nextTrack ->
+            onRequestNextTrackPrepare?.invoke(nextTrack)
+        }
+
         crossfadePlayerManager.onPlaybackStateChanged = { state ->
             if (player.currentPosition > 0L) {
                 lastPlaybackPositionMs = player.currentPosition
@@ -243,6 +253,7 @@ class PlaybackService : MediaSessionService() {
         }
 
         mediaSession = MediaSession.Builder(this, crossfadePlayerManager.activePlayer).build()
+        startPositionTracking()
         PlaybackLogger.log("SoftifyPlayback", "MediaSession initialized")
     }
 
@@ -478,10 +489,29 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    private var positionTrackingJob: Job? = null
+
+    private fun startPositionTracking() {
+        positionTrackingJob?.cancel()
+        positionTrackingJob = serviceScope.launch(Dispatchers.Main) {
+            while (true) {
+                val p = crossfadePlayerManager.activePlayer
+                if (p.isPlaying) {
+                    val cur = p.currentPosition
+                    val dur = p.duration
+                    val fallbackDur = currentTrack?.durationMs?.toLong() ?: 0L
+                    crossfadePlayerManager.onPositionUpdate(cur, dur, fallbackDur)
+                }
+                delay(40L)
+            }
+        }
+    }
+
     fun checkCrossfade() {
         val cur = crossfadePlayerManager.activePlayer.currentPosition
         val dur = crossfadePlayerManager.activePlayer.duration
-        crossfadePlayerManager.checkAndTriggerCrossfade(cur, dur)
+        val fallbackDur = currentTrack?.durationMs?.toLong() ?: 0L
+        crossfadePlayerManager.onPositionUpdate(cur, dur, fallbackDur)
     }
 
     fun handleManualSkip(current: Track, onComplete: () -> Unit) {

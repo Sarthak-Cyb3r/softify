@@ -13,6 +13,11 @@ object PlaybackLogger {
     val logsFlow: StateFlow<List<String>> = _logsFlow.asStateFlow()
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+    private var transitionTracesProvider: (() -> String)? = null
+
+    fun setTransitionTracesProvider(provider: () -> String) {
+        transitionTracesProvider = provider
+    }
 
     fun log(tag: String = "SoftifyPlayback", message: String) {
         val timeStr = timeFormat.format(Date())
@@ -28,7 +33,10 @@ object PlaybackLogger {
     }
 
     fun getAllLogs(): String = synchronized(this) {
-        logLines.joinToString("\n")
+        val tracesSection = transitionTracesProvider?.invoke()?.let {
+            "=== TRANSITION TRACES ===\n$it\n\n=== PLAYBACK LOGS ===\n"
+        } ?: ""
+        tracesSection + logLines.joinToString("\n")
     }
 
     fun clear() = synchronized(this) {

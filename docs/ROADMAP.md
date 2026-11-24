@@ -75,19 +75,24 @@
   - 60 fps frame clock with debounced smooth scrolling.
   - Fully headless cloud CI test verification.
 
-## In Progress Milestones
 - **M4b: ReplayGain & Loudness Normalization**
-  - Priority loudness extraction: ReplayGain tags in local files, YouTube player response `loudnessDb` / `perceptualLoudnessDb`, and unnormalized fallback.
-  - SQLite loudness metadata storage and migration.
-  - Configurable target level (default -14 LUFS), attenuate-only mode by default, and optional `LoudnessEnhancer` boost with peak limiting.
-  - Smooth 100-200 ms volume transitions composed with sleep timer / crossfade multipliers.
-  - Real-time loudness diagnostics in in-app Diagnostics screen.
+  - Priority loudness extraction: ReplayGain tags in local files via `lofty`, YouTube player response `loudnessDb` via Innertube, neutral Saavn fallback.
+  - Normalization engine (`LoudnessNormalizer`): default -14 LUFS (configurable -23 to -9 LUFS), attenuate-only mode, optional +6 dB headroom-limited boost.
+  - Smooth 150 ms exponential volume transitions to eliminate audio pops.
+  - Real-time loudness diagnostics telemetry in Diagnostics screen.
 
 - **M4c: Gapless Playback & Dual-Player Crossfade**
-  - ExoPlayer timeline pre-buffering for gapless playback of consecutive tracks with queue-synchronous pre-resolution.
-  - Dual-player forwarding architecture (`CrossfadePlayerManager`) for equal-power crossfade (0-12s configurable slider).
-  - Album track preservation (disabling crossfade on consecutive album tracks), manual skip fade (300ms), and mid-fade pause/resume synchronization.
-  - Crossfade state machine and diagnostics telemetry.
+  - Continuous timeline prebuffering via ExoPlayer `addMediaSource`.
+  - Equal-power quarter-sine crossfade curve (`outVol² + inVol² = 1.0`) eliminating the -3 dB acoustic power dip.
+  - Dual-player forwarding architecture (`CrossfadePlayerManager`) for seamless role swapping and `MediaSession` rebinding.
+  - Consecutive album track bypass, 300 ms manual skip fade, and mid-fade pause/resume synchronization.
+
+## In Progress Milestones
+- **M7: Crossfade Gap Fix, Free Production Backend & Cloud Sync**
+  - Phase 0: Crossfade gap elimination, transition traces, B-ready gating, duration fallback, high-res 40ms position loop.
+  - Phase 1: Zero-cost Cloudflare backend foundation (Workers, D1, KV, Cron, Static Assets, Hono/Zod, 300 DAU quotas, 70%/90% load shedding).
+  - Phase 2: Offline-first client integration (resilient circuit breaker, remote config, in-app updater, SQLite outbox sync with HLC).
+  - Phase 3: Listen-Together rooms on Durable Objects with WebSocket hibernation.
 
 ## Upcoming Milestones
 - **M6: Core Ergonomics & Release Hardening**

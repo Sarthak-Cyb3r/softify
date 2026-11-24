@@ -58,6 +58,8 @@ class CrossfadePlayerManager(
     var onPlayerError: ((PlaybackException) -> Unit)? = null
     var onPlaybackStateChanged: ((Int) -> Unit)? = null
     var onPlayWhenReadyChanged: ((Boolean) -> Unit)? = null
+    var onTracesUpdated: ((List<TransitionTrace>) -> Unit)? = null
+    var onRequestNextTrackPrepare: ((Track) -> Unit)? = null
 
     private var fadeTickerJob: Job? = null
     private var rampJob: Job? = null
@@ -93,10 +95,12 @@ class CrossfadePlayerManager(
                     val nTrack = nextTrack
                     if (nTrack != null && (nTrack.id == mediaItem.mediaId || mediaItem.mediaId.isEmpty())) {
                         PlaybackLogger.log("SoftifyPlayback", "$tag: Seamless gapless transition to '${nTrack.title}'")
+                        scheduler.onTrackAEnded()
                         currentTrack = nTrack
                         nextTrack = null
                         nextMediaSource = null
                         onTelemetryUpdated(CrossfadeState.IDLE, 0f, TransitionType.GAPLESS)
+                        onTracesUpdated?.invoke(scheduler.traces)
                         onTrackTransitioned(nTrack)
                     }
                 }
@@ -111,19 +115,38 @@ class CrossfadePlayerManager(
                     else -> "UNKNOWN($state)"
                 }
                 PlaybackLogger.log("SoftifyPlayback", "$tag state: $stateName (pos=${p.currentPosition}ms)")
+
+                if (p == secondaryPlayer && state == Player.STATE_READY) {
+                    PlaybackLogger.log("SoftifyPlayback", "Secondary player reached STATE_READY for upcoming track")
+                    scheduler.onPlayerBReady()
+                    onTracesUpdated?.invoke(scheduler.traces)
+                }
+
                 if (p == activePlayer) {
+                    if (state == Player.STATE_ENDED) {
+                        scheduler.onTrackAEnded()
+                        onTracesUpdated?.invoke(scheduler.traces)
+                    }
                     onPlaybackStateChanged?.invoke(state)
                 }
             }
 
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (p == secondaryPlayer && isPlaying) {
+                    scheduler.onPlayerBAudible()
+                    onTracesUpdated?.invoke(scheduler.traces)
+                }
                 if (p == activePlayer) {
-                    onPlayWhenReadyChanged?.invoke(playWhenReady)
+                    onPlayWhenReadyChanged?.invoke(isPlaying)
                 }
             }
 
             override fun onPlayerError(error: PlaybackException) {
                 PlaybackLogger.log("SoftifyPlayback", "$tag error: ${error.errorCodeName} - ${error.message}")
+                if (p == secondaryPlayer) {
+                    scheduler.cancel("secondary_player_error: ${error.errorCodeName}")
+                    onTracesUpdated?.invoke(scheduler.traces)
+                }
                 if (p == activePlayer) {
                     onPlayerError?.invoke(error)
                 }
@@ -146,6 +169,7 @@ class CrossfadePlayerManager(
         applySmoothLoudnessMultiplier(activeLoudnessMultiplier)
         onMediaSessionPlayerChanged(activePlayer)
         onTelemetryUpdated(CrossfadeState.IDLE, 0f, TransitionType.NONE)
+        onTracesUpdated?.invoke(scheduler.traces)
     }
 
     fun prebufferNextTrack(track: Track, mediaSource: MediaSource) {
@@ -153,13 +177,15 @@ class CrossfadePlayerManager(
         nextMediaSource = mediaSource
 
         val current = currentTrack ?: return
+        scheduler.onNextTrackPrebuffered(current, track)
+        onTracesUpdated?.invoke(scheduler.traces)
+
         if (scheduler.crossfadeDurationMs > 0L && scheduler.shouldCrossfade(current, track)) {
-            // In crossfade mode: prepare secondary player in advance
+            // In crossfade mode: prepare secondary player in advance with zero initial volume
             PlaybackLogger.log("SoftifyPlayback", "Pre-buffering next track '${track.title}' on secondary player for crossfade")
             secondaryPlayer.setMediaSource(mediaSource)
-            secondaryPlayer.prepare()
             secondaryPlayer.volume = 0f
-            scheduler.onNextTrackPrebuffered(current, track)
+            secondaryPlayer.prepare()
             onTelemetryUpdated(CrossfadeState.PREBUFFERING, 0f, TransitionType.NONE)
         } else if (isGaplessEnabled) {
             // In gapless mode: append to activePlayer timeline for continuous playback
@@ -167,7 +193,6 @@ class CrossfadePlayerManager(
             if (activePlayer.mediaItemCount <= 1) {
                 activePlayer.addMediaSource(mediaSource)
             }
-            scheduler.onNextTrackPrebuffered(current, track)
             onTelemetryUpdated(CrossfadeState.PREBUFFERING, 0f, TransitionType.GAPLESS)
         }
     }
@@ -175,9 +200,7 @@ class CrossfadePlayerManager(
     fun clearUpcoming() {
         nextTrack = null
         nextMediaSource = null
-        if (scheduler.state == CrossfadeState.PREBUFFERING) {
-            scheduler.cancel()
-        }
+        scheduler.cancel("upcoming_cleared")
         secondaryPlayer.stop()
         secondaryPlayer.clearMediaItems()
         if (activePlayer.mediaItemCount > 1) {
@@ -187,21 +210,12 @@ class CrossfadePlayerManager(
             }
         }
         onTelemetryUpdated(CrossfadeState.IDLE, 0f, TransitionType.NONE)
+        onTracesUpdated?.invoke(scheduler.traces)
     }
 
-    fun checkAndTriggerCrossfade(currentPosMs: Long, durationMs: Long) {
-        if (scheduler.crossfadeDurationMs <= 0L || durationMs <= 0L) return
-        val current = currentTrack ?: return
-        val next = nextTrack ?: return
-        if (scheduler.state != CrossfadeState.PREBUFFERING) return
-
-        val remainingMs = durationMs - currentPosMs
-        if (remainingMs <= scheduler.crossfadeDurationMs && scheduler.shouldCrossfade(current, next)) {
-            PlaybackLogger.log(
-                "SoftifyPlayback",
-                "Triggering crossfade: remaining=${remainingMs}ms <= duration=${scheduler.crossfadeDurationMs}ms from '${current.title}' to '${next.title}'"
-            )
-            scheduler.startCrossfade(current, next)
+    fun onPositionUpdate(currentPosMs: Long, playerDurationMs: Long, fallbackDurationMs: Long) {
+        scheduler.onPositionUpdate(currentPosMs, playerDurationMs, fallbackDurationMs)
+        if (scheduler.state == CrossfadeState.CROSSFADING && fadeTickerJob == null) {
             startFadeTicker()
         }
     }
@@ -214,6 +228,7 @@ class CrossfadePlayerManager(
             activePlayer.clearMediaItems()
             onComplete()
         }
+        onTracesUpdated?.invoke(scheduler.traces)
         startFadeTicker()
     }
 
@@ -228,7 +243,9 @@ class CrossfadePlayerManager(
                     scheduler.crossfadeProgress,
                     scheduler.lastTransitionType
                 )
+                onTracesUpdated?.invoke(scheduler.traces)
                 if (completed) {
+                    fadeTickerJob = null
                     break
                 }
             }
@@ -267,6 +284,7 @@ class CrossfadePlayerManager(
 
         onMediaSessionPlayerChanged(activePlayer)
         onTelemetryUpdated(CrossfadeState.IDLE, 1.0f, TransitionType.CROSSFADE)
+        onTracesUpdated?.invoke(scheduler.traces)
         onTrackTransitioned(newActiveTrack)
     }
 
@@ -274,7 +292,9 @@ class CrossfadePlayerManager(
         activePlayer.pause()
         secondaryPlayer.pause()
         fadeTickerJob?.cancel()
+        fadeTickerJob = null
         onTelemetryUpdated(CrossfadeState.PAUSED_MID_FADE, scheduler.crossfadeProgress, scheduler.lastTransitionType)
+        onTracesUpdated?.invoke(scheduler.traces)
     }
 
     override fun resumeBothPlayers() {
@@ -287,6 +307,22 @@ class CrossfadePlayerManager(
         secondaryPlayer.stop()
         secondaryPlayer.clearMediaItems()
         secondaryPlayer.volume = 0f
+    }
+
+    override fun fallbackToGapless(nextTrack: Track) {
+        val src = nextMediaSource ?: return
+        PlaybackLogger.log("SoftifyPlayback", "Crossfade fallbackToGapless invoked for '${nextTrack.title}'")
+        secondaryPlayer.stop()
+        secondaryPlayer.clearMediaItems()
+        if (activePlayer.mediaItemCount <= 1) {
+            activePlayer.addMediaSource(src)
+        }
+        onTelemetryUpdated(CrossfadeState.IDLE, 0f, TransitionType.GAPLESS)
+        onTracesUpdated?.invoke(scheduler.traces)
+    }
+
+    override fun requestPrepareNextTrack(nextTrack: Track) {
+        onRequestNextTrackPrepare?.invoke(nextTrack)
     }
 
     fun applySmoothLoudnessMultiplier(targetMultiplier: Float) {
@@ -326,14 +362,16 @@ class CrossfadePlayerManager(
 
     fun cancelActiveFade() {
         fadeTickerJob?.cancel()
-        scheduler.cancel()
+        fadeTickerJob = null
+        scheduler.cancel("active_fade_cancelled")
         stopSecondaryPlayer()
     }
 
     fun release() {
         fadeTickerJob?.cancel()
+        fadeTickerJob = null
         rampJob?.cancel()
-        scheduler.cancel()
+        scheduler.cancel("manager_released")
         runCatching { activeEnhancer?.release() }
         playerA.release()
         playerB.release()
