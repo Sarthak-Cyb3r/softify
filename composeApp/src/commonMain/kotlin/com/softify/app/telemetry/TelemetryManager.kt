@@ -17,13 +17,14 @@ data class TelemetryEvent(
  * Batched, sent at most once per 60 seconds, dropped if queue > 50 events.
  */
 class TelemetryManager(
-    initialOptIn: Boolean = false
+    initialOptIn: Boolean = false,
+    initialLastSendTime: Long = System.currentTimeMillis()
 ) {
     private val _isOptIn = MutableStateFlow(initialOptIn)
     val isOptIn: StateFlow<Boolean> = _isOptIn.asStateFlow()
 
     private val eventQueue = mutableListOf<TelemetryEvent>()
-    private var lastSendTime: Long = 0L
+    private var lastSendTime: Long = initialLastSendTime
 
     companion object {
         const val MAX_QUEUE_CAPACITY = 50

@@ -38,10 +38,10 @@ class TelemetryTest {
 
     @Test
     fun testTelemetryBatchInterval() {
-        val manager = TelemetryManager(initialOptIn = true)
+        var time = 1000000L
+        val manager = TelemetryManager(initialOptIn = true, initialLastSendTime = time)
         manager.recordEvent("EVENT_1", "4.3.0")
 
-        var time = 1000000L
         assertFalse(manager.shouldFlushBatch(time))
 
         time += 30000L // 30s: too soon
