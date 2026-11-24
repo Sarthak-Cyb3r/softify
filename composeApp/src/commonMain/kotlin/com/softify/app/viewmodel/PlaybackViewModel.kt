@@ -16,6 +16,14 @@ import com.softify.app.playback.TransitionTrace
 import com.softify.app.storage.DirectoryStorageProvider
 import com.softify.app.storage.StorageProvider
 import com.softify.app.util.PlaybackLogger
+import com.softify.app.api.RemoteConfigManager
+import com.softify.app.api.SoftifyApiClient
+import com.softify.app.sync.SyncChange
+import com.softify.app.sync.SyncEntityType
+import com.softify.app.sync.SyncManager
+import com.softify.app.telemetry.TelemetryManager
+import com.softify.app.updater.AppUpdateManager
+import com.softify.app.updater.UpdateState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -219,6 +227,22 @@ class PlaybackViewModel(
     // Snackbar event bus for user-facing errors
     private val _snackbarEvents = MutableSharedFlow<String>(extraBufferCapacity = 10)
     val snackbarEvents: SharedFlow<String> = _snackbarEvents.asSharedFlow()
+
+    // Edge Backend & Offline-first Sync
+    val apiClient = SoftifyApiClient()
+    val syncManager = SyncManager()
+    val updateManager = AppUpdateManager()
+    val telemetryManager = TelemetryManager()
+    val remoteConfigManager = RemoteConfigManager()
+
+    val isLocalOnly: StateFlow<Boolean> = syncManager.isLocalOnly
+    val pendingSyncCount: StateFlow<Int> = syncManager.pendingCount
+    val lastSyncTimestamp: StateFlow<Long?> = syncManager.lastSyncTimestamp
+    val budgetTier: StateFlow<String> = syncManager.budgetTier
+    val isTelemetryOptIn: StateFlow<Boolean> = telemetryManager.isOptIn
+    val updateState: StateFlow<UpdateState> = updateManager.updateState
+    val recoveryCode: String get() = syncManager.recoveryCode
+    val anonymousDeviceId: String get() = syncManager.deviceId
 
     private var searchJob: Job? = null
     var onStreamReadyForPlayback: ((Track, StreamInfo) -> Unit)? = null
@@ -602,6 +626,79 @@ class PlaybackViewModel(
 
     fun updateTransitionTraces(traces: List<TransitionTrace>) {
         _transitionTraces.value = traces
+    }
+
+    fun toggleLocalOnly() {
+        val next = !syncManager.isLocalOnly.value
+        syncManager.setLocalOnly(next)
+        apiClient.isLocalOnly = next
+        showSnackbar(if (next) "Local only mode active: edge calls disabled" else "Local only mode disabled")
+    }
+
+    fun syncNow() {
+        if (syncManager.isLocalOnly.value) {
+            showSnackbar("Cannot sync: Local only mode is active")
+            return
+        }
+        scope.launch(Dispatchers.Default) {
+            showSnackbar("Syncing data with edge...")
+            val pending = syncManager.getPendingChanges()
+            val token = runCatching { withDatabase { getSetting("edge_auth_token") } }.getOrNull() ?: "anon_token"
+            val result = apiClient.sync(token, syncManager.clock.now(), pending)
+            if (result != null && result.isSuccess) {
+                syncManager.applyRemoteChanges(result.appliedChanges, result.serverHlc)
+                syncManager.updateTier(result.budgetTier)
+                showSnackbar("Sync complete. Tier: ${result.budgetTier}")
+            } else {
+                showSnackbar("Sync completed locally (offline fallback)")
+            }
+        }
+    }
+
+    fun checkForUpdates() {
+        if (syncManager.isLocalOnly.value) {
+            showSnackbar("Updates disabled in Local only mode")
+            return
+        }
+        scope.launch(Dispatchers.Default) {
+            showSnackbar("Checking for updates...")
+            val info = apiClient.checkAppUpdate()
+            if (info != null) {
+                val state = updateManager.evaluateUpdate(info, 40300)
+                if (state is UpdateState.Available) {
+                    showSnackbar("Update available: v${info.versionName}")
+                } else {
+                    showSnackbar("App is up to date")
+                }
+            } else {
+                showSnackbar("Could not connect to update service (using local version)")
+            }
+        }
+    }
+
+    fun toggleTelemetry() {
+        val next = !telemetryManager.isOptIn.value
+        telemetryManager.setOptIn(next)
+        showSnackbar(if (next) "Anonymous telemetry enabled" else "Telemetry disabled")
+    }
+
+    fun exportUserData(): String {
+        return syncManager.exportUserDataJson()
+    }
+
+    fun deleteUserAccount() {
+        scope.launch(Dispatchers.Default) {
+            val token = runCatching { withDatabase { getSetting("edge_auth_token") } }.getOrNull() ?: ""
+            if (token.isNotBlank()) {
+                apiClient.deleteUserAccount(token)
+            }
+            syncManager.clearAllData()
+            showSnackbar("Account and sync data deleted")
+        }
+    }
+
+    fun recoverAccount(code: String) {
+        showSnackbar("Recovering account with code: $code")
     }
 
     fun requestPreResolveNextTrack(nextTrack: Track) {

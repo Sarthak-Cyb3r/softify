@@ -14,8 +14,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softify.app.storage.StorageHealth
+import com.softify.app.telemetry.TelemetryManager
 import com.softify.app.ui.downloads.formatBytes
 import com.softify.app.ui.theme.SquircleShape
+import com.softify.app.updater.UpdateState
 import com.softify.app.viewmodel.PlaybackViewModel
 import com.softify.app.viewmodel.UiStyle
 import uniffi.softify_core.QualityPreset
@@ -41,6 +43,20 @@ fun SettingsScreen(
     val skipAlbumConsecutiveCrossfade by viewModel.skipAlbumConsecutiveCrossfade.collectAsState()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+
+    val isLocalOnly by viewModel.isLocalOnly.collectAsState()
+    val pendingSyncCount by viewModel.pendingSyncCount.collectAsState()
+    val lastSyncTimestamp by viewModel.lastSyncTimestamp.collectAsState()
+    val budgetTier by viewModel.budgetTier.collectAsState()
+    val isTelemetryOptIn by viewModel.isTelemetryOptIn.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
+
+    var showTelemetryDisclosureDialog by remember { mutableStateOf(false) }
+    var showExportDataDialog by remember { mutableStateOf(false) }
+    var exportedDataText by remember { mutableStateOf("") }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var showRecoverAccountDialog by remember { mutableStateOf(false) }
+    var recoveryInputCode by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier
@@ -667,6 +683,194 @@ fun SettingsScreen(
                 }
             }
 
+            // Account & Cloud Sync Card
+            Card(
+                shape = SquircleShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Account & Cloud Sync",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Anonymous zero-knowledge sync across your devices",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Anonymous ID & Recovery Code
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Recovery Code: ${viewModel.recoveryCode}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Device ID: ${viewModel.anonymousDeviceId.take(16)}...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Local Only Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Local only mode",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Disable all edge backend requests and keep data on-device only",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isLocalOnly,
+                            onCheckedChange = { viewModel.toggleLocalOnly() }
+                        )
+                    }
+
+                    // Sync status and action
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Pending changes: $pendingSyncCount",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Tier: $budgetTier",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Button(
+                            onClick = { viewModel.syncNow() },
+                            enabled = !isLocalOnly,
+                            shape = SquircleShape(8.dp)
+                        ) {
+                            Text("Sync now")
+                        }
+                    }
+
+                    // GDPR & Recovery row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                exportedDataText = viewModel.exportUserData()
+                                showExportDataDialog = true
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = SquircleShape(8.dp)
+                        ) {
+                            Text("Export data")
+                        }
+                        OutlinedButton(
+                            onClick = { showDeleteAccountDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = SquircleShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Delete data")
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { showRecoverAccountDialog = true },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("Restore with recovery code")
+                    }
+                }
+            }
+
+            // In-App Updates Card
+            Card(
+                shape = SquircleShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "App Updates",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Current version: ${viewModel.appVersion}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = { viewModel.checkForUpdates() },
+                        enabled = !isLocalOnly,
+                        shape = SquircleShape(8.dp)
+                    ) {
+                        Text("Check for updates")
+                    }
+                }
+            }
+
+            // Privacy & Telemetry Card
+            Card(
+                shape = SquircleShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Anonymous Telemetry",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Opt-in anonymous error reports (strictly zero PII)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isTelemetryOptIn,
+                            onCheckedChange = { viewModel.toggleTelemetry() }
+                        )
+                    }
+                    TextButton(
+                        onClick = { showTelemetryDisclosureDialog = true }
+                    ) {
+                        Text("View data disclosure")
+                    }
+                }
+            }
+
             // System Information Card
             Card(
                 shape = SquircleShape(16.dp),
@@ -727,6 +931,91 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showTelemetryDisclosureDialog) {
+        AlertDialog(
+            onDismissRequest = { showTelemetryDisclosureDialog = false },
+            title = { Text("Telemetry Data Disclosure") },
+            text = { Text(TelemetryManager.SCHEMA_DESCRIPTION) },
+            confirmButton = {
+                Button(onClick = { showTelemetryDisclosureDialog = false }) {
+                    Text("Understood")
+                }
+            }
+        )
+    }
+
+    if (showExportDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDataDialog = false },
+            title = { Text("Exported Data (JSON)") },
+            text = { Text(exportedDataText.take(500) + if (exportedDataText.length > 500) "..." else "") },
+            confirmButton = {
+                Button(onClick = { showExportDataDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAccountDialog = false },
+            title = { Text("Delete all sync data?") },
+            text = { Text("This will permanently remove your anonymous sync account and wipe all synced data.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteUserAccount()
+                        showDeleteAccountDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showRecoverAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showRecoverAccountDialog = false },
+            title = { Text("Restore Account") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter your 16-character recovery code (SOFT-XXXX-XXXX-XXXX):")
+                    OutlinedTextField(
+                        value = recoveryInputCode,
+                        onValueChange = { recoveryInputCode = it.uppercase() },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (recoveryInputCode.isNotBlank()) {
+                            viewModel.recoverAccount(recoveryInputCode)
+                        }
+                        showRecoverAccountDialog = false
+                    }
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRecoverAccountDialog = false }) {
                     Text("Cancel")
                 }
             }
