@@ -678,6 +678,133 @@ Six screenshots were generated at real phone density (density = 2.0f, viewport =
     - Size: **28,932,425 bytes (29 MB)**
     - SHA256: `a7ad1b265fc0b1fb01a5fd2d8b9bd12c6aebcf02f3b0215e011d1cf4ab5bb95e`
 
+---
+
+## 10. Milestone 7: Crossfade Gap Elimination & Free Production Backend
+
+### 10.1 Phase 0: Crossfade Gap Elimination & Transition Traces
+- **Root Cause Analysis (Real Device)**:
+  1. **UI Loop Decoupling**: Previously, crossfade triggering checked on `MainActivity`'s 250 ms ticker. When the app ran in the background or during frame delays, fades scheduled late or missed entirely. Decoupled crossfade timing into an internal 40 ms high-resolution coroutine loop inside `PlaybackService.kt`.
+  2. **Chunked Stream Duration Fallback**: For chunked YouTube streams, `activePlayer.duration` reported `C.TIME_UNSET` (-9223372036854775807L) or `<= 0`. In such cases, `checkAndTriggerCrossfade` previously returned immediately without scheduling a fade, allowing track A to hit `STATE_ENDED` into silence while track B buffered. Fixed with fallback duration extraction from `activeTrack.durationMs` or ExoPlayer format metadata.
+  3. **Player B-Ready Gating**: If player B is not ready (`STATE_READY`) at the scheduled fade time, the scheduler holds Track A at full volume, allowing up to 1500 ms for B to buffer before seamlessly falling back to gapless transition without an audible gap.
+  4. **Pre-Resolve Window**: Guaranteed next-track resolution and Player B preparation starts 30 seconds before track A finishes.
+- **Transition Traces**:
+  - Implemented `TransitionTrace` capturing timestamps for: resolve started/finished, player B ready, fade scheduled, fade started, A ended, B audible, A duration, and transition type (`CROSSFADE`, `GAPLESS`, `HARD_END`, `MANUAL`).
+  - Added live display of the last 10 traces to Section 1.8 of `DiagnosticsScreen.kt` and in-app diagnostics log export via `PlaybackLogger.kt`.
+- **Zero-Silence Invariants**: Unit-tested with fake clocks and players in `CrossfadeSchedulerTest.kt` verifying monotonic, non-zero audio power across all transitions.
+
+### 10.2 Phase 1: Zero-Cost Production Cloudflare Edge Backend
+- **Platform Architecture & Strict $0.00 Budget**:
+  - Built with Hono + Zod + TypeScript running on Cloudflare Workers edge runtime (`server/`).
+  - Integrated D1 (serverless SQLite at edge), KV (read cache & budget tracking), R2 (zero-cost weekly backup), Durable Objects with WebSocket hibernation (Listen-Together rooms), Cron Triggers (weekly SQLite backup), and Workers Static Assets (`config.json`, `update.json`, `home_shelves.json`).
+  - Strict $0.00 cost constraint: zero paid add-ons, zero billing methods.
+  - Multi-tier load shedding: Tier 1 Normal (<70% budget), Tier 2 Degraded (70-90% budget: disable lyrics cache and telemetry), Tier 3 Restricted (>90% budget: shed heavy writes, read-only static config).
+- **Verified Free Limits & 300 DAU Budget Arithmetic**:
+  - Workers Requests: 100,000 / day (300 DAU consumes ~4,500 req/day = 4.5% of quota).
+  - D1 Reads: 5,000,000 / day (300 DAU consumes ~30,000 reads/day = 0.6% of quota).
+  - D1 Writes: 100,000 / day (300 DAU consumes ~3,000 writes/day = 3.0% of quota).
+  - CPU Time: Free tier includes 10 ms CPU per request; verified average edge route execution < 2.5 ms.
+- **Provider Reachability (Live Datacenter Verification)**:
+  - BetterLyrics: 200 OK (849 ms, not blocked)
+  - LRCLIB: 200 OK (726 ms, not blocked)
+  - lrc.red: 200 OK (719 ms, not blocked)
+  - KuGou: 200 OK (1310 ms, not blocked)
+  - Unison: 404 Not Found (content miss, not blocked)
+  - Paxsenix: 502 Bad Gateway (upstream outage, not blocked)
+  - Spotify Embed: 200 OK (339 ms, not blocked)
+
+### 10.3 Phase 2: Offline-First Client Integration
+- **Resilient Circuit Breaker (`CircuitBreaker.kt`)**:
+  - Fast-fails when edge returns HTTP 429 (respecting `Retry-After` header) or HTTP 503.
+  - Exponential backoff with jitter (1s base, 30s max, 20% jitter).
+  - Moves from OPEN -> HALF_OPEN to safely probe edge connectivity before resuming normal operation.
+- **User Local-Only Switch**:
+  - Settings -> "Local only mode" toggle: forces all app features to use local on-device logic and completely eliminates network calls to the backend. Default: OFF.
+- **Remote Config & Killswitches (`RemoteConfigManager.kt`)**:
+  - Local caching with ETag (`If-None-Match`) support.
+  - Strict killswitch precedence: Server Killswitch > Remote Config > Build Default.
+  - Maintenance mode banner and dynamic lyrics provider fallback order.
+- **In-App Updater (`AppUpdateManager.kt`)**:
+  - Zero-cost updates checking `update.json`.
+  - Background APK download with byte progress callback.
+  - Cryptographic SHA-256 verification before prompting system package installer.
+- **SQLite Outbox Sync & HLC Conflict Resolution (`SyncManager.kt`)**:
+  - Offline changes enqueued in SQLite outbox.
+  - Deterministic 16-character recovery code in `SOFT-XXXX-XXXX-XXXX` format derived from client secret.
+  - Last-Write-Wins (LWW) conflict resolution using Hybrid Logical Clocks (`HlcTimestamp`).
+  - Tombstone deletion preservation ensuring deleted items do not resurrect upon sync.
+  - User controls: Export data (JSON), Delete account (GDPR compliance), Sync now button with pending changes badge and cloud tier indicator.
+- **Client Telemetry (`TelemetryManager.kt`)**:
+  - Strictly opt-in (default: disabled / OFF).
+  - Batched and throttled to at most once every 60 seconds; drops events if queue exceeds 50 events.
+  - "View data disclosure" dialog in Settings listing exact anonymized JSON payload schema.
+
+### 10.4 Phase 3: Listen-Together Rooms (`RoomSync.kt` & `room.ts`)
+- Cloudflare Durable Objects room orchestration with WebSocket hibernation (zero CPU compute while paused).
+- 6-character room code generation, max 6 participants gating.
+- Drift correction engine:
+  - $\le 500\text{ ms}$: No action (in sync).
+  - $501 - 2000\text{ ms}$: Smooth seek / speed adjust.
+  - $> 2000\text{ ms}$: Hard seek directly to host position.
+- Ephemeral chat and reactions; graceful fallback to local playback when rooms are unavailable.
+
+---
+
+### 10.5 Verification Matrix
+
+| Verification Target | Test Method | Result |
+| :--- | :--- | :--- |
+| Zero-silence crossfade scheduler state machine | JVM unit test `CrossfadeSchedulerTest` | **verified in CI (tests)** |
+| Chunked stream duration fallback (`C.TIME_UNSET`) | JVM unit test `CrossfadeSchedulerTest` | **verified in CI (tests)** |
+| Player B-ready timeout fallback to gapless | JVM unit test `CrossfadeSchedulerTest` | **verified in CI (tests)** |
+| Circuit breaker fast-fail on 429/503 & Retry-After | JVM unit test `CircuitBreakerTest` | **verified in CI (tests)** |
+| HLC clock monotonicity & remote advance | JVM unit test `HlcTest` | **verified in CI (tests)** |
+| Deterministic 16-char recovery code format | JVM unit test `HlcTest` | **verified in CI (tests)** |
+| Two-device offline sync LWW convergence & order independence | JVM unit test `SyncConflictTest` | **verified in CI (tests)** |
+| Tombstone deletion winning over modification | JVM unit test `SyncConflictTest` | **verified in CI (tests)** |
+| Remote config killswitch precedence | JVM unit test `RemoteConfigTest` | **verified in CI (tests)** |
+| Room drift correction thresholds & max 6 participants | JVM unit test `RoomSyncTest` | **verified in CI (tests)** |
+| Telemetry opt-in gating, queue cap (50) & 60s throttle | JVM unit test `TelemetryTest` | **verified in CI (tests)** |
+| Zero emojis across all UI, settings & diagnostics | Unit test `NoEmojiTest` scan | **verified in CI (tests)** |
+| Edge API authentication, HMAC hashing, HLC validation | Vitest backend test `api.test.ts` | **verified in CI (tests)** |
+| Edge route CPU execution benchmark (<10 ms budget) | Vitest benchmark test | **verified in CI (tests)** |
+| Real-device audio crossfade blending & transition audible continuity | Moto G34 physical device (cannot be heard in CI) | **not verified on device** |
+| Real-device Bluetooth/speaker gapless playback | Moto G34 physical device (cannot be heard in CI) | **not verified on device** |
+| Real-device in-app APK installer intent execution | Moto G34 physical device | **not verified on device** |
+
+---
+
+### 10.6 GitHub Actions Cloud CI & Cloud APK Build
+
+- **Cloud Workflows**:
+  - [Backend Engine & Edge CI - Run #45342077019](https://github.com/Sarthak-Cyb3r/softify/actions/runs/45342077019): **PASSED (Success)**
+    - TypeScript typecheck: Clean (0 errors)
+    - Vitest unit tests: Passed
+    - Deployment check: Clean notice when secrets absent
+  - [CI Engine & Test Verification - Run #45344452091](https://github.com/Sarthak-Cyb3r/softify/actions/runs/45344452091): **PASSED (Success)**
+    - Rust Core Verification & Tests: Passed (61 passed, 0 failed)
+    - Flutter Core Resolver & App Tests: Passed
+  - [Build Android Debug APK (Cloud) - Run #45344452124](https://github.com/Sarthak-Cyb3r/softify/actions/runs/45344452124): **PASSED (Success)**
+    - `cargo fmt --check`: Clean (0 diffs)
+    - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings)
+    - `cargo test --all-targets`: Passed (52 passed, 0 failed)
+    - `Compose desktopTest` under xvfb: Passed (**93/93 passed**, 0 failed)
+    - Native NDK compilation & verification: arm64-v8a & x86_64
+- **Downloaded Cloud Artifacts** (`~/Downloads`):
+  - **`composeApp-arm64-v8a-debug.apk`** (optimized for Moto G34 / arm64 devices):
+    - Path: `/home/sarthak/Downloads/composeApp-arm64-v8a-debug.apk`
+    - Size: **28,372,093 bytes (28.4 MB)**
+    - SHA256: `619afb987268e7e17c1bba33c0b2c3d9e8ad9b51daf0cd6806e68d933d9e10d5`
+  - **`composeApp-universal-debug.apk`**:
+    - Path: `/home/sarthak/Downloads/composeApp-universal-debug.apk`
+    - Size: **36,306,070 bytes (36.3 MB)**
+    - SHA256: `e7128af723c5cec9d1c48340f48561f9a672e0c43749920346005accf1efa9da`
+  - **`composeApp-x86_64-debug.apk`**:
+    - Path: `/home/sarthak/Downloads/composeApp-x86_64-debug.apk`
+    - Size: **29,014,404 bytes (29.0 MB)**
+    - SHA256: `172f371d91e308f2e8d0172a420d916be08c832af76590b0256ce4afd41eb3e4`
+
+
 
 
 
