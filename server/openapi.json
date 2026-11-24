@@ -1,0 +1,232 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Softify Zero-Cost Edge API",
+    "version": "1.0.0",
+    "description": "Offline-first, anonymous production backend for Softify operating strictly within Cloudflare Free Tier limits ($0.00 cost)."
+  },
+  "servers": [
+    {
+      "url": "https://softify-server.sarthak-cyb3r.workers.dev",
+      "description": "Production Cloudflare Edge Worker"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness Probe",
+        "responses": {
+          "200": { "description": "Worker is live" }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness Probe",
+        "responses": {
+          "200": { "description": "D1 and KV connectivity confirmed" },
+          "503": { "description": "Database connection failure" }
+        }
+      }
+    },
+    "/v1/auth/anonymous": {
+      "post": {
+        "summary": "Anonymous Device Registration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AnonymousAuthRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authenticated and tokens issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnonymousAuthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sync": {
+      "post": {
+        "summary": "Batch Sync Library Outbox",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SyncBatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SyncBatchResponse" }
+              }
+            }
+          },
+          "429": { "description": "Write budget exhausted" }
+        }
+      },
+      "get": {
+        "summary": "Pull Library Changes",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remote changes returned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SyncBatchResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/lyrics": {
+      "get": {
+        "summary": "Fetch Lyrics (Edge Cached)",
+        "parameters": [
+          { "name": "trackId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "provider", "in": "query", "schema": { "type": "string", "default": "lrclib" } },
+          { "name": "title", "in": "query", "schema": { "type": "string" } },
+          { "name": "artist", "in": "query", "schema": { "type": "string" } },
+          { "name": "duration", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Raw lyrics payload" },
+          "404": { "description": "Lyrics not found" }
+        }
+      }
+    },
+    "/v1/charts": {
+      "get": {
+        "summary": "Explore Shelves and Charts",
+        "responses": {
+          "200": { "description": "Static/cached shelves snapshot" }
+        }
+      }
+    },
+    "/v1/telemetry": {
+      "post": {
+        "summary": "Submit Anonymous Diagnostic Crash Report",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TelemetryReport" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Report received" },
+          "204": { "description": "Report shed to protect free quota" }
+        }
+      }
+    },
+    "/v1/user/export": {
+      "get": {
+        "summary": "Export User Library Data (GDPR)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Complete JSON data dump" }
+        }
+      }
+    },
+    "/v1/user/delete": {
+      "post": {
+        "summary": "Permanently Delete Device Account and Data",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Account and all records purged" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "AnonymousAuthRequest": {
+        "type": "object",
+        "required": ["deviceId", "recoveryHash"],
+        "properties": {
+          "deviceId": { "type": "string" },
+          "recoveryHash": { "type": "string" }
+        }
+      },
+      "AnonymousAuthResponse": {
+        "type": "object",
+        "required": ["accessToken", "expiresInSeconds", "refreshToken"],
+        "properties": {
+          "accessToken": { "type": "string" },
+          "expiresInSeconds": { "type": "integer" },
+          "refreshToken": { "type": "string" },
+          "recoveryCodeReminder": { "type": "string" }
+        }
+      },
+      "SyncItem": {
+        "type": "object",
+        "required": ["id", "type", "payload", "hlc"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["playlist", "track_like", "history_aggregate", "setting"] },
+          "payload": { "type": "string" },
+          "hlc": { "type": "string" },
+          "deleted": { "type": "boolean" },
+          "version": { "type": "integer" }
+        }
+      },
+      "SyncBatchRequest": {
+        "type": "object",
+        "properties": {
+          "cursor": { "type": "integer" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SyncItem" }
+          }
+        }
+      },
+      "SyncBatchResponse": {
+        "type": "object",
+        "required": ["cursor", "items", "budgetTier"],
+        "properties": {
+          "cursor": { "type": "integer" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SyncItem" }
+          },
+          "budgetTier": { "type": "string" }
+        }
+      },
+      "TelemetryReport": {
+        "type": "object",
+        "required": ["appVersion", "osVersion", "abi", "errorType", "redactedMessage", "occurredAtMs"],
+        "properties": {
+          "appVersion": { "type": "string" },
+          "osVersion": { "type": "string" },
+          "abi": { "type": "string" },
+          "errorType": { "type": "string" },
+          "redactedMessage": { "type": "string" },
+          "stackTrace": { "type": "string" },
+          "occurredAtMs": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "versionCode": 40301,
+  "versionName": "4.3.1-experimental",
+  "minSupportedVersionCode": 40000,
+  "releaseDate": "2026-11-24",
+  "changelog": [
+    "Eliminated crossfade audio gap with high-precision 40ms position loop and B-ready gating",
+    "Added live Transition Traces in Diagnostics screen",
+    "Offline-first cloud library & playlist sync on Cloudflare Free Tier",
+    "Zero-cost edge lyrics cache with automatic provider fallback",
+    "In-app update checking and verified release package installation"
+  ],
+  "downloadUrl": "https://github.com/Sarthak-Cyb3r/softify/releases/download/v4.3.1-exp/composeApp-arm64-v8a-debug.apk",
+  "sha256": "534a50e321a546f9be788fb909f366ec3990059439b0659799c41faaaa6062dc",
+  "fileSizeBytes": 28290114
+}

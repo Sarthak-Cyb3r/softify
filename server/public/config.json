@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "minAppVersionCode": 40000,
+  "features": {
+    "lyricsSync": true,
+    "cloudSync": true,
+    "listenTogether": true,
+    "downloads": true,
+    "audioNormalization": true,
+    "crossfade": true
+  },
+  "providers": {
+    "saavn": { "enabled": true, "priority": 1 },
+    "youtube": { "enabled": true, "priority": 2 },
+    "betterlyrics": { "enabled": true },
+    "lrclib": { "enabled": true },
+    "lrcred": { "enabled": true },
+    "kugou": { "enabled": true },
+    "paxsenix": { "enabled": false },
+    "unison": { "enabled": true }
+  },
+  "endpoints": {
+    "apiBaseUrl": "https://softify-server.sarthak-cyb3r.workers.dev",
+    "backupMirrorUrl": "https://sarthak-cyb3r.github.io/softify-static"
+  },
+  "updatedAt": "2026-11-24T00:00:00Z"
+}

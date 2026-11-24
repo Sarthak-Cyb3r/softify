@@ -32,7 +32,9 @@ import androidx.media3.session.MediaSessionService
 import com.softify.app.util.PlaybackLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uniffi.softify_core.HeaderPair
 import uniffi.softify_core.QualityPreset

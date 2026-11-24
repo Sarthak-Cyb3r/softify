@@ -1,0 +1,35 @@
+{
+  "updatedAt": 1732440000000,
+  "shelves": [
+    {
+      "id": "trending",
+      "title": "Trending Worldwide",
+      "items": [
+        {
+          "id": "yt_fJ9rUzIMcZQ",
+          "title": "Bohemian Rhapsody",
+          "artist": "Queen",
+          "coverUrl": "https://i.ytimg.com/vi/fJ9rUzIMcZQ/hqdefault.jpg"
+        },
+        {
+          "id": "yt_0VjIjW4GlULA75sNaKVVTn",
+          "title": "Blinding Lights",
+          "artist": "The Weeknd",
+          "coverUrl": "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg"
+        }
+      ]
+    },
+    {
+      "id": "top_charts",
+      "title": "Top Global Hits",
+      "items": [
+        {
+          "id": "yt_JGwWNGJdvx8",
+          "title": "Shape of You",
+          "artist": "Ed Sheeran",
+          "coverUrl": "https://i.ytimg.com/vi/JGwWNGJdvx8/hqdefault.jpg"
+        }
+      ]
+    }
+  ]
+}

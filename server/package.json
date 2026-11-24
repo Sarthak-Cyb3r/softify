@@ -1,17 +1,27 @@
 {
-  "name": "softify-device-control-server",
+  "name": "softify-server",
   "version": "1.0.0",
-  "description": "Centralized device registry, heartbeat tracker, and access control dashboard for Softify",
-  "main": "server.js",
+  "description": "Zero-cost offline-first production backend for Softify on Cloudflare Workers",
+  "license": "AGPL-3.0",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": ["softify", "device-control", "music-player", "dashboard"],
-  "author": "Softify Team",
-  "license": "MIT",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2"
+    "@hono/zod-validator": "^0.4.2",
+    "hono": "^4.6.12",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241112.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5",
+    "wrangler": "^3.88.0"
   }
 }
