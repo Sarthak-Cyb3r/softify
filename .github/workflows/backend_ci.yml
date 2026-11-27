@@ -4,12 +4,20 @@ on:
   push:
     paths:
       - 'server/**'
+      - 'composeApp/src/commonMain/kotlin/com/softify/app/api/**'
+      - 'composeApp/src/commonMain/kotlin/com/softify/app/sync/**'
+      - 'composeApp/src/commonMain/kotlin/com/softify/app/room/**'
+      - 'composeApp/src/desktopTest/kotlin/com/softify/app/*Contract*'
       - '.github/workflows/backend_ci.yml'
     branches:
       - main
   pull_request:
     paths:
       - 'server/**'
+      - 'composeApp/src/commonMain/kotlin/com/softify/app/api/**'
+      - 'composeApp/src/commonMain/kotlin/com/softify/app/sync/**'
+      - 'composeApp/src/commonMain/kotlin/com/softify/app/room/**'
+      - 'composeApp/src/desktopTest/kotlin/com/softify/app/*Contract*'
       - '.github/workflows/backend_ci.yml'
     branches:
       - main
@@ -43,6 +51,67 @@ jobs:
       - name: Run Vitest Suite (< 10ms CPU Benchmark & Contracts)
         working-directory: server
         run: npm test
+
+  contract-e2e:
+    name: Kotlin Client <-> Wrangler Dev OpenAPI Contract E2E
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package.json
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Server Dependencies
+        working-directory: server
+        run: npm install
+
+      - name: Run Live Wrangler Dev Contract Tests (Local D1/KV/DO)
+        run: |
+          set -euo pipefail
+          cd server
+          printf "y\n" | npx wrangler d1 migrations apply softify-db --local
+          npx wrangler dev --local --port 8787 --ip 127.0.0.1 > /tmp/wrangler-contract.log 2>&1 &
+          WRANGLER_PID=$!
+          trap 'kill $WRANGLER_PID 2>/dev/null || true' EXIT
+
+          READY=0
+          for i in $(seq 1 45); do
+            if curl -sf http://127.0.0.1:8787/healthz >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo "wrangler dev failed to become healthy:"
+            cat /tmp/wrangler-contract.log || true
+            exit 1
+          fi
+
+          cd ..
+          chmod +x gradlew
+          export SOFTIFY_CONTRACT_BASE_URL="http://127.0.0.1:8787"
+          ./gradlew desktopTest \
+            --tests "com.softify.app.ApiContractAndRoutesLintTest" \
+            --tests "com.softify.app.BackendContractIntegrationTest" \
+            --no-daemon -Dorg.gradle.jvmargs="-Xmx1g" --stacktrace || (cat /tmp/wrangler-contract.log && exit 1)
 
   deploy-staging:
     name: Deploy to Cloudflare Workers (Staging)

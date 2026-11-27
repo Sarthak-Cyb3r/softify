@@ -10,37 +10,45 @@ export async function handleSyncBatch(
   device: DeviceContext,
   body: SyncBatchRequest,
   env: Env
-): Promise<{ status: number; data?: SyncBatchResponse; error?: string }> {
+): Promise<{ status: number; data?: SyncBatchResponse; error?: string; retryAfterSec?: number }> {
   const tier = await BudgetGuard.getBudgetTier(env);
-  if (tier === 'TIER_2_SHED_WRITE') {
+  const incoming = body.items || [];
+
+  if (incoming.length > 0 && tier === 'TIER_3_SHED_WRITE') {
     return {
       status: 429,
-      error: 'Write budget exhausted for today. Please retry later.'
+      error: 'Write budget exhausted for today. Please retry later.',
+      retryAfterSec: 3600
     };
   }
 
-  const now = Date.now();
-  const incoming = body.items || [];
+  if (incoming.length > 0) {
+    const quota = BudgetGuard.checkAndRecordDeviceSyncBatch(device.accountId);
+    if (!quota.allowed) {
+      return {
+        status: 429,
+        error: 'Per-device daily sync batch limit reached.',
+        retryAfterSec: quota.retryAfterSec
+      };
+    }
+  }
 
-  // Cap batch size to 50 items to protect D1 write limit
+  const now = Date.now();
   const batch = incoming.slice(0, 50);
 
   if (batch.length > 0) {
-    BudgetGuard.recordD1Write(batch.length);
-
-    // Process batch items with Last-Writer-Wins HLC comparison
     for (const item of batch) {
-      const syncId = `${device.deviceId}:${item.type}:${item.id}`;
+      const syncId = `${device.accountId}:${item.type}:${item.id}`;
       const isDel = item.deleted ? 1 : 0;
       const ver = item.version || 1;
 
-      // Select existing HLC to ensure Last-Writer-Wins
       BudgetGuard.recordD1Read(1);
       const existing = await env.DB.prepare(
         'SELECT hlc_timestamp FROM library_sync WHERE id = ?'
       ).bind(syncId).first<{ hlc_timestamp: string }>();
 
       if (!existing || compareHlc(item.hlc, existing.hlc_timestamp) > 0) {
+        BudgetGuard.recordD1Write(1);
         await env.DB.prepare(`
           INSERT INTO library_sync (id, device_id, item_type, item_id, payload, hlc_timestamp, is_deleted, version, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -50,12 +58,11 @@ export async function handleSyncBatch(
             is_deleted = excluded.is_deleted,
             version = excluded.version,
             updated_at = excluded.updated_at
-        `).bind(syncId, device.deviceId, item.type, item.id, item.payload, item.hlc, isDel, ver, now).run();
+        `).bind(syncId, device.accountId, item.type, item.id, item.payload, item.hlc, isDel, ver, now).run();
       }
     }
   }
 
-  // Pull updates since client cursor
   const clientCursor = body.cursor || 0;
   BudgetGuard.recordD1Read(1);
   const rows = await env.DB.prepare(`
@@ -64,7 +71,7 @@ export async function handleSyncBatch(
     WHERE device_id = ? AND updated_at > ?
     ORDER BY updated_at ASC
     LIMIT 100
-  `).bind(device.deviceId, clientCursor).all<{
+  `).bind(device.accountId, clientCursor).all<{
     item_id: string;
     item_type: 'playlist' | 'track_like' | 'history_aggregate' | 'setting';
     payload: string;
@@ -74,7 +81,7 @@ export async function handleSyncBatch(
     updated_at: number;
   }>();
 
-  const remoteItems: SyncItem[] = (rows.results || []).map(r => ({
+  const remoteItems: SyncItem[] = (rows.results || []).map((r) => ({
     id: r.item_id,
     type: r.item_type,
     payload: r.payload,
@@ -92,7 +99,8 @@ export async function handleSyncBatch(
     data: {
       cursor: nextCursor,
       items: remoteItems,
-      budgetTier: tier
+      budgetTier: tier,
+      serverHlc: `${now}-0000-edge`
     }
   };
 }

@@ -18,6 +18,7 @@ data class UpdateInfo(
     val releaseNotes: String,
     val apkUrl: String,
     val sha256: String,
+    val expectedSizeBytes: Long = -1L,
     val isMandatory: Boolean = false
 )
 
@@ -69,32 +70,46 @@ class AppUpdateManager(
             }
 
             val totalBytes = body.contentLength()
+            val expectedSize = when {
+                info.expectedSizeBytes > 0L -> info.expectedSizeBytes
+                totalBytes > 0L -> totalBytes
+                else -> -1L
+            }
             if (!targetDir.exists()) {
                 targetDir.mkdirs()
             }
             val apkFile = File(targetDir, "softify-${info.versionName}.apk")
+            var totalRead = 0L
 
             body.byteStream().use { input ->
                 FileOutputStream(apkFile).use { output ->
                     val buffer = ByteArray(8192)
                     var bytesRead: Int
-                    var totalRead = 0L
 
                     while (input.read(buffer).also { bytesRead = it } != -1) {
                         output.write(buffer, 0, bytesRead)
                         totalRead += bytesRead
-                        val progress = if (totalBytes > 0) totalRead.toFloat() / totalBytes.toFloat() else 0f
-                        _updateState.value = UpdateState.Downloading(totalRead, totalBytes, progress)
-                        onProgress?.invoke(totalRead, totalBytes)
+                        val denom = if (expectedSize > 0L) expectedSize else totalBytes
+                        val progress = if (denom > 0L) (totalRead.toFloat() / denom.toFloat()).coerceIn(0f, 1f) else 0f
+                        _updateState.value = UpdateState.Downloading(totalRead, denom, progress)
+                        onProgress?.invoke(totalRead, denom)
                     }
                 }
             }
 
-            // Verify SHA-256
-            if (info.sha256.isNotBlank() && !verifySha256(apkFile, info.sha256)) {
+            if (totalRead <= 0L || (expectedSize > 0L && totalRead != expectedSize) || (totalBytes > 0L && totalRead != totalBytes)) {
                 apkFile.delete()
-                _updateState.value = UpdateState.Error("SHA-256 checksum mismatch")
-                PlaybackLogger.log("SoftifyUpdater", "SHA-256 verification failed for downloaded APK.")
+                val targetLen = if (expectedSize > 0L) expectedSize else totalBytes
+                _updateState.value = UpdateState.Error("Truncated download: expected $targetLen bytes, got $totalRead bytes")
+                PlaybackLogger.log("SoftifyUpdater", "Truncated download refused: expected=$targetLen actual=$totalRead")
+                return@withContext null
+            }
+
+            if (info.sha256.isBlank() || !verifySha256(apkFile, info.sha256)) {
+                apkFile.delete()
+                val reason = if (info.sha256.isBlank()) "Missing SHA-256 checksum" else "SHA-256 checksum mismatch"
+                _updateState.value = UpdateState.Error(reason)
+                PlaybackLogger.log("SoftifyUpdater", "$reason for downloaded APK.")
                 return@withContext null
             }
 

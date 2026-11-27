@@ -2,30 +2,69 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Softify Zero-Cost Edge API",
-    "version": "1.0.0",
-    "description": "Offline-first, anonymous production backend for Softify operating strictly within Cloudflare Free Tier limits ($0.00 cost)."
+    "version": "1.1.0",
+    "description": "Single source of truth OpenAPI 3.1 contract for Softify offline-first Cloudflare Workers backend ($0.00 cost)."
   },
   "servers": [
     {
-      "url": "https://softify-server.sarthak-cyb3r.workers.dev",
-      "description": "Production Cloudflare Edge Worker"
+      "url": "https://softify-server.workers.dev",
+      "description": "Production Cloudflare Edge Worker (free workers.dev)"
     }
   ],
   "paths": {
     "/healthz": {
       "get": {
-        "summary": "Liveness Probe",
+        "summary": "Liveness Probe (Never Shed)",
         "responses": {
-          "200": { "description": "Worker is live" }
+          "200": {
+            "description": "Worker is live",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+          }
         }
       }
     },
     "/readyz": {
       "get": {
-        "summary": "Readiness Probe",
+        "summary": "Readiness Probe (Never Shed)",
         "responses": {
-          "200": { "description": "D1 and KV connectivity confirmed" },
-          "503": { "description": "Database connection failure" }
+          "200": {
+            "description": "D1 and KV connectivity confirmed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReadyResponse" } } }
+          },
+          "503": { "description": "Database or KV unavailable" }
+        }
+      }
+    },
+    "/config.json": {
+      "get": {
+        "summary": "Static Remote Config Manifest (Never Shed)",
+        "responses": {
+          "200": {
+            "description": "Remote feature flags and endpoints",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RemoteConfigDocument" } } }
+          }
+        }
+      }
+    },
+    "/update.json": {
+      "get": {
+        "summary": "Static App Update Manifest (Never Shed)",
+        "responses": {
+          "200": {
+            "description": "Latest signed APK release metadata",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateManifestDocument" } } }
+          }
+        }
+      }
+    },
+    "/home_shelves.json": {
+      "get": {
+        "summary": "Static Home Explore Shelves",
+        "responses": {
+          "200": {
+            "description": "Pre-rendered charts and shelves",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChartsResponse" } } }
+          }
         }
       }
     },
@@ -34,21 +73,46 @@
         "summary": "Anonymous Device Registration",
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/AnonymousAuthRequest" }
-            }
-          }
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnonymousAuthRequest" } } }
         },
         "responses": {
           "200": {
             "description": "Device authenticated and tokens issued",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/AnonymousAuthResponse" }
-              }
-            }
-          }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnonymousAuthResponse" } } }
+          },
+          "400": { "description": "Invalid payload" }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "Rotate Refresh Token and Issue New Access Token",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshTokenRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "New access and refresh tokens issued",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnonymousAuthResponse" } } }
+          },
+          "401": { "description": "Invalid or expired refresh token" }
+        }
+      }
+    },
+    "/v1/auth/recover": {
+      "post": {
+        "summary": "Restore Account onto New Device Using Recovery Hash",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnonymousAuthRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "New device linked to recovered account and tokens issued",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnonymousAuthResponse" } } }
+          },
+          "404": { "description": "Recovery hash not found" }
         }
       }
     },
@@ -58,39 +122,29 @@
         "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/SyncBatchRequest" }
-            }
-          }
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncBatchRequest" } } }
         },
         "responses": {
           "200": {
             "description": "Sync successful",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncBatchResponse" }
-              }
-            }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncBatchResponse" } } }
           },
-          "429": { "description": "Write budget exhausted" }
+          "401": { "description": "Unauthorized" },
+          "413": { "description": "Payload exceeded 256 KB limit" },
+          "429": { "description": "Sync budget or per-device rate quota exhausted" }
         }
       },
       "get": {
         "summary": "Pull Library Changes",
         "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          { "name": "cursor", "in": "query", "schema": { "type": "integer" } }
-        ],
+        "parameters": [{ "name": "cursor", "in": "query", "schema": { "type": "integer" } }],
         "responses": {
           "200": {
             "description": "Remote changes returned",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncBatchResponse" }
-              }
-            }
-          }
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncBatchResponse" } } }
+          },
+          "401": { "description": "Unauthorized" },
+          "429": { "description": "Rate limit or budget quota exhausted" }
         }
       }
     },
@@ -106,7 +160,8 @@
         ],
         "responses": {
           "200": { "description": "Raw lyrics payload" },
-          "404": { "description": "Lyrics not found" }
+          "404": { "description": "Lyrics not found" },
+          "503": { "description": "Cache miss upstream shed under budget guard" }
         }
       }
     },
@@ -114,7 +169,10 @@
       "get": {
         "summary": "Explore Shelves and Charts",
         "responses": {
-          "200": { "description": "Static/cached shelves snapshot" }
+          "200": {
+            "description": "Static/cached shelves snapshot",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChartsResponse" } } }
+          }
         }
       }
     },
@@ -123,14 +181,13 @@
         "summary": "Submit Anonymous Diagnostic Crash Report",
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/TelemetryReport" }
-            }
-          }
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TelemetryReport" } } }
         },
         "responses": {
-          "200": { "description": "Report received" },
+          "200": {
+            "description": "Report accepted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } }
+          },
           "204": { "description": "Report shed to protect free quota" }
         }
       }
@@ -140,43 +197,131 @@
         "summary": "Export User Library Data (GDPR)",
         "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "Complete JSON data dump" }
+          "200": {
+            "description": "Complete JSON data dump",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserExportResponse" } } }
+          },
+          "401": { "description": "Unauthorized" }
         }
       }
     },
     "/v1/user/delete": {
       "post": {
-        "summary": "Permanently Delete Device Account and Data",
+        "summary": "Permanently Delete Account and All Data",
         "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "Account and all records purged" }
+          "200": {
+            "description": "Account and all records purged",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/v1/room": {
+      "post": {
+        "summary": "Create Listen-Together Room",
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateRoomRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Room initialized and join code assigned",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoomInfoResponse" } } }
+          },
+          "429": { "description": "Durable Objects budget exceeded" }
+        }
+      }
+    },
+    "/v1/room/{code}": {
+      "get": {
+        "summary": "Get Listen-Together Room Metadata or Upgrade to WebSocket",
+        "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "101": { "description": "WebSocket upgraded via Durable Object hibernation" },
+          "200": {
+            "description": "Room metadata JSON",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoomInfoResponse" } } }
+          },
+          "429": { "description": "Room full (max 6) or DO quota exhausted" }
         }
       }
     }
   },
   "components": {
     "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
-      }
+      "BearerAuth": { "type": "http", "scheme": "bearer" }
     },
     "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "time"],
+        "properties": { "status": { "type": "string" }, "time": { "type": "integer" } }
+      },
+      "ReadyResponse": {
+        "type": "object",
+        "required": ["ready", "budgetTier"],
+        "properties": { "ready": { "type": "boolean" }, "budgetTier": { "type": "string" } }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "required": ["message"],
+        "properties": { "message": { "type": "string" } }
+      },
+      "RemoteConfigDocument": {
+        "type": "object",
+        "required": ["version", "minAppVersionCode", "features", "providers", "endpoints", "updatedAt"],
+        "properties": {
+          "version": { "type": "integer" },
+          "minAppVersionCode": { "type": "integer" },
+          "maintenanceBanner": { "type": "string" },
+          "features": { "type": "object" },
+          "providers": { "type": "object" },
+          "endpoints": { "type": "object" },
+          "updatedAt": { "type": "string" }
+        }
+      },
+      "UpdateManifestDocument": {
+        "type": "object",
+        "required": ["versionCode", "versionName", "minSupportedVersionCode", "releaseDate", "changelog", "downloadUrl", "sha256", "fileSizeBytes"],
+        "properties": {
+          "versionCode": { "type": "integer" },
+          "versionName": { "type": "string" },
+          "minSupportedVersionCode": { "type": "integer" },
+          "releaseDate": { "type": "string" },
+          "changelog": { "type": "array", "items": { "type": "string" } },
+          "downloadUrl": { "type": "string" },
+          "sha256": { "type": "string" },
+          "fileSizeBytes": { "type": "integer" }
+        }
+      },
+      "ChartsResponse": {
+        "type": "object",
+        "required": ["updatedAt", "shelves"],
+        "properties": {
+          "updatedAt": { "type": "integer" },
+          "shelves": { "type": "array", "items": { "type": "object" } }
+        }
+      },
       "AnonymousAuthRequest": {
         "type": "object",
         "required": ["deviceId", "recoveryHash"],
-        "properties": {
-          "deviceId": { "type": "string" },
-          "recoveryHash": { "type": "string" }
-        }
+        "properties": { "deviceId": { "type": "string" }, "recoveryHash": { "type": "string" } }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": { "refreshToken": { "type": "string" } }
       },
       "AnonymousAuthResponse": {
         "type": "object",
-        "required": ["accessToken", "expiresInSeconds", "refreshToken"],
+        "required": ["accessToken", "expiresInSeconds", "refreshToken", "accountId", "recoveryCodeReminder"],
         "properties": {
           "accessToken": { "type": "string" },
           "expiresInSeconds": { "type": "integer" },
           "refreshToken": { "type": "string" },
+          "accountId": { "type": "string" },
           "recoveryCodeReminder": { "type": "string" }
         }
       },
@@ -194,24 +339,20 @@
       },
       "SyncBatchRequest": {
         "type": "object",
+        "required": ["items"],
         "properties": {
           "cursor": { "type": "integer" },
-          "items": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/SyncItem" }
-          }
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/SyncItem" } }
         }
       },
       "SyncBatchResponse": {
         "type": "object",
-        "required": ["cursor", "items", "budgetTier"],
+        "required": ["cursor", "items", "budgetTier", "serverHlc"],
         "properties": {
           "cursor": { "type": "integer" },
-          "items": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/SyncItem" }
-          },
-          "budgetTier": { "type": "string" }
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/SyncItem" } },
+          "budgetTier": { "type": "string" },
+          "serverHlc": { "type": "string" }
         }
       },
       "TelemetryReport": {
@@ -225,6 +366,32 @@
           "redactedMessage": { "type": "string" },
           "stackTrace": { "type": "string" },
           "occurredAtMs": { "type": "integer" }
+        }
+      },
+      "UserExportResponse": {
+        "type": "object",
+        "required": ["account", "library", "exportedAt"],
+        "properties": {
+          "account": { "type": "object" },
+          "library": { "type": "array", "items": { "type": "object" } },
+          "exportedAt": { "type": "integer" }
+        }
+      },
+      "CreateRoomRequest": {
+        "type": "object",
+        "properties": { "hostName": { "type": "string" }, "trackId": { "type": "string" } }
+      },
+      "RoomInfoResponse": {
+        "type": "object",
+        "required": ["roomCode", "wsPath", "maxParticipants", "peerCount", "isPlaying", "playbackPositionMs"],
+        "properties": {
+          "roomCode": { "type": "string" },
+          "wsPath": { "type": "string" },
+          "maxParticipants": { "type": "integer" },
+          "peerCount": { "type": "integer" },
+          "currentTrackId": { "type": ["string", "null"] },
+          "isPlaying": { "type": "boolean" },
+          "playbackPositionMs": { "type": "integer" }
         }
       }
     }

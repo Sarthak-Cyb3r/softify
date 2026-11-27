@@ -4,7 +4,24 @@ enum class SyncEntityType {
     FAVORITE,
     PLAYLIST,
     HISTORY,
-    SETTING
+    SETTING;
+
+    fun toWireType(): String = when (this) {
+        FAVORITE -> "track_like"
+        PLAYLIST -> "playlist"
+        HISTORY -> "history_aggregate"
+        SETTING -> "setting"
+    }
+
+    companion object {
+        fun fromWireType(wire: String): SyncEntityType = when (wire.lowercase()) {
+            "track_like", "favorite" -> FAVORITE
+            "playlist" -> PLAYLIST
+            "history_aggregate", "history" -> HISTORY
+            "setting" -> SETTING
+            else -> SETTING
+        }
+    }
 }
 
 /**
@@ -15,14 +32,16 @@ data class SyncChange(
     val entityId: String,
     val hlc: HlcTimestamp,
     val isDeleted: Boolean = false,
-    val payload: String = ""
+    val payload: String = "",
+    val version: Int = 1
 )
 
 data class SyncResult(
     val serverHlc: HlcTimestamp,
     val appliedChanges: List<SyncChange>,
-    val budgetTier: String = "TIER_1_NORMAL",
-    val isSuccess: Boolean = true
+    val budgetTier: String = "TIER_0_NORMAL",
+    val isSuccess: Boolean = true,
+    val cursor: Long = 0L
 )
 
 /**

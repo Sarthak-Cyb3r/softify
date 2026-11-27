@@ -10,7 +10,11 @@ data class RemoteConfig(
     val listenTogetherEnabled: Boolean = true,
     val maintenanceBanner: String? = null,
     val providerFallbackOrder: List<String> = listOf("betterlyrics", "lrclib", "lrcred", "kugou"),
-    val etag: String? = null
+    val etag: String? = null,
+    val version: Int = 1,
+    val minAppVersionCode: Int = 40000,
+    val apiBaseUrl: String = "https://softify-server.workers.dev",
+    val backupMirrorUrl: String = "https://sarthak-cyb3r.github.io/softify-static"
 )
 
 /**
@@ -20,7 +24,6 @@ data class RemoteConfig(
 class RemoteConfigManager(
     private var cachedConfig: RemoteConfig = RemoteConfig()
 ) {
-    // Explicit server killswitch overrides (can disable features regardless of remote config)
     private val activeServerKillswitches = mutableMapOf<String, Boolean>()
 
     fun setServerKillswitch(featureKey: String, disabled: Boolean) {
@@ -39,22 +42,19 @@ class RemoteConfigManager(
 
     fun isFeatureEnabled(featureKey: String, buildDefault: Boolean = true): Boolean {
         synchronized(this) {
-            // 1. Highest precedence: Server killswitch
             if (activeServerKillswitches[featureKey] == true) {
                 return false
             }
 
-            // 2. Medium precedence: Remote config
             val remoteValue = when (featureKey) {
-                "lyrics" -> cachedConfig.lyricsApiEnabled
-                "sync" -> cachedConfig.syncEnabled
+                "lyrics", "lyricsSync" -> cachedConfig.lyricsApiEnabled
+                "sync", "cloudSync" -> cachedConfig.syncEnabled
                 "updater" -> cachedConfig.updaterEnabled
                 "telemetry" -> cachedConfig.telemetryEnabled
-                "listen_together" -> cachedConfig.listenTogetherEnabled
+                "listen_together", "listenTogether" -> cachedConfig.listenTogetherEnabled
                 else -> null
             }
 
-            // 3. Lowest precedence: Build default
             return remoteValue ?: buildDefault
         }
     }
@@ -70,4 +70,6 @@ class RemoteConfigManager(
     fun getEtag(): String? = synchronized(this) {
         cachedConfig.etag
     }
+
+    fun getConfig(): RemoteConfig = synchronized(this) { cachedConfig }
 }

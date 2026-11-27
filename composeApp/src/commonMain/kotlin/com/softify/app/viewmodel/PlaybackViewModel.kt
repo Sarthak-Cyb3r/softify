@@ -16,6 +16,7 @@ import com.softify.app.playback.TransitionTrace
 import com.softify.app.storage.DirectoryStorageProvider
 import com.softify.app.storage.StorageProvider
 import com.softify.app.util.PlaybackLogger
+import com.softify.app.api.AuthTokens
 import com.softify.app.api.RemoteConfigManager
 import com.softify.app.api.SoftifyApiClient
 import com.softify.app.sync.SyncChange
@@ -635,6 +636,35 @@ class PlaybackViewModel(
         showSnackbar(if (next) "Local only mode active: edge calls disabled" else "Local only mode disabled")
     }
 
+    private suspend fun persistEdgeAuth(tokens: AuthTokens) {
+        runCatching {
+            withDatabase {
+                setSetting("edge_auth_token", tokens.accessToken)
+                if (tokens.refreshToken.isNotBlank()) {
+                    setSetting("edge_refresh_token", tokens.refreshToken)
+                }
+                if (tokens.accountId.isNotBlank()) {
+                    setSetting("edge_account_id", tokens.accountId)
+                }
+            }
+        }
+    }
+
+    private suspend fun ensureEdgeAuth(): String? {
+        val existingAccess = runCatching { withDatabase { getSetting("edge_auth_token") } }.getOrNull()
+        val existingRefresh = runCatching { withDatabase { getSetting("edge_refresh_token") } }.getOrNull()
+        if (!existingRefresh.isNullOrBlank()) {
+            apiClient.refreshToken = existingRefresh
+        }
+        if (!existingAccess.isNullOrBlank()) {
+            apiClient.accessToken = existingAccess
+            return existingAccess
+        }
+        val tokens = apiClient.registerAnonymous(syncManager.deviceId, syncManager.recoveryCode) ?: return null
+        persistEdgeAuth(tokens)
+        return tokens.accessToken
+    }
+
     fun syncNow() {
         if (syncManager.isLocalOnly.value) {
             showSnackbar("Cannot sync: Local only mode is active")
@@ -643,11 +673,23 @@ class PlaybackViewModel(
         scope.launch(Dispatchers.Default) {
             showSnackbar("Syncing data with edge...")
             val pending = syncManager.getPendingChanges()
-            val token = runCatching { withDatabase { getSetting("edge_auth_token") } }.getOrNull() ?: "anon_token"
-            val result = apiClient.sync(token, syncManager.clock.now(), pending)
+            val token = ensureEdgeAuth()
+            val cursor = runCatching { withDatabase { getSetting("edge_sync_cursor")?.toLongOrNull() } }.getOrNull() ?: 0L
+            val result = if (token != null) {
+                apiClient.syncWithCursor(token, cursor, pending, syncManager.clock.now())
+            } else {
+                null
+            }
             if (result != null && result.isSuccess) {
                 syncManager.applyRemoteChanges(result.appliedChanges, result.serverHlc)
                 syncManager.updateTier(result.budgetTier)
+                runCatching {
+                    withDatabase {
+                        setSetting("edge_sync_cursor", result.cursor.toString())
+                        apiClient.accessToken?.let { setSetting("edge_auth_token", it) }
+                        apiClient.refreshToken?.let { setSetting("edge_refresh_token", it) }
+                    }
+                }
                 showSnackbar("Sync complete. Tier: ${result.budgetTier}")
             } else {
                 showSnackbar("Sync completed locally (offline fallback)")
@@ -688,9 +730,21 @@ class PlaybackViewModel(
 
     fun deleteUserAccount() {
         scope.launch(Dispatchers.Default) {
-            val token = runCatching { withDatabase { getSetting("edge_auth_token") } }.getOrNull() ?: ""
-            if (token.isNotBlank()) {
+            val token = runCatching { withDatabase { getSetting("edge_auth_token") } }.getOrNull() ?: apiClient.accessToken ?: ""
+            val refresh = runCatching { withDatabase { getSetting("edge_refresh_token") } }.getOrNull()
+            if (!refresh.isNullOrBlank()) {
+                apiClient.refreshToken = refresh
+            }
+            if (token.isNotBlank() && !syncManager.isLocalOnly.value) {
                 apiClient.deleteUserAccount(token)
+            }
+            runCatching {
+                withDatabase {
+                    setSetting("edge_auth_token", "")
+                    setSetting("edge_refresh_token", "")
+                    setSetting("edge_sync_cursor", "0")
+                    setSetting("edge_account_id", "")
+                }
             }
             syncManager.clearAllData()
             showSnackbar("Account and sync data deleted")
@@ -698,7 +752,35 @@ class PlaybackViewModel(
     }
 
     fun recoverAccount(code: String) {
-        showSnackbar("Recovering account with code: $code")
+        val trimmed = code.trim()
+        if (trimmed.isBlank()) {
+            showSnackbar("Enter a valid recovery code")
+            return
+        }
+        if (syncManager.isLocalOnly.value) {
+            showSnackbar("Cannot recover account while Local only mode is active")
+            return
+        }
+        scope.launch(Dispatchers.Default) {
+            showSnackbar("Recovering account...")
+            val tokens = apiClient.recoverAccount(syncManager.deviceId, trimmed)
+            if (tokens == null) {
+                showSnackbar("Account recovery failed or code not found")
+                return@launch
+            }
+            persistEdgeAuth(tokens)
+            val pulled = apiClient.pullSync(tokens.accessToken, 0L, syncManager.clock.now())
+            if (pulled != null && pulled.isSuccess) {
+                syncManager.applyRemoteChanges(pulled.appliedChanges, pulled.serverHlc)
+                syncManager.updateTier(pulled.budgetTier)
+                runCatching {
+                    withDatabase { setSetting("edge_sync_cursor", pulled.cursor.toString()) }
+                }
+                showSnackbar("Recovered ${pulled.appliedChanges.size} synced item(s)")
+            } else {
+                showSnackbar("Account linked; pull sync pending")
+            }
+        }
     }
 
     fun requestPreResolveNextTrack(nextTrack: Track) {

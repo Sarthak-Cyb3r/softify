@@ -12,7 +12,6 @@ export async function handleGetLyrics(
   const cacheKey = `${trackId}:${provider}`;
   const now = Date.now();
 
-  // 1. Check D1 cache first
   BudgetGuard.recordD1Read(1);
   const cached = await env.DB.prepare(
     'SELECT raw_payload, format, http_status, expires_at FROM lyrics_cache WHERE id = ?'
@@ -35,7 +34,27 @@ export async function handleGetLyrics(
     };
   }
 
-  // 2. Cache miss -> Fetch from upstream verified provider
+  // Budget Guard Shedding: >=80% sheds upstream lyrics cache misses while serving stale if available
+  const tier = await BudgetGuard.getBudgetTier(env);
+  if (tier === 'TIER_2_SHED_CACHE_REFRESH' || tier === 'TIER_3_SHED_WRITE') {
+    if (cached) {
+      return {
+        status: cached.http_status,
+        body: cached.raw_payload,
+        headers: {
+          'Content-Type': cached.format === 'ttml' ? 'application/xml' : 'application/json',
+          'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+          'X-Cache-Status': 'STALE_SHED'
+        }
+      };
+    }
+    return {
+      status: 503,
+      body: JSON.stringify({ error: 'Upstream lyrics refresh shed under budget guard', budgetTier: tier }),
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '300' }
+    };
+  }
+
   let upstreamUrl: string | null = null;
   let detectedFormat = 'json';
 
@@ -70,7 +89,7 @@ export async function handleGetLyrics(
 
     const bodyText = await resp.text();
     const status = resp.status;
-    const ttl = status === 200 ? 7 * 86400_000 : 86400_000; // 7 days on 200, 1 day negative cache on error
+    const ttl = status === 200 ? 7 * 86400_000 : 86400_000;
 
     BudgetGuard.recordD1Write(1);
     await env.DB.prepare(`
