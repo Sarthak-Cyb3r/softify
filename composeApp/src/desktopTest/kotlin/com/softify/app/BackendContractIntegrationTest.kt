@@ -71,13 +71,20 @@ class BackendContractIntegrationTest {
     private inner class OpenApiContractDispatcher(
         private val schemas: Map<String, Map<String, Any?>>
     ) : Dispatcher() {
-        var validAccessToken: String = "acc_initial_1"
-        var validRefreshToken: String = "ref_initial_1"
+        val validAccessTokens = mutableSetOf("acc_initial_1")
+        val validRefreshTokens = mutableSetOf("ref_initial_1")
         val accountId = "acct_contract_1"
         var savedRecoveryHash: String? = null
         var refreshCalled = false
         var deleted = false
         val storedSyncItems = mutableListOf<Map<String, Any?>>()
+
+        private fun isAuthorized(request: RecordedRequest): Boolean {
+            if (deleted) return false
+            val auth = request.getHeader("Authorization") ?: return false
+            if (!auth.startsWith("Bearer ")) return false
+            return validAccessTokens.contains(auth.removePrefix("Bearer ").trim())
+        }
 
         override fun dispatch(request: RecordedRequest): MockResponse {
             val fullPath = request.path ?: "/"
@@ -127,9 +134,13 @@ class BackendContractIntegrationTest {
                 val obj = JsonCodec.parseObject(bodyStr)
                 savedRecoveryHash = obj["recoveryHash"]?.toString()
                 deleted = false
+                val at = "acc_initial_1"
+                val rt = "ref_initial_1"
+                validAccessTokens.add(at)
+                validRefreshTokens.add(rt)
                 return jsonResp(
                     200,
-                    """{"accessToken":"$validAccessToken","expiresInSeconds":3600,"refreshToken":"$validRefreshToken","accountId":"$accountId","recoveryCodeReminder":"Save code"}"""
+                    """{"accessToken":"$at","expiresInSeconds":3600,"refreshToken":"$rt","accountId":"$accountId","recoveryCodeReminder":"Save code"}"""
                 )
             }
             if (path == ApiRoutes.AUTH_RECOVER && method == "POST") {
@@ -138,29 +149,34 @@ class BackendContractIntegrationTest {
                 if (deleted || obj["recoveryHash"]?.toString() != savedRecoveryHash) {
                     return jsonResp(404, """{"error":"Recovery code not found"}""")
                 }
-                validAccessToken = "acc_recovered_3"
-                validRefreshToken = "ref_recovered_3"
+                val at = "acc_recovered_3"
+                val rt = "ref_recovered_3"
+                validAccessTokens.add(at)
+                validRefreshTokens.add(rt)
                 return jsonResp(
                     200,
-                    """{"accessToken":"$validAccessToken","expiresInSeconds":3600,"refreshToken":"$validRefreshToken","accountId":"$accountId","recoveryCodeReminder":"Recovered"}"""
+                    """{"accessToken":"$at","expiresInSeconds":3600,"refreshToken":"$rt","accountId":"$accountId","recoveryCodeReminder":"Recovered"}"""
                 )
             }
             if (path == ApiRoutes.AUTH_REFRESH && method == "POST") {
                 assertMatchesOpenApiRequiredKeys("RefreshTokenRequest", bodyStr, schemas)
                 val reqObj = JsonCodec.parseObject(bodyStr)
-                if (reqObj["refreshToken"] != validRefreshToken || deleted) {
+                val suppliedRefresh = reqObj["refreshToken"]?.toString()
+                if (deleted || suppliedRefresh.isNullOrBlank() || !validRefreshTokens.remove(suppliedRefresh)) {
                     return jsonResp(401, """{"error":"Invalid refresh token"}""")
                 }
                 refreshCalled = true
-                validAccessToken = "acc_refreshed_2"
-                validRefreshToken = "ref_refreshed_2"
+                val at = "acc_refreshed_2"
+                val rt = "ref_refreshed_2"
+                validAccessTokens.add(at)
+                validRefreshTokens.add(rt)
                 return jsonResp(
                     200,
-                    """{"accessToken":"$validAccessToken","expiresInSeconds":3600,"refreshToken":"$validRefreshToken","accountId":"$accountId","recoveryCodeReminder":"Rotated"}"""
+                    """{"accessToken":"$at","expiresInSeconds":3600,"refreshToken":"$rt","accountId":"$accountId","recoveryCodeReminder":"Rotated"}"""
                 )
             }
             if (path == ApiRoutes.SYNC) {
-                if (request.getHeader("Authorization") != "Bearer $validAccessToken" || deleted) {
+                if (!isAuthorized(request)) {
                     return jsonResp(401, """{"error":"Unauthorized"}""")
                 }
                 if (method == "POST") {
@@ -193,7 +209,7 @@ class BackendContractIntegrationTest {
                 return MockResponse().setResponseCode(204)
             }
             if (path == ApiRoutes.USER_EXPORT && method == "GET") {
-                if (request.getHeader("Authorization") != "Bearer $validAccessToken" || deleted) {
+                if (!isAuthorized(request)) {
                     return jsonResp(401, """{"error":"Unauthorized"}""")
                 }
                 val resp = JsonCodec.stringify(
@@ -206,10 +222,12 @@ class BackendContractIntegrationTest {
                 return jsonResp(200, resp)
             }
             if (path == ApiRoutes.USER_DELETE && method == "POST") {
-                if (request.getHeader("Authorization") != "Bearer $validAccessToken") {
+                if (!isAuthorized(request)) {
                     return jsonResp(401, """{"error":"Unauthorized"}""")
                 }
                 deleted = true
+                validAccessTokens.clear()
+                validRefreshTokens.clear()
                 storedSyncItems.clear()
                 return jsonResp(200, """{"message":"Deleted"}""")
             }
