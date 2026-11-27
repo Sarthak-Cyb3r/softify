@@ -54,6 +54,12 @@ fun SettingsScreen(
     var showTelemetryDisclosureDialog by remember { mutableStateOf(false) }
     var showExportDataDialog by remember { mutableStateOf(false) }
     var exportedDataText by remember { mutableStateOf("") }
+    var showImportDataDialog by remember { mutableStateOf(false) }
+    var importDataText by remember { mutableStateOf("") }
+    var importValidationError by remember { mutableStateOf<String?>(null) }
+    val customUpdateUrl by viewModel.customUpdateUrl.collectAsState()
+    var updateUrlInput by remember(customUpdateUrl) { mutableStateOf(customUpdateUrl) }
+    var showCustomUpdateUrl by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showRecoverAccountDialog by remember { mutableStateOf(false) }
     var recoveryInputCode by remember { mutableStateOf("") }
@@ -786,7 +792,17 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             shape = SquircleShape(8.dp)
                         ) {
-                            Text("Export data")
+                            Text("Export JSON")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                importValidationError = null
+                                showImportDataDialog = true
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = SquircleShape(8.dp)
+                        ) {
+                            Text("Import JSON")
                         }
                         OutlinedButton(
                             onClick = { showDeleteAccountDialog = true },
@@ -794,7 +810,7 @@ fun SettingsScreen(
                             shape = SquircleShape(8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Text("Delete data")
+                            Text("Delete")
                         }
                     }
 
@@ -812,24 +828,132 @@ fun SettingsScreen(
                 shape = SquircleShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "App Updates",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Current version: ${viewModel.appVersion}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(
-                        onClick = { viewModel.checkForUpdates() },
-                        enabled = !isLocalOnly,
-                        shape = SquircleShape(8.dp)
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Check for updates")
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "App Updates",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Current version: ${viewModel.appVersion} (code ${viewModel.appVersionCode})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(onClick = { showCustomUpdateUrl = !showCustomUpdateUrl }) {
+                            Text(if (showCustomUpdateUrl) "Hide URL" else "Source URL")
+                        }
+                    }
+
+                    if (showCustomUpdateUrl) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = updateUrlInput,
+                                onValueChange = { updateUrlInput = it },
+                                label = { Text("Custom update manifest URL") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = { viewModel.setCustomUpdateUrl(updateUrlInput) },
+                                shape = SquircleShape(8.dp)
+                            ) {
+                                Text("Set")
+                            }
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { viewModel.checkForUpdates() },
+                            enabled = !isLocalOnly && updateState !is UpdateState.Checking && updateState !is UpdateState.Downloading,
+                            shape = SquircleShape(8.dp)
+                        ) {
+                            Text("Check for updates")
+                        }
+                        if (updateState is UpdateState.Available) {
+                            Button(
+                                onClick = { viewModel.downloadAvailableUpdate() },
+                                shape = SquircleShape(8.dp)
+                            ) {
+                                Text("Download & Install")
+                            }
+                        } else if (updateState is UpdateState.ReadyToInstall) {
+                            Button(
+                                onClick = { viewModel.installDownloadedUpdate() },
+                                shape = SquircleShape(8.dp)
+                            ) {
+                                Text("Install APK")
+                            }
+                        }
+                    }
+
+                    when (val st = updateState) {
+                        is UpdateState.Checking -> {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(
+                                text = "Checking for update manifest...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        is UpdateState.Available -> {
+                            Text(
+                                text = "Update ready: v${st.info.versionName} (${st.info.versionCode})\n${st.info.releaseNotes}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        is UpdateState.Downloading -> {
+                            LinearProgressIndicator(
+                                progress = { st.progress.coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                text = "Downloading: ${formatBytes(st.bytesDownloaded)}${if (st.totalBytes > 0) " / ${formatBytes(st.totalBytes)}" else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        is UpdateState.ReadyToInstall -> {
+                            Text(
+                                text = "Verified v${st.info.versionName} (SHA-256 matched, ${formatBytes(st.apkFile.length())})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        is UpdateState.UpToDate -> {
+                            Text(
+                                text = "App is up to date (code ${viewModel.appVersionCode})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        is UpdateState.Error -> {
+                            Surface(
+                                shape = SquircleShape(8.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    text = "Update refused: ${st.message}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(10.dp)
+                                )
+                            }
+                        }
+                        UpdateState.Idle -> {}
                     }
                 }
             }
@@ -953,11 +1077,80 @@ fun SettingsScreen(
     if (showExportDataDialog) {
         AlertDialog(
             onDismissRequest = { showExportDataDialog = false },
-            title = { Text("Exported Data (JSON)") },
-            text = { Text(exportedDataText.take(500) + if (exportedDataText.length > 500) "..." else "") },
+            title = { Text("Exported Library Backup (JSON)") },
+            text = { Text(exportedDataText.take(600) + if (exportedDataText.length > 600) "..." else "") },
             confirmButton = {
-                Button(onClick = { showExportDataDialog = false }) {
+                Button(onClick = {
+                    viewModel.requestSaveBackupJson()
+                    showExportDataDialog = false
+                }) {
+                    Text("Save .json file")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportDataDialog = false }) {
                     Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showImportDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDataDialog = false },
+            title = { Text("Import Library Backup (JSON)") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Paste exported JSON backup or load from a .json file:")
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.requestPickBackupJson()
+                            showImportDataDialog = false
+                        },
+                        shape = SquircleShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Choose .json File")
+                    }
+                    OutlinedTextField(
+                        value = importDataText,
+                        onValueChange = {
+                            importDataText = it
+                            importValidationError = null
+                        },
+                        label = { Text("Backup JSON payload") },
+                        maxLines = 5,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (importValidationError != null) {
+                        Text(
+                            text = importValidationError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.importUserBackup(importDataText) { ok, msg ->
+                            if (ok) {
+                                importDataText = ""
+                                importValidationError = null
+                                showImportDataDialog = false
+                            } else {
+                                importValidationError = msg
+                            }
+                        }
+                    }
+                ) {
+                    Text("Validate & Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDataDialog = false }) {
+                    Text("Cancel")
                 }
             }
         )

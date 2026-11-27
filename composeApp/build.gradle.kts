@@ -1,10 +1,62 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsCompose)
     alias(libs.plugins.compose.compiler)
+}
+
+fun readGitCommitCount(): Int {
+    return try {
+        val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(rootProject.projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val out = proc.inputStream.bufferedReader().readText().trim()
+        if (proc.waitFor() == 0) out.toIntOrNull() ?: 1 else 1
+    } catch (_: Exception) {
+        1
+    }
+}
+
+val gitCommitCount = readGitCommitCount()
+val computedVersionCode = System.getenv("SOFTIFY_VERSION_CODE")?.toIntOrNull()
+    ?: (40300 + gitCommitCount)
+val computedVersionName = System.getenv("SOFTIFY_VERSION_NAME")?.takeIf { it.isNotBlank() }
+    ?: run {
+        val refType = System.getenv("GITHUB_REF_TYPE")
+        val refName = System.getenv("GITHUB_REF_NAME")
+        if (refType == "tag" && !refName.isNullOrBlank()) {
+            refName.removePrefix("v")
+        } else {
+            "4.3.$gitCommitCount-${LocalDate.now(ZoneOffset.UTC)}"
+        }
+    }
+
+val generateBuildMeta by tasks.registering {
+    val outDir = layout.buildDirectory.dir("generated/source/softifyMeta/kotlin")
+    val vCode = computedVersionCode
+    val vName = computedVersionName
+    inputs.property("versionCode", vCode)
+    inputs.property("versionName", vName)
+    outputs.dir(outDir)
+    doLast {
+        val pkgDir = outDir.get().asFile.resolve("com/softify/app")
+        pkgDir.mkdirs()
+        pkgDir.resolve("BuildMeta.kt").writeText(
+            """
+            package com.softify.app
+
+            object BuildMeta {
+                const val VERSION_CODE: Int = $vCode
+                const val VERSION_NAME: String = "$vName"
+            }
+            """.trimIndent() + "\n"
+        )
+    }
 }
 
 kotlin {
@@ -20,6 +72,7 @@ kotlin {
     
     sourceSets {
         val commonMain by getting {
+            kotlin.srcDir(generateBuildMeta)
             dependencies {
                 implementation(compose.runtime)
                 implementation(compose.foundation)
@@ -75,8 +128,30 @@ android {
         applicationId = "com.softify.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 40300
-        versionName = "4.3.0-experimental"
+        versionCode = computedVersionCode
+        versionName = computedVersionName
+    }
+
+    val keystoreFile = file(
+        System.getenv("ANDROID_KEYSTORE_PATH")
+            ?: "${System.getProperty("user.home")}/.softify-keys/softify-release.jks"
+    )
+    val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    val keyAliasName = System.getenv("ANDROID_KEY_ALIAS") ?: "softify"
+    val keyPass = System.getenv("ANDROID_KEY_PASSWORD")
+    val hasReleaseKeystore = keystoreFile.exists() && !keystorePassword.isNullOrBlank() && !keyPass.isNullOrBlank()
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("softifyRelease") {
+                storeFile = keystoreFile
+                storePassword = keystorePassword
+                keyAlias = keyAliasName
+                keyPassword = keyPass
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
     }
 
     splits {
@@ -97,10 +172,23 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("softifyRelease")
+            }
         }
         getByName("debug") {
             isMinifyEnabled = false
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("softifyRelease")
+            }
         }
+    }
+
+    if (System.getenv("CI") == "true" &&
+        gradle.startParameter.taskNames.any { it.contains("assemble", ignoreCase = true) } &&
+        !hasReleaseKeystore
+    ) {
+        throw GradleException("CI APK builds must configure release keystore secrets (ANDROID_KEYSTORE_PATH / password / alias)")
     }
 
     compileOptions {
@@ -145,6 +233,10 @@ val verifyNativeLibsExist = tasks.register("verifyNativeLibsExist") {
     }
 }
 
-tasks.matching { it.name.startsWith("package") || it.name.startsWith("mergeDebugNativeLibs") }.configureEach {
+tasks.matching {
+    it.name.startsWith("package") ||
+        it.name.startsWith("mergeDebugNativeLibs") ||
+        it.name.startsWith("mergeReleaseNativeLibs")
+}.configureEach {
     dependsOn(verifyNativeLibsExist)
 }

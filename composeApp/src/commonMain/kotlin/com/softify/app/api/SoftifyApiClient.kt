@@ -52,6 +52,7 @@ class SoftifyApiClient(
     val circuitBreaker: CircuitBreaker = CircuitBreaker()
 ) {
     var isLocalOnly: Boolean = false
+    var updateManifestUrlOverride: String? = null
     var accessToken: String? = null
     var refreshToken: String? = null
     var accountId: String? = null
@@ -162,6 +163,16 @@ class SoftifyApiClient(
         if (isLocalOnly || !circuitBreaker.canExecute()) {
             return@withContext null
         }
+        val overrideRaw = updateManifestUrlOverride?.trim()?.takeIf { it.isNotBlank() }
+        if (overrideRaw != null) {
+            val manifestSuffix = ApiRoutes.UPDATE_JSON.removePrefix("/")
+            val directUrl = if (overrideRaw.endsWith(".json", ignoreCase = true) || overrideRaw.endsWith(manifestSuffix)) {
+                overrideRaw
+            } else {
+                "${overrideRaw.trimEnd('/')}${ApiRoutes.UPDATE_JSON}"
+            }
+            return@withContext fetchUpdateFromFullUrl(directUrl, affectCircuit = false)
+        }
         val primary = fetchUpdateFromRoot(baseUrl)
         if (primary != null) return@withContext primary
         if (backupMirrorUrl.isNotBlank() && backupMirrorUrl != baseUrl) {
@@ -170,9 +181,12 @@ class SoftifyApiClient(
         null
     }
 
-    private fun fetchUpdateFromRoot(root: String, affectCircuit: Boolean = true): UpdateInfo? {
+    private fun fetchUpdateFromRoot(root: String, affectCircuit: Boolean = true): UpdateInfo? =
+        fetchUpdateFromFullUrl("${root.trimEnd('/')}${ApiRoutes.UPDATE_JSON}", affectCircuit)
+
+    private fun fetchUpdateFromFullUrl(fullUrl: String, affectCircuit: Boolean = true): UpdateInfo? {
         return try {
-            val request = Request.Builder().url("$root${ApiRoutes.UPDATE_JSON}").build()
+            val request = Request.Builder().url(fullUrl).build()
             httpClient.newCall(request).execute().use { response ->
                 lastHttpStatus = response.code
                 if (!response.isSuccessful) {

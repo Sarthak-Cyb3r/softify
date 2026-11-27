@@ -3,12 +3,16 @@ package com.softify.app
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.metrics.performance.JankStats
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -36,6 +40,56 @@ class MainActivity : ComponentActivity() {
     private val viewModel = PlaybackViewModel()
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
+    private var pendingBackupJsonExport: String? = null
+
+    private val openBackupJsonLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                try {
+                    val raw = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+                    viewModel.importUserBackup(raw)
+                } catch (e: Exception) {
+                    viewModel.showSnackbar("Failed to read backup file: ${e.message}")
+                }
+            }
+        }
+
+    private val createBackupJsonLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            val payload = pendingBackupJsonExport
+            pendingBackupJsonExport = null
+            if (uri != null && payload != null) {
+                try {
+                    contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(payload) }
+                    viewModel.showSnackbar("Saved library backup (.json)")
+                } catch (e: Exception) {
+                    viewModel.showSnackbar("Failed to save backup file: ${e.message}")
+                }
+            }
+        }
+
+    private fun installDownloadedApk(apkFile: File) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                val settingsIntent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(settingsIntent)
+                viewModel.showSnackbar("Allow unknown app installs, then tap Install APK")
+                return
+            }
+            val apkUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", apkFile)
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(installIntent)
+        } catch (e: Exception) {
+            PlaybackLogger.log("SoftifyUpdater", "Installer launch failed: ${e.message}")
+            viewModel.showSnackbar("Could not open package installer: ${e.message}")
+        }
+    }
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -67,9 +121,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // Populate System Diagnostics
-        viewModel.appVersion = "4.3.0-experimental (40300)"
+        viewModel.appVersion = BuildMeta.VERSION_NAME
+        viewModel.appVersionCode = BuildMeta.VERSION_CODE
         viewModel.osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         viewModel.abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+        viewModel.updateCacheDirProvider = { File(cacheDir, "updates").apply { mkdirs() } }
+        viewModel.onInstallApkRequested = { apkFile -> installDownloadedApk(apkFile) }
+        viewModel.onPickBackupJsonRequested = {
+            openBackupJsonLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+        }
+        viewModel.onSaveBackupJsonRequested = { json ->
+            pendingBackupJsonExport = json
+            createBackupJsonLauncher.launch("softify-library-backup.json")
+        }
+        intent?.getStringExtra("softify_custom_update_url")?.takeIf { it.isNotBlank() }?.let { url ->
+            viewModel.setCustomUpdateUrl(url)
+        }
 
         viewModel.isNativeLibLoaded = try {
             System.loadLibrary("softify_core")

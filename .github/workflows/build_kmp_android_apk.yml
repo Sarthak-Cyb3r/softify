@@ -2,9 +2,22 @@ name: Build Android Debug APK (Cloud)
 
 on:
   workflow_dispatch:
+    inputs:
+      version_code_override:
+        description: "Optional monotonic versionCode override (e.g. N+1 updater verification)"
+        required: false
+        default: ""
+      version_name_override:
+        description: "Optional versionName override"
+        required: false
+        default: ""
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**/*.md'
+      - 'docs/**/*.png'
+      - '*.md'
 
 jobs:
   headless-tests:
@@ -112,18 +125,44 @@ jobs:
           ls -lh composeApp/src/androidMain/jniLibs/arm64-v8a/libsoftify_core.so
           ls -lh composeApp/src/androidMain/jniLibs/x86_64/libsoftify_core.so
 
-      - name: Build Android Debug APK
+      - name: Build Signed Android Debug & Release APKs
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/softify-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SOFTIFY_VERSION_CODE: ${{ inputs.version_code_override }}
+          SOFTIFY_VERSION_NAME: ${{ inputs.version_name_override }}
         run: |
+          set -euo pipefail
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          chmod 600 "$ANDROID_KEYSTORE_PATH"
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleDebug assembleRelease --stacktrace --no-daemon
 
-      - name: Locate and Verify APK
+      - name: Verify APK Splits & Fixed Release Signature
         run: |
+          set -euo pipefail
           ls -lh composeApp/build/outputs/apk/debug/
+          ls -lh composeApp/build/outputs/apk/release/
+          DEBUG_UNI=$(ls composeApp/build/outputs/apk/debug/*-universal-*.apk | head -n 1)
+          REL_ARM=$(ls composeApp/build/outputs/apk/release/*-arm64-v8a-*.apk | head -n 1)
+          echo "=== Debug APK Certificate ==="
+          keytool -printcert -jarfile "$DEBUG_UNI" | grep -E "Owner:|SHA256:"
+          echo "=== Release APK Certificate ==="
+          keytool -printcert -jarfile "$REL_ARM" | grep -E "Owner:|SHA256:"
+          SIG_DBG=$(keytool -printcert -jarfile "$DEBUG_UNI" | grep "SHA256:" | head -n 1)
+          SIG_REL=$(keytool -printcert -jarfile "$REL_ARM" | grep "SHA256:" | head -n 1)
+          if [ -z "$SIG_DBG" ] || [ "$SIG_DBG" != "$SIG_REL" ]; then
+            echo "ERROR: Debug and Release APKs do not share the same release certificate!"
+            exit 1
+          fi
 
-      - name: Upload Debug APK
+      - name: Upload Signed Debug & Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: composeApp-debug-apk
-          path: composeApp/build/outputs/apk/debug/*.apk
+          name: composeApp-signed-apks
+          path: |
+            composeApp/build/outputs/apk/debug/*.apk
+            composeApp/build/outputs/apk/release/*.apk
           if-no-files-found: error

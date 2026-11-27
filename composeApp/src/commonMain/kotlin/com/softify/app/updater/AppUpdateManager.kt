@@ -41,12 +41,26 @@ class AppUpdateManager(
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
+    fun setChecking() {
+        _updateState.value = UpdateState.Checking
+    }
+
+    fun setError(message: String) {
+        _updateState.value = UpdateState.Error(message)
+    }
+
     fun evaluateUpdate(info: UpdateInfo, currentVersionCode: Int): UpdateState {
         return if (info.versionCode > currentVersionCode) {
             UpdateState.Available(info)
         } else {
             UpdateState.UpToDate
         }
+    }
+
+    fun evaluateAndPublishUpdate(info: UpdateInfo, currentVersionCode: Int): UpdateState {
+        val state = evaluateUpdate(info, currentVersionCode)
+        _updateState.value = state
+        return state
     }
 
     suspend fun downloadApk(

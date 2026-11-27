@@ -16,12 +16,16 @@ import com.softify.app.playback.TransitionTrace
 import com.softify.app.storage.DirectoryStorageProvider
 import com.softify.app.storage.StorageProvider
 import com.softify.app.util.PlaybackLogger
+import com.softify.app.BuildMeta
 import com.softify.app.api.AuthTokens
 import com.softify.app.api.RemoteConfigManager
 import com.softify.app.api.SoftifyApiClient
+import com.softify.app.sync.BackupPlaylist
+import com.softify.app.sync.LibraryBackup
 import com.softify.app.sync.SyncChange
 import com.softify.app.sync.SyncEntityType
 import com.softify.app.sync.SyncManager
+import com.softify.app.util.JsonCodec
 import com.softify.app.telemetry.TelemetryManager
 import com.softify.app.updater.AppUpdateManager
 import com.softify.app.updater.UpdateState
@@ -53,7 +57,8 @@ class PlaybackViewModel(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) {
     // System Diagnostics properties
-    var appVersion: String = "4.3.0-experimental"
+    var appVersion: String = BuildMeta.VERSION_NAME
+    var appVersionCode: Int = BuildMeta.VERSION_CODE
     var osVersion: String = "Unknown OS"
     var abi: String = "Unknown ABI"
     var isNativeLibLoaded: Boolean = false
@@ -257,6 +262,13 @@ class PlaybackViewModel(
     var onCrossfadeConfigChanged: ((durationMs: Long, skipAlbum: Boolean) -> Unit)? = null
     var onGaplessConfigChanged: ((enabled: Boolean) -> Unit)? = null
     var onLoudnessConfigChanged: ((enabled: Boolean, targetLufs: Float, allowBoost: Boolean) -> Unit)? = null
+    var onInstallApkRequested: ((java.io.File) -> Unit)? = null
+    var updateCacheDirProvider: (() -> java.io.File)? = null
+    var onPickBackupJsonRequested: (() -> Unit)? = null
+    var onSaveBackupJsonRequested: ((String) -> Unit)? = null
+
+    private val _customUpdateUrl = MutableStateFlow("")
+    val customUpdateUrl: StateFlow<String> = _customUpdateUrl.asStateFlow()
 
     // Audio & Loudness Normalization Settings (M4b)
     private val _isLoudnessEnabled = MutableStateFlow(true)
@@ -697,25 +709,77 @@ class PlaybackViewModel(
         }
     }
 
+    fun setCustomUpdateUrl(url: String) {
+        val cleaned = url.trim()
+        _customUpdateUrl.value = cleaned
+        apiClient.updateManifestUrlOverride = cleaned.ifBlank { null }
+        scope.launch(Dispatchers.Default) {
+            runCatching { withDatabase { setSetting("custom_update_url", cleaned) } }
+        }
+        showSnackbar(
+            if (cleaned.isNotBlank()) "Update server set to: $cleaned"
+            else "Update server reset to default production endpoint"
+        )
+    }
+
     fun checkForUpdates() {
         if (syncManager.isLocalOnly.value) {
             showSnackbar("Updates disabled in Local only mode")
             return
         }
         scope.launch(Dispatchers.Default) {
+            updateManager.setChecking()
             showSnackbar("Checking for updates...")
+            if (apiClient.updateManifestUrlOverride.isNullOrBlank()) {
+                val savedUrl = runCatching { withDatabase { getSetting("custom_update_url") } }.getOrNull()
+                if (!savedUrl.isNullOrBlank()) {
+                    _customUpdateUrl.value = savedUrl
+                    apiClient.updateManifestUrlOverride = savedUrl
+                }
+            }
             val info = apiClient.checkAppUpdate()
             if (info != null) {
-                val state = updateManager.evaluateUpdate(info, 40300)
+                val state = updateManager.evaluateAndPublishUpdate(info, appVersionCode)
                 if (state is UpdateState.Available) {
-                    showSnackbar("Update available: v${info.versionName}")
+                    showSnackbar("Update available: v${info.versionName} (${info.versionCode})")
                 } else {
-                    showSnackbar("App is up to date")
+                    showSnackbar("App is up to date ($appVersionCode)")
                 }
             } else {
+                updateManager.setError("Could not reach update manifest (using local version)")
                 showSnackbar("Could not connect to update service (using local version)")
             }
         }
+    }
+
+    fun downloadAvailableUpdate() {
+        val info = (updateManager.updateState.value as? UpdateState.Available)?.info ?: return
+        scope.launch(Dispatchers.Default) {
+            val targetDir = updateCacheDirProvider?.invoke()
+                ?: java.io.File(System.getProperty("java.io.tmpdir"), "softify_updates")
+            val apkFile = updateManager.downloadApk(info, targetDir)
+            if (apkFile != null) {
+                showSnackbar("Verified v${info.versionName} (SHA-256 OK). Launching installer...")
+                onInstallApkRequested?.invoke(apkFile)
+            } else {
+                val err = (updateManager.updateState.value as? UpdateState.Error)?.message ?: "Verification failed"
+                showSnackbar("Update refused: $err")
+            }
+        }
+    }
+
+    fun installDownloadedUpdate() {
+        val ready = updateManager.updateState.value as? UpdateState.ReadyToInstall ?: return
+        onInstallApkRequested?.invoke(ready.apkFile)
+    }
+
+    fun requestPickBackupJson() {
+        onPickBackupJsonRequested?.invoke()
+    }
+
+    fun requestSaveBackupJson() {
+        val json = exportUserData()
+        onSaveBackupJsonRequested?.invoke(json)
     }
 
     fun toggleTelemetry() {
@@ -725,7 +789,84 @@ class PlaybackViewModel(
     }
 
     fun exportUserData(): String {
-        return syncManager.exportUserDataJson()
+        val liked = if (DatabaseGate.isReady) runCatching { getLikedTracks() }.getOrDefault(emptyList()) else emptyList()
+        val playlists = if (DatabaseGate.isReady) {
+            runCatching {
+                getPlaylists().map { pl ->
+                    val tracks = runCatching { getPlaylistTracks(pl.id) }.getOrDefault(emptyList())
+                    BackupPlaylist(pl.id, pl.name, pl.description, tracks)
+                }
+            }.getOrDefault(emptyList())
+        } else emptyList()
+
+        return LibraryBackup.exportToJson(
+            deviceId = syncManager.deviceId,
+            recoveryCode = syncManager.recoveryCode,
+            likedTracks = liked,
+            playlists = playlists,
+            entities = syncManager.getStateSnapshot().values
+        )
+    }
+
+    fun importUserBackup(rawJson: String, onComplete: (Boolean, String) -> Unit = { _, _ -> }) {
+        val parsed = LibraryBackup.validateAndParse(rawJson).getOrElse { err ->
+            val msg = "Invalid backup: ${err.message}"
+            showSnackbar(msg)
+            onComplete(false, msg)
+            return
+        }
+
+        scope.launch(Dispatchers.Default) {
+            try {
+                var likedRestored = 0
+                var playlistsRestored = 0
+                withDatabase {
+                    val existingLikedIds = getLikedTracks().map { it.id }.toSet()
+                    for (t in parsed.likedTracks) {
+                        saveTrack(t)
+                        if (!existingLikedIds.contains(t.id)) {
+                            toggleLike(t.id)
+                        }
+                        syncManager.recordChange(
+                            SyncEntityType.FAVORITE,
+                            t.id,
+                            JsonCodec.stringify(mapOf("id" to t.id, "title" to t.title, "artist" to t.artist, "isLiked" to true))
+                        )
+                        likedRestored++
+                    }
+
+                    val existingPlaylists = getPlaylists().associateBy { it.name.lowercase() }
+                    for (pl in parsed.playlists) {
+                        val targetPlaylist = existingPlaylists[pl.name.lowercase()]
+                            ?: createPlaylist(pl.name, pl.description)
+                        val existingTrackIds = getPlaylistTracks(targetPlaylist.id).map { it.id }.toSet()
+                        for (t in pl.tracks) {
+                            saveTrack(t)
+                            if (!existingTrackIds.contains(t.id)) {
+                                addToPlaylist(targetPlaylist.id, t.id)
+                            }
+                        }
+                        syncManager.recordChange(
+                            SyncEntityType.PLAYLIST,
+                            targetPlaylist.id,
+                            JsonCodec.stringify(mapOf("id" to targetPlaylist.id, "name" to targetPlaylist.name, "trackCount" to pl.tracks.size))
+                        )
+                        playlistsRestored++
+                    }
+                }
+                if (parsed.entities.isNotEmpty()) {
+                    syncManager.applyRemoteChanges(parsed.entities, syncManager.clock.now())
+                }
+                refreshLibrary()
+                val summary = "Restored $likedRestored liked track(s), $playlistsRestored playlist(s), and ${parsed.entities.size} sync record(s)"
+                showSnackbar(summary)
+                onComplete(true, summary)
+            } catch (e: Exception) {
+                val msg = "Import failed: ${e.message}"
+                showSnackbar(msg)
+                onComplete(false, msg)
+            }
+        }
     }
 
     fun deleteUserAccount() {
@@ -981,6 +1122,12 @@ class PlaybackViewModel(
                     saveTrack(track)
                     toggleLike(track.id)
                 }
+                syncManager.recordChange(
+                    SyncEntityType.FAVORITE,
+                    track.id,
+                    JsonCodec.stringify(mapOf("id" to track.id, "title" to track.title, "artist" to track.artist, "isLiked" to newLikedState)),
+                    isDeleted = !newLikedState
+                )
                 if (_activeTrack.value?.id == track.id) {
                     _activeTrack.value = _activeTrack.value?.copy(isLiked = newLikedState)
                 }
@@ -994,7 +1141,12 @@ class PlaybackViewModel(
     fun createNewPlaylist(name: String, description: String? = null) {
         scope.launch(Dispatchers.Default) {
             try {
-                withDatabase { createPlaylist(name, description) }
+                val created = withDatabase { createPlaylist(name, description) }
+                syncManager.recordChange(
+                    SyncEntityType.PLAYLIST,
+                    created.id,
+                    JsonCodec.stringify(mapOf("id" to created.id, "name" to created.name))
+                )
                 refreshLibrary()
                 showSnackbar("Created playlist '$name'")
             } catch (e: Exception) {
@@ -1007,6 +1159,11 @@ class PlaybackViewModel(
         scope.launch(Dispatchers.Default) {
             try {
                 withDatabase { renamePlaylist(playlistId, newName) }
+                syncManager.recordChange(
+                    SyncEntityType.PLAYLIST,
+                    playlistId,
+                    JsonCodec.stringify(mapOf("id" to playlistId, "name" to newName))
+                )
                 refreshLibrary()
                 showSnackbar("Renamed playlist to '$newName'")
             } catch (e: Exception) {
@@ -1019,6 +1176,7 @@ class PlaybackViewModel(
         scope.launch(Dispatchers.Default) {
             try {
                 withDatabase { deletePlaylist(playlistId) }
+                syncManager.recordChange(SyncEntityType.PLAYLIST, playlistId, "", isDeleted = true)
                 refreshLibrary()
                 showSnackbar("Deleted playlist")
             } catch (e: Exception) {
