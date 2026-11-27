@@ -68,7 +68,7 @@ class BackendContractIntegrationTest {
         }
     }
 
-    private class OpenApiContractDispatcher(
+    private inner class OpenApiContractDispatcher(
         private val schemas: Map<String, Map<String, Any?>>
     ) : Dispatcher() {
         var validAccessToken: String = "acc_initial_1"
