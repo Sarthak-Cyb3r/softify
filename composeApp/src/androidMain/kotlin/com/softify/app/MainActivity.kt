@@ -313,6 +313,11 @@ class MainActivity : ComponentActivity() {
                         viewModel.requestPreResolveNextTrack(nextTrack)
                     }
                 }
+                PlaybackService.instance?.onFatalPlaybackError = { errMsg ->
+                    runOnUiThread {
+                        viewModel.showSnackbar(errMsg)
+                    }
+                }
 
                 mediaController?.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
@@ -337,7 +342,9 @@ class MainActivity : ComponentActivity() {
                     override fun onPlayerError(error: PlaybackException) {
                         val errMsg = "Player error: ${error.errorCodeName} - ${error.message}"
                         PlaybackLogger.log("SoftifyPlayback", errMsg)
-                        viewModel.showSnackbar(errMsg)
+                        if (PlaybackService.instance == null) {
+                            viewModel.showSnackbar(errMsg)
+                        }
                     }
                 })
             } catch (e: Exception) {

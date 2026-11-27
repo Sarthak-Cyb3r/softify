@@ -34,6 +34,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uniffi.softify_core.HeaderPair
@@ -48,35 +49,104 @@ import uniffi.softify_core.resolveStream
  */
 class BoundedHttpDataSource(
     private val baseDataSource: HttpDataSource,
-    private val chunkSize: Long = 1048576L // 1 MB bounded chunk size
+    private val chunkSize: Long = BoundedRangeHelper.DEFAULT_CHUNK_SIZE // 1 MiB bounded chunk size
 ) : DataSource {
     private var openedDataSpec: DataSpec? = null
+    private var currentUri: Uri? = null
     private var currentPosition: Long = 0L
     private var bytesRemainingInChunk: Long = 0L
+    private var remainingRequestedLength: Long = C.LENGTH_UNSET.toLong()
+    private var knownTotalLength: Long = C.LENGTH_UNSET.toLong()
     private var isGoogleVideo: Boolean = false
+    private var isBaseOpen: Boolean = false
 
     override fun addTransferListener(transferListener: TransferListener) {
         baseDataSource.addTransferListener(transferListener)
     }
 
+    private fun updateTotalLengthFromHeaders(headers: Map<String, List<String>>) {
+        val contentRange = headers.entries
+            .firstOrNull { it.key.equals("Content-Range", ignoreCase = true) }
+            ?.value
+            ?.firstOrNull()
+        val parsedTotal = BoundedRangeHelper.parseTotalLengthFromContentRange(contentRange)
+        if (parsedTotal != null && parsedTotal > 0L) {
+            knownTotalLength = parsedTotal
+        }
+    }
+
+    private fun safeCloseBase() {
+        if (isBaseOpen) {
+            isBaseOpen = false
+            try {
+                baseDataSource.close()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     override fun open(dataSpec: DataSpec): Long {
+        if (currentUri != dataSpec.uri) {
+            knownTotalLength = C.LENGTH_UNSET.toLong()
+            currentUri = dataSpec.uri
+        }
         openedDataSpec = dataSpec
         currentPosition = dataSpec.position
+        remainingRequestedLength = dataSpec.length
         val host = dataSpec.uri.host ?: ""
         isGoogleVideo = host.contains("googlevideo.com")
 
         return if (isGoogleVideo) {
-            val lengthToRequest = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
-                minOf(dataSpec.length, chunkSize)
-            } else {
-                chunkSize
+            val plan = BoundedRangeHelper.computeChunkPlan(
+                position = currentPosition,
+                requestedLength = remainingRequestedLength,
+                knownTotalLength = knownTotalLength,
+                chunkSize = chunkSize
+            )
+            if (!plan.shouldOpen) {
+                bytesRemainingInChunk = 0L
+                return 0L
             }
-            val boundedSpec = dataSpec.subrange(currentPosition, lengthToRequest)
-            baseDataSource.open(boundedSpec)
-            bytesRemainingInChunk = lengthToRequest
-            dataSpec.length
+
+            // Use absolute setPosition/setLength: DataSpec.subrange() adds to dataSpec.position and would double seek offsets.
+            val boundedSpec = dataSpec.buildUpon()
+                .setPosition(plan.requestPosition)
+                .setLength(plan.requestLength)
+                .build()
+            try {
+                val openedBytes = baseDataSource.open(boundedSpec)
+                isBaseOpen = true
+                updateTotalLengthFromHeaders(baseDataSource.responseHeaders)
+
+                bytesRemainingInChunk = if (openedBytes != C.LENGTH_UNSET.toLong()) {
+                    openedBytes
+                } else {
+                    plan.requestLength
+                }
+
+                BoundedRangeHelper.computeOpenReturnLength(
+                    position = currentPosition,
+                    requestedLength = dataSpec.length,
+                    knownTotalLength = knownTotalLength
+                )
+            } catch (e: HttpDataSource.InvalidResponseCodeException) {
+                updateTotalLengthFromHeaders(e.headerFields)
+                if (e.responseCode == 416 && knownTotalLength > 0L && currentPosition >= knownTotalLength) {
+                    PlaybackLogger.log(
+                        "SoftifyPlayback",
+                        "BoundedHttpDataSource.open reached exact EOF (pos=$currentPosition >= total=$knownTotalLength); returning 0 bytes cleanly"
+                    )
+                    isBaseOpen = false
+                    bytesRemainingInChunk = 0L
+                    0L
+                } else {
+                    throw e
+                }
+            }
         } else {
-            baseDataSource.open(dataSpec)
+            val opened = baseDataSource.open(dataSpec)
+            isBaseOpen = true
+            opened
         }
     }
 
@@ -84,15 +154,39 @@ class BoundedHttpDataSource(
         if (!isGoogleVideo) {
             return baseDataSource.read(buffer, offset, length)
         }
+        if (length == 0) {
+            return 0
+        }
+        if (remainingRequestedLength == 0L || (knownTotalLength > 0L && currentPosition >= knownTotalLength)) {
+            return C.RESULT_END_OF_INPUT
+        }
 
         if (bytesRemainingInChunk <= 0L) {
             val spec = openedDataSpec ?: return C.RESULT_END_OF_INPUT
+            val nextPlan = BoundedRangeHelper.computeChunkPlan(
+                position = currentPosition,
+                requestedLength = remainingRequestedLength,
+                knownTotalLength = knownTotalLength,
+                chunkSize = chunkSize
+            )
+            if (!nextPlan.shouldOpen) {
+                return C.RESULT_END_OF_INPUT
+            }
+
             try {
-                baseDataSource.close()
-                val nextLength = chunkSize
-                val nextSpec = spec.subrange(currentPosition, nextLength)
-                baseDataSource.open(nextSpec)
-                bytesRemainingInChunk = nextLength
+                safeCloseBase()
+                val nextSpec = spec.buildUpon()
+                    .setPosition(nextPlan.requestPosition)
+                    .setLength(nextPlan.requestLength)
+                    .build()
+                val openedBytes = baseDataSource.open(nextSpec)
+                isBaseOpen = true
+                updateTotalLengthFromHeaders(baseDataSource.responseHeaders)
+                bytesRemainingInChunk = if (openedBytes != C.LENGTH_UNSET.toLong()) {
+                    openedBytes
+                } else {
+                    nextPlan.requestLength
+                }
             } catch (e: Exception) {
                 var responseCode: Int? = null
                 var contentType: String? = null
@@ -100,10 +194,15 @@ class BoundedHttpDataSource(
                 while (cause != null) {
                     if (cause is HttpDataSource.InvalidResponseCodeException) {
                         responseCode = cause.responseCode
-                        contentType = cause.headerFields["Content-Type"]?.firstOrNull() ?: cause.headerFields["content-type"]?.firstOrNull()
+                        updateTotalLengthFromHeaders(cause.headerFields)
+                        contentType = cause.headerFields["Content-Type"]?.firstOrNull()
+                            ?: cause.headerFields["content-type"]?.firstOrNull()
                         break
                     }
                     cause = cause.cause
+                }
+                if (responseCode == 416 && knownTotalLength > 0L && currentPosition >= knownTotalLength) {
+                    return C.RESULT_END_OF_INPUT
                 }
                 PlaybackLogger.log(
                     "SoftifyPlayback",
@@ -113,23 +212,36 @@ class BoundedHttpDataSource(
             }
         }
 
-        val toRead = minOf(length.toLong(), bytesRemainingInChunk).toInt()
+        val maxInChunk = minOf(length.toLong(), bytesRemainingInChunk)
+        val toRead = if (remainingRequestedLength != C.LENGTH_UNSET.toLong()) {
+            minOf(maxInChunk, remainingRequestedLength).toInt()
+        } else {
+            maxInChunk.toInt()
+        }
+        if (toRead <= 0) {
+            return C.RESULT_END_OF_INPUT
+        }
+
         val readBytes = baseDataSource.read(buffer, offset, toRead)
         if (readBytes > 0) {
             currentPosition += readBytes
             bytesRemainingInChunk -= readBytes
+            if (remainingRequestedLength != C.LENGTH_UNSET.toLong()) {
+                remainingRequestedLength = (remainingRequestedLength - readBytes).coerceAtLeast(0L)
+            }
         }
         return readBytes
     }
 
-    override fun getUri(): Uri? = baseDataSource.uri
+    override fun getUri(): Uri? = baseDataSource.uri ?: currentUri
 
     override fun getResponseHeaders(): Map<String, List<String>> = baseDataSource.responseHeaders
 
     override fun close() {
         openedDataSpec = null
         bytesRemainingInChunk = 0L
-        baseDataSource.close()
+        remainingRequestedLength = C.LENGTH_UNSET.toLong()
+        safeCloseBase()
     }
 }
 
@@ -153,6 +265,7 @@ class PlaybackService : MediaSessionService() {
     var onTelemetryUpdated: ((CrossfadeState, Float, TransitionType) -> Unit)? = null
     var onTracesUpdated: ((List<TransitionTrace>) -> Unit)? = null
     var onRequestNextTrackPrepare: ((Track) -> Unit)? = null
+    var onFatalPlaybackError: ((String) -> Unit)? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -162,6 +275,8 @@ class PlaybackService : MediaSessionService() {
     private var currentPreset: QualityPreset = QualityPreset.HIGH
     private var currentStreamInfo: StreamInfo? = null
     private var lastPlaybackPositionMs: Long = 0L
+    private var silentRecoveriesForSession: Int = 0
+    private var isServiceDestroyed: Boolean = false
 
     companion object {
         const val CHANNEL_ID = "softify_playback_channel"
@@ -196,6 +311,9 @@ class PlaybackService : MediaSessionService() {
             onLog = { msg -> PlaybackLogger.log("SoftifyPlayback", msg) },
             onExhausted = { trackId, reason ->
                 PlaybackLogger.log("SoftifyPlayback", "All 2 retries exhausted for '$trackId' ($reason)")
+                if (!isServiceDestroyed) {
+                    onFatalPlaybackError?.invoke("Player error: $reason")
+                }
             },
             executeRetry = { sessionId, attempt ->
                 val track = currentTrack ?: return@PlaybackRetryManager
@@ -238,6 +356,9 @@ class PlaybackService : MediaSessionService() {
         }
 
         crossfadePlayerManager.onPlaybackStateChanged = { state ->
+            if (state == Player.STATE_READY) {
+                silentRecoveriesForSession = 0
+            }
             if (player.currentPosition > 0L) {
                 lastPlaybackPositionMs = player.currentPosition
             }
@@ -260,6 +381,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun handlePlayerError(error: PlaybackException) {
+        if (isServiceDestroyed) return
+
         var httpStatus: Int? = null
         var cause: Throwable? = error.cause
         while (cause != null) {
@@ -283,31 +406,41 @@ class PlaybackService : MediaSessionService() {
                 try {
                     uniffi.softify_core.markDownloadRepair(track.id, "Local playback error: ${error.errorCodeName}")
                     val freshStream = resolveStream(track, currentPreset)
-                    playStream(track, freshStream, 0L, null)
+                    if (!isServiceDestroyed) {
+                        playStream(track, freshStream, 0L, currentSessionId)
+                    }
                 } catch (e: Exception) {
                     PlaybackLogger.log("SoftifyPlayback", "Fallback to stream failed: ${e.message}")
+                    if (!isServiceDestroyed) {
+                        onFatalPlaybackError?.invoke("Player error: ${error.errorCodeName}$httpMsg")
+                    }
                 }
             }
             return
         }
 
-        val isContainerOr403 = (httpStatus == 403) ||
+        val isContainerOrHttpRecoverable = (httpStatus == 403 || httpStatus == 410 || httpStatus == 416) ||
             error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
             error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
 
-        if (isContainerOr403 && track != null) {
+        if (isContainerOrHttpRecoverable && track != null && silentRecoveriesForSession < 2) {
+            silentRecoveriesForSession++
             val resumePos = maxOf(lastPlaybackPositionMs, player.currentPosition).coerceAtLeast(0L)
             PlaybackLogger.log(
                 "SoftifyPlayback",
-                "Mid-stream 403/container error for '${track.title}' at ${resumePos}ms; auto-refreshing expired stream URL silently"
+                "Mid-stream recoverable error ($httpStatus) for '${track.title}' at ${resumePos}ms (attempt $silentRecoveriesForSession/2); auto-refreshing stream silently"
             )
             serviceScope.launch {
                 try {
                     val freshStream = resolveStream(track, currentPreset)
-                    playStream(track, freshStream, resumePos, currentSessionId)
+                    if (!isServiceDestroyed) {
+                        playStream(track, freshStream, resumePos, currentSessionId)
+                    }
                 } catch (e: Exception) {
                     PlaybackLogger.log("SoftifyPlayback", "Auto-refresh stream failed: ${e.message}")
-                    retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
+                    if (!isServiceDestroyed) {
+                        retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
+                    }
                 }
             }
             return
@@ -315,6 +448,8 @@ class PlaybackService : MediaSessionService() {
 
         if (track != null) {
             retryManager.handlePlayerError(currentSessionId, track.id, "${error.errorCodeName}$httpMsg")
+        } else {
+            onFatalPlaybackError?.invoke("Player error: ${error.errorCodeName}$httpMsg")
         }
     }
 
@@ -425,11 +560,15 @@ class PlaybackService : MediaSessionService() {
         targetSessionId: Long? = null,
         loudnessResult: LoudnessResult? = null
     ) {
+        if (isServiceDestroyed) return
         if (Looper.myLooper() != Looper.getMainLooper()) {
             Handler(Looper.getMainLooper()).post {
                 playStream(track, streamInfo, startPositionMs, targetSessionId, loudnessResult)
             }
             return
+        }
+        if (targetSessionId == null) {
+            silentRecoveriesForSession = 0
         }
         val sessionId = targetSessionId ?: retryManager.startNewSession(track.id)
         currentSessionId = sessionId
@@ -615,7 +754,11 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         PlaybackLogger.log("SoftifyPlayback", "PlaybackService onDestroy")
+        isServiceDestroyed = true
+        positionTrackingJob?.cancel()
+        positionTrackingJob = null
         retryManager.onUserPauseOrStop()
+        serviceScope.cancel()
         instance = null
         mediaSession?.run {
             release()
