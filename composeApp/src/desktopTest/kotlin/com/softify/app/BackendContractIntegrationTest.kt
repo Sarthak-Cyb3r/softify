@@ -95,6 +95,10 @@ class BackendContractIntegrationTest {
                             """{"type":"ROOM_STATE","state":{"roomCode":"$code","playbackPositionMs":0,"isPlaying":false},"peerCount":1}"""
                         )
                     }
+
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        webSocket.close(code, reason)
+                    }
                 })
             }
 
@@ -370,6 +374,7 @@ class BackendContractIntegrationTest {
             val wsUrl = targetUrl.replaceFirst("http://", "ws://").replaceFirst("https://", "wss://") +
                 ApiRoutes.roomByCode(createdRoom.code) + "?peerId=contract_peer&name=Contract"
             val wsLatch = CountDownLatch(1)
+            val wsCloseLatch = CountDownLatch(1)
             val wsMsg = AtomicReference<String?>(null)
             val ws = wsClient.newWebSocket(
                 Request.Builder().url(wsUrl).build(),
@@ -378,11 +383,21 @@ class BackendContractIntegrationTest {
                         wsMsg.compareAndSet(null, text)
                         wsLatch.countDown()
                     }
+
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        wsCloseLatch.countDown()
+                    }
+
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        wsCloseLatch.countDown()
+                    }
                 }
             )
             assertTrue(wsLatch.await(5, TimeUnit.SECONDS), "Joining room WebSocket must emit initial ROOM_STATE")
             assertTrue(wsMsg.get()?.contains("ROOM_STATE") == true, "Expected ROOM_STATE message, got ${wsMsg.get()}")
             ws.close(1000, "Contract done")
+            wsCloseLatch.await(2, TimeUnit.SECONDS)
+            wsClient.connectionPool.evictAll()
 
             // 10. Oversized payload (> 256 KB) must return 413 cleanly
             val oversizedJson = """{"cursor":0,"items":[{"id":"big","type":"setting","payload":"${"x".repeat(270_000)}","hlc":"1700000000000-0000-x"}]}"""
@@ -402,7 +417,9 @@ class BackendContractIntegrationTest {
             assertNull(recoveryClient.exportUserData(oldTokenBeforeDelete), "Revoked session must fail after GDPR delete")
             assertNull(recoveryClient.recoverAccount("contract-device-3", recoverySecret), "Deleted recovery code must fail 404")
         } finally {
-            localServer?.shutdown()
+            wsClient.dispatcher.executorService.shutdown()
+            wsClient.connectionPool.evictAll()
+            localServer?.runCatching { shutdown() }
         }
     }
 
